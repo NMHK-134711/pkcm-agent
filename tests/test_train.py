@@ -275,3 +275,45 @@ def test_trust_zero_is_the_handcrafted_prior(dex, pieces):
     options = joint_actions(state, 0)
     assert evaluator.prior(state, 0, options) == pytest.approx(
         prior_over(state, 0, options))
+
+
+# --------------------------------------------------------------------------- #
+# Reporting a win rate honestly
+# --------------------------------------------------------------------------- #
+
+
+def test_the_interval_does_not_collapse_at_the_extremes():
+    """Wald says six losses out of six is "0.0% +/- 0.0%", which reads as
+    certainty and means the opposite."""
+    from pkcm.train.interval import wilson
+
+    _, low, high = wilson(0, 6)
+    assert low == 0.0 and 0.3 < high < 0.5, (low, high)
+
+    _, low, high = wilson(6, 6)
+    assert high == 1.0 and 0.5 < low < 0.7
+
+
+def test_the_interval_narrows_with_evidence():
+    from pkcm.train.interval import wilson
+
+    _, small_low, small_high = wilson(30, 50)
+    _, large_low, large_high = wilson(300, 500)
+    assert (large_high - large_low) < (small_high - small_low) / 2
+
+
+def test_separability_matches_the_recorded_measurements():
+    """The numbers this project actually produced, and what they meant."""
+    from pkcm.train.interval import separable
+
+    assert not separable(26, 49), "53.1% over 49 battles said nothing"
+    assert not separable(69, 119), "58.0% said nothing either"
+    assert separable(79, 119), "66.4% did"
+    assert not separable(55, 120), "45.8% is a coin flip, not a loss"
+
+
+def test_an_empty_sample_is_ignorance_not_a_tie():
+    from pkcm.train.interval import wilson
+
+    rate, low, high = wilson(0, 0)
+    assert (rate, low, high) == (0.5, 0.0, 1.0)

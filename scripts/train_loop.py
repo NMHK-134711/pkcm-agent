@@ -33,6 +33,8 @@ from pkcm.data.dex import load_dex  # noqa: E402
 from pkcm.envs.encoding import SCALAR_SIZE, Vocabulary, action_space_size  # noqa: E402
 from pkcm.envs.reference import sheet_for  # noqa: E402
 from pkcm.search import SearchConfig  # noqa: E402
+from pkcm.train.interval import wilson  # noqa: E402
+from pkcm.train.logging import RunLog  # noqa: E402
 from pkcm.train.net import NetConfig, build, pick_device  # noqa: E402
 from pkcm.train.parallel import default_workers, generate  # noqa: E402
 from pkcm.train.samples import SelfPlayConfig  # noqa: E402
@@ -66,6 +68,14 @@ def main() -> int:
                         help="samples kept across iterations")
     parser.add_argument("--out", type=Path, default=Path("runs/latest"))
     parser.add_argument("--seed", type=int, default=0)
+    parser.add_argument("--project", default="pkcm-agent", help="wandb project")
+    parser.add_argument("--name", default=None, help="wandb run name")
+    parser.add_argument("--no-wandb", action="store_true")
+    parser.add_argument("--evaluate-every", type=int, default=2,
+                        help="battles against the handcrafted search, every N "
+                             "iterations. 0 disables it -- and then nothing in "
+                             "this loop measures anything")
+    parser.add_argument("--evaluate-battles", type=int, default=24)
     args = parser.parse_args()
 
     dex = load_dex()
@@ -87,6 +97,28 @@ def main() -> int:
     parameters = sum(p.numel() for p in net.parameters())
     print(f"device {device} | {workers} workers | {args.format} | "
           f"{parameters / 1e6:.2f}M parameters")
+
+    log = RunLog(
+        directory=args.out,
+        project=args.project,
+        name=args.name,
+        use_wandb=not args.no_wandb,
+        config={
+            "format": args.format,
+            "battles_per_iteration": args.battles,
+            "search_iterations": args.search_iterations,
+            "epochs": args.epochs,
+            "hidden": args.hidden,
+            "blocks": args.blocks,
+            "buffer": args.buffer,
+            "workers": workers,
+            "parameters": parameters,
+            "device": str(device),
+            "seed": args.seed,
+        },
+    )
+    if log.url:
+        print(f"  wandb: {log.url}")
 
     buffer: list = []
     history: list[dict] = []
@@ -116,28 +148,99 @@ def main() -> int:
         learned = time.perf_counter() - started
         save(net, checkpoint, {"iteration": iteration, "samples": len(buffer)})
 
-        history.append({
+        row = {
             "iteration": iteration,
             "trust": round(trust, 2),
             "fresh_samples": len(fresh),
             "buffer": len(buffer),
+            "battles_per_second": round(args.battles / max(played, 1e-9), 3),
             "selfplay_seconds": round(played, 1),
             "train_seconds": round(learned, 1),
-            **{key: round(value, 4) for key, value in losses.items()},
-        })
-        (args.out / "history.json").write_text(
-            json.dumps(history, indent=2), encoding="utf-8")
+            # Diagnostics. They fall because the network is fitting what it was
+            # handed, which is not the same as playing better.
+            **{f"loss/{key}": round(value, 4) for key, value in losses.items()},
+        }
+
+        if args.evaluate_every and (iteration + 1) % args.evaluate_every == 0:
+            rate, low, high = measure(args, dex, checkpoint, iteration)
+            beats = low > 0.5
+            row["arena/win_rate_vs_search"] = round(rate, 4)
+            row["arena/ci_low"] = round(low, 4)
+            row["arena/ci_high"] = round(high, 4)
+            row["arena/separable"] = float(beats or high < 0.5)
+            print(f"        vs handcrafted search: {rate:.1%} "
+                  f"[{low:.1%}, {high:.1%}]"
+                  f"{'' if beats or high < 0.5 else '   (not separable)'}")
+
+        history.append(row)
+        log.log(row, step=iteration)
 
         print(f"  [{iteration}] trust {trust:.1f}  {len(fresh):5} new  "
               f"buffer {len(buffer):6}  play {played:6.1f}s  train {learned:5.1f}s  "
               f"policy {losses['policy_loss']:.3f}  "
               f"value {losses['value_loss']:.3f}  mae {losses['value_mae']:.3f}")
 
+    log.artifact(checkpoint)
+    last = history[-1] if history else {}
+    log.summary({
+        "iterations": args.iterations,
+        "final_buffer": last.get("buffer", 0),
+        "final_policy_loss": last.get("loss/policy_loss"),
+        "final_value_mae": last.get("loss/value_mae"),
+        "final_win_rate_vs_search": last.get("arena/win_rate_vs_search"),
+    })
+    log.finish()
+
     print(f"\nwrote {checkpoint}")
-    print("now measure it -- the losses above are not evidence of anything:")
-    print(f"  python scripts/arena.py --a search --b greedy --battles 60 "
+    print("the losses above are diagnostics. This is the measurement:")
+    print(f"  python scripts/arena.py --a net --b search --battles 60 "
           f"--checkpoint {checkpoint}")
     return 0
+
+
+def measure(args, dex, checkpoint: Path,
+            iteration: int) -> tuple[float, float, float]:
+    """Put the network's search against the handcrafted one.
+
+    Not against greedy: greedy is the floor, and beating it says only that the
+    search works. The question training has to answer is whether the network is
+    better than the power-times-effectiveness score it replaced.
+    """
+    from pkcm.engine.legality import random_team
+    from pkcm.engine.rng import Rng
+    from pkcm.engine.state import BattleConfig, new_battle
+    from pkcm.search import MCTS, SearchConfig
+    from pkcm.search.policy import SearchPolicy, play_out
+    from pkcm.train.evaluator import from_checkpoint
+
+    config = BattleConfig(dex=dex, regulation=dex.regulation("m_b"),
+                          battle_format=args.format)
+    registered, brought = config.regulation.bring_select(args.format)
+    evaluator = from_checkpoint(checkpoint, dex, action_space_size(registered, brought),
+                                SCALAR_SIZE, device="cpu", trust=1.0)
+    search = SearchConfig(iterations=args.search_iterations,
+                          determinizations=max(4, args.search_iterations // 20))
+
+    wins = losses = 0
+    for match in range(args.evaluate_battles):
+        teams = tuple(random_team(dex, config.regulation,
+                                  Rng.from_seed(90000 + match * 2 + offset).cursor(),
+                                  args.format) for offset in (1, 2))
+        # Both seatings, so a win rate cannot come from the draw.
+        for swap in (False, True):
+            netted = SearchPolicy(MCTS(search, evaluator=evaluator),
+                                  Rng.from_seed(match).cursor())
+            plain = SearchPolicy(MCTS(search), Rng.from_seed(match + 7777).cursor())
+            policies = (plain, netted) if swap else (netted, plain)
+            state = play_out(new_battle(config, teams, seed=match), policies)
+            net_side = 1 if swap else 0
+            if state.winner is None:
+                continue
+            wins += state.winner == net_side
+            losses += state.winner != net_side
+
+    rate, low, high = wilson(wins, wins + losses)
+    return rate, low, high
 
 
 if __name__ == "__main__":

@@ -8,6 +8,10 @@ Teams are mirrored: both sides play the same pair of teams, once each way, so a
 win rate cannot come from having drawn a better team. That halves the variance
 before any battles are run.
 
+The interval is Wilson's, not Wald's. Wald collapses to zero when every game
+goes the same way -- "0.0% +/- 0.0%" off six games reads as certainty and means
+the opposite.
+
 Usage:
     python scripts/arena.py --a greedy --b random --battles 100
     python scripts/arena.py --a search --b greedy --battles 40 --iterations 300
@@ -30,6 +34,7 @@ from pkcm.engine.rng import Rng  # noqa: E402
 from pkcm.engine.state import BattleConfig, new_battle  # noqa: E402
 from pkcm.search import MCTS, GreedyPolicy, RandomPolicy, SearchConfig  # noqa: E402
 from pkcm.search.policy import SearchPolicy, play_out  # noqa: E402
+from pkcm.train.interval import separable, wilson  # noqa: E402
 
 
 #: One evaluator shared by every search in the run. Loading a checkpoint per
@@ -134,18 +139,16 @@ def main() -> int:
     elapsed = time.perf_counter() - start
     played = wins["a"] + wins["b"] + wins["draw"]
     decided = wins["a"] + wins["b"]
-    rate = wins["a"] / decided if decided else 0.0
-    # Wald interval. Rough, but enough to say whether a gap is worth believing.
-    margin = 1.96 * (rate * (1 - rate) / decided) ** 0.5 if decided else 0.0
+    rate, low, high = wilson(wins["a"], decided)
 
     print(f"{args.a} vs {args.b}   {args.format}   {played} battles "
           f"({elapsed:.1f}s, {played / elapsed:.1f}/s)")
     print(f"  {args.a:8} {wins['a']:4}")
     print(f"  {args.b:8} {wins['b']:4}")
     print(f"  draw     {wins['draw']:4}")
-    print(f"  win rate {rate:.1%}  +/- {margin:.1%}")
-    if decided and abs(rate - 0.5) < margin:
-        print("  -> not separable at this sample size")
+    print(f"  win rate {rate:.1%}   95% [{low:.1%}, {high:.1%}]")
+    if not separable(wins["a"], decided):
+        print("  -> not separable from a coin flip at this sample size")
     return 0
 
 

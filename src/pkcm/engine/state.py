@@ -230,6 +230,10 @@ class Revealed:
     items: set[int] = field(default_factory=set)
     #: Slots whose ability has announced itself.
     abilities: set[int] = field(default_factory=set)
+    #: Slot -> the turn a major status landed on it. Public: the game announces
+    #: it. How many turns a *sleep* has left is not public, but how long it has
+    #: already lasted is, and that is enough to price the next one.
+    status_since: dict[int, int] = field(default_factory=dict)
 
     def clone(self) -> "Revealed":
         return Revealed(
@@ -237,6 +241,7 @@ class Revealed:
             moves={slot: set(moves) for slot, moves in self.moves.items()},
             items=set(self.items),
             abilities=set(self.abilities),
+            status_since=dict(self.status_since),
         )
 
     def saw_move(self, slot: int, move_id: str) -> None:

@@ -170,6 +170,13 @@ MATCHUP_ROWS = MAX_POSITIONS * MAX_MOVES * MAX_POSITIONS
 SPEED_ROWS = MAX_POSITIONS * MAX_POSITIONS
 SPEED_FEATURES = 2
 
+#: Per Pokemon on the field, ours then theirs: the chance it loses the turn,
+#: and the four ways that happens. A turn taken away costs more than most
+#: damage, and every one of these is a published number rather than something
+#: to be learned from reward.
+RISK_ROWS = 2 * MAX_POSITIONS
+RISK_FEATURES = 5
+
 
 def encode_matchup(observation: Observation, sheet, dex) -> tuple:
     """What the calculator can work out, laid out for a policy to read.
@@ -186,6 +193,18 @@ def encode_matchup(observation: Observation, sheet, dex) -> tuple:
 
     matchup = np.zeros((MATCHUP_ROWS, MATCHUP_FEATURES), dtype=np.float32)
     speed = np.zeros((SPEED_ROWS, SPEED_FEATURES), dtype=np.float32)
+    risk = np.zeros((RISK_ROWS, RISK_FEATURES), dtype=np.float32)
+
+    from pkcm.envs.analysis import turn_risk
+
+    for side_index, team in enumerate((observation.own, observation.foe)):
+        for known in team:
+            if known.position is None or known.position >= MAX_POSITIONS:
+                continue
+            row = side_index * MAX_POSITIONS + known.position
+            found = turn_risk(known)
+            risk[row] = (found.cannot_act, found.paralysis, found.sleep,
+                         found.freeze, found.confusion)
 
     foe_position = {known.slot: known.position for known in observation.foe
                     if known.position is not None}
@@ -222,7 +241,7 @@ def encode_matchup(observation: Observation, sheet, dex) -> tuple:
             speed[row, 0] = float(faster is True)
             speed[row, 1] = float(faster is False)
 
-    return matchup, speed
+    return matchup, speed, risk
 
 
 def encode_observation(observation: Observation, vocabulary: Vocabulary,
@@ -313,7 +332,8 @@ def encode_observation(observation: Observation, vocabulary: Vocabulary,
         "registered": registered,
     }
     if sheet is not None and dex is not None:
-        matchup, speed = encode_matchup(observation, sheet, dex)
+        matchup, speed, risk = encode_matchup(observation, sheet, dex)
         encoded["matchup"] = matchup
         encoded["speed"] = speed
+        encoded["risk"] = risk
     return encoded

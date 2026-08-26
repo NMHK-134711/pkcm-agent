@@ -225,7 +225,8 @@ REVEALS_ABILITY = frozenset({"ability", "ability_block", "ability_suppressed",
 
 #: Everything above, in one set. Emit tests this first: the overwhelming
 #: majority of events reveal nothing, and they should cost one hash lookup.
-REVELATION_KINDS = REVEALS_SPECIES | REVEALS_ITEM | REVEALS_ABILITY | {"move_used"}
+REVELATION_KINDS = (REVEALS_SPECIES | REVEALS_ITEM | REVEALS_ABILITY
+                    | {"move_used", "status", "cure_status"})
 
 
 def record_revelation(state: BattleState, event: Event) -> None:
@@ -246,6 +247,10 @@ def record_revelation(state: BattleState, event: Event) -> None:
         seen.items.add(slot)
     if event.kind in REVEALS_ABILITY:
         seen.abilities.add(slot)
+    if event.kind == "status":
+        seen.status_since[slot] = state.turn
+    elif event.kind == "cure_status":
+        seen.status_since.pop(slot, None)
 
 
 # --------------------------------------------------------------------------- #

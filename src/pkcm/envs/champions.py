@@ -47,6 +47,8 @@ from pkcm.envs.encoding import (
     MATCHUP_ROWS,
     MAX_BROUGHT,
     SCALAR_SIZE,
+    RISK_FEATURES,
+    RISK_ROWS,
     SPEED_FEATURES,
     SPEED_ROWS,
     Vocabulary,
@@ -142,6 +144,8 @@ class ChampionsEnv(ParallelEnv):
                                            dtype=np.float32)
             fields["speed"] = spaces.Box(0.0, 1.0, (SPEED_ROWS, SPEED_FEATURES),
                                          dtype=np.float32)
+            fields["risk"] = spaces.Box(0.0, 1.0, (RISK_ROWS, RISK_FEATURES),
+                                        dtype=np.float32)
         return spaces.Dict(fields)
 
     def action_space(self, agent: str) -> spaces.Space:  # noqa: D401

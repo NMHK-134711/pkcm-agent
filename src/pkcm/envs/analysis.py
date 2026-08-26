@@ -335,3 +335,121 @@ def outspeeds(dex: Dex, ours: KnownPokemon, theirs: KnownPokemon) -> bool | None
     if mine < int(low * stage):
         return False
     return None
+
+# --------------------------------------------------------------------------- #
+# Losing the turn
+#
+# A turn taken away costs more than most damage, and every way of losing one is
+# a die roll with a published number. A policy that has to learn "paralysis is
+# bad" from reward will learn it eventually and expensively; the number is right
+# here and it is not hidden.
+#
+# The engine owns these constants. They are imported rather than repeated, so a
+# rules change moves them in one place -- Champions already nerfed paralysis
+# from 1/4 to 1/8, and a second copy would still be saying 1/4.
+# --------------------------------------------------------------------------- #
+
+
+@dataclass(frozen=True, slots=True)
+class TurnRisk:
+    """How likely we are not to act, and why."""
+
+    paralysis: float = 0.0
+    sleep: float = 0.0
+    freeze: float = 0.0
+    confusion: float = 0.0
+    #: Already flinched this turn -- certain, not a probability.
+    flinched: float = 0.0
+
+    @property
+    def cannot_act(self) -> float:
+        """Any of them happening. They are mutually exclusive in practice: a
+        Pokemon has one major status, and a flinch pre-empts the rest."""
+        if self.flinched:
+            return 1.0
+        return 1.0 - (
+            (1 - self.paralysis) * (1 - self.sleep)
+            * (1 - self.freeze) * (1 - self.confusion)
+        )
+
+
+def turn_risk(known: KnownPokemon) -> TurnRisk:
+    """The chance this Pokemon loses its turn, from what we can see.
+
+    Sleep is the one that needs the counter: a Pokemon on its last sleep turn
+    always wakes, and one that just fell asleep never does. We have that number
+    for our own side and never for theirs, so theirs is answered with the
+    average over the durations the engine actually rolls.
+    """
+    from pkcm.engine.conditions import (
+        CONFUSION_CHANCE,
+        PARALYSIS_CHANCE,
+        SLEEP_DURATIONS,
+        THAW_CHANCE,
+    )
+
+    if known.fainted:
+        return TurnRisk()
+    if "flinch" in known.volatiles:
+        return TurnRisk(flinched=1.0)
+
+    confusion = (CONFUSION_CHANCE[0] / CONFUSION_CHANCE[1]
+                 if "confusion" in known.volatiles else 0.0)
+
+    status = known.status
+    if status == "par":
+        return TurnRisk(paralysis=PARALYSIS_CHANCE[0] / PARALYSIS_CHANCE[1],
+                        confusion=confusion)
+    if status == "frz":
+        # Thawing is the *escape*; not thawing is the turn lost.
+        return TurnRisk(freeze=1.0 - THAW_CHANCE[0] / THAW_CHANCE[1],
+                        confusion=confusion)
+    if status == "slp":
+        return TurnRisk(sleep=_still_asleep(known, SLEEP_DURATIONS),
+                        confusion=confusion)
+    return TurnRisk(confusion=confusion)
+
+
+def _still_asleep(known: KnownPokemon, durations: tuple[int, ...]) -> float:
+    """Chance it is still asleep on the coming turn.
+
+    Ours is exact -- the counter is in front of us. Theirs is conditioned on how
+    long we have already watched it sleep, which is public even though the roll
+    is not: after two turns of a 2-or-3 turn sleep, only the threes are left, so
+    it is two in three rather than a coin flip.
+    """
+    if known.status_turns is not None:
+        return 0.0 if known.status_turns <= 1 else 1.0
+    elapsed = known.status_elapsed
+    if elapsed is None:
+        return 1.0
+    consistent = [turns for turns in durations if turns >= elapsed]
+    if not consistent:
+        return 0.0
+    return sum(1 for turns in consistent if turns > elapsed) / len(consistent)
+
+
+#: Things that refuse to let their holder be knocked out from full HP. Both are
+#: hidden until they fire, which is exactly why they matter: a 확정 1타 into an
+#: unrevealed Focus Sash is not a knockout, and a strong player prices that in.
+SURVIVES_FROM_FULL = {"sturdy": "ability", "focussash": "item"}
+
+
+def could_survive_a_kill(known: KnownPokemon, dex: Dex) -> bool:
+    """Might this target live through a lethal hit?
+
+    True when it is at full HP and something it could plausibly be holding
+    would save it. Deliberately generous about the unknown: from across the
+    field a Focus Sash looks exactly like no item at all.
+    """
+    if known.hp_fraction < 1.0 or known.species_id is None:
+        return False
+    if known.ability_known and known.ability in SURVIVES_FROM_FULL:
+        return True
+    if known.item_known and known.item in SURVIVES_FROM_FULL:
+        return True
+    if not known.ability_known:
+        possible = dex.species[known.species_id].abilities
+        if any(ability in SURVIVES_FROM_FULL for ability in possible):
+            return True
+    return not known.item_known

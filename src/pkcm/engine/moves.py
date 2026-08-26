@@ -56,8 +56,11 @@ NEVER_CRITS = -1
 STRUGGLE_ID = "struggle"
 STRUGGLE_RECOIL_FRACTION = 4
 
-#: Gen 5+ distribution for a 2-5 hit move, in 8ths: 2 and 3 thrice, 4 and 5 once.
-MULTIHIT_2_TO_5 = (2, 2, 2, 3, 3, 3, 4, 5)
+#: Distribution for a 2-5 hit move: **35-35-15-15** across 2, 3, 4 and 5 hits,
+#: which is what Gen 5 onward uses (mods/champions/scripts.ts, hitStepMoveHitLoop).
+#: The 3/8-3/8-1/8-1/8 spread that reads so much tidier is the Gen 4 one, and
+#: using it makes every multi-hit move land 3.0 times instead of 3.1.
+MULTIHIT_2_TO_5 = (2,) * 7 + (3,) * 7 + (4,) * 3 + (5,) * 3
 
 #: Targets that never point at the opposing active Pokemon.
 SELF_TARGETS = frozenset({"self", "adjacentAlly", "adjacentAllyOrSelf", "allies", "allySide"})

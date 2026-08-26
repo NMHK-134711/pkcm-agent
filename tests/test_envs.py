@@ -653,3 +653,159 @@ def test_the_matchup_block_carries_the_probability(dex):
     observations, _ = env.reset()
     assert observations["player_0"]["matchup"].shape[1] == MATCHUP_FEATURES
     assert env.observation_space("player_0").contains(observations["player_0"])
+
+
+# --------------------------------------------------------------------------- #
+# The rest of the dice
+# --------------------------------------------------------------------------- #
+
+
+def test_the_sheet_carries_a_moves_own_odds(dex, sheet):
+    from pkcm.envs.reference import (
+        crit_chance,
+        expected_hits,
+        flinch_chance,
+        secondary_chance,
+        status_chance,
+    )
+
+    assert secondary_chance(dex.moves["icebeam"]) == 10
+    assert status_chance(dex.moves["icebeam"], "frz") == 10
+    assert flinch_chance(dex.moves["rockslide"]) == 30
+    assert flinch_chance(dex.moves["earthquake"]) == 0, "it does not flinch"
+    assert crit_chance(dex.moves["stoneedge"]) == pytest.approx(1 / 8)
+    assert crit_chance(dex.moves["frostbreath"]) == 1.0
+    assert expected_hits(dex.moves["doublekick"]) == 2.0
+    assert expected_hits(dex.moves["earthquake"]) == 1.0
+
+
+def test_the_two_to_five_hit_spread_is_the_modern_one(dex):
+    """35-35-15-15, not the tidier Gen 4 spread.
+
+    The engine was using 3/8-3/8-1/8-1/8, which is Gen 4's, and it makes every
+    2-5 hit move land 3.0 times instead of 3.1. Found by writing this down.
+    """
+    import collections
+
+    from pkcm.engine.moves import MULTIHIT_2_TO_5
+    from pkcm.envs.reference import expected_hits
+
+    counts = collections.Counter(MULTIHIT_2_TO_5)
+    total = len(MULTIHIT_2_TO_5)
+    assert counts[2] / total == pytest.approx(0.35)
+    assert counts[3] / total == pytest.approx(0.35)
+    assert counts[4] / total == pytest.approx(0.15)
+    assert counts[5] / total == pytest.approx(0.15)
+    assert expected_hits(dex.moves["bulletseed"]) == pytest.approx(3.1)
+
+
+def a_known(**overrides):
+    from pkcm.envs.observation import KnownPokemon
+
+    fields = dict(slot=0, position=0, species_id="snorlax", hp_fraction=1.0,
+                  hp=None, max_hp=None, status=None, boosts=(0,) * 7, volatiles=(),
+                  moves=(), pp=None, item=None, item_known=False, ability=None,
+                  ability_known=False, fainted=False)
+    fields.update(overrides)
+    return KnownPokemon(**fields)
+
+
+def test_losing_the_turn_is_priced(dex):
+    from pkcm.engine.conditions import CONFUSION_CHANCE, PARALYSIS_CHANCE, THAW_CHANCE
+    from pkcm.envs.analysis import turn_risk
+
+    assert turn_risk(a_known()).cannot_act == 0.0
+    assert turn_risk(a_known(status="par")).cannot_act == pytest.approx(
+        PARALYSIS_CHANCE[0] / PARALYSIS_CHANCE[1])
+    assert turn_risk(a_known(status="frz")).cannot_act == pytest.approx(
+        1 - THAW_CHANCE[0] / THAW_CHANCE[1])
+    assert turn_risk(a_known(volatiles=("confusion",))).cannot_act == pytest.approx(
+        CONFUSION_CHANCE[0] / CONFUSION_CHANCE[1])
+    assert turn_risk(a_known(volatiles=("flinch",))).cannot_act == 1.0
+
+
+def test_paralysis_uses_the_champions_rate_not_the_series_one(dex):
+    """1/8, and it comes from the engine's constant rather than a second copy."""
+    from pkcm.envs.analysis import turn_risk
+
+    assert turn_risk(a_known(status="par")).paralysis == pytest.approx(0.125)
+
+
+def test_two_risks_compound_rather_than_add(dex):
+    from pkcm.envs.analysis import turn_risk
+
+    both = turn_risk(a_known(status="par", volatiles=("confusion",)))
+    assert both.cannot_act == pytest.approx(1 - (1 - 0.125) * (1 - 1 / 3))
+    assert both.cannot_act < 0.125 + 1 / 3
+
+
+def test_sleep_is_conditioned_on_how_long_we_have_watched_it(dex):
+    """Ours is exact. Theirs narrows as the turns pass, which is public."""
+    from pkcm.envs.analysis import turn_risk
+
+    assert turn_risk(a_known(status="slp", status_turns=3)).sleep == 1.0
+    assert turn_risk(a_known(status="slp", status_turns=1)).sleep == 0.0
+
+    # Durations are 2, 3, 3. After two turns only the threes are still possible.
+    assert turn_risk(a_known(status="slp", status_elapsed=0)).sleep == 1.0
+    assert turn_risk(a_known(status="slp", status_elapsed=2)).sleep == pytest.approx(2 / 3)
+    assert turn_risk(a_known(status="slp", status_elapsed=3)).sleep == 0.0
+
+
+def test_how_long_a_status_has_lasted_is_public(dex):
+    """We watched it land, so the elapsed count is not hidden information.
+
+    How much longer it has to run still is, and that stays ``None``.
+    """
+    state = chosen_battle(dex, a_set("gengar", ("willowisp",)),
+                          a_set("snorlax", ("bodyslam",)))
+    from pkcm.engine.state import legal_actions
+
+    state, _ = step(state, Action.move(0), Action.move(0))
+    theirs = Observation.of(state, 0).foe[0]
+    if theirs.status is None:
+        pytest.skip("Will-O-Wisp missed")
+    assert theirs.status_elapsed == 0
+    assert theirs.status_turns is None, "how much longer is not ours to know"
+
+    state, _ = step(state, Action.move(0), Action.move(0))
+    assert Observation.of(state, 0).foe[0].status_elapsed == 1
+
+
+def test_a_full_health_target_might_be_holding_a_sash(dex):
+    """A 확정 1타 into an unrevealed Focus Sash is not a knockout, and a strong
+    player prices that in rather than being surprised by it."""
+    from pkcm.envs.analysis import could_survive_a_kill
+
+    unknown_item = a_known(hp_fraction=1.0, item_known=False, ability_known=True,
+                           ability="thickfat")
+    assert could_survive_a_kill(unknown_item, dex), "it could be a Sash"
+
+    known_empty = a_known(hp_fraction=1.0, item_known=True, item=None,
+                          ability_known=True, ability="thickfat")
+    assert not could_survive_a_kill(known_empty, dex)
+
+    hurt = a_known(hp_fraction=0.9, item_known=False)
+    assert not could_survive_a_kill(hurt, dex), "a Sash only works from full"
+
+
+def test_sturdy_counts_even_unrevealed(dex):
+    from pkcm.envs.analysis import could_survive_a_kill
+
+    sturdy_possible = a_known(species_id="skarmory", hp_fraction=1.0,
+                              item_known=True, item=None, ability_known=False)
+    assert could_survive_a_kill(sturdy_possible, dex), "Skarmory can have Sturdy"
+
+    cannot = a_known(species_id="alakazam", hp_fraction=1.0,
+                     item_known=True, item=None, ability_known=False)
+    assert not could_survive_a_kill(cannot, dex)
+
+
+def test_the_risk_block_reaches_the_policy(dex):
+    from pkcm.envs.encoding import RISK_FEATURES, RISK_ROWS
+
+    env = ChampionsEnv(battle_format="doubles", dex=dex, seed=41)
+    observations, _ = env.reset()
+    risk = observations["player_0"]["risk"]
+    assert risk.shape == (RISK_ROWS, RISK_FEATURES)
+    assert env.observation_space("player_0").contains(observations["player_0"])

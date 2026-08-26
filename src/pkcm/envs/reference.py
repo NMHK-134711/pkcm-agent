@@ -43,8 +43,12 @@ POWER_SCALE = 150.0
 #: Per species: six base stats, an 18-wide type one-hot, weight, and whether it
 #: is a Mega forme.
 SPECIES_FEATURES = 6 + len(TYPES) + 2
-#: Per move: an 18-wide type one-hot, power, accuracy, priority, and four flags.
-MOVE_FEATURES = len(TYPES) + 7
+#: Per move: an 18-wide type one-hot, then power, accuracy, priority, three
+#: category flags, contact -- and the move's own dice: how often its secondary
+#: fires, how often that secondary is a flinch, how many times it hits, and how
+#: often it crits. A strong player knows all four by heart for the moves they
+#: run, and none of them is hidden.
+MOVE_FEATURES = len(TYPES) + 11
 
 
 @dataclass(frozen=True, slots=True)
@@ -91,6 +95,10 @@ class ReferenceSheet:
             moves[row, offset + 4] = float(entry.category == "Special")
             moves[row, offset + 5] = float(entry.category == "Status")
             moves[row, offset + 6] = float("contact" in entry.flags)
+            moves[row, offset + 7] = secondary_chance(entry) / 100.0
+            moves[row, offset + 8] = flinch_chance(entry) / 100.0
+            moves[row, offset + 9] = expected_hits(entry) / 5.0
+            moves[row, offset + 10] = crit_chance(entry)
 
         chart = np.ones((len(TYPES), len(TYPES)), dtype=np.float32)
         for attacking in TYPES:
@@ -135,6 +143,72 @@ class ReferenceSheet:
     def candidate_moves(self, species_id: str) -> np.ndarray:
         """The whole row: every move that species could be running."""
         return self.learnable[self.vocabulary.species.get(species_id, 0)]
+
+
+def secondaries(move) -> list[dict]:
+    """Every secondary a move carries, however the data spells it."""
+    found: list[dict] = []
+    primary = move.raw.get("secondary")
+    if isinstance(primary, dict):
+        found.append(primary)
+    extra = move.raw.get("secondaries")
+    if isinstance(extra, list):
+        found.extend(entry for entry in extra if isinstance(entry, dict))
+    return found
+
+
+def secondary_chance(move) -> int:
+    """The best chance any of its secondaries fires, as a percentage."""
+    return max((entry.get("chance", 100) for entry in secondaries(move)), default=0)
+
+
+def flinch_chance(move) -> int:
+    """How often it makes the target flinch. Its own line because flinching is
+    a *turn* taken away, which is worth more than most secondaries."""
+    return max((entry.get("chance", 100) for entry in secondaries(move)
+                if entry.get("volatileStatus") == "flinch"), default=0)
+
+
+def status_chance(move, status: str) -> int:
+    """How often it inflicts one particular status, secondary or primary."""
+    if move.raw.get("status") == status:
+        return move.accuracy if isinstance(move.accuracy, int) else 100
+    return max((entry.get("chance", 100) for entry in secondaries(move)
+                if entry.get("status") == status), default=0)
+
+
+def expected_hits(move) -> float:
+    """How many times it lands, on average.
+
+    ``[2, 5]`` is not uniform: Gen 5 onward it is 35-35-15-15 across 2, 3, 4
+    and 5, which averages 3.1 rather than 3.5. The engine's own table is the
+    source, so this cannot drift from what actually gets rolled -- and it did
+    drift once, when that table still held the Gen 4 spread.
+    """
+    from pkcm.engine.moves import MULTIHIT_2_TO_5
+
+    multihit = move.raw.get("multihit")
+    if multihit is None:
+        return 1.0
+    if isinstance(multihit, int):
+        return float(multihit)
+    low, high = multihit
+    if (low, high) == (2, 5):
+        return sum(MULTIHIT_2_TO_5) / len(MULTIHIT_2_TO_5)
+    return (low + high) / 2
+
+
+def crit_chance(move) -> float:
+    """How often the move crits, from its own crit ratio alone."""
+    from pkcm.engine.moves import CRIT_DENOMINATOR, NEVER_CRITS
+
+    if move.raw.get("willCrit"):
+        return 1.0
+    ratio = move.raw.get("critRatio", 1)
+    if ratio <= NEVER_CRITS:
+        return 0.0
+    denominator = CRIT_DENOMINATOR.get(ratio, 1)
+    return 1.0 if denominator <= 1 else 1.0 / denominator
 
 
 def _learnable_matrix(dex: Dex, vocabulary: Vocabulary) -> np.ndarray:

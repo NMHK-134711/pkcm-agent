@@ -81,6 +81,12 @@ class KnownPokemon:
     #: and nature are hidden -- ``pkcm.envs.analysis`` brackets those from the
     #: base stats instead, which is what a player does.
     stats: tuple[int, ...] | None = None
+    #: Turns left on our own sleep or freeze. ``None`` for the opponent: the
+    #: game shows that a Pokemon is asleep, never for how much longer.
+    status_turns: int | None = None
+    #: How many turns we have watched this status last. Public for both sides,
+    #: and the only handle we have on how much longer *theirs* will go.
+    status_elapsed: int | None = None
 
     @property
     def revealed(self) -> bool:
@@ -183,6 +189,8 @@ def _own_view(state: BattleState, side: int, slot: int) -> KnownPokemon:
         ability=state.ability_id(side, slot),
         ability_known=True,
         stats=tuple(state.stats(side, slot)),
+        status_turns=side_state.status_data[slot].get("turns"),
+        status_elapsed=_elapsed(state, side, slot),
     )
 
 
@@ -210,7 +218,14 @@ def _foe_view(state: BattleState, side: int, slot: int) -> KnownPokemon:
         item_known=slot in seen.items,
         ability=state.ability_id(side, slot) if slot in seen.abilities else None,
         ability_known=slot in seen.abilities,
+        status_elapsed=_elapsed(state, side, slot),
     )
+
+
+def _elapsed(state: BattleState, side: int, slot: int) -> int | None:
+    """How many turns this status has been up. ``None`` if it has none."""
+    since = state.revealed[side].status_since.get(slot)
+    return None if since is None else max(0, state.turn - since)
 
 
 # --------------------------------------------------------------------------- #

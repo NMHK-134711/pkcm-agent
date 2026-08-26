@@ -30,7 +30,7 @@ import math
 from dataclasses import dataclass, field
 
 from pkcm.engine.actions import Action
-from pkcm.engine.battle import step
+from pkcm.engine.battle import IllegalActionError, step
 from pkcm.engine.rng import Rng, RngCursor
 from pkcm.engine.state import BattleState, Phase
 from pkcm.envs.observation import Observation, determinize
@@ -172,7 +172,7 @@ class MCTS:
         while done < self.config.iterations:
             sampled = determinize(observation, state, draw)
             for _ in range(min(per_draw, self.config.iterations - done)):
-                self._simulate(sampled.clone(), root, player, draw, depth=0)
+                self._simulate(sampled.clone(), root, player, draw)
                 done += 1
 
         counts = root.counts[0]
@@ -188,39 +188,70 @@ class MCTS:
     # -- one simulation ----------------------------------------------------- #
 
     def _simulate(self, state: BattleState, node: Node, player: int,
-                  cursor: RngCursor, depth: int) -> float:
-        if state.finished:
-            return terminal_value(state, player)
-        if depth >= self.config.max_depth or not node.expanded:
-            return self._evaluate(state, player, cursor)
+                  cursor: RngCursor) -> float:
+        """One simulation: descend the tree, add **one** node, evaluate, back up.
 
-        picked = tuple(self._select(node, side) for side in (0, 1))
-        choices = (node.options[0][picked[0]], node.options[1][picked[1]])
-        # ``player`` is index 0 of the node's option lists by construction, so
-        # the choices have to be put back the right way round for the engine.
-        ordered = choices if player == 0 else (choices[1], choices[0])
+        The one-node rule is not a detail. Recursing to the depth limit and
+        creating a node at every level made each simulation build a whole new
+        branch, so two hundred simulations created two thousand nodes that were
+        each visited about once. Nothing was ever revisited, which is the entire
+        mechanism of MCTS -- and the cost was paid twice over, since building a
+        node means enumerating both sides' legal actions and asking for two
+        priors.
 
-        try:
-            after, _ = step(state, ordered[0], ordered[1])
-        except Exception:
-            # A determinization can disagree with the tree about what is legal
-            # -- a resampled Pokemon knows different moves. Treat the line as
-            # unplayable rather than letting it poison the statistics.
-            return self._evaluate(state, player, cursor)
+        Descending through what already exists and expanding only the first
+        unseen position turns that into two hundred nodes. It is both the
+        textbook algorithm and, incidentally, the reason the network looked
+        expensive: the forwards were five per cent of a decision that was
+        mostly node construction.
+        """
+        path: list[tuple[Node, tuple[int, int]]] = []
+        current = node
+        depth = 0
 
-        child = node.children.get(picked)
-        if child is None:
-            child = node.children[picked] = self._node(after, player)
-        value = self._simulate(after, child, player, cursor, depth + 1)
+        while True:
+            if state.finished:
+                value = terminal_value(state, player)
+                break
+            if depth >= self.config.max_depth or not current.expanded:
+                value = self._evaluate(state, player, cursor)
+                break
 
-        node.visits += 1
-        for side in (0, 1):
-            index = picked[side]
-            node.counts[side][index] += 1
-            # Player 0 of the node is always ``player``; the other side is
-            # maximising the negation, which is what makes the opponent play
-            # well rather than randomly.
-            node.totals[side][index] += value if side == 0 else -value
+            picked = tuple(self._select(current, side) for side in (0, 1))
+            path.append((current, picked))
+
+            choices = (current.options[0][picked[0]], current.options[1][picked[1]])
+            # ``player`` is index 0 of every node's option lists by
+            # construction, so the pair goes back the other way for the engine.
+            ordered = choices if player == 0 else (choices[1], choices[0])
+            try:
+                state, _ = step(state, ordered[0], ordered[1])
+            except IllegalActionError:
+                # A determinization can disagree with the tree about what is
+                # legal -- a resampled Pokemon knows different moves. Treat the
+                # line as unplayable rather than letting it poison the counts.
+                value = self._evaluate(state, player, cursor)
+                break
+
+            child = current.children.get(picked)
+            if child is None:
+                # The one new node this simulation is allowed. Evaluate it and
+                # stop: it has no statistics to descend on yet.
+                child = current.children[picked] = self._node(state, player)
+                value = self._evaluate(state, player, cursor)
+                break
+            current = child
+            depth += 1
+
+        for visited, picked in path:
+            visited.visits += 1
+            for side in (0, 1):
+                index = picked[side]
+                visited.counts[side][index] += 1
+                # Index 0 is always ``player``; the other side maximises the
+                # negation, which is what makes the opponent in the tree play
+                # well rather than randomly.
+                visited.totals[side][index] += value if side == 0 else -value
         return value
 
     def _select(self, node: Node, side: int) -> int:

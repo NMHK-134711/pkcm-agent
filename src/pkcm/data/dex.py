@@ -76,6 +76,10 @@ class Species:
     forme: str
     required_item: str | None
     other_formes: tuple[str, ...]
+    #: Set when this forme is *derived* from another at the same base species
+    #: (Rotom's appliances, Necrozma's fusions). Showdown stores only the
+    #: signature move on such formes; the rest is inherited from the source.
+    changes_from: str | None
     raw: dict[str, Any] = field(repr=False, compare=False, default_factory=dict)
 
     @property
@@ -274,6 +278,7 @@ def _build_species(key: str, raw: dict[str, Any], pokedex: dict[str, Any]) -> Sp
         if slot in raw["abilities"]
     )
     required_item = raw.get("requiredItem")
+    changes_from = raw.get("changesFrom")
     return Species(
         id=key,
         name=raw["name"],
@@ -286,6 +291,7 @@ def _build_species(key: str, raw: dict[str, Any], pokedex: dict[str, Any]) -> Sp
         forme=raw.get("forme", ""),
         required_item=to_id(required_item) if required_item else None,
         other_formes=tuple(to_id(f) for f in raw.get("otherFormes", ())),
+        changes_from=to_id(changes_from) if changes_from else None,
         raw=raw,
     )
 

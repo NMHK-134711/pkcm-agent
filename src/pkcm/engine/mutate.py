@@ -83,10 +83,22 @@ def effective_stat(
     boost_name = STAT_TO_BOOST.get(stat)
     if boost_name is not None:
         stage = ctx.state.sides[side_index].boost(slot, boost_name)
+        # Unaware sits on the *other* Pokemon and refuses to see these stages,
+        # so the question has to be asked from over there.
+        if opponent is not None and not fx.allows(
+            ctx, "ignore_stat_stages", opponent, scope="self", stat=stat, target=ref
+        ):
+            stage = 0
         value = int(value * stage_multiplier(stage))
 
     value = fx.modify(ctx, "modify_boosted_stat", value, ref, stat=stat, **extra)
     return max(1, int(value))
+
+
+def weight_kg(ctx: Context, ref: Ref) -> float:
+    """Weight as Low Kick and Heavy Slam see it, after Light/Heavy Metal."""
+    species = ctx.state.config.dex.species[ctx.state.species_id(*ref)]
+    return max(0.1, fx.modify(ctx, "modify_weight", species.weight_kg, ref, scope="self"))
 
 
 def max_hp(state, ref: Ref) -> int:
@@ -218,6 +230,10 @@ def boost(ctx: Context, ref: Ref, changes: dict[str, int], source: Ref | None = 
             Event("boost", side=side_index, slot=slot, detail=name,
                   amount=after - before, hp=after)
         )
+        for watcher in (ref, (1 - side_index, ctx.state.sides[1 - side_index].active)):
+            if ctx.state.sides[watcher[0]].hp[watcher[1]] > 0:
+                fx.notify(ctx, "after_boost", watcher, scope="self", boosted=ref,
+                          stat=name, stages=after - before, source=source)
     return applied
 
 
@@ -266,6 +282,7 @@ def set_status(ctx: Context, ref: Ref, status: str, source: Ref | None = None) -
         side.status_data[slot]["stage"] = 0
 
     ctx.emit(Event("status", side=side_index, slot=slot, detail=status))
+    fx.notify(ctx, "after_status", ref, scope="self", status=status, source=source)
     return True
 
 

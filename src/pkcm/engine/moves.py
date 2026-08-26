@@ -12,6 +12,7 @@ battle state -- lives in ``VARIABLE_POWER``, keyed by move id.
 
 from __future__ import annotations
 
+from dataclasses import dataclass
 from typing import Any, Callable
 
 from pkcm.data.dex import Move, Stat
@@ -65,7 +66,7 @@ FOE_SIDE_TARGETS = frozenset({"foeSide"})
 
 def _weight_based(thresholds: tuple[tuple[float, int], ...]) -> Callable:
     def compute(ctx: Context, attacker: Ref, defender: Ref, move: Move) -> int:
-        weight = ctx.state.config.dex.species[ctx.state.species_id(*defender)].weight_kg
+        weight = mutate.weight_kg(ctx, defender)
         for limit, power in thresholds:
             if weight < limit:
                 return power
@@ -75,10 +76,7 @@ def _weight_based(thresholds: tuple[tuple[float, int], ...]) -> Callable:
 
 
 def _relative_weight(ctx: Context, attacker: Ref, defender: Ref, move: Move) -> int:
-    dex = ctx.state.config.dex
-    mine = dex.species[ctx.state.species_id(*attacker)].weight_kg
-    theirs = dex.species[ctx.state.species_id(*defender)].weight_kg or 0.1
-    ratio = mine / theirs
+    ratio = mutate.weight_kg(ctx, attacker) / mutate.weight_kg(ctx, defender)
     for limit, power in ((2, 40), (3, 60), (4, 80), (5, 100)):
         if ratio < limit:
             return power
@@ -217,7 +215,10 @@ def compute_damage(
         damage = damage * STAB_NUM // STAB_DEN
 
     damage = int(damage * effectiveness)
-    damage = _both_sides(ctx, "modify_damage", damage, attacker, defender, move)
+    damage = fx.modify(ctx, "modify_damage", damage, attacker, scope="self",
+                       attacker=attacker, defender=defender, move=move, crit=crit)
+    damage = fx.modify(ctx, "modify_damage", damage, defender, scope="all",
+                       attacker=attacker, defender=defender, move=move, crit=crit)
     return max(1, int(damage)), effectiveness
 
 
@@ -263,7 +264,76 @@ def connects(ctx: Context, attacker: Ref, defender: Ref, move: Move) -> bool:
 # --------------------------------------------------------------------------- #
 
 
-def resolve_target(move: Move, attacker: Ref, defender: Ref) -> Ref:
+@dataclass(slots=True)
+class ActiveMove:
+    """A move as it is being used, which hooks may rewrite for this use only.
+
+    Showdown's ``onModifyMove`` mutates a per-use copy of the move, and a
+    surprising share of the ability list needs exactly that: Pixilate rewrites
+    the type, Skill Link fixes the hit count, Long Reach removes contact,
+    Infiltrator lets it through screens, Sheer Force deletes the secondaries it
+    trades away. Attribute names mirror ``Move`` so everything downstream reads
+    the same way whether it was rewritten or not.
+    """
+
+    base: Move
+    type: str
+    category: str
+    base_power: int
+    accuracy: int | None
+    priority: int
+    target: str
+    flags: set[str]
+    secondaries: list[dict]
+    self_effects: dict | None
+    multihit: object
+    #: Set by Pixilate and friends, which also add 20% to what they changed.
+    type_changed: bool = False
+    #: Infiltrator: ignores screens and Substitute.
+    infiltrates: bool = False
+    #: Skill Link: multi-hit moves always hit the maximum number of times.
+    always_max_hits: bool = False
+    #: Unseen Fist / Piercing Drill: contact moves go through Protect.
+    breaks_protect: bool = False
+
+    @property
+    def id(self) -> str:
+        return self.base.id
+
+    @property
+    def name(self) -> str:
+        return self.base.name
+
+    @property
+    def raw(self) -> dict:
+        return self.base.raw
+
+    @property
+    def is_status(self) -> bool:
+        return self.category == "Status"
+
+
+def activate(ctx: Context, attacker: Ref, defender: Ref, move: Move) -> ActiveMove:
+    """Build the per-use view and let ``modify_move`` hooks rewrite it."""
+    active = ActiveMove(
+        base=move,
+        type=move.type,
+        category=move.category,
+        base_power=move.base_power,
+        accuracy=move.accuracy,
+        priority=move.priority,
+        target=move.target,
+        flags=set(move.flags),
+        secondaries=list(_all_secondaries(move)),
+        self_effects=move.raw.get("self") if isinstance(move.raw.get("self"), dict) else None,
+        multihit=move.raw.get("multihit"),
+    )
+    fx.notify(ctx, "modify_move", attacker, scope="self",
+              active=active, attacker=attacker, defender=defender)
+    return active
+
+
+def resolve_target(move, attacker: Ref, defender: Ref) -> Ref:
     return attacker if move.target in SELF_TARGETS else defender
 
 
@@ -298,20 +368,21 @@ def use_move(
         )
         return
 
-    target = resolve_target(move, attacker, defender)
+    active = activate(ctx, attacker, defender, move)
+    target = resolve_target(active, attacker, defender)
     targets_opponent = target != attacker
 
     # Mold Breaker and friends blind the defender's ability for the *whole*
     # resolution -- immunity, damage modifiers, contact reactions, all of it.
     # Suppressing it here rather than at each check is the only version that
     # cannot be quietly incomplete.
-    suppressing = targets_opponent and ignores_target_ability(ctx, attacker, move)
+    suppressing = targets_opponent and ignores_target_ability(ctx, attacker, active)
     if suppressing:
         ctx.suppressed_abilities.add(defender)
         ctx.emit(Event("ability_suppressed", side=defender[0], slot=defender[1],
                        detail=ctx.state.ability_id(*defender)))
     try:
-        _resolve(ctx, attacker, defender, target, targets_opponent, move)
+        _resolve(ctx, attacker, defender, target, targets_opponent, active)
     finally:
         if suppressing:
             ctx.suppressed_abilities.discard(defender)
@@ -417,7 +488,8 @@ def _deal_or_break_substitute(
     damage: int, effectiveness: float, crit: bool,
 ) -> int:
     substitute = mutate.volatile(ctx.state, defender, "substitute")
-    if substitute is not None and "authentic" not in move.flags:
+    bypasses = getattr(move, "infiltrates", False) or "authentic" in move.flags
+    if substitute is not None and not bypasses:
         substitute["hp"] -= damage
         if substitute["hp"] <= 0:
             mutate.remove_volatile(ctx, defender, "substitute")
@@ -440,13 +512,17 @@ def _apply_ohko(ctx: Context, attacker: Ref, defender: Ref, move: Move) -> bool:
     return True
 
 
-def _hit_count(ctx: Context, move: Move) -> int:
-    multihit = move.raw.get("multihit")
+def _hit_count(ctx: Context, move) -> int:
+    multihit = getattr(move, "multihit", None)
+    if multihit is None:
+        multihit = move.raw.get("multihit")
     if multihit is None:
         return 1
     if isinstance(multihit, int):
         return multihit
     low, high = multihit
+    if getattr(move, "always_max_hits", False):
+        return high
     if (low, high) == (2, 5):
         return ctx.cursor.choice(MULTIHIT_2_TO_5)
     return ctx.cursor.between(low, high)
@@ -576,9 +652,11 @@ def _to_id(value: str) -> str:
     return "".join(character for character in value.lower() if character.isalnum())
 
 
-def _apply_self_effects(ctx: Context, attacker: Ref, move: Move) -> None:
+def _apply_self_effects(ctx: Context, attacker: Ref, move) -> None:
     """``self: {boosts, volatileStatus}`` -- unconditional, e.g. Overheat."""
-    payload = move.raw.get("self")
+    payload = getattr(move, "self_effects", None)
+    if payload is None:
+        payload = move.raw.get("self")
     if not isinstance(payload, dict):
         return
     if payload.get("boosts"):
@@ -587,11 +665,10 @@ def _apply_self_effects(ctx: Context, attacker: Ref, move: Move) -> None:
         mutate.add_volatile(ctx, attacker, payload["volatileStatus"])
 
 
-def _apply_secondaries(ctx: Context, attacker: Ref, defender: Ref, move: Move) -> None:
-    secondaries = move.raw.get("secondaries")
+def _apply_secondaries(ctx: Context, attacker: Ref, defender: Ref, move) -> None:
+    secondaries = getattr(move, "secondaries", None)
     if secondaries is None:
-        single = move.raw.get("secondary")
-        secondaries = [single] if single else []
+        secondaries = _all_secondaries(move)
 
     if secondaries and not fx.allows(ctx, "try_secondary", defender,
                                      attacker=attacker, move=move):

@@ -325,12 +325,15 @@ def test_abilities_with_no_handlers_are_deliberate(dex):
     from pkcm.engine.effects import REGISTRY
     from pkcm.engine.moves import MOLD_BREAKER_ABILITIES
 
-    engine_side = {"levitate", "corrosion", "telepathy"} | set(MOLD_BREAKER_ABILITIES)
+    engine_side = {"levitate", "corrosion"} | set(MOLD_BREAKER_ABILITIES)
+    accounted = engine_side | abilities.INERT | abilities.SINGLES_INERT
     for (kind, ability_id), effect in REGISTRY.items():
         if kind != "ability" or effect.handlers:
             continue
-        assert ability_id in engine_side or ability_id in abilities.INERT, (
-            f"{ability_id} is registered with no handlers and no reason given"
+        assert ability_id in accounted, (
+            f"{ability_id} is registered with no handlers and no reason given. "
+            f"Either implement it, or say why it does nothing: engine-side, "
+            f"inert in battle, or inert in singles."
         )
 
 
@@ -344,4 +347,196 @@ def test_roster_coverage_is_reported(dex):
         for ability in dex.species[species_id].abilities
     }
     done = roster & set(registered("ability"))
-    assert len(done) >= 130, f"only {len(done)} of {len(roster)} roster abilities implemented"
+    assert len(done) >= 190, f"only {len(done)} of {len(roster)} roster abilities implemented"
+
+
+# --------------------------------------------------------------------------- #
+# The rest of the roster
+# --------------------------------------------------------------------------- #
+
+
+def test_imposter_transforms_on_entry(dex, config):
+    """hk's report: it copies the current state, keeps its own HP.
+
+    The Mega half is still pending; everything else is here.
+    """
+    ditto = a_set("ditto", "imposter", ("transform",))
+    # Night Shade deals a flat 50, so Ditto survives the turn it arrives and
+    # there is something left to inspect.
+    target = a_set("gengar", "cursedbody", ("nightshade", "sludgebomb"))
+    bench = [a_set(s, "__none__") for s in ("snorlax", "pikachu", "starmie", "alakazam", "skarmory")]
+    state = new_battle(config, (tuple([bench[0], ditto] + bench[1:]), tuple([target] + bench)),
+                       seed=3)
+    state, _ = step(state, Action.select(0, 1, 2), Action.select(0, 1, 2))
+
+    # Give the target something to copy, then bring Ditto in.
+    ctx = make_context(state)
+    mutate.boost(ctx, BLUE, {"spa": 2})
+    state.rng = ctx.cursor.seal()
+
+    ditto_hp = state.sides[0].hp[1]
+    state, log = step(state, Action.switch(1), Action.move(0))
+    ditto_hp -= 50  # Night Shade
+
+    assert state.species_id(0, 1) == "gengar", "copied the forme"
+    assert state.sides[0].active == 1
+    assert state.ability_id(0, 1) == "cursedbody", "copied the ability"
+    assert state.types(0, 1) == ("ghost", "poison"), "copied the types"
+    assert state.sides[0].boost(1, "spa") == 2, "copied the stat stages"
+    assert [m.id for m in state.moves(0, 1)] == ["nightshade", "sludgebomb"]
+    assert state.sides[0].pp[1] == [5, 5], "copied moves get 5 PP each"
+    assert any(e.kind == "transform" for e in log), log
+
+    gengar_stats = state.pokemon(1, 0).stats
+    assert state.stats(0, 1)[Stat.SPA] == gengar_stats[Stat.SPA], "copied the stats"
+    assert state.stats(0, 1)[Stat.HP] != gengar_stats[Stat.HP], "but not HP"
+    assert state.sides[0].hp[1] == ditto_hp, "and keeps its own current HP"
+
+
+def test_pixilate_changes_type_and_adds_power(dex, config):
+    from pkcm.engine.moves import activate
+
+    state = build(config, a_set("sylveon", "pixilate", ("hypervoice",)),
+                  a_set("snorlax", "__none__"))
+    ctx = make_context(state)
+    active = activate(ctx, RED, BLUE, dex.moves["hypervoice"])
+    assert dex.moves["hypervoice"].type == "normal"
+    assert active.type == "fairy"
+    assert active.base_power == chain_modify(dex.moves["hypervoice"].base_power, 4915)
+
+
+def test_protean_retypes_the_user_once(dex, config):
+    from pkcm.engine.moves import activate
+
+    state = build(config, a_set("greninja", "protean", ("surf", "shadowball")),
+                  a_set("snorlax", "__none__"))
+    ctx = make_context(state)
+    activate(ctx, RED, BLUE, dex.moves["surf"])
+    assert state.types(0, 0) == ("water",)
+
+    activate(ctx, RED, BLUE, dex.moves["shadowball"])
+    assert state.types(0, 0) == ("water",), "gen 9 allows it once per switch-in"
+
+
+def test_skill_link_maxes_the_hit_count(dex, config):
+    for seed in range(5):
+        state = build(config, a_set("cinccino", "skilllink", ("bulletseed",)),
+                      a_set("snorlax", "__none__"))
+        state.rng = state.rng.__class__(state.rng.state + seed)
+        ctx = make_context(state)
+        cast(ctx, dex, "bulletseed")
+        assert len([e for e in ctx.log if e.kind == "damage"]) == 5
+
+
+def test_long_reach_removes_contact(dex, config):
+    """Rough Skin should not answer a Long Reach user."""
+    state = build(config, a_set("decidueye", "longreach", ("leafblade",)),
+                  a_set("garchomp", "roughskin"))
+    ctx = make_context(state)
+    cast(ctx, dex, "leafblade")
+    assert state.sides[0].hp[0] == state.pokemon(0, 0).max_hp
+
+
+def test_infiltrator_goes_through_a_substitute(dex, config):
+    state = build(config, a_set("noivern", "infiltrator", ("airslash",)),
+                  a_set("snorlax", "__none__"))
+    ctx = make_context(state)
+    mutate.add_volatile(ctx, BLUE, "substitute", hp=50)
+    before = state.sides[1].hp[0]
+    cast(ctx, dex, "airslash")
+    assert state.sides[1].hp[0] < before, "the substitute did not stop it"
+
+    walled = build(config, a_set("snorlax", "__none__", ("airslash",)),
+                   a_set("snorlax", "__none__"))
+    ctx = make_context(walled)
+    mutate.add_volatile(ctx, BLUE, "substitute", hp=50)
+    intact = walled.sides[1].hp[0]
+    cast(ctx, dex, "airslash")
+    assert walled.sides[1].hp[0] == intact, "without Infiltrator the substitute holds"
+
+
+def test_sheer_force_trades_secondaries_for_power(dex, config):
+    from pkcm.engine.moves import activate
+
+    state = build(config, a_set("darmanitan", "sheerforce", ("ironhead",)),
+                  a_set("snorlax", "__none__"))
+    ctx = make_context(state)
+    assert dex.moves["ironhead"].raw.get("secondary")
+    active = activate(ctx, RED, BLUE, dex.moves["ironhead"])
+    assert active.secondaries == [], "the flinch chance is given up"
+
+
+def test_unaware_ignores_the_opponents_stages(dex, config):
+    state = build(config, a_set("garchomp", "roughskin", ("earthquake",)),
+                  a_set("clefable", "unaware"))
+    # Fresh contexts off the same unsealed RNG replay identical damage rolls,
+    # so the only thing that can differ is the stage handling.
+    def damage(target_state) -> int:
+        return compute_damage(make_context(target_state), RED, BLUE,
+                              dex.moves["earthquake"], crit=False)[0]
+
+    plain = damage(state)
+    mutate.boost(make_context(state), RED, {"atk": 6})
+    assert damage(state) == plain, "Unaware should not see +6 Attack"
+
+    aware = build(config, a_set("garchomp", "roughskin", ("earthquake",)),
+                  a_set("clefable", "magicguard"))
+    baseline = damage(aware)
+    mutate.boost(make_context(aware), RED, {"atk": 6})
+    assert damage(aware) > baseline * 3, "and everyone else certainly does"
+
+
+def test_synchronize_hands_the_status_back(dex, config):
+    state = build(config, a_set("umbreon", "synchronize"),
+                  a_set("gengar", "__none__", ("willowisp",)))
+    ctx = make_context(state)
+    cast(ctx, dex, "willowisp", attacker=BLUE, defender=RED)
+    assert state.sides[0].status[0] == "brn"
+    assert state.sides[1].status[0] == "brn", "and back to the sender"
+
+
+def test_light_metal_halves_weight_for_weight_moves(dex, config):
+    from pkcm.engine.moves import base_power
+
+    heavy = build(config, a_set("garchomp", "roughskin", ("grassknot",)),
+                  a_set("aggron", "sturdy"))
+    light = build(config, a_set("garchomp", "roughskin", ("grassknot",)),
+                  a_set("aggron", "lightmetal"))
+    assert base_power(make_context(heavy), RED, BLUE, dex.moves["grassknot"]) > \
+        base_power(make_context(light), RED, BLUE, dex.moves["grassknot"])
+
+
+def test_sniper_boosts_only_criticals(dex, config):
+    state = build(config, a_set("kingdra", "sniper", ("dracometeor",)),
+                  a_set("snorlax", "__none__"))
+    ctx = make_context(state)
+    normal = compute_damage(ctx, RED, BLUE, dex.moves["dracometeor"], crit=False)[0]
+    critical = compute_damage(ctx, RED, BLUE, dex.moves["dracometeor"], crit=True)[0]
+    assert critical > normal * 2, "1.5x crit and 1.5x Sniper on top"
+
+
+def test_disguise_eats_the_first_hit(dex, config):
+    state = build(config, a_set("mimikyu", "disguise"),
+                  a_set("garchomp", "roughskin", ("earthquake",)))
+    full = state.pokemon(0, 0).max_hp
+    ctx = make_context(state)
+    cast(ctx, dex, "earthquake", attacker=BLUE, defender=RED)
+
+    assert "busted" in state.species_id(0, 0)
+    assert state.sides[0].hp[0] == full - max(1, full // 8), "only the disguise cost"
+
+
+def test_only_item_abilities_remain(dex):
+    """Everything else on the roster is implemented."""
+    from pkcm.engine.effects import registered
+
+    regulation = dex.regulation("m_b")
+    roster = {
+        ability
+        for species_id in regulation.legal_species | regulation.legal_megas
+        for ability in dex.species[species_id].abilities
+    }
+    missing = roster - set(registered("ability"))
+    assert missing == {"cudchew", "ripen", "stickyhold"}, (
+        f"expected only the held-item abilities to be pending, got {sorted(missing)}"
+    )

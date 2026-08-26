@@ -62,6 +62,16 @@ IMPLEMENTED: frozenset[str] = frozenset(
         "team-preview",
         "type-chart",
         "sp-stats",
+        "abilities",
+        "stat-stages",
+        "status",
+        "weather",
+        "terrain",
+        "screens",
+        "hazards",
+        "transform",
+        "multi-hit",
+        "secondary-effects",
     }
 )
 
@@ -154,6 +164,12 @@ def _apply_setup(state: BattleState, operations: tuple[dict, ...]) -> None:
             state.sides[operation["side"]].hp[operation["slot"]] = operation["value"]
         elif what == "set_pp":
             state.sides[operation["side"]].pp[operation["slot"]][operation["move"]] = operation["value"]
+        elif what == "boost":
+            from pkcm.engine.state import BOOST_INDEX
+
+            side = state.sides[operation["side"]]
+            index = BOOST_INDEX[operation["stat"]]
+            side.boosts[operation["slot"]][index] += operation["stages"]
         else:
             raise ScenarioError(f"unknown setup operation {what!r}")
 

@@ -218,6 +218,9 @@ class BattleState:
             return override["item"]
         return self.pokemon(side, slot).item
 
+    def gender(self, side: int, slot: int) -> str | None:
+        return self.pokemon(side, slot).gender
+
     def types(self, side: int, slot: int) -> tuple[str, ...]:
         override = self.override(side, slot)
         if "types" in override:
@@ -287,10 +290,11 @@ def legal_actions(state: BattleState, player: int) -> tuple[Action, ...]:
         )
 
     # Normal turn: any move with PP left, plus any living benched Pokemon.
+    disabled = side.volatiles[side.active].get("disabled", {}).get("move")
     actions = [
         Action.move(index)
         for index, pp in enumerate(side.pp[side.active])
-        if pp > 0
+        if pp > 0 and index != disabled
     ]
     if not actions:
         actions.append(Action.struggle())

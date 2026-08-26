@@ -49,6 +49,9 @@ class PokemonSet:
     nature: str = NEUTRAL_NATURE.id
     sp: StatTuple = NO_SP
     item: str | None = None
+    #: "M", "F" or "N". Rivalry, Cute Charm and Attract all read it; ``None``
+    #: means unknown, which those effects treat as "does not apply".
+    gender: str | None = None
     nickname: str | None = None
 
     def __post_init__(self) -> None:
@@ -81,6 +84,7 @@ class BattlePokemon:
     max_pp: tuple[int, ...]
     ability: str
     item: str | None
+    gender: str | None
 
     @property
     def max_hp(self) -> int:
@@ -119,6 +123,7 @@ def compile_set(dex: Dex, pokemon_set: PokemonSet) -> BattlePokemon:
         max_pp=tuple(max_pp(move.pp) for move in moves),
         ability=pokemon_set.ability,
         item=pokemon_set.item,
+        gender=species.gender or pokemon_set.gender,
     )
 
 

@@ -42,11 +42,22 @@ EVENTS: dict[str, str] = {
     # notify
     "switch_in": "ref -- a Pokemon has just come onto the field",
     "switch_out": "ref -- a Pokemon is leaving the field, before its state is wiped",
+    "modify_move": (
+        "active, attacker, defender -- rewrite the move for this use only. "
+        "Showdown's onModifyMove; the -ate abilities, Protean, Skill Link, "
+        "Long Reach, Infiltrator and Sheer Force all live here."
+    ),
     "after_damage": "ref, target, move, damage -- a damaging move connected",
     "after_move": "ref, move -- the move finished resolving",
     "residual": "ref -- end of turn, in Speed order",
     "faint": "ref, source -- this Pokemon fainted; source is who caused it",
     "kill": "ref, victim, move -- this Pokemon knocked something out (Moxie)",
+    "after_status": "ref, status, source -- a status has just been applied (Synchronize)",
+    "after_boost": (
+        "ref, boosted, stat, stages, source -- a stat stage changed. Fires on "
+        "both sides: Opportunist is watching from across the field, so a hook "
+        "that only ran on the boosted Pokemon could never see it."
+    ),
     # modify
     "modify_stat": "ref, stat -- raw stat before stat stages",
     "modify_boosted_stat": "ref, stat -- stat after stat stages",
@@ -58,7 +69,12 @@ EVENTS: dict[str, str] = {
         "Technician's <=60 test reads the power *after* other base-power "
         "modifiers, which only works if this is its own pass."
     ),
-    "modify_damage": "ref, target, move -- final damage",
+    "modify_damage": "ref, target, move, crit -- final damage",
+    "ignore_stat_stages": (
+        "ref (the OPPONENT), stat, target -- may the target's stat stages count? "
+        "Unaware answers no, and it has to be asked from the other side."
+    ),
+    "modify_weight": "ref -- the Pokemon's weight in kg (Light Metal, Heavy Metal)",
     "modify_effectiveness": "ref, target, move -- type multiplier",
     "modify_crit_ratio": "ref, target, move -- denominator of the crit chance",
     "modify_indirect_damage": (

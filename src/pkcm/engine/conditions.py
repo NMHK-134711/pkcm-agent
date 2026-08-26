@@ -171,6 +171,8 @@ register("volatile", "confusion", name="Confusion", try_move=_confusion_may_self
 def _protect_blocks(ctx, ref, attacker, defender, move, **_):
     if ref != defender or attacker == defender:
         return None
+    if getattr(move, "breaks_protect", False):
+        return None
     if "protect" in move.flags:
         ctx.emit(Event("protected", side=defender[0], slot=defender[1], move=move.name))
         return False
@@ -183,6 +185,34 @@ register("volatile", "protect", name="Protect", try_hit=_protect_blocks)
 register("volatile", "stall", name="Stall")
 
 register("volatile", "trapped", name="Trapped")
+
+
+def _disabled_expires(ctx, ref, **_):
+    data = ctx.state.sides[ref[0]].volatiles[ref[1]].get("disabled")
+    if data is None:
+        return
+    data["turns"] -= 1
+    if data["turns"] <= 0:
+        mutate.remove_volatile(ctx, ref, "disabled")
+
+
+#: One move is unusable for a few turns. ``state.legal_actions`` reads it.
+register("volatile", "disabled", name="Disabled", residual=_disabled_expires)
+
+
+def _attract_may_stop(ctx, ref, move, **_):
+    if ctx.cursor.chance(1, 2):
+        ctx.emit(Event("cant_move", side=ref[0], slot=ref[1], detail="attract"))
+        return False
+    return None
+
+
+register("volatile", "attract", name="Attract", try_move=_attract_may_stop)
+
+#: Electromorphosis and Charge: the next Electric move is doubled.
+register("volatile", "charge", name="Charge",
+         modify_base_power=lambda ctx, ref, value, attacker, defender, move, **_:
+             value * 2 if ref == attacker and move.type == "electric" else None)
 register("volatile", "substitute", name="Substitute")
 
 
@@ -293,6 +323,8 @@ register("room", "trickroom", name="Trick Room")
 def _screen(category: str | None):
     def handler(ctx, ref, value, attacker, defender, move, **_):
         if attacker[0] == defender[0]:
+            return None
+        if getattr(move, "infiltrates", False):
             return None
         if category is not None and move.category != category:
             return None

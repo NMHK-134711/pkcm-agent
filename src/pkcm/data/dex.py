@@ -82,6 +82,9 @@ class Species:
     forme: str
     required_item: str | None
     other_formes: tuple[str, ...]
+    #: "M", "F" or "N". Fixed-gender species declare it; the rest are decided
+    #: per Pokemon, so a set carries its own.
+    gender: str | None
     #: Set when this forme is *derived* from another at the same base species
     #: (Rotom's appliances, Necrozma's fusions). Showdown stores only the
     #: signature move on such formes; the rest is inherited from the source.
@@ -341,6 +344,7 @@ def _build_species(key: str, raw: dict[str, Any], pokedex: dict[str, Any]) -> Sp
     )
     required_item = raw.get("requiredItem")
     changes_from = raw.get("changesFrom")
+    gender = raw.get("gender")
     return Species(
         id=key,
         name=raw["name"],
@@ -354,6 +358,7 @@ def _build_species(key: str, raw: dict[str, Any], pokedex: dict[str, Any]) -> Sp
         required_item=to_id(required_item) if required_item else None,
         other_formes=tuple(to_id(f) for f in raw.get("otherFormes", ())),
         changes_from=to_id(changes_from) if changes_from else None,
+        gender=gender,
         raw=raw,
     )
 

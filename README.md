@@ -13,8 +13,10 @@ Regulation Set M-B 룰을 따르는 배틀 엔진을 직접 구현하고, 그 �
 | 데이터 레이어 | 완료 — 235종 + 메가 76종 전부 해석됨 |
 | SP 능력치 체계 | 완료 — SP 66/32, Stat Alignment 21종, 레벨 50 공식 |
 | 팀 합법성 + 랜덤 팀 생성 | 완료 — 원종 단위 종족 클로즈, 아이템 클로즈, SP 예산 |
-| M0 배틀 엔진 골격 | 완료 — 11,000 turns/s |
+| 배틀 엔진 | 표준 기술 685종 중 **510종(74.5%)** 실행, 3,900 turns/s |
+| 메커니즘 | 상태이상·랭크변화·날씨·필드·벽·설치기·방어·대타출동 |
 | 시나리오 검증 하네스 | 완료 — 실제 게임 관찰을 테스트로, 미구현 메커니즘은 skip |
+| 특성 / 도구 / 메가진화 | 미착수 (훅 골격은 준비됨) |
 | PettingZoo 어댑터 | 미착수 |
 | 하이브리드 배틀 정책 | 미착수 |
 | 파티 구성 학습 | 미착수 |
@@ -61,7 +63,9 @@ python -m venv .venv
 ```
 src/pkcm/
   data/      dex 로더 — 종족/기술/특성/도구/타입표/레귤레이션
-  engine/    순수 함수 배틀 코어 — rng, stats, pokemon, legality, scope, state, battle
+  engine/    순수 함수 배틀 코어
+             effects(훅) / conditions(상태·날씨·벽) / moves(기술 실행)
+             mutate(원시 변경) / state / battle / legality / scope / rng / stats
   envs/      PettingZoo ParallelEnv 어댑터 (예정)
   render/    이벤트 로그 소비자 — 텍스트 뷰어
   testing/   시나리오 러너 — 실제 게임 관찰을 테스트로

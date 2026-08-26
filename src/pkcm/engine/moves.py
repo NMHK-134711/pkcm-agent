@@ -1,0 +1,668 @@
+"""Executing a move, driven by the move data rather than by hand-written cases.
+
+Showdown's move table is largely *declarative*: Swords Dance carries
+``boosts: {atk: 2}``, Thunderbolt carries ``secondary: {chance: 10, status: par}``,
+Giga Drain carries ``drain: [1, 2]``, Bullet Seed carries ``multihit: [2, 5]``.
+One executor that understands those fields covers most of the move list at once,
+which is why this file implements mechanics in bulk instead of move by move.
+
+What genuinely cannot be read off the data -- moves whose power is computed from
+battle state -- lives in ``VARIABLE_POWER``, keyed by move id.
+"""
+
+from __future__ import annotations
+
+from typing import Any, Callable
+
+from pkcm.data.dex import Move, Stat
+from pkcm.engine import effects as fx
+from pkcm.engine import events as ev
+from pkcm.engine import mutate
+from pkcm.engine.effects import Context, Ref
+from pkcm.engine.events import Event
+from pkcm.engine.mutate import apply_damage, effective_stat, heal, stage_multiplier
+
+LEVEL = 50
+
+STAB_NUM, STAB_DEN = 3, 2
+DAMAGE_ROLL_LOW, DAMAGE_ROLL_HIGH = 85, 100
+CRIT_MULTIPLIER_NUM, CRIT_MULTIPLIER_DEN = 3, 2
+
+#: Gen 7+ critical hit rate by crit ratio: the denominator of a 1/N chance.
+CRIT_DENOMINATOR = {0: 24, 1: 24, 2: 8, 3: 2}
+
+STRUGGLE_ID = "struggle"
+STRUGGLE_RECOIL_FRACTION = 4
+
+#: Gen 5+ distribution for a 2-5 hit move, in 8ths: 2 and 3 thrice, 4 and 5 once.
+MULTIHIT_2_TO_5 = (2, 2, 2, 3, 3, 3, 4, 5)
+
+#: Targets that never point at the opposing active Pokemon.
+SELF_TARGETS = frozenset({"self", "adjacentAlly", "adjacentAllyOrSelf", "allies", "allySide"})
+FIELD_TARGETS = frozenset({"all"})
+FOE_SIDE_TARGETS = frozenset({"foeSide"})
+
+
+# --------------------------------------------------------------------------- #
+# Base power
+# --------------------------------------------------------------------------- #
+
+
+def _weight_based(thresholds: tuple[tuple[float, int], ...]) -> Callable:
+    def compute(ctx: Context, attacker: Ref, defender: Ref, move: Move) -> int:
+        weight = ctx.state.config.dex.species[ctx.state.species_id(*defender)].weight_kg
+        for limit, power in thresholds:
+            if weight < limit:
+                return power
+        return thresholds[-1][1]
+
+    return compute
+
+
+def _relative_weight(ctx: Context, attacker: Ref, defender: Ref, move: Move) -> int:
+    dex = ctx.state.config.dex
+    mine = dex.species[ctx.state.species_id(*attacker)].weight_kg
+    theirs = dex.species[ctx.state.species_id(*defender)].weight_kg or 0.1
+    ratio = mine / theirs
+    for limit, power in ((2, 40), (3, 60), (4, 80), (5, 100)):
+        if ratio < limit:
+            return power
+    return 120
+
+
+def _gyro_ball(ctx: Context, attacker: Ref, defender: Ref, move: Move) -> int:
+    mine = max(1, effective_stat(ctx, attacker, Stat.SPE))
+    theirs = effective_stat(ctx, defender, Stat.SPE)
+    return max(1, min(150, 25 * theirs // mine))
+
+
+def _electro_ball(ctx: Context, attacker: Ref, defender: Ref, move: Move) -> int:
+    mine = effective_stat(ctx, attacker, Stat.SPE)
+    theirs = max(1, effective_stat(ctx, defender, Stat.SPE))
+    ratio = mine / theirs
+    for limit, power in ((1, 40), (2, 60), (3, 80), (4, 120)):
+        if ratio < limit:
+            return power
+    return 150
+
+
+def _low_hp_scaling(ctx: Context, attacker: Ref, defender: Ref, move: Move) -> int:
+    fraction = mutate.current_hp(ctx.state, attacker) * 48 // mutate.max_hp(ctx.state, attacker)
+    for limit, power in ((2, 200), (5, 150), (10, 100), (17, 80), (33, 40)):
+        if fraction < limit:
+            return power
+    return 20
+
+
+def _target_hp_scaling(ctx: Context, attacker: Ref, defender: Ref, move: Move) -> int:
+    """Crush Grip / Wring Out: stronger the healthier the target is."""
+    ratio = mutate.current_hp(ctx.state, defender) / mutate.max_hp(ctx.state, defender)
+    return max(1, int(120 * ratio))
+
+
+#: Moves whose base power depends on the battle rather than on a constant.
+VARIABLE_POWER: dict[str, Callable[[Context, Ref, Ref, Move], int]] = {
+    "lowkick": _weight_based(((10, 20), (25, 40), (50, 60), (100, 80), (200, 100), (float("inf"), 120))),
+    "grassknot": _weight_based(((10, 20), (25, 40), (50, 60), (100, 80), (200, 100), (float("inf"), 120))),
+    "heavyslam": _relative_weight,
+    "heatcrash": _relative_weight,
+    "gyroball": _gyro_ball,
+    "electroball": _electro_ball,
+    "flail": _low_hp_scaling,
+    "reversal": _low_hp_scaling,
+    "crushgrip": _target_hp_scaling,
+    "wringout": _target_hp_scaling,
+    "hardpress": _target_hp_scaling,
+}
+
+
+def base_power(ctx: Context, attacker: Ref, defender: Ref, move: Move) -> int:
+    computed = VARIABLE_POWER.get(move.id)
+    if computed is not None:
+        return computed(ctx, attacker, defender, move)
+    return move.base_power
+
+
+# --------------------------------------------------------------------------- #
+# Damage
+# --------------------------------------------------------------------------- #
+
+
+def type_effectiveness(ctx: Context, attacker: Ref, defender: Ref, move: Move) -> float:
+    if move.id == STRUGGLE_ID:
+        return 1.0
+    value = ctx.state.config.dex.type_chart.multiplier(move.type, ctx.state.types(*defender))
+    return _both_sides(ctx, "modify_effectiveness", value, attacker, defender, move)
+
+
+def _both_sides(ctx: Context, event: str, value: Any, attacker: Ref, defender: Ref, move: Move) -> Any:
+    """Run a hook from the attacker's effects, then the defender's and the field.
+
+    Gathering the field from the defender's side only is deliberate: weather
+    would otherwise apply twice.
+    """
+    value = fx.modify(ctx, event, value, attacker, scope="self",
+                      attacker=attacker, defender=defender, move=move)
+    return fx.modify(ctx, event, value, defender, scope="all",
+                     attacker=attacker, defender=defender, move=move)
+
+
+def compute_damage(
+    ctx: Context,
+    attacker: Ref,
+    defender: Ref,
+    move: Move,
+    crit: bool,
+) -> tuple[int, float]:
+    """The Gen 5+ formula in its documented order. Returns (damage, effectiveness)."""
+    effectiveness = type_effectiveness(ctx, attacker, defender, move)
+    if effectiveness == 0.0:
+        return 0, 0.0
+
+    power = base_power(ctx, attacker, defender, move)
+    if power <= 0:
+        return 0, effectiveness
+
+    if move.category == "Physical":
+        attack_stat, defense_stat = Stat.ATK, Stat.DEF
+    else:
+        attack_stat, defense_stat = Stat.SPA, Stat.SPD
+
+    attack = effective_stat(ctx, attacker, attack_stat)
+    defense = effective_stat(ctx, defender, defense_stat)
+
+    # A critical hit ignores the defender's positive stages and the attacker's
+    # negative ones -- it recomputes without the stages that would have helped
+    # the defender or hurt the attacker.
+    if crit:
+        attack = max(attack, _unstaged(ctx, attacker, attack_stat, keep_positive=True))
+        defense = min(defense, _unstaged(ctx, defender, defense_stat, keep_positive=False))
+
+    damage = ((2 * LEVEL // 5 + 2) * power * attack // defense) // 50 + 2
+
+    if crit:
+        damage = damage * CRIT_MULTIPLIER_NUM // CRIT_MULTIPLIER_DEN
+
+    damage = damage * ctx.cursor.between(DAMAGE_ROLL_LOW, DAMAGE_ROLL_HIGH) // 100
+
+    if move.id != STRUGGLE_ID and move.type in ctx.state.types(*attacker):
+        damage = damage * STAB_NUM // STAB_DEN
+
+    damage = int(damage * effectiveness)
+    damage = _both_sides(ctx, "modify_damage", damage, attacker, defender, move)
+    return max(1, int(damage)), effectiveness
+
+
+def _unstaged(ctx: Context, ref: Ref, stat: Stat, keep_positive: bool) -> int:
+    """The stat with unhelpful stages ignored, as criticals do."""
+    stage = ctx.state.sides[ref[0]].boost(ref[1], mutate.STAT_TO_BOOST[stat])
+    if (stage > 0) == keep_positive:
+        return effective_stat(ctx, ref, stat)
+    raw = fx.modify(ctx, "modify_stat", mutate.raw_stat(ctx.state, ref, stat), ref, stat=stat)
+    return max(1, int(fx.modify(ctx, "modify_boosted_stat", raw, ref, stat=stat)))
+
+
+def rolls_crit(ctx: Context, attacker: Ref, defender: Ref, move: Move) -> bool:
+    if move.raw.get("willCrit"):
+        return True
+    ratio = move.raw.get("critRatio", 1)
+    ratio = _both_sides(ctx, "modify_crit_ratio", ratio, attacker, defender, move)
+    denominator = CRIT_DENOMINATOR.get(ratio, 1)
+    if denominator <= 1:
+        return True
+    return ctx.cursor.chance(1, denominator)
+
+
+def connects(ctx: Context, attacker: Ref, defender: Ref, move: Move) -> bool:
+    """Accuracy, including stat stages for accuracy and evasion."""
+    if move.accuracy is None:
+        return True
+
+    accuracy = _both_sides(ctx, "modify_accuracy", float(move.accuracy), attacker, defender, move)
+    stage = (
+        ctx.state.sides[attacker[0]].boost(attacker[1], "accuracy")
+        - ctx.state.sides[defender[0]].boost(defender[1], "evasion")
+    )
+    stage = max(-6, min(6, stage))
+    accuracy *= stage_multiplier(stage, accuracy_like=True)
+    return ctx.cursor.chance(min(100, max(1, int(accuracy))), 100)
+
+
+# --------------------------------------------------------------------------- #
+# Using a move
+# --------------------------------------------------------------------------- #
+
+
+def resolve_target(move: Move, attacker: Ref, defender: Ref) -> Ref:
+    return attacker if move.target in SELF_TARGETS else defender
+
+
+def use_move(
+    ctx: Context,
+    attacker: Ref,
+    defender: Ref,
+    move: Move,
+    move_index: int | None = None,
+) -> None:
+    """Run one move from start to finish."""
+    side = ctx.state.sides[attacker[0]]
+
+    if not fx.allows(ctx, "try_move", attacker, move=move):
+        _clear_flinch(ctx, attacker)
+        return
+
+    if move_index is not None:
+        side.pp[attacker[1]][move_index] -= 1
+
+    ctx.emit(ev.move_used(attacker[0], attacker[1], ctx.state.species_name(*attacker), move.name))
+    _clear_flinch(ctx, attacker)
+
+    # A move this executor cannot run must say so. Letting it fall through would
+    # look like a move that legitimately did nothing, and a policy trained on
+    # that learns the move is free (docs/DESIGN.md §1g).
+    unsupported = move_support(move)
+    if unsupported is not None:
+        ctx.emit(
+            Event("unimplemented", side=attacker[0], slot=attacker[1],
+                  move=move.name, detail=unsupported)
+        )
+        return
+
+    target = resolve_target(move, attacker, defender)
+    targets_opponent = target != attacker
+
+    if targets_opponent and ctx.state.sides[defender[0]].hp[defender[1]] <= 0:
+        ctx.emit(Event("move_failed", side=attacker[0], move=move.name, detail="no target"))
+        return
+
+    if targets_opponent and not fx.allows(
+        ctx, "try_hit", defender, attacker=attacker, defender=defender, move=move
+    ):
+        return
+
+    # Status moves are subject to the type chart as well: Thunder Wave never
+    # reaches a Ground type, Growl never reaches a Ghost type.
+    if targets_opponent and type_effectiveness(ctx, attacker, defender, move) == 0.0:
+        ctx.emit(ev.immune(defender[0], defender[1], move.name))
+        return
+
+    if targets_opponent and not connects(ctx, attacker, defender, move):
+        ctx.emit(ev.missed(attacker[0], attacker[1], move.name))
+        return
+
+    landed = True
+    if move.category == "Status":
+        landed = _apply_status_move(ctx, attacker, target, move)
+    else:
+        landed = _apply_damaging_move(ctx, attacker, defender, move)
+
+    if landed:
+        _apply_self_effects(ctx, attacker, move)
+    fx.notify(ctx, "after_move", attacker, move=move)
+
+
+def _clear_flinch(ctx: Context, ref: Ref) -> None:
+    mutate.remove_volatile(ctx, ref, "flinch", quiet=True)
+
+
+def _apply_damaging_move(ctx: Context, attacker: Ref, defender: Ref, move: Move) -> bool:
+    if move.raw.get("ohko"):
+        return _apply_ohko(ctx, attacker, defender, move)
+
+    fixed = move.raw.get("damage")
+    if fixed is not None:
+        amount = LEVEL if fixed == "level" else int(fixed)
+        if type_effectiveness(ctx, attacker, defender, move) == 0.0:
+            ctx.emit(ev.immune(defender[0], defender[1], move.name))
+            return False
+        apply_damage(ctx, defender, amount, "damage", move=move.name, effectiveness=1.0)
+        return True
+
+    hits = _hit_count(ctx, move)
+    total = 0
+    for _ in range(hits):
+        if ctx.state.sides[defender[0]].hp[defender[1]] <= 0:
+            break
+        crit = rolls_crit(ctx, attacker, defender, move)
+        damage, effectiveness = compute_damage(ctx, attacker, defender, move, crit)
+        if effectiveness == 0.0:
+            ctx.emit(ev.immune(defender[0], defender[1], move.name))
+            return False
+        dealt = _deal_or_break_substitute(ctx, attacker, defender, move, damage, effectiveness, crit)
+        total += dealt
+
+    if hits > 1:
+        ctx.emit(Event("multi_hit", side=attacker[0], move=move.name, amount=hits))
+
+    if total:
+        fx.notify(ctx, "after_damage", defender, attacker=attacker, defender=defender,
+                  move=move, damage=total)
+        fx.notify(ctx, "after_damage", attacker, scope="self", attacker=attacker,
+                  defender=defender, move=move, damage=total)
+
+    _apply_drain(ctx, attacker, move, total)
+    _apply_recoil(ctx, attacker, move, total)
+    if total:
+        _apply_secondaries(ctx, attacker, defender, move)
+    return True
+
+
+def _deal_or_break_substitute(
+    ctx: Context, attacker: Ref, defender: Ref, move: Move,
+    damage: int, effectiveness: float, crit: bool,
+) -> int:
+    substitute = mutate.volatile(ctx.state, defender, "substitute")
+    if substitute is not None and "authentic" not in move.flags:
+        substitute["hp"] -= damage
+        if substitute["hp"] <= 0:
+            mutate.remove_volatile(ctx, defender, "substitute")
+        else:
+            ctx.emit(Event("substitute_hit", side=defender[0], slot=defender[1],
+                           amount=damage, move=move.name))
+        return 0
+
+    return apply_damage(ctx, defender, damage, "damage", move=move.name,
+                        effectiveness=effectiveness, crit=crit)
+
+
+def _apply_ohko(ctx: Context, attacker: Ref, defender: Ref, move: Move) -> bool:
+    if type_effectiveness(ctx, attacker, defender, move) == 0.0:
+        ctx.emit(ev.immune(defender[0], defender[1], move.name))
+        return False
+    apply_damage(ctx, defender, mutate.max_hp(ctx.state, defender), "damage",
+                 move=move.name, detail="ohko", effectiveness=1.0)
+    return True
+
+
+def _hit_count(ctx: Context, move: Move) -> int:
+    multihit = move.raw.get("multihit")
+    if multihit is None:
+        return 1
+    if isinstance(multihit, int):
+        return multihit
+    low, high = multihit
+    if (low, high) == (2, 5):
+        return ctx.cursor.choice(MULTIHIT_2_TO_5)
+    return ctx.cursor.between(low, high)
+
+
+def _apply_status_move(ctx: Context, attacker: Ref, target: Ref, move: Move) -> bool:
+    raw = move.raw
+    did_something = False
+
+    if raw.get("stallingMove"):
+        return _apply_protect(ctx, attacker, move)
+
+    if move.id == "substitute":
+        return _apply_substitute(ctx, attacker)
+
+    if "boosts" in raw and raw["boosts"]:
+        did_something |= bool(mutate.boost(ctx, target, raw["boosts"], source=attacker))
+
+    if raw.get("status"):
+        did_something |= mutate.set_status(ctx, target, raw["status"], source=attacker)
+
+    if raw.get("volatileStatus"):
+        did_something |= mutate.add_volatile(ctx, target, raw["volatileStatus"],
+                                             **_volatile_data(ctx, raw["volatileStatus"]))
+
+    if raw.get("heal"):
+        numerator, denominator = raw["heal"]
+        did_something |= bool(
+            heal(ctx, attacker, mutate.max_hp(ctx.state, attacker) * numerator // denominator,
+                 reason=move.name)
+        )
+
+    did_something |= _apply_field_effects(ctx, attacker, target, move)
+
+    if not did_something:
+        ctx.emit(Event("move_failed", side=attacker[0], move=move.name))
+    return did_something
+
+
+def _volatile_data(ctx: Context, name: str) -> dict:
+    if name == "confusion":
+        return {"turns": ctx.cursor.between(2, 5)}
+    return {}
+
+
+def _apply_protect(ctx: Context, attacker: Ref, move: Move) -> bool:
+    """Consecutive Protects get likelier to fail: 1/1, then 1/3, 1/9, ..."""
+    stall = mutate.volatile(ctx.state, attacker, "stall")
+    denominator = 3 ** stall["count"] if stall else 1
+    if denominator > 1 and not ctx.cursor.chance(1, denominator):
+        mutate.remove_volatile(ctx, attacker, "stall", quiet=True)
+        ctx.emit(Event("move_failed", side=attacker[0], move=move.name, detail="stalled out"))
+        return False
+
+    mutate.add_volatile(ctx, attacker, "protect")
+    if stall is None:
+        ctx.state.sides[attacker[0]].volatiles[attacker[1]]["stall"] = {"count": 1}
+    else:
+        stall["count"] += 1
+    return True
+
+
+def _apply_substitute(ctx: Context, attacker: Ref) -> bool:
+    cost = mutate.max_hp(ctx.state, attacker) // 4
+    if cost <= 0 or mutate.current_hp(ctx.state, attacker) <= cost:
+        ctx.emit(Event("move_failed", side=attacker[0], move="Substitute", detail="not enough HP"))
+        return False
+    if mutate.volatile(ctx.state, attacker, "substitute") is not None:
+        ctx.emit(Event("move_failed", side=attacker[0], move="Substitute", detail="already up"))
+        return False
+    apply_damage(ctx, attacker, cost, "damage", detail="substitute")
+    mutate.add_volatile(ctx, attacker, "substitute", hp=cost)
+    return True
+
+
+def _apply_field_effects(ctx: Context, attacker: Ref, target: Ref, move: Move) -> bool:
+    raw = move.raw
+    changed = False
+
+    weather = raw.get("weather")
+    if weather:
+        ctx.state.field.weather = _to_id(weather)
+        ctx.state.field.weather_turns = 5
+        ctx.emit(Event("weather_start", detail=ctx.state.field.weather))
+        changed = True
+
+    terrain = raw.get("terrain")
+    if terrain:
+        ctx.state.field.terrain = _to_id(terrain)
+        ctx.state.field.terrain_turns = 5
+        ctx.emit(Event("terrain_start", detail=ctx.state.field.terrain))
+        changed = True
+
+    pseudo = raw.get("pseudoWeather")
+    if pseudo:
+        ctx.state.field.rooms[_to_id(pseudo)] = 5
+        ctx.emit(Event("room_start", detail=_to_id(pseudo)))
+        changed = True
+
+    condition = raw.get("sideCondition")
+    if condition:
+        name = _to_id(condition)
+        side_index = attacker[0] if move.target in SELF_TARGETS or move.target == "allySide" else 1 - attacker[0]
+        conditions = ctx.state.sides[side_index].conditions
+        conditions[name] = conditions.get(name, 0) + 1
+        ctx.emit(Event("side_condition", side=side_index, detail=name,
+                       amount=conditions[name]))
+        changed = True
+
+    return changed
+
+
+def _to_id(value: str) -> str:
+    return "".join(character for character in value.lower() if character.isalnum())
+
+
+def _apply_self_effects(ctx: Context, attacker: Ref, move: Move) -> None:
+    """``self: {boosts, volatileStatus}`` -- unconditional, e.g. Overheat."""
+    payload = move.raw.get("self")
+    if not isinstance(payload, dict):
+        return
+    if payload.get("boosts"):
+        mutate.boost(ctx, attacker, payload["boosts"], source=attacker)
+    if payload.get("volatileStatus"):
+        mutate.add_volatile(ctx, attacker, payload["volatileStatus"])
+
+
+def _apply_secondaries(ctx: Context, attacker: Ref, defender: Ref, move: Move) -> None:
+    secondaries = move.raw.get("secondaries")
+    if secondaries is None:
+        single = move.raw.get("secondary")
+        secondaries = [single] if single else []
+
+    for secondary in secondaries:
+        if not secondary:
+            continue
+        chance = secondary.get("chance", 100)
+        if chance < 100 and not ctx.cursor.chance(chance, 100):
+            continue
+
+        if secondary.get("status"):
+            mutate.set_status(ctx, defender, secondary["status"], source=attacker)
+        if secondary.get("volatileStatus"):
+            mutate.add_volatile(ctx, defender, secondary["volatileStatus"],
+                                **_volatile_data(ctx, secondary["volatileStatus"]))
+        if secondary.get("boosts"):
+            mutate.boost(ctx, defender, secondary["boosts"], source=attacker)
+
+        own = secondary.get("self")
+        if isinstance(own, dict) and own.get("boosts"):
+            mutate.boost(ctx, attacker, own["boosts"], source=attacker)
+
+
+def _apply_drain(ctx: Context, attacker: Ref, move: Move, damage: int) -> None:
+    drain = move.raw.get("drain")
+    if not drain or damage <= 0:
+        return
+    numerator, denominator = drain
+    heal(ctx, attacker, max(1, damage * numerator // denominator), reason="drain")
+
+
+def _apply_recoil(ctx: Context, attacker: Ref, move: Move, damage: int) -> None:
+    if move.id == STRUGGLE_ID:
+        amount = mutate.fraction_of_max(ctx.state, attacker, STRUGGLE_RECOIL_FRACTION)
+        apply_damage(ctx, attacker, amount, "recoil")
+        return
+
+    recoil = move.raw.get("recoil")
+    if not recoil or damage <= 0:
+        return
+    numerator, denominator = recoil
+    apply_damage(ctx, attacker, max(1, damage * numerator // denominator), "recoil")
+
+
+# --------------------------------------------------------------------------- #
+# What this executor can and cannot run
+#
+# The predicate lives next to the executor it describes (and that is also what
+# keeps `scope` importable from here without a cycle). `scope` re-exports it.
+# --------------------------------------------------------------------------- #
+
+
+VARIABLE_POWER_REASON = "variable base power"
+NO_EFFECT_DATA = "effect not described by the data"
+MULTI_TURN = "two-turn"
+SELF_DESTRUCT = "self-destructing"
+FORCE_SWITCH = "forces a switch"
+SELF_SWITCH = "switches the user out"
+SPECIAL_DAMAGE = "damage computed from what it was hit by"
+
+#: A status move is executable when it carries at least one of these.
+DECLARATIVE_FIELDS = (
+    "boosts",
+    "status",
+    "volatileStatus",
+    "heal",
+    "weather",
+    "terrain",
+    "pseudoWeather",
+    "sideCondition",
+    "stallingMove",
+)
+
+#: Damaging moves whose damage comes from elsewhere in the battle entirely.
+COUNTER_MOVES = frozenset(
+    {"counter", "mirrorcoat", "metalburst", "comeuppance", "bide", "endeavor", "finalgambit"}
+)
+
+#: Handled explicitly by the executor despite carrying no declarative fields.
+SPECIAL_CASED = frozenset({"substitute"})
+
+
+def _unwired_condition(move: Move) -> str | None:
+    """Does this move set a condition nobody handles?
+
+    A move writing ``sideCondition: "safeguard"`` reads as declarative and would
+    sail through the field check below, then do exactly nothing -- the name goes
+    into the state and no handler ever looks at it. Safeguard was caught doing
+    precisely that. Checking the value, not just the presence of the field, is
+    the difference between "we implement this" and "we store the word".
+    """
+    from pkcm.engine import conditions as cond
+
+    checks = (
+        ("status", cond.IMPLEMENTED_STATUSES, "status"),
+        ("volatileStatus", cond.IMPLEMENTED_VOLATILES, "volatile condition"),
+        ("sideCondition", cond.IMPLEMENTED_SIDE_CONDITIONS, "side condition"),
+        ("weather", cond.IMPLEMENTED_WEATHER, "weather"),
+        ("terrain", cond.IMPLEMENTED_TERRAIN, "terrain"),
+        ("pseudoWeather", cond.IMPLEMENTED_ROOMS, "field effect"),
+    )
+    for field_name, implemented, label in checks:
+        value = move.raw.get(field_name)
+        if value and _to_id(str(value)) not in implemented:
+            return f"unhandled {label}: {_to_id(str(value))}"
+
+    payloads = list(_all_secondaries(move))
+    own = move.raw.get("self")
+    if isinstance(own, dict):
+        payloads.append(own)
+
+    for payload in payloads:
+        for field_name, implemented, label in checks[:2]:
+            value = payload.get(field_name)
+            if value and _to_id(str(value)) not in implemented:
+                return f"unhandled {label}: {_to_id(str(value))}"
+    return None
+
+
+def _all_secondaries(move: Move) -> list[dict]:
+    secondaries = move.raw.get("secondaries")
+    if secondaries is None:
+        single = move.raw.get("secondary")
+        secondaries = [single] if single else []
+    return [s for s in secondaries if s]
+
+
+def move_support(move: Move) -> str | None:
+    """``None`` if the engine executes this move correctly, else why it does not."""
+    if "charge" in move.flags or "recharge" in move.flags:
+        return MULTI_TURN
+    if move.raw.get("selfdestruct") is not None:
+        return SELF_DESTRUCT
+    if move.raw.get("forceSwitch"):
+        return FORCE_SWITCH
+    if move.raw.get("selfSwitch"):
+        return SELF_SWITCH
+
+    unwired = _unwired_condition(move)
+    if unwired is not None:
+        return unwired
+
+    if move.category == "Status":
+        if move.id in SPECIAL_CASED:
+            return None
+        if any(move.raw.get(field) for field in DECLARATIVE_FIELDS):
+            return None
+        return NO_EFFECT_DATA
+
+    if move.id in COUNTER_MOVES:
+        return SPECIAL_DAMAGE
+    if move.base_power == 0 and move.raw.get("damage") is None and not move.raw.get("ohko"):
+        if move.id not in VARIABLE_POWER:
+            return VARIABLE_POWER_REASON
+    return None

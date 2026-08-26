@@ -1,46 +1,47 @@
 """What the engine can actually execute right now.
 
-Kept separate from ``legality`` on purpose. Legality asks "may this set be
-registered in Champions?"; this asks "can our engine run it faithfully?". They
-answer to different authorities and move on different schedules -- one changes
-when Nintendo changes a regulation, the other when we finish a milestone.
+Kept separate from ``legality`` on purpose (docs/DESIGN.md §1g). Legality asks
+"may this set be registered in Champions?"; this asks "can our engine run it
+faithfully?". They answer to different authorities and move on different
+schedules -- one changes when a regulation changes, the other when we finish a
+piece of work.
 
-Conflating them would be a quiet disaster: a move the engine cannot execute
-would become "illegal", and the day M1 lands, team legality would silently shift
-underneath every trained policy.
+The subtle case this guards is the **status move with no declarative payload**.
+Showdown's client data describes most effects as fields -- ``boosts``,
+``status``, ``volatileStatus``, ``sideCondition`` -- and our executor reads them
+directly. But moves whose effect lives in handler code we do not have (Haze,
+Roar, Rest, Trick, Baton Pass) arrive here as an empty shell. Running one would
+look like a move that simply did nothing, which is exactly the kind of quiet
+wrongness a policy would learn to exploit. So they are named as unsupported and
+the engine logs an ``unimplemented`` event if one is ever used.
 
-``move_support`` returns ``None`` when the move is fully implemented, or a short
-reason why not. The engine logs that reason instead of pretending the move did
-nothing, and the random team generator avoids such moves so that self-play is
-not quietly training on no-ops.
+The predicate itself lives in ``pkcm.engine.moves`` beside the executor whose
+capability it describes; this module is where it is looked at from outside.
 """
 
 from __future__ import annotations
 
 from pkcm.data.dex import Dex, Move
+from pkcm.engine.moves import (
+    COUNTER_MOVES,
+    DECLARATIVE_FIELDS,
+    FORCE_SWITCH,
+    MULTI_TURN,
+    NO_EFFECT_DATA,
+    SELF_DESTRUCT,
+    SELF_SWITCH,
+    SPECIAL_CASED,
+    SPECIAL_DAMAGE,
+    VARIABLE_POWER_REASON,
+    move_support,
+)
 
-#: Moves whose base power is computed from battle state (weight, Speed, HP,
-#: remaining PP, damage taken). Showdown stores them with ``basePower: 0``.
-VARIABLE_POWER = "variable base power"
-STATUS_MOVE = "status move"
-MULTI_HIT = "multi-hit"
-TWO_TURN = "two-turn"
-SELF_DESTRUCT = "self-destructing"
-
-
-def move_support(move: Move) -> str | None:
-    """``None`` if M0 executes this move correctly, else why it does not."""
-    if move.category == "Status":
-        return STATUS_MOVE
-    if move.base_power == 0:
-        return VARIABLE_POWER
-    if move.raw.get("multihit") is not None:
-        return MULTI_HIT
-    if "charge" in move.flags or "recharge" in move.flags:
-        return TWO_TURN
-    if move.raw.get("selfdestruct") is not None:
-        return SELF_DESTRUCT
-    return None
+__all__ = [
+    "COUNTER_MOVES", "DECLARATIVE_FIELDS", "FORCE_SWITCH", "MULTI_TURN",
+    "NO_EFFECT_DATA", "SELF_DESTRUCT", "SELF_SWITCH", "SPECIAL_CASED",
+    "SPECIAL_DAMAGE", "VARIABLE_POWER_REASON",
+    "move_support", "is_supported", "supported_moves", "coverage",
+]
 
 
 def is_supported(move: Move) -> bool:
@@ -49,3 +50,14 @@ def is_supported(move: Move) -> bool:
 
 def supported_moves(dex: Dex, move_ids) -> list[str]:
     return [move_id for move_id in move_ids if is_supported(dex.moves[move_id])]
+
+
+def coverage(dex: Dex) -> dict[str, int]:
+    """How many standard moves the engine runs, and why the rest are out."""
+    counts: dict[str, int] = {}
+    for move in dex.moves.values():
+        if move.raw.get("isNonstandard") is not None:
+            continue
+        reason = move_support(move) or "supported"
+        counts[reason] = counts.get(reason, 0) + 1
+    return dict(sorted(counts.items(), key=lambda item: -item[1]))

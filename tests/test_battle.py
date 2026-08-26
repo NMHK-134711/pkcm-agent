@@ -6,7 +6,8 @@ import pytest
 
 from pkcm.data.dex import Stat, load_dex
 from pkcm.engine.actions import Action, ActionKind
-from pkcm.engine.battle import IllegalActionError, compute_damage, step
+from pkcm.engine.battle import IllegalActionError, make_context, step
+from pkcm.engine.moves import compute_damage, rolls_crit
 from pkcm.engine.legality import random_team
 from pkcm.engine.pokemon import PokemonSet, compile_set
 from pkcm.engine.rng import Rng
@@ -47,49 +48,59 @@ def build(config, lead_a, lead_b, bench=("snorlax", "pikachu", "gyarados", "skar
 # --------------------------------------------------------------------------- #
 
 
+ATTACKER = (0, 0)
+DEFENDER = (1, 0)
+
+
 def test_ground_move_cannot_touch_a_flying_type(dex, config):
-    chomp = compile_set(dex, a_set("garchomp", ("earthquake",)))
-    skarmory = compile_set(dex, a_set("skarmory", ("peck",)))
-    result = compute_damage(chomp, skarmory, dex.moves["earthquake"], Rng.from_seed(0).cursor(), dex.type_chart)
-    assert result.immune
-    assert result.amount == 0
+    state = build(config, a_set("garchomp", ("earthquake",)), a_set("skarmory", ("peck",)))
+    ctx = make_context(state)
+    damage, effectiveness = compute_damage(
+        ctx, ATTACKER, DEFENDER, dex.moves["earthquake"], crit=False
+    )
+    assert effectiveness == 0.0
+    assert damage == 0
 
 
-def test_damage_stays_inside_the_analytic_bounds(dex):
+def test_damage_stays_inside_the_analytic_bounds(dex, config):
     """Every roll must land between the min non-crit and the max crit."""
-    chomp = compile_set(dex, a_set("garchomp", ("earthquake",)))
-    snorlax = compile_set(dex, a_set("snorlax", ("tackle",)))
+    state = build(config, a_set("garchomp", ("earthquake",)), a_set("snorlax", ("bodyslam",)))
+    ctx = make_context(state)
     move = dex.moves["earthquake"]
 
-    base = ((2 * 50 // 5 + 2) * move.base_power * chomp.stats[Stat.ATK] // snorlax.stats[Stat.DEF]) // 50 + 2
-    lowest = (base * 85 // 100) * 3 // 2          # no crit, min roll, STAB
+    attack = state.pokemon(*ATTACKER).stats[Stat.ATK]
+    defense = state.pokemon(*DEFENDER).stats[Stat.DEF]
+    base = ((2 * 50 // 5 + 2) * move.base_power * attack // defense) // 50 + 2
+    lowest = (base * 85 // 100) * 3 // 2             # no crit, min roll, STAB
     highest = (base * 3 // 2 * 100 // 100) * 3 // 2  # crit, max roll, STAB
 
-    cursor = Rng.from_seed(99).cursor()
-    seen = [compute_damage(chomp, snorlax, move, cursor, dex.type_chart) for _ in range(4000)]
-    amounts = [r.amount for r in seen]
-
-    assert min(amounts) == lowest
-    assert max(amounts) == highest
-    assert any(r.crit for r in seen) and not all(r.crit for r in seen)
-    # 1/24 crit rate; 4000 samples puts the count far from either bound.
-    assert 100 < sum(r.crit for r in seen) < 260
+    rolls = [compute_damage(ctx, ATTACKER, DEFENDER, move, crit)[0]
+             for _ in range(2000) for crit in (False, True)]
+    assert min(rolls) == lowest
+    assert max(rolls) == highest
 
 
-def test_stab_and_effectiveness_are_applied(dex):
-    """Same attacker, same power, three different type interactions."""
-    chomp = compile_set(dex, a_set("garchomp", ("earthquake",)))
-    neutral = compile_set(dex, a_set("snorlax", ("tackle",)))  # Normal: 1x, no resist
+def test_crit_rate_is_one_in_twentyfour(dex, config):
+    state = build(config, a_set("garchomp", ("earthquake",)), a_set("snorlax", ("bodyslam",)))
+    ctx = make_context(state)
+    move = dex.moves["earthquake"]
+    crits = sum(rolls_crit(ctx, ATTACKER, DEFENDER, move) for _ in range(4000))
+    assert 100 < crits < 260, "4000 samples at 1/24 lands far from either bound"
 
-    cursor = Rng.from_seed(3).cursor()
-    stab = [compute_damage(chomp, neutral, dex.moves["earthquake"], cursor, dex.type_chart).amount
-            for _ in range(500)]
-    cursor = Rng.from_seed(3).cursor()
-    no_stab = [compute_damage(chomp, neutral, dex.moves["bodyslam"], cursor, dex.type_chart).amount
-               for _ in range(500)]
+
+def test_stab_and_effectiveness_are_applied(dex, config):
+    """Same attacker, one STAB move and one not."""
+    state = build(config, a_set("garchomp", ("earthquake", "bodyslam")),
+                  a_set("snorlax", ("bodyslam",)))  # Normal: 1x, no resist
+    ctx = make_context(state)
+
+    stab = sum(compute_damage(ctx, ATTACKER, DEFENDER, dex.moves["earthquake"], False)[0]
+               for _ in range(500))
+    no_stab = sum(compute_damage(ctx, ATTACKER, DEFENDER, dex.moves["bodyslam"], False)[0]
+                  for _ in range(500))
 
     # Earthquake is 100 BP with STAB, Body Slam 85 BP without: a wide, stable gap.
-    assert sum(stab) > sum(no_stab) * 1.5
+    assert stab > no_stab * 1.5
 
 
 # --------------------------------------------------------------------------- #
@@ -268,21 +279,31 @@ def test_turn_limit_produces_a_ruling(dex, config):
 
 
 def test_unsupported_moves_are_named_not_silently_dropped(dex, config):
-    """A move M0 cannot run must say which mechanic it needs."""
-    state = build(config, a_set("garchomp", ("swordsdance", "earthquake")),
+    """Haze's effect is not in the data; running it must not look like a no-op."""
+    from pkcm.engine.scope import move_support
+
+    assert move_support(dex.moves["haze"]) == "effect not described by the data"
+
+    state = build(config, a_set("gyarados", ("haze", "waterfall")),
                   a_set("snorlax", ("bodyslam",)))
     _, log = step(state, Action.move(0), Action.move(0))
     skipped = [e for e in log if e.kind == "unimplemented"]
     assert len(skipped) == 1
-    assert skipped[0].move == "Swords Dance"
-    assert skipped[0].detail == "status move"
+    assert skipped[0].move == "Haze"
+    assert skipped[0].detail == "effect not described by the data"
 
 
-def test_variable_power_moves_are_not_treated_as_status(dex, config):
-    """Gyro Ball has basePower 0 but is a damaging move, not a status move."""
+def test_declarative_moves_are_supported_now(dex):
+    """Anything the data fully describes runs; nothing else claims to."""
     from pkcm.engine.scope import move_support
 
-    assert dex.moves["gyroball"].base_power == 0
-    assert dex.moves["gyroball"].category == "Physical"
-    assert move_support(dex.moves["gyroball"]) == "variable base power"
-    assert move_support(dex.moves["swordsdance"]) == "status move"
+    assert move_support(dex.moves["swordsdance"]) is None, "boosts: {atk: 2}"
+    assert move_support(dex.moves["thunderbolt"]) is None, "secondary: par"
+    assert move_support(dex.moves["gigadrain"]) is None, "drain"
+    assert move_support(dex.moves["bulletseed"]) is None, "multihit"
+    assert move_support(dex.moves["reflect"]) is None, "sideCondition"
+    assert move_support(dex.moves["gyroball"]) is None, "variable power, implemented"
+
+    assert move_support(dex.moves["solarbeam"]) == "two-turn"
+    assert move_support(dex.moves["uturn"]) == "switches the user out"
+    assert move_support(dex.moves["counter"]) == "damage computed from what it was hit by"

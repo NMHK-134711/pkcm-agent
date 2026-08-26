@@ -41,9 +41,16 @@ def joint_actions(state: BattleState, player: int,
     Pokemon may not be sent to two positions. Singles collapses to a plain list
     of that position's actions.
 
-    ``limit`` truncates. Doubles can offer a few hundred combinations and a
-    search that expands all of them learns nothing about any of them; the
-    caller decides how wide it can afford to look.
+    ``limit`` keeps the most promising ``limit`` combinations. Doubles can offer
+    a few hundred and a search that expands all of them learns nothing about any
+    of them.
+
+    Which ones are kept matters more than how many. Truncating in enumeration
+    order looks harmless and is not: ``legal_actions`` lists moves before
+    switches, so a doubles node would drop every switch and the search would
+    never consider leaving. The ordering below is crude -- power times type
+    effectiveness -- but it is about the move rather than about the order the
+    list happened to come in.
     """
     positions = decisions_wanted(state, player)
     combinations: list[tuple[Action, ...]] = [()]
@@ -60,8 +67,48 @@ def joint_actions(state: BattleState, player: int,
         if not combinations:
             return []
     if limit is not None and len(combinations) > limit:
+        combinations.sort(key=lambda choice: -_promise(state, player, choice))
         return combinations[:limit]
     return combinations
+
+
+#: A switch is worth considering even when every attack scores higher, so it is
+#: given a floor rather than left to lose every comparison.
+SWITCH_PROMISE = 0.6
+
+
+def _promise(state: BattleState, player: int, choice: tuple[Action, ...]) -> float:
+    """A cheap guess at how good a choice is, for ordering only.
+
+    Reads the state directly, which is legitimate here and nowhere else: inside
+    the search this runs on a *determinization*, which has already committed to
+    a guess about everything hidden. It is never used to decide anything -- only
+    to pick which branches are worth the budget.
+    """
+    total = 0.0
+    for position, action in enumerate(choice):
+        if action.kind is ActionKind.SWITCH:
+            total += SWITCH_PROMISE
+            continue
+        if action.kind is not ActionKind.MOVE:
+            continue
+        slot = state.sides[player].active[position] if position < len(
+            state.sides[player].active) else -1
+        if slot < 0:
+            continue
+        moves = state.moves(player, slot)
+        if action.index >= len(moves):
+            continue
+        move = moves[action.index]
+        power = move.base_power or 45      # a status move is worth a look
+        best = 0.0
+        for foe in state.foes((player, slot)):
+            effectiveness = state.config.dex.type_chart.multiplier(
+                move.type, state.types(*foe))
+            best = max(best, effectiveness)
+        stab = 1.5 if move.type in state.types(player, slot) else 1.0
+        total += power * (best if best else 0.1) * stab / 100.0
+    return total
 
 
 @dataclass

@@ -21,3 +21,4 @@ wandb/
 # Showdown TypeScript sources, used as the mechanics reference
 # (regenerate with: python scripts/fetch_showdown_source.py)
 data/reference/
+scratch_*.py

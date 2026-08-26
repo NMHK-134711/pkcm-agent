@@ -60,7 +60,7 @@ def evaluator_for(checkpoint, dex, battle_format: str, trust: float):
 
 def build(name: str, seed: int, iterations: int, determinizations: int,
           rollout: int, prior: float | None = None, evaluator=None,
-          ablate: tuple[str, ...] = ()):
+          ablate: tuple[str, ...] = (), exploration: float | None = None):
     """``ablate`` switches named ``SearchConfig`` flags off.
 
     An ablation is the only way to find out whether a change did anything. Two
@@ -74,6 +74,8 @@ def build(name: str, seed: int, iterations: int, determinizations: int,
     if name == "search":
         extra = {} if prior is None else {"prior_weight": prior}
         extra.update({flag: False for flag in ablate})
+        if exploration is not None:
+            extra["exploration"] = exploration
         config = SearchConfig(iterations=iterations,
                               determinizations=determinizations,
                               rollout_turns=rollout, **extra)
@@ -108,6 +110,14 @@ def main() -> int:
     parser.add_argument("--seed", type=int, default=0)
     parser.add_argument("--checkpoint", type=Path, default=None,
                         help="network to use for the 'net' policy")
+    parser.add_argument("--exploration", type=float, default=None,
+                        help="UCB1 term for --a, on top of PUCT's prior term")
+    parser.add_argument("--exploration-b", type=float, default=None,
+                        help="the same for --b, so the two can be matched "
+                             "directly. Two win rates against a third party "
+                             "waste most of their samples: beating greedy 75%% "
+                             "and 69%% leaves intervals that overlap for a "
+                             "hundred games, where the head to head does not")
     parser.add_argument("--ablate", default="",
                         help="SearchConfig flags to switch off in --a, comma "
                              "separated (e.g. normalize_value,sample_opponent)")
@@ -137,9 +147,10 @@ def main() -> int:
         for swap in (False, True):
             a = build(args.a, args.seed + match, args.iterations,
                       args.determinizations, args.rollout, args.prior, evaluator,
-                      ablate=ablated)
+                      ablate=ablated, exploration=args.exploration)
             b = build(args.b, args.seed + match + 5000, args.iterations,
-                      args.determinizations, args.rollout, args.prior, evaluator)
+                      args.determinizations, args.rollout, args.prior, evaluator,
+                      exploration=args.exploration_b)
             policies = (b, a) if swap else (a, b)
             state = new_battle(config, teams, seed=args.seed + match)
             state = play_out(state, policies)

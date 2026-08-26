@@ -145,11 +145,19 @@ class SearchConfig:
     #: a side is thirteen visits per pair and the visit counts are mostly noise.
     #: Keying by our action alone makes it |A|, which is a hundred visits each.
     #:
-    #: That noise is not an abstract worry. It made 73% of self-play policy
-    #: targets indistinguishable from uniform, and the policy head sat exactly
-    #: at the entropy of its own targets -- having learned everything there was,
-    #: which was nothing.
-    sample_opponent: bool = True
+    #: **Off, because it was measured and it loses.** The reasoning above is
+    #: what I wrote when I turned it on, and the part about branching is true;
+    #: the conclusion drawn from it was not. The policy target is built from the
+    #: root's per-side *marginal* counts, and those come out of ``_select``
+    #: whatever the children are keyed by -- so narrowing the tree never had a
+    #: route to sharpening them, and measurement agreed: entropy 1.747 to 1.754,
+    #: no change. What it did do was plan against an opponent drawn from noisy
+    #: counts instead of one choosing its best reply.
+    #:
+    #: Head to head at 200 games, mirrored teams and both seatings, the search
+    #: with this off beat the search with it on 59.5% [52.6, 66.1] -- an
+    #: interval clear of 50, which is as close to settled as this project gets.
+    sample_opponent: bool = False
     #: Rescale Q by the range of values this search has actually met, before
     #: comparing it against the exploration bonus. See ``MinMax``.
     normalize_value: bool = True

@@ -32,15 +32,16 @@ from pkcm.search.policy import SearchPolicy, play_out  # noqa: E402
 
 
 def build(name: str, seed: int, iterations: int, determinizations: int,
-          rollout: int):
+          rollout: int, prior: float | None = None):
     if name == "random":
         return RandomPolicy.seeded(seed)
     if name == "greedy":
         return GreedyPolicy.seeded(seed)
     if name == "search":
+        extra = {} if prior is None else {"prior_weight": prior}
         config = SearchConfig(iterations=iterations,
                               determinizations=determinizations,
-                              rollout_turns=rollout)
+                              rollout_turns=rollout, **extra)
         return SearchPolicy(MCTS(config), Rng.from_seed(seed).cursor())
     raise SystemExit(f"unknown policy {name!r}")
 
@@ -55,6 +56,8 @@ def main() -> int:
     parser.add_argument("--determinizations", type=int, default=15)
     parser.add_argument("--rollout", type=int, default=0,
                         help="turns to play out at a leaf; 0 uses the heuristic")
+    parser.add_argument("--prior", type=float, default=None,
+                        help="PUCT prior weight; 0 ablates the prior entirely")
     parser.add_argument("--seed", type=int, default=0)
     args = parser.parse_args()
 
@@ -74,9 +77,9 @@ def main() -> int:
         # Same teams, both seatings. A win rate from the draw is not a win rate.
         for swap in (False, True):
             a = build(args.a, args.seed + match, args.iterations,
-                      args.determinizations, args.rollout)
+                      args.determinizations, args.rollout, args.prior)
             b = build(args.b, args.seed + match + 5000, args.iterations,
-                      args.determinizations, args.rollout)
+                      args.determinizations, args.rollout, args.prior)
             policies = (b, a) if swap else (a, b)
             state = new_battle(config, teams, seed=args.seed + match)
             state = play_out(state, policies)

@@ -159,6 +159,9 @@ def heal(ctx: Context, ref: Ref, amount: int, reason: str | None = None) -> int:
     side = ctx.state.sides[side_index]
     if side.hp[slot] <= 0:
         return 0
+    if "healblock" in side.volatiles[slot]:
+        ctx.emit(Event("heal_blocked", side=side_index, slot=slot))
+        return 0
 
     total = max_hp(ctx.state, ref)
     healed = min(max(0, amount), total - side.hp[slot])

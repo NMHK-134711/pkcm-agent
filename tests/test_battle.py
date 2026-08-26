@@ -281,9 +281,22 @@ def test_turn_limit_produces_a_ruling(dex, config):
     assert state.winner in (0, 1, None)
 
 
-def test_unsupported_moves_are_named_not_silently_dropped(dex, config):
-    """Haze's effect is not in the data; running it must not look like a no-op."""
+def test_unsupported_moves_are_named_not_silently_dropped(dex, config, monkeypatch):
+    """Every Champions move is implemented, so this proves the guard, not a gap.
+
+    Nothing is unsupported any more, which would quietly retire this check if it
+    depended on finding an example. So one is made: Haze is hidden from the
+    executor, and the engine must then say which mechanic is missing rather than
+    let the move pass for one that legitimately did nothing.
+    """
+    from pkcm.engine import moveeffects
     from pkcm.engine.scope import move_support
+
+    assert move_support(dex.moves["haze"]) is None, "implemented, in the normal case"
+
+    hidden = dict(moveeffects.SPECIAL_MOVES)
+    hidden.pop("haze")
+    monkeypatch.setattr(moveeffects, "SPECIAL_MOVES", hidden)
 
     assert move_support(dex.moves["haze"]) == "effect not described by the data"
 
@@ -294,6 +307,15 @@ def test_unsupported_moves_are_named_not_silently_dropped(dex, config):
     assert len(skipped) == 1
     assert skipped[0].move == "haze", "events carry ids; names are the renderer's job"
     assert skipped[0].detail == "effect not described by the data"
+
+
+def test_every_move_champions_has_is_implemented(dex):
+    """The whole list, not a sample."""
+    from pkcm.engine.scope import move_support
+
+    missing = sorted(m.id for m in dex.moves.values()
+                     if dex.exists_in_champions(m) and move_support(m))
+    assert missing == []
 
 
 def test_declarative_moves_are_supported_now(dex):
@@ -316,5 +338,8 @@ def test_declarative_moves_are_supported_now(dex):
     assert move_support(dex.moves["explosion"]) is None, "self-destructing"
     assert move_support(dex.moves["outrage"]) is None, "locks in"
 
-    # Still out: an effect the data does not describe at all.
-    assert move_support(dex.moves["haze"]) == "effect not described by the data"
+    # Haze, Trick and Rest were the poster children for "effect not in the
+    # data". They are written out by hand now, so nothing on the Champions list
+    # is unsupported.
+    for move_id in ("haze", "trick", "rest", "taunt", "encore", "defog"):
+        assert move_support(dex.moves[move_id]) is None, move_id

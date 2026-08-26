@@ -43,6 +43,14 @@ def is_grounded(state, ref: Ref, ctx: Context | None = None) -> bool:
     Breaker) correctly stops floating.
     """
     side_index, slot = ref
+    volatiles = state.sides[side_index].volatiles
+    if slot < len(volatiles):
+        # Smack Down pins a Pokemon to the ground whatever it is; Magnet Rise
+        # lifts one that would otherwise be standing on it.
+        if "smackdown" in volatiles[slot] or "ingrain" in volatiles[slot]:
+            return True
+        if "magnetrise" in volatiles[slot]:
+            return False
     if "flying" in state.types(side_index, slot):
         return False
     ability = ctx.ability_of(ref) if ctx is not None else state.ability_id(side_index, slot)

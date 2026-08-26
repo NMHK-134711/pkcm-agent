@@ -129,7 +129,20 @@ VARIABLE_POWER: dict[str, Callable[[Context, Ref, Ref, Move], int]] = {
 }
 
 
-def base_power(ctx: Context, attacker: Ref, defender: Ref, move: Move) -> int:
+def base_power(ctx: Context, attacker: Ref, defender: Ref, move) -> int:
+    from pkcm.engine import moveeffects
+
+    if move.id == "fling":
+        return moveeffects.fling_power(ctx, attacker) or 0
+    if move.id == "spitup":
+        return moveeffects.spit_up_power(ctx, attacker)
+    if move.id == "beatup":
+        powers = moveeffects.beat_up_hits(ctx, attacker)
+        # Each hit uses a different team mate's Attack; the hit loop tracks
+        # which one, and stores it on the active move.
+        index = getattr(move, "hit_index", 0)
+        return powers[index] if index < len(powers) else 0
+
     computed = VARIABLE_POWER.get(move.id)
     if computed is not None:
         return computed(ctx, attacker, defender, move)
@@ -297,6 +310,8 @@ class ActiveMove:
     breaks_protect: bool = False
     #: Parental Bond: the extra hit lands at a quarter power (gen 7+).
     parental_bond: bool = False
+    #: Which hit of a multi-hit move is being resolved. Beat Up reads it.
+    hit_index: int = 0
 
     @property
     def id(self) -> str:
@@ -335,6 +350,14 @@ def activate(ctx: Context, attacker: Ref, defender: Ref, move: Move) -> ActiveMo
     return active
 
 
+def _respects_type_immunity(move) -> bool:
+    """Damaging moves always do; status moves only when the data says so."""
+    declared = move.raw.get("ignoreImmunity")
+    if declared is not None:
+        return declared is False
+    return move.category != "Status"
+
+
 def resolve_target(move, attacker: Ref, defender: Ref) -> Ref:
     return attacker if move.target in SELF_TARGETS else defender
 
@@ -356,6 +379,7 @@ def use_move(
     if move_index is not None:
         side.pp[attacker[1]][move_index] -= 1
 
+    ctx.acting = attacker
     ctx.emit(ev.move_used(attacker[0], attacker[1], ctx.state.species_id(*attacker), move.id))
     _clear_flinch(ctx, attacker)
     if move_index is not None:
@@ -439,9 +463,12 @@ def _resolve(
     ):
         return
 
-    # Status moves are subject to the type chart as well: Thunder Wave never
-    # reaches a Ground type, Growl never reaches a Ghost type.
-    if targets_opponent and type_effectiveness(ctx, attacker, defender, move) == 0.0:
+    # Status moves ignore the type chart unless they say otherwise. Showdown
+    # defaults ``ignoreImmunity`` to true for them and Thunder Wave sets it back
+    # to false, which is the whole rule: Curse and Trick-or-Treat land on Normal
+    # types, Thunder Wave does not reach a Ground type.
+    if targets_opponent and _respects_type_immunity(move) \
+            and type_effectiveness(ctx, attacker, defender, move) == 0.0:
         ctx.emit(ev.immune(defender[0], defender[1], move.id))
         return
 
@@ -511,6 +538,8 @@ def _apply_damaging_move(ctx: Context, attacker: Ref, defender: Ref, move) -> bo
     for hit_number in range(hits):
         if ctx.state.sides[defender[0]].hp[defender[1]] <= 0:
             break
+        if hasattr(move, "hit_index"):
+            move.hit_index = hit_number
         crit = rolls_crit(ctx, attacker, defender, move)
         any_crit = any_crit or crit
         damage, effectiveness = compute_damage(ctx, attacker, defender, move, crit)
@@ -532,6 +561,13 @@ def _apply_damaging_move(ctx: Context, attacker: Ref, defender: Ref, move) -> bo
                   move=move, damage=total, crit=any_crit)
         fx.notify(ctx, "after_damage", attacker, scope="self", attacker=attacker,
                   defender=defender, move=move, damage=total, crit=any_crit)
+
+    if move.id == "fling":
+        mutate.consume_item(ctx, attacker, move.id)
+    elif move.id == "spitup":
+        from pkcm.engine.moveeffects import _spend_stockpile
+
+        _spend_stockpile(ctx, attacker)
 
     _apply_drain(ctx, attacker, move, total)
     _apply_recoil(ctx, attacker, move, total)
@@ -555,6 +591,14 @@ def _volatile_names(move) -> set[str]:
 def _after_effects(ctx: Context, attacker: Ref, defender: Ref, move, landed: bool) -> None:
     """Things a move does once its damage or status is settled."""
     from pkcm.engine import tactics
+    from pkcm.engine.moveeffects import SPECIAL_MOVES
+
+    # A damaging move can have a hand-written effect too -- Sparkling Aria puts
+    # out a burn. Status moves already ran theirs on the way in.
+    if landed and move.category != "Status":
+        special = SPECIAL_MOVES.get(move.id)
+        if special is not None:
+            special(ctx, attacker, defender, move)
 
     if move.id in tactics.SELF_DESTRUCT_MOVES:
         tactics.self_destruct(ctx, attacker, defender, move)
@@ -603,6 +647,10 @@ def _apply_ohko(ctx: Context, attacker: Ref, defender: Ref, move: Move) -> bool:
 
 
 def _hit_count(ctx: Context, move) -> int:
+    if move.id == "beatup":
+        from pkcm.engine.moveeffects import beat_up_hits
+
+        return max(1, len(beat_up_hits(ctx, ctx.acting or (0, 0))))
     multihit = getattr(move, "multihit", None)
     if multihit is None:
         multihit = move.raw.get("multihit")
@@ -618,11 +666,19 @@ def _hit_count(ctx: Context, move) -> int:
     return ctx.cursor.between(low, high)
 
 
-def _apply_status_move(ctx: Context, attacker: Ref, target: Ref, move: Move) -> bool:
+def _apply_status_move(ctx: Context, attacker: Ref, target: Ref, move) -> bool:
+    from pkcm.engine.moveeffects import SPECIAL_MOVES
+
     raw = move.raw
     did_something = False
 
-    if raw.get("stallingMove"):
+    # Moves Showdown keeps in handler code rather than in fields. They run
+    # alongside whatever the data does describe, not instead of it.
+    special = SPECIAL_MOVES.get(move.id)
+    if special is not None:
+        did_something |= special(ctx, attacker, target, move)
+
+    if raw.get("stallingMove") and move.id != "endure":
         return _apply_protect(ctx, attacker, move)
 
     if move.id == "substitute":
@@ -672,6 +728,13 @@ def _locks_in(move) -> bool:
 #: second time overwrites the bookkeeping.
 TACTICS_MANAGED_VOLATILES = frozenset({
     "lockedmove", "partiallytrapped", "twoturn", "mustrecharge", "invulnerable",
+    # Hand-written in moveeffects, which supplies counters the data cannot.
+    "curse", "taunt", "torment", "encore", "disable", "imprison", "yawn",
+    "destinybond", "saltcure", "syrupbomb", "perishsong", "stockpile",
+    "focusenergy", "magnetrise", "lockon", "endure", "noretreat", "roost",
+    "aquaring", "minimize", "healblock", "uproar", "smackdown", "electrify",
+    "powertrick", "powershift", "kingsshield", "banefulbunker", "spikyshield",
+    "silktrap", "obstruct", "burningbulwark", "attract",
 })
 
 
@@ -957,6 +1020,13 @@ def move_support(move: Move) -> str | None:
     if "charge" in move.flags or "recharge" in move.flags:
         return None
     if move.id in LOCKING_MOVES:
+        return None
+
+    # Asked before the condition check: a move written by hand knows what its
+    # own volatile is for, and the generic check cannot see that.
+    from pkcm.engine.moveeffects import SPECIAL_MOVES
+
+    if move.id in SPECIAL_MOVES or move.id in ("beatup", "fling", "spitup"):
         return None
 
     unwired = _unwired_condition(move)

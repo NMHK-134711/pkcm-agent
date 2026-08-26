@@ -105,32 +105,38 @@ def test_corrosion_poisons_a_steel_type(dex, config):
 
 
 def test_without_corrosion_steel_is_immune(dex, config):
-    """Two separate walls stand between Toxic and a Steel type.
+    """Steel cannot be poisoned, and that is the wall Corrosion breaks.
 
-    Poison does not touch Steel on the type chart, and Steel cannot be poisoned
-    even if something gets past that. Without Corrosion the first one stops it,
-    so the log says ``immune`` rather than ``status_immune``.
+    The type chart is not involved: Toxic is a status move, and those ignore
+    type immunity. The refusal comes from ``set_status``, so the log says
+    ``status_immune``.
     """
     state = build(config, a_set("salazzle", "oblivious", ("toxic",)),
                   a_set("skarmory", "sturdy"))
     ctx = make_context(state)
     cast(ctx, dex, "toxic")
     assert state.sides[1].status[0] is None
-    assert any(e.kind == "immune" for e in ctx.log), ctx.log
+    assert any(e.kind == "status_immune" for e in ctx.log), ctx.log
 
 
-def test_corrosion_has_to_clear_both_walls(dex, config):
-    """The type chart one and the status one, or Toxic never lands on Steel."""
-    from pkcm.engine.moves import type_effectiveness
-
-    state = build(config, a_set("salazzle", "corrosion", ("toxic",)),
-                  a_set("skarmory", "sturdy"))
+def test_a_status_move_reaches_through_the_type_chart(dex, config):
+    """Curse is Ghost and Normal types are immune to Ghost -- and it still lands."""
+    state = build(config, a_set("gengar", "cursedbody", ("curse",)),
+                  a_set("snorlax", "thickfat"))
     ctx = make_context(state)
-    assert type_effectiveness(ctx, RED, BLUE, dex.moves["toxic"]) == 1.0
+    cast(ctx, dex, "curse")
+    assert state.sides[1].has_volatile(0, "curse")
 
-    plain = build(config, a_set("salazzle", "oblivious", ("toxic",)),
-                  a_set("skarmory", "sturdy"))
-    assert type_effectiveness(make_context(plain), RED, BLUE, dex.moves["toxic"]) == 0.0
+
+def test_thunder_wave_is_the_exception(dex, config):
+    """It sets ``ignoreImmunity: false``, which puts the chart back in play."""
+    assert dex.moves["thunderwave"].raw.get("ignoreImmunity") is False
+    state = build(config, a_set("pikachu", "static", ("thunderwave",)),
+                  a_set("garchomp", "roughskin"))
+    ctx = make_context(state)
+    cast(ctx, dex, "thunderwave")
+    assert state.sides[1].status[0] is None
+    assert any(e.kind == "immune" for e in ctx.log)
 
 
 def test_corrosion_does_not_hand_out_other_immunities(dex, config):

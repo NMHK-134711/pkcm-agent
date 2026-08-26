@@ -69,23 +69,9 @@ def _corrosion_status(ctx, ref, value, status, target, **_):
     return () if status in ("psn", "tox") else None
 
 
-def _corrosion_reaches(ctx, ref, value, attacker, defender, move, **_):
-    """And the Poison-type move has to arrive for that to matter.
-
-    Showdown gets this by not running the type chart on status moves at all;
-    we do run it (Thunder Wave must still miss Ground types), so Corrosion has
-    to open the door for its own moves explicitly.
-    """
-    if ref != attacker or value != 0.0:
-        return None
-    if move.category == "Status" and move.raw.get("status") in ("psn", "tox"):
-        return 1.0
-    return None
-
-
-register("ability", "corrosion", name="Corrosion",
-         status_immunity=_corrosion_status,
-         modify_effectiveness=_corrosion_reaches)
+# Corrosion needs nothing on the type chart: Toxic is a status move, and those
+# ignore type immunity anyway. The Steel wall it breaks is the one in setStatus.
+register("ability", "corrosion", name="Corrosion", status_immunity=_corrosion_status)
 
 
 # --------------------------------------------------------------------------- #

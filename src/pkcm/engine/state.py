@@ -281,9 +281,14 @@ class BattleState:
 
     def types(self, side: int, slot: int) -> tuple[str, ...]:
         override = self.override(side, slot)
-        if "types" in override:
-            return override["types"]
-        return self.config.dex.species[self.species_id(side, slot)].types
+        types = (override["types"] if "types" in override
+                 else self.config.dex.species[self.species_id(side, slot)].types)
+        # Roost sheds the Flying type for the turn it is used.
+        if slot < len(self.sides[side].volatiles) and \
+                "roost" in self.sides[side].volatiles[slot]:
+            grounded = tuple(t for t in types if t != "flying")
+            return grounded or ("normal",)
+        return types
 
     def stats(self, side: int, slot: int) -> tuple[int, ...]:
         """Raw stats before stat stages. HP is the registered Pokemon's own."""

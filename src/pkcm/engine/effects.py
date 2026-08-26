@@ -154,15 +154,25 @@ class Context:
     #: Who has already taken their action this turn. Analytic needs it, and
     #: nothing else can reconstruct it after the fact.
     acted: set[Ref] = field(default_factory=set)
+    #: Who is resolving a move right now. Beat Up needs it to count its team.
+    acting: Ref | None = None
 
     def emit(self, event: Event) -> None:
         self.log.append(event)
 
     def ability_of(self, ref: Ref) -> str | None:
-        """The ability in force right now -- ``None`` while suppressed."""
+        """The ability in force right now -- ``None`` while suppressed.
+
+        Two things suppress: Mold Breaker for the length of one move, and
+        Gastro Acid until the Pokemon leaves the field.
+        """
         if ref in self.suppressed_abilities:
             return None
-        return self.state.ability_id(*ref)
+        side, slot = ref
+        volatiles = self.state.sides[side].volatiles
+        if slot < len(volatiles) and "abilitysuppressed" in volatiles[slot]:
+            return None
+        return self.state.ability_id(side, slot)
 
 
 # --------------------------------------------------------------------------- #

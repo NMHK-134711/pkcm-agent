@@ -341,14 +341,26 @@ def test_conditions_claimed_implemented_are_all_registered():
     assert conditions.IMPLEMENTED_ROOMS <= set(registered("room"))
 
 
-def test_moves_setting_unwired_conditions_are_not_claimed(dex):
-    """The Safeguard case: declarative, but nothing reads what it writes."""
+def test_moves_setting_unwired_conditions_are_not_claimed(dex, monkeypatch):
+    """The Safeguard case: declarative, but nothing reads what it writes.
+
+    Safeguard is wired up now, so the check is shown by unwiring it: the value
+    matters, not just the presence of the field. Writing a condition name into
+    the state and having nobody consult it is a move that does nothing.
+    """
+    from pkcm.engine import conditions
+    from pkcm.engine import moveeffects
     from pkcm.engine.scope import move_support
 
+    assert move_support(dex.moves["safeguard"]) is None
+
+    hidden = dict(moveeffects.SPECIAL_MOVES)
+    hidden.pop("safeguard")
+    monkeypatch.setattr(moveeffects, "SPECIAL_MOVES", hidden)
+    monkeypatch.setattr(conditions, "IMPLEMENTED_SIDE_CONDITIONS",
+                        conditions.IMPLEMENTED_SIDE_CONDITIONS - {"safeguard"})
+
     assert move_support(dex.moves["safeguard"]) == "unhandled side condition: safeguard"
-    assert move_support(dex.moves["taunt"]) == "unhandled volatile condition: taunt"
-    assert move_support(dex.moves["gravity"]) == "unhandled field effect: gravity"
-    assert move_support(dex.moves["yawn"]) == "unhandled volatile condition: yawn"
 
     assert move_support(dex.moves["reflect"]) is None
     assert move_support(dex.moves["spikes"]) is None

@@ -16,6 +16,7 @@ from pkcm.data.dex import Move, Stat
 from pkcm.engine import abilities  # noqa: F401  -- registers its effects on import
 from pkcm.engine import conditions  # noqa: F401  -- registers its effects on import
 from pkcm.engine import items  # noqa: F401  -- registers its effects on import
+from pkcm.engine import moveeffects  # noqa: F401  -- registers its effects on import
 from pkcm.engine import tactics  # noqa: F401  -- registers its effects on import
 from pkcm.engine import effects as fx
 from pkcm.engine import events as ev
@@ -331,6 +332,15 @@ def _end_of_turn(ctx: Context) -> None:
         if _check_loss(ctx):
             return
 
+    from pkcm.engine.moveeffects import resolve_wish
+
+    for player in (0, 1):
+        if ctx.state.sides[player].conditions.get("wish_ready"):
+            del ctx.state.sides[player].conditions["wish_ready"]
+            resolve_wish(ctx, player)
+        elif "wish" in ctx.state.sides[player].conditions:
+            ctx.state.sides[player].conditions["wish_ready"] = 1
+
     _tick_field(ctx)
     _clear_turn_volatiles(ctx)
 
@@ -391,6 +401,11 @@ def _clear_turn_volatiles(ctx: Context) -> None:
             elif "stall" in volatiles:
                 del volatiles["stall"]
             volatiles.pop("flinch", None)
+            volatiles.pop("roost", None)
+            volatiles.pop("endure", None)
+            for shield in ("kingsshield", "banefulbunker", "spikyshield",
+                           "silktrap", "obstruct", "burningbulwark"):
+                volatiles.pop(shield, None)
             # Counter and Mirror Coat only answer damage from this turn.
             volatiles.pop("hurtthisturn", None)
             volatiles.pop("lastmove", None) if slot != side.active else None

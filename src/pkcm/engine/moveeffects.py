@@ -941,10 +941,22 @@ def _sparkling_aria(ctx, user, target, move) -> bool:
 
 @special("copycat")
 def _copycat(ctx, user, target, move) -> bool:
-    last = ctx.state.sides[1 - user[0]].volatiles[
-        ctx.state.sides[1 - user[0]].active[0]].get("lastmove")
+    """Repeat the last move used. Not every move can be repeated.
+
+    ``failcopycat`` is in the data and was going unread, which mattered because
+    Copycat carries the flag itself: two holders facing each other copied each
+    other's Copycat until the stack ran out. Singles can arrange that as easily
+    as doubles -- it just needs both sides to have brought one.
+    """
+    foes = ctx.state.foes(user)
+    if not foes:
+        return _fail(ctx, user, "nothing to copy")
+    last = _volatiles(ctx, foes[0]).get("lastmove")
     if last is None:
         return _fail(ctx, user, "nothing to copy")
+    copied = ctx.state.config.dex.moves.get(last)
+    if copied is None or "failcopycat" in copied.flags:
+        return _fail(ctx, user, f"{last} cannot be copied")
     return _call_move(ctx, user, target, last)
 
 
@@ -959,14 +971,34 @@ def _sleep_talk(ctx, user, target, move) -> bool:
     return _call_move(ctx, user, target, ctx.cursor.choice(options))
 
 
+#: How deep one move may call another. Sleep Talk into Copycat into something
+#: else is three, and there is no legitimate chain longer than a handful.
+#:
+#: This is a backstop, not the mechanism. Each calling move refuses the moves it
+#: is not allowed to call (``failcopycat`` and friends), and that is what makes
+#: the behaviour right. This is what makes a *missed* guard fail loudly instead
+#: of exhausting the stack -- which is how the Copycat cycle showed up, in a
+#: rollout, as a RecursionError with no clue in it.
+MAX_CALL_DEPTH = 4
+
+
 def _call_move(ctx: Context, user: Ref, target: Ref, move_id: str) -> bool:
     from pkcm.engine.moves import use_move
 
     called = ctx.state.config.dex.moves.get(move_id)
     if called is None:
         return False
+    depth = getattr(ctx, "call_depth", 0)
+    if depth >= MAX_CALL_DEPTH:
+        ctx.emit(Event("move_failed", side=user[0], move=move_id,
+                       detail="called too deep"))
+        return False
     ctx.emit(Event("called_move", side=user[0], slot=user[1], move=move_id))
-    use_move(ctx, user, called, defender=target)
+    ctx.call_depth = depth + 1
+    try:
+        use_move(ctx, user, called, defender=target)
+    finally:
+        ctx.call_depth = depth
     return True
 
 

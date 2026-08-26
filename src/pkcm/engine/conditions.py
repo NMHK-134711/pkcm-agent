@@ -115,10 +115,19 @@ register("status", "tox", name="Bad Poison", residual=_toxic_residual)
 
 
 def _sleep_blocks_move(ctx, ref, move, **_):
+    """Asleep means no move -- except the two whose whole point is otherwise.
+
+    ``sleepUsable`` is in the data and was going unread, which left Sleep Talk
+    and Snore unusable: their only precondition is being asleep, and being
+    asleep is what stopped them. The counter ticks either way, so sleeping
+    through Sleep Talk still costs a turn of sleep.
+    """
     data = ctx.state.sides[ref[0]].status_data[ref[1]]
     data["turns"] = data.get("turns", SLEEP_DURATIONS[-1]) - 1
     if data["turns"] <= 0:
         mutate.cure_status(ctx, ref)
+        return None
+    if move.raw.get("sleepUsable"):
         return None
     ctx.emit(Event("cant_move", side=ref[0], slot=ref[1], detail="slp"))
     return False

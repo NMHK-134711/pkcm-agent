@@ -790,3 +790,105 @@ def test_steel_roller_needs_a_terrain_and_then_removes_it(dex, config):
     cast(ctx, dex, "steelroller")
     assert grassy.sides[1].hp[0] < grassy.pokemon(1, 0).max_hp
     assert grassy.field.terrain is None, "torn up"
+
+
+# --------------------------------------------------------------------------- #
+# Moves that call other moves
+# --------------------------------------------------------------------------- #
+
+
+def test_copycat_refuses_to_copy_itself(dex, config):
+    """Two holders facing each other copied forever until the stack ran out.
+
+    ``failcopycat`` was already in the data and going unread. The flag is on
+    Copycat itself, which is exactly the case that recursed -- and the same
+    shape as the Magic Bounce loop: it needs both sides to have brought one,
+    which self-play finds and a hand-written test never would.
+    """
+    state = build(config, a_set("meowth", "pickup", ("copycat",)),
+                  a_set("aipom", "pickup", ("copycat",)))
+    ctx = make_context(state)
+    use_move(ctx, BLUE, dex.moves["copycat"], move_index=0, defender=RED)
+    ctx.log.clear()
+    cast(ctx, dex, "copycat")
+    assert any(e.kind == "move_failed" for e in ctx.log), ctx.log
+    assert not any(e.kind == "called_move" for e in ctx.log)
+
+
+def test_copycat_still_copies_an_ordinary_move(dex, config):
+    state = build(config, a_set("meowth", "pickup", ("copycat",)),
+                  a_set("snorlax", "thickfat", ("swordsdance",)))
+    ctx = make_context(state)
+    # With a move index, because that is what records ``lastmove`` -- which is
+    # the only thing Copycat has to work from.
+    use_move(ctx, BLUE, dex.moves["swordsdance"], move_index=0, defender=RED)
+    ctx.log.clear()
+    cast(ctx, dex, "copycat")
+    assert any(e.kind == "called_move" and e.move == "swordsdance" for e in ctx.log)
+    assert state.sides[0].boost(0, "atk") == 2
+
+
+def test_a_called_move_chain_is_capped(dex, config):
+    """A backstop under the flags, so a missed guard fails loudly.
+
+    The Copycat cycle surfaced as a RecursionError inside a rollout with
+    nothing in it to say which move was at fault. Depth-limiting turns that
+    into an ordinary failed move.
+    """
+    from pkcm.engine.moveeffects import MAX_CALL_DEPTH, _call_move
+
+    state = build(config, a_set("meowth", "pickup", ("copycat",)),
+                  a_set("snorlax", "thickfat"))
+    ctx = make_context(state)
+    ctx.call_depth = MAX_CALL_DEPTH
+    assert _call_move(ctx, RED, BLUE, "swordsdance") is False
+    assert any(e.detail == "called too deep" for e in ctx.log)
+
+
+def test_sleep_talk_never_picks_itself(dex, config):
+    state = build(config, a_set("snorlax", "thickfat", ("sleeptalk", "bodyslam")),
+                  a_set("pikachu", "static"))
+    state.sides[0].status[0] = "slp"
+    state.sides[0].status_data[0] = {"turns": 3}
+    ctx = make_context(state)
+    cast(ctx, dex, "sleeptalk")
+    called = [e.move for e in ctx.log if e.kind == "called_move"]
+    assert called and "sleeptalk" not in called
+
+
+def test_sleep_talk_and_snore_work_while_asleep(dex, config):
+    """``sleepUsable`` was in the data and unread, which left both moves dead.
+
+    Their only precondition is being asleep, and being asleep is what the sleep
+    handler used to stop -- so neither could ever run.
+    """
+    for move_id in ("sleeptalk", "snore"):
+        assert dex.moves[move_id].raw.get("sleepUsable"), move_id
+        state = build(config, a_set("snorlax", "thickfat", (move_id, "bodyslam")),
+                      a_set("pikachu", "static"))
+        state.sides[0].status[0] = "slp"
+        state.sides[0].status_data[0] = {"turns": 3}
+        ctx = make_context(state)
+        cast(ctx, dex, move_id)
+        blocked = [e for e in ctx.log if e.kind == "cant_move" and e.detail == "slp"]
+        assert not blocked, f"{move_id} was blocked by the sleep it needs"
+
+
+def test_everything_else_still_sleeps_through_its_turn(dex, config):
+    state = build(config, a_set("snorlax", "thickfat", ("bodyslam",)),
+                  a_set("pikachu", "static"))
+    state.sides[0].status[0] = "slp"
+    state.sides[0].status_data[0] = {"turns": 3}
+    ctx = make_context(state)
+    cast(ctx, dex, "bodyslam")
+    assert any(e.kind == "cant_move" and e.detail == "slp" for e in ctx.log)
+
+
+def test_sleeping_through_sleep_talk_still_costs_a_turn_of_sleep(dex, config):
+    state = build(config, a_set("snorlax", "thickfat", ("sleeptalk", "bodyslam")),
+                  a_set("pikachu", "static"))
+    state.sides[0].status[0] = "slp"
+    state.sides[0].status_data[0] = {"turns": 3}
+    ctx = make_context(state)
+    cast(ctx, dex, "sleeptalk")
+    assert state.sides[0].status_data[0]["turns"] == 2

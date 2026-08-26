@@ -183,6 +183,10 @@ class Context:
     acted: set[Ref] = field(default_factory=set)
     #: Who is resolving a move right now. Beat Up needs it to count its team.
     acting: Ref | None = None
+    #: How many moves deep one call is. ``moveeffects._call_move`` owns it; it
+    #: lives here because the chain crosses several moves and none of them is a
+    #: natural place to keep it.
+    call_depth: int = 0
 
     def emit(self, event: Event) -> None:
         self.log.append(event)

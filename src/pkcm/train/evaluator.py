@@ -32,6 +32,7 @@ from pkcm.envs.encoding import (
 )
 from pkcm.envs.observation import Observation
 from pkcm.envs.reference import sheet_for
+from pkcm.search.evaluate import heuristic
 from pkcm.train.net import ChampionsNet
 
 
@@ -107,9 +108,6 @@ class Evaluator:
         _, value = self._look(state, player)
         if self.trust >= 1.0:
             return float(value)
-
-        from pkcm.search.evaluate import heuristic
-
         return (self.trust * float(value)
                 + (1 - self.trust) * heuristic(state, player))
 

@@ -112,8 +112,21 @@ class SearchConfig:
     #: on the same position, because the heuristic alone cannot see far enough
     #: to tell the lines apart. It also costs about five times as much.
     rollout_turns: int = 0
-    #: The exploration constant, against a value range of [-1, 1].
-    exploration: float = 0.7
+    #: A UCB1 term, *on top of* PUCT's prior term. AlphaZero has only the
+    #: second, and this is small because the first mostly gets in the way.
+    #:
+    #: Strength does not care much: 0.1 against 0.7 came back 53.8% [46.8,
+    #: 60.6] over 200 games and 0.3 against 0.7 came back 51.0% [44.1, 57.8],
+    #: neither separable. The policy targets care a great deal. At 0.7 the
+    #: search's visit distribution sits at 94% of uniform entropy with a 34%
+    #: top action, which is a training target that says almost nothing; at 0.1
+    #: it is 78% and 46%.
+    #:
+    #: So this is chosen for what it feeds the learner, on the evidence that it
+    #: costs nothing at the board. Not on evidence that it plays better -- two
+    #: runs leaned that way and neither one separated, and a lean is what this
+    #: project has twice mistaken for a result.
+    exploration: float = 0.1
     #: How hard the prior pulls early visits toward plausible moves.
     #:
     #: Without one, both sides explore uniformly and the tree spends its budget
@@ -145,21 +158,31 @@ class SearchConfig:
     #: a side is thirteen visits per pair and the visit counts are mostly noise.
     #: Keying by our action alone makes it |A|, which is a hundred visits each.
     #:
-    #: **Off, because it was measured and it loses.** The reasoning above is
-    #: what I wrote when I turned it on, and the part about branching is true;
-    #: the conclusion drawn from it was not. The policy target is built from the
-    #: root's per-side *marginal* counts, and those come out of ``_select``
-    #: whatever the children are keyed by -- so narrowing the tree never had a
-    #: route to sharpening them, and measurement agreed: entropy 1.747 to 1.754,
-    #: no change. What it did do was plan against an opponent drawn from noisy
-    #: counts instead of one choosing its best reply.
+    #: **Off, because it was measured and it loses.** Head to head at 200
+    #: games, mirrored teams and both seatings, the search with this off beat
+    #: the search with it on 59.5% [52.6, 66.1] -- an interval clear of fifty,
+    #: which is as close to settled as this project gets. Planning against an
+    #: opponent drawn from noisy visit counts is worse than planning against one
+    #: choosing its best reply, and the narrower tree does not pay for it.
     #:
-    #: Head to head at 200 games, mirrored teams and both seatings, the search
-    #: with this off beat the search with it on 59.5% [52.6, 66.1] -- an
-    #: interval clear of 50, which is as close to settled as this project gets.
+    #: It does sharpen the policy targets, which is the awkward part and the
+    #: reason to leave the flag here rather than delete it. Measured at
+    #: exploration 0.0, battle turns come out at 51% of uniform with it on and
+    #: 70% with it off. Not through the marginal counts -- those come out of
+    #: ``_select`` whatever the children are keyed by -- but through variance:
+    #: a fixed opponent distribution means each of our actions is scored against
+    #: the same replies, so their values are comparable rather than noisy.
+    #:
+    #: Sharper targets from a weaker search is a bad trade, so it stays off. The
+    #: variance argument is worth keeping for whatever replaces this -- regret
+    #: matching at the root would get the same effect without the loss.
     sample_opponent: bool = False
     #: Rescale Q by the range of values this search has actually met, before
     #: comparing it against the exploration bonus. See ``MinMax``.
+    #:
+    #: Ablated head to head it came back 54.3% [47.3, 61.0] -- not separable,
+    #: so this is a claim about scale and about target sharpness, not a claim
+    #: about strength, and it is on because of the first two.
     normalize_value: bool = True
 
 

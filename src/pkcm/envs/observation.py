@@ -20,8 +20,9 @@ What is public, and why:
   battle starts.
 * **which of them were brought** -- hidden. Learned one at a time, as each
   Pokemon is sent out.
-* **HP** -- our own exactly; the opponent's as a fraction, which is what a
-  health bar shows.
+* **HP and every other stat** -- our own exactly, because the game shows us our
+  own Pokemon's numbers; the opponent's HP as a fraction, which is what a health
+  bar shows, and their other stats not at all.
 * **status, stat stages, most volatiles** -- public once applied; they are
   announced.
 * **moves** -- our own fully; the opponent's only the ones we have watched it
@@ -76,6 +77,10 @@ class KnownPokemon:
     ability: str | None
     ability_known: bool
     fainted: bool
+    #: Our own six stats, exactly. ``None`` for the opponent, whose SP spread
+    #: and nature are hidden -- ``pkcm.envs.analysis`` brackets those from the
+    #: base stats instead, which is what a player does.
+    stats: tuple[int, ...] | None = None
 
     @property
     def revealed(self) -> bool:
@@ -177,6 +182,7 @@ def _own_view(state: BattleState, side: int, slot: int) -> KnownPokemon:
         item_known=True,
         ability=state.ability_id(side, slot),
         ability_known=True,
+        stats=tuple(state.stats(side, slot)),
     )
 
 

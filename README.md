@@ -22,10 +22,11 @@ Regulation Set M-B 룰을 따르는 배틀 엔진을 직접 구현하고, 그 �
 | 메커니즘 | 상태이상·랭크변화·날씨·필드·룸·벽·설치기·조이기·2턴·강제교체·카운터 계열 |
 | 학습기술 | 게임 도감 기준 (전 세대 합집합 아님) |
 | 환경 | PettingZoo **ParallelEnv** (싱글/더블, 행동 마스크, 정보집합 분리) |
+| 에이전트 도구 | 도감 참조표 + 데미지 계산기 (전부 관측만 보고 계산) |
 | 더블 전용 | 타겟팅, 광범위 0.75배, 유인(따라하기·분노가루·피뢰침·저수), 동맹 특성·기술 |
 | 메가진화 | 배틀당 1회, 기절해도 유지 |
 | 표기 | 한국어(조사 처리 포함) / 영어 |
-| 테스트 | 472 |
+| 테스트 | 481 |
 | 처리량 | 싱글 2,500 / 더블 680 turns/s (단일 코어) |
 
 미착수: 학습 루프, 파티 구성 학습, 탐색 정책.
@@ -106,6 +107,12 @@ PettingZoo 환경으로 (행동 마스크를 읽는 랜덤 정책):
 .venv/Scripts/python.exe scripts/env_demo.py --format doubles --episodes 40 --quiet
 ```
 
+계산기가 뭘 보는지 (상성·데미지 구간·확정타·선공 여부):
+
+```bash
+.venv/Scripts/python.exe scripts/env_demo.py --explain --seed 4
+```
+
 처리량 측정:
 
 ```bash
@@ -144,6 +151,8 @@ src/pkcm/
     scope        엔진이 실행 가능한 범위 (합법성과 분리)
   envs/         PettingZoo 어댑터 — 엔진을 감싸기만 한다
     observation  정보집합 — 그 플레이어가 아는 것만 + determinize
+    reference    도감 참조표 — 가중치에 외우는 대신 조회하는 시트
+    analysis     데미지 계산기 — 관측만 보고, 모르는 건 구간으로
     encoding     관측 → 배열, 행동 ↔ 정수 인덱스
     champions    ParallelEnv 본체
   render/       이벤트 로그 소비자 — 텍스트 뷰어(한/영), 표시명

@@ -43,8 +43,12 @@ from pkcm.engine.pokemon import MAX_MOVES, Team
 from pkcm.engine.rng import Rng
 from pkcm.engine.state import BattleConfig, Phase, new_battle
 from pkcm.envs.encoding import (
+    MATCHUP_FEATURES,
+    MATCHUP_ROWS,
     MAX_BROUGHT,
     SCALAR_SIZE,
+    SPEED_FEATURES,
+    SPEED_ROWS,
     Vocabulary,
     action_mask,
     action_space_size,
@@ -52,6 +56,7 @@ from pkcm.envs.encoding import (
     encode_observation,
 )
 from pkcm.envs.observation import Observation
+from pkcm.envs.reference import ReferenceSheet, sheet_for
 
 AGENTS = ("player_0", "player_1")
 
@@ -74,6 +79,7 @@ class ChampionsEnv(ParallelEnv):
         teams: tuple[Team, Team] | None = None,
         seed: int | None = None,
         on_illegal: str = "lose",
+        with_analysis: bool = True,
     ) -> None:
         if on_illegal not in ("lose", "raise"):
             raise ValueError(f"on_illegal must be 'lose' or 'raise', not {on_illegal!r}")
@@ -85,6 +91,12 @@ class ChampionsEnv(ParallelEnv):
             battle_format=battle_format,
         )
         self.vocabulary = Vocabulary.of(self.dex)
+        #: The dex as lookup tables. Exposed rather than folded into the
+        #: observation because it never changes -- a policy embeds it once and
+        #: gathers rows, instead of being handed 316 species every step.
+        self.reference: ReferenceSheet = sheet_for(self.dex, self.vocabulary)
+        #: Whether the observation carries the damage calculator's block.
+        self.with_analysis = with_analysis
         self.positions = self.config.active_count
         self.n_actions = action_space_size(self.config.registered, self.config.brought)
 
@@ -113,7 +125,7 @@ class ChampionsEnv(ParallelEnv):
     def _build_observation_space(self) -> spaces.Space:
         sizes = self.vocabulary.sizes()
         slots = 2 * MAX_BROUGHT
-        return spaces.Dict({
+        fields = {
             "scalars": spaces.Box(-1.0, 1.0, (SCALAR_SIZE,), dtype=np.float32),
             "species": spaces.MultiDiscrete([sizes["species"]] * slots),
             "status": spaces.MultiDiscrete([sizes["statuses"]] * slots),
@@ -122,7 +134,15 @@ class ChampionsEnv(ParallelEnv):
             "moves": spaces.MultiDiscrete([sizes["moves"]] * (slots * MAX_MOVES)),
             "pp": spaces.Box(0.0, 1.0, (slots * MAX_MOVES,), dtype=np.float32),
             "registered": spaces.MultiDiscrete([sizes["species"]] * 12),
-        })
+        }
+        if self.with_analysis:
+            # Effectiveness runs from x0 to x4, so log2 lands in [-2, 2].
+            fields["matchup"] = spaces.Box(-2.0, 2.0,
+                                           (MATCHUP_ROWS, MATCHUP_FEATURES),
+                                           dtype=np.float32)
+            fields["speed"] = spaces.Box(0.0, 1.0, (SPEED_ROWS, SPEED_FEATURES),
+                                         dtype=np.float32)
+        return spaces.Dict(fields)
 
     def action_space(self, agent: str) -> spaces.Space:  # noqa: D401
         """One index per field position. Singles has one; doubles has two."""
@@ -225,8 +245,10 @@ class ChampionsEnv(ParallelEnv):
 
     def _observations(self, views=None) -> dict[str, dict]:
         views = views if views is not None else self._views()
+        sheet = self.reference if self.with_analysis else None
+        dex = self.dex if self.with_analysis else None
         return {
-            agent: encode_observation(views[player], self.vocabulary)
+            agent: encode_observation(views[player], self.vocabulary, sheet, dex)
             for player, agent in enumerate(AGENTS)
         }
 
@@ -274,6 +296,18 @@ class ChampionsEnv(ParallelEnv):
     def observation_of(self, player: int) -> Observation:
         """The structured observation, before it was flattened into arrays."""
         return Observation.of(self.state, player)
+
+    def assess(self, player: int, position: int = 0):
+        """The damage calculator's answer, as a structure rather than as floats.
+
+        The same numbers the ``matchup`` block carries, in the shape a human --
+        or a language model driving the engine through tools -- would want them.
+        Reads the observation only, so it cannot leak what the player cannot see.
+        """
+        from pkcm.envs.analysis import assess as run
+
+        return run(Observation.of(self.state, player), self.reference, self.dex,
+                   position)
 
     def event_log(self) -> list:
         return list(self._last_log)

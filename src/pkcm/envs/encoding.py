@@ -157,8 +157,78 @@ SCALAR_SIZE = (
 )
 
 
-def encode_observation(observation: Observation, vocabulary: Vocabulary) -> dict:
-    """The observation as arrays. Categorical stays categorical."""
+#: Field positions per side, at most. Doubles has two; singles uses the first.
+MAX_POSITIONS = 2
+#: Per (our move, their standing Pokemon): effectiveness, the damage bracket,
+#: whether it is a guaranteed knockout, whether they are immune.
+MATCHUP_FEATURES = 5
+MATCHUP_ROWS = MAX_POSITIONS * MAX_MOVES * MAX_POSITIONS
+#: Per (our position, their position): we outspeed, we are outsped. Both zero
+#: means their spread could decide it either way, which is a real third answer.
+SPEED_ROWS = MAX_POSITIONS * MAX_POSITIONS
+SPEED_FEATURES = 2
+
+
+def encode_matchup(observation: Observation, sheet, dex) -> tuple:
+    """What the calculator can work out, laid out for a policy to read.
+
+    This is the half of the game a strong player does with a damage calculator
+    and a dex, and none of it is hidden information -- it is arithmetic over
+    public numbers. Making a policy rediscover "Fighting resists Dark" from
+    reward is making it work for something the game already tells it.
+
+    The damage figures are brackets, because the opponent's spread is unknown.
+    See ``pkcm.envs.analysis``.
+    """
+    from pkcm.envs.analysis import assess
+
+    matchup = np.zeros((MATCHUP_ROWS, MATCHUP_FEATURES), dtype=np.float32)
+    speed = np.zeros((SPEED_ROWS, SPEED_FEATURES), dtype=np.float32)
+
+    foe_position = {known.slot: known.position for known in observation.foe
+                    if known.position is not None}
+
+    for position in range(MAX_POSITIONS):
+        assessment = assess(observation, sheet, dex, position)
+        if assessment is None:
+            continue
+        attacker = next((k for k in observation.own if k.position == position), None)
+        move_order = {move_id: index for index, move_id
+                      in enumerate(attacker.moves[:MAX_MOVES])} if attacker else {}
+
+        for slot, estimate in assessment.damage:
+            move_index = move_order.get(estimate.move_id)
+            target = foe_position.get(slot)
+            if move_index is None or target is None or target >= MAX_POSITIONS:
+                continue
+            row = (position * MAX_MOVES + move_index) * MAX_POSITIONS + target
+            # Effectiveness spans 0 to 4; log2 makes the steps even and keeps
+            # "neutral" at zero, which is where a linear layer wants it.
+            matchup[row, 0] = 0.0 if estimate.immune else np.log2(estimate.effectiveness)
+            matchup[row, 1] = estimate.percent.low / 100.0
+            matchup[row, 2] = estimate.percent.high / 100.0
+            matchup[row, 3] = float(estimate.guaranteed_ko)
+            matchup[row, 4] = float(estimate.immune)
+
+        for slot, faster in assessment.outspeeds:
+            target = foe_position.get(slot)
+            if target is None or target >= MAX_POSITIONS:
+                continue
+            row = position * MAX_POSITIONS + target
+            speed[row, 0] = float(faster is True)
+            speed[row, 1] = float(faster is False)
+
+    return matchup, speed
+
+
+def encode_observation(observation: Observation, vocabulary: Vocabulary,
+                       sheet=None, dex=None) -> dict:
+    """The observation as arrays. Categorical stays categorical.
+
+    ``sheet`` and ``dex`` add the calculator's block. They are optional so the
+    encoding stays usable without one, but a policy that has them is playing
+    the game a human plays.
+    """
     scalars = np.zeros(SCALAR_SIZE, dtype=np.float32)
     cursor = 0
 
@@ -228,7 +298,7 @@ def encode_observation(observation: Observation, vocabulary: Vocabulary) -> dict
         for slot, species_id in enumerate(team[:6]):
             registered[team_index * 6 + slot] = vocabulary.species.get(species_id, 0)
 
-    return {
+    encoded = {
         "scalars": scalars,
         "species": species,
         "status": statuses,
@@ -238,3 +308,8 @@ def encode_observation(observation: Observation, vocabulary: Vocabulary) -> dict
         "pp": pp,
         "registered": registered,
     }
+    if sheet is not None and dex is not None:
+        matchup, speed = encode_matchup(observation, sheet, dex)
+        encoded["matchup"] = matchup
+        encoded["speed"] = speed
+    return encoded

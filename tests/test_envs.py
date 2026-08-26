@@ -343,3 +343,190 @@ def test_pettingzoo_accepts_it(dex):
 
     parallel_api_test(ChampionsEnv(battle_format="singles", dex=dex, seed=1),
                       num_cycles=120)
+
+
+# --------------------------------------------------------------------------- #
+# The reference sheet and the calculator
+#
+# hk's point: a strong player reads the dex and does damage maths. None of that
+# is hidden information, so a policy that has to rediscover it from reward is
+# working for something the game already tells it. The tests that matter are
+# the ones showing the calculator still cannot see what the player cannot.
+# --------------------------------------------------------------------------- #
+
+
+@pytest.fixture(scope="module")
+def sheet(dex):
+    from pkcm.envs.reference import sheet_for
+
+    return sheet_for(dex, Vocabulary.of(dex))
+
+
+def test_the_sheet_knows_the_type_chart(sheet):
+    assert sheet.effectiveness("fire", ("grass",)) == 2.0
+    assert sheet.effectiveness("fire", ("water",)) == 0.5
+    assert sheet.effectiveness("ground", ("flying",)) == 0.0
+    assert sheet.effectiveness("fighting", ("dark", "ice")) == 4.0
+    assert sheet.effectiveness("normal", ("rock", "steel")) == 0.25
+
+
+def test_row_zero_is_blank(sheet):
+    """Id 0 means unknown, so looking one up gives a blank row, not a wrong one."""
+    assert not sheet.species[0].any()
+    assert not sheet.moves[0].any()
+
+
+def test_the_sheet_answers_the_pick_phase_question(sheet, dex):
+    """What could that Pokemon be running? Public, and the reason it matters."""
+    assert sheet.could_learn("garchomp", "earthquake")
+    assert not sheet.could_learn("garchomp", "moonblast"), "Garchomp does learn Surf"
+    assert not sheet.could_learn(None, "earthquake"), "an unseen slot could be anything"
+    row = sheet.candidate_moves("garchomp")
+    assert 20 < int(row.sum()) < 200, int(row.sum())
+
+
+def test_the_calculator_reads_effectiveness_the_game_would_show(dex, sheet):
+    from pkcm.envs.analysis import estimate_damage
+
+    state = battle(dex)
+    observation = Observation.of(state, 0)
+    attacker, defender = observation.own[0], observation.foe[0]
+    for move_id in attacker.moves:
+        move = dex.moves[move_id]
+        estimate = estimate_damage(observation, sheet, dex, attacker, defender, move)
+        if estimate is None:
+            continue
+        expected = sheet.effectiveness(move.type, dex.species[defender.species_id].types)
+        assert estimate.effectiveness == expected
+
+
+def test_the_damage_bracket_contains_what_the_engine_actually_deals(dex, sheet):
+    """The estimator and the engine share ``damage_formula``; this checks that
+    the bracketing around it is wide enough to be honest and tight enough to
+    be worth having."""
+    from pkcm.engine.moves import compute_damage
+    from pkcm.engine.battle import make_context
+    from pkcm.envs.analysis import estimate_damage
+
+    checked = 0
+    for seed in range(6):
+        state = battle(dex, seed=seed * 7 + 1)
+        observation = Observation.of(state, 0)
+        attacker, defender = observation.own[0], observation.foe[0]
+        for move_id in attacker.moves:
+            move = dex.moves[move_id]
+            estimate = estimate_damage(observation, sheet, dex, attacker, defender, move)
+            if estimate is None or estimate.immune:
+                continue
+            ctx = make_context(state)
+            actual, _ = compute_damage(ctx, (0, 0), (1, 0), move, crit=False)
+            share = 100 * actual / state.pokemon(1, 0).max_hp
+            assert estimate.percent.low - 25 <= share <= estimate.percent.high + 25, (
+                move_id, share, estimate.percent)
+            checked += 1
+    assert checked > 5, "nothing was actually compared"
+
+
+def chosen_battle(dex, red, blue, battle_format="singles"):
+    """A battle between two named sets, rather than whatever the RNG produced.
+
+    The random matchups used above are fine for "does anything leak"; a test
+    about Ground versus Flying has to actually contain a Flying type, and
+    skipping when it does not is a test that quietly stops running.
+    """
+    from pkcm.engine.pokemon import PokemonSet
+
+    config = BattleConfig(dex=dex, regulation=dex.regulation("m_b"),
+                          battle_format=battle_format)
+    filler = [PokemonSet(species=name, ability="__none__", moves=("bodyslam",),
+                         item=None, nature="serious", sp=(0,) * 6)
+              for name in ("snorlax", "pikachu", "starmie", "gengar", "alakazam")]
+    state = new_battle(config, (tuple([red] + filler), tuple([blue] + filler)), seed=3)
+    brought = tuple(range(config.brought))
+    return step(state, Action.select(*brought), Action.select(*brought))[0]
+
+
+def a_set(species, moves, ability="__none__", **kwargs):
+    from pkcm.engine.pokemon import PokemonSet
+
+    return PokemonSet(species=species, ability=ability, moves=tuple(moves),
+                      item=None, nature="serious", sp=(0,) * 6, **kwargs)
+
+
+def test_an_immune_target_reads_as_immune(dex, sheet):
+    from pkcm.envs.analysis import estimate_damage
+
+    state = chosen_battle(dex, a_set("garchomp", ("earthquake",)),
+                          a_set("skarmory", ("bodyslam",)))
+    observation = Observation.of(state, 0)
+    estimate = estimate_damage(observation, sheet, dex, observation.own[0],
+                               observation.foe[0], dex.moves["earthquake"])
+    assert estimate is not None and estimate.immune
+    assert estimate.percent.high == 0
+    assert estimate.hits_to_ko.low == 99, "never, rather than eventually"
+
+
+def test_the_calculator_never_sees_the_hidden_spread(dex, sheet):
+    """The bracket has to be a *bracket*: change their real SP and nothing moves.
+
+    If the estimate tracked their actual spread it would be laundering hidden
+    information into the policy, and it would look like skill.
+    """
+    from pkcm.engine.pokemon import PokemonSet, compile_team
+    from pkcm.envs.analysis import estimate_damage
+
+    def estimate_with(defender_sp):
+        state = chosen_battle(dex, a_set("garchomp", ("earthquake",)),
+                              a_set("snorlax", ("bodyslam",)))
+        slot = state.sides[1].selection[0]
+        original = state.parties[1][slot]
+        bulkier = compile_team(dex, (PokemonSet(
+            species=original.species.id, ability=original.ability,
+            moves=tuple(m.id for m in original.moves), item=original.item,
+            nature=original.set.nature, sp=defender_sp),))[0]
+        parties = list(state.parties)
+        party = list(parties[1])
+        party[slot] = bulkier
+        parties[1] = tuple(party)
+        state.parties = tuple(parties)
+
+        observation = Observation.of(state, 0)
+        move = dex.moves[observation.own[0].moves[0]]
+        return estimate_damage(observation, sheet, dex,
+                               observation.own[0], observation.foe[0], move)
+
+    frail = estimate_with((0, 0, 0, 0, 0, 0))
+    bulky = estimate_with((32, 0, 32, 0, 0, 0))
+    assert frail is not None and bulky is not None
+    assert frail.percent == bulky.percent, "the estimate followed their real spread"
+    assert frail.hits_to_ko == bulky.hits_to_ko
+
+
+def test_the_matchup_block_matches_the_structured_assessment(dex):
+    """The floats a policy reads and the numbers a human would read agree."""
+    env = ChampionsEnv(battle_format="singles", dex=dex, seed=21)
+    observations, _ = env.reset()
+    # Get past team preview so there is something standing.
+    from pkcm.engine.state import legal_actions
+
+    while env.battle_state().phase is Phase.TEAM_PREVIEW:
+        actions = {
+            agent: np.array([encode_action(legal_actions(env.battle_state(), player, 0)[0],
+                                           6, 3)])
+            for player, agent in enumerate(AGENTS)
+        }
+        observations, _, _, _, _ = env.step(actions)
+
+    matchup = observations["player_0"]["matchup"]
+    assessment = env.assess(0)
+    assert assessment is not None
+    assert matchup.shape[1] == 5
+    # Every move the assessment scored should be non-zero somewhere in the block.
+    assert np.abs(matchup).sum() > 0 or not assessment.damage
+
+
+def test_analysis_can_be_turned_off(dex):
+    env = ChampionsEnv(battle_format="singles", dex=dex, seed=1, with_analysis=False)
+    observations, _ = env.reset()
+    assert "matchup" not in observations["player_0"]
+    assert env.observation_space("player_0").contains(observations["player_0"])

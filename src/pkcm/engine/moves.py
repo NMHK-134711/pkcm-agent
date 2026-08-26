@@ -299,6 +299,43 @@ def _both_sides(ctx: Context, event: str, value: Any, attacker: Ref, defender: R
                      attacker=attacker, defender=defender, move=move)
 
 
+def damage_formula(
+    *,
+    power: int,
+    attack: int,
+    defense: int,
+    roll: int,
+    crit: bool = False,
+    spread: bool = False,
+    stab: bool = False,
+    effectiveness: float = 1.0,
+    level: int = LEVEL,
+) -> int:
+    """The arithmetic, with no battle attached.
+
+    Pulled out of ``compute_damage`` so the damage *estimator* the agent gets
+    to use (``pkcm.envs.analysis``) runs the same steps in the same order. Two
+    copies of a formula that truncates at every step do not stay equal, and the
+    estimate would drift away from the engine one roll at a time.
+
+    Everything that needs a battle -- which stats, whose ability, what the
+    terrain says -- is settled by the caller. This is only the order of
+    operations, and the order is visible in the result because each step floors.
+    """
+    damage = ((2 * level // 5 + 2) * power * attack // defense) // 50 + 2
+
+    # Showdown applies the spread penalty here -- before the crit multiplier and
+    # before the roll, not at the end (``Battle#modifyDamage``).
+    if spread:
+        damage = chain_modify(damage, SPREAD_MODIFIER)
+    if crit:
+        damage = damage * CRIT_MULTIPLIER_NUM // CRIT_MULTIPLIER_DEN
+    damage = damage * roll // 100
+    if stab:
+        damage = damage * STAB_NUM // STAB_DEN
+    return int(damage * effectiveness)
+
+
 def compute_damage(
     ctx: Context,
     attacker: Ref,
@@ -333,23 +370,16 @@ def compute_damage(
         attack = max(attack, _unstaged(ctx, attacker, attack_stat, move, defender, True))
         defense = min(defense, _unstaged(ctx, defender, defense_stat, move, attacker, False))
 
-    damage = ((2 * LEVEL // 5 + 2) * power * attack // defense) // 50 + 2
-
-    # Showdown applies the spread penalty here -- before the crit multiplier and
-    # before the roll, not at the end (``Battle#modifyDamage``). The order is
-    # visible in the result, because each step truncates.
-    if getattr(move, "spread", False):
-        damage = chain_modify(damage, SPREAD_MODIFIER)
-
-    if crit:
-        damage = damage * CRIT_MULTIPLIER_NUM // CRIT_MULTIPLIER_DEN
-
-    damage = damage * ctx.cursor.between(DAMAGE_ROLL_LOW, DAMAGE_ROLL_HIGH) // 100
-
-    if move.id != STRUGGLE_ID and move.type in ctx.state.types(*attacker):
-        damage = damage * STAB_NUM // STAB_DEN
-
-    damage = int(damage * effectiveness)
+    damage = damage_formula(
+        power=power,
+        attack=attack,
+        defense=defense,
+        roll=ctx.cursor.between(DAMAGE_ROLL_LOW, DAMAGE_ROLL_HIGH),
+        crit=crit,
+        spread=bool(getattr(move, "spread", False)),
+        stab=move.id != STRUGGLE_ID and move.type in ctx.state.types(*attacker),
+        effectiveness=effectiveness,
+    )
     damage = fx.modify(ctx, "modify_damage", damage, attacker, scope="self",
                        attacker=attacker, defender=defender, move=move, crit=crit)
     damage = fx.modify(ctx, "modify_damage", damage, defender, scope="all",

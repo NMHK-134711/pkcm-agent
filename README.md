@@ -24,13 +24,14 @@ Regulation Set M-B 룰을 따르는 배틀 엔진을 직접 구현하고, 그 �
 | 환경 | PettingZoo **ParallelEnv** (싱글/더블, 행동 마스크, 정보집합 분리) |
 | 에이전트 도구 | 도감 참조표 + 데미지 계산기 + 확률 (난수·명중·급소·부가효과·턴 손실) |
 | 탐색 | 결정화 + 동시행동 MCTS (PUCT, IS-MCTS 단일 트리) — **greedy 상대 66.4% ± 8.5%** |
+| 학습 | AlphaZero 루프 (자가대전 → 정책·가치망 → 탐색). PyTorch, GPU, 15코어 병렬 |
 | 더블 전용 | 타겟팅, 광범위 0.75배, 유인(따라하기·분노가루·피뢰침·저수), 동맹 특성·기술 |
 | 메가진화 | 배틀당 1회, 기절해도 유지 |
 | 표기 | 한국어(조사 처리 포함) / 영어 |
-| 테스트 | 539 |
+| 테스트 | 553 |
 | 처리량 | 싱글 2,500 / 더블 680 turns/s (단일 코어) |
 
-미착수: 학습 루프(가치망·정책망), 파티 구성 학습.
+미착수: 대규모 학습 실행, 파티 구성 학습.
 
 ## 셋업
 
@@ -39,7 +40,13 @@ python -m venv .venv
 ```
 
 ```bash
-.venv/Scripts/python.exe -m pip install -e ".[rl,dev]" json5
+.venv/Scripts/python.exe -m pip install -e ".[rl,train,dev]" json5
+```
+
+GPU를 쓰려면 CUDA 빌드로 (드라이버에 맞는 인덱스 선택):
+
+```bash
+.venv/Scripts/python.exe -m pip install --index-url https://download.pytorch.org/whl/cu124 torch
 ```
 
 데이터 받기 (`data/raw/`와 `data/reference/`는 gitignore, 아래로 재생성):
@@ -124,6 +131,18 @@ PettingZoo 환경으로 (행동 마스크를 읽는 랜덤 정책):
 .venv/Scripts/python.exe scripts/arena.py --a search --b greedy --battles 25
 ```
 
+자가대전 데이터 생성 (전 코어):
+
+```bash
+.venv/Scripts/python.exe scripts/selfplay_gen.py --battles 200
+```
+
+학습 루프:
+
+```bash
+.venv/Scripts/python.exe scripts/train_loop.py --iterations 5 --battles 100
+```
+
 처리량 측정:
 
 ```bash
@@ -166,8 +185,14 @@ src/pkcm/
     analysis     데미지 계산기 — 관측만 보고, 모르는 건 구간으로
   search/       탐색 — 엔진에 직접 올라탄다 (환경을 안 거친다)
     mcts         결정화 + 동시행동 MCTS
-    policy       Policy 프로토콜 — random / greedy / search
+    policy       Policy 프로토콜 — random / greedy / search, PUCT 사전확률
     evaluate     리프 평가 — 물량 휴리스틱 또는 롤아웃
+  train/        AlphaZero 루프
+    samples      자가대전 1판 → (관측, 방문분포, 결과)
+    parallel     멀티프로세싱 (Windows spawn)
+    net          정책·가치망 — 도감은 학습이 아니라 입력
+    trainer      손실·옵티마이저·체크포인트
+    evaluator    망을 탐색의 사전확률·리프값 자리에 끼움
     encoding     관측 → 배열, 행동 ↔ 정수 인덱스
     champions    ParallelEnv 본체
   render/       이벤트 로그 소비자 — 텍스트 뷰어(한/영), 표시명

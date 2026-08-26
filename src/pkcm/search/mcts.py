@@ -135,8 +135,16 @@ class SearchResult:
 
 
 class MCTS:
-    def __init__(self, config: SearchConfig | None = None) -> None:
+    def __init__(self, config: SearchConfig | None = None, evaluator=None) -> None:
+        """``evaluator`` supplies the prior and the leaf value if it is given.
+
+        Anything with ``prior(state, player, options)`` and
+        ``value(state, player)`` will do -- which in practice means
+        ``pkcm.train.evaluator.Evaluator``, wrapping the network. Without one
+        the handcrafted versions stand in, and the tree cannot tell.
+        """
         self.config = config if config is not None else SearchConfig()
+        self.evaluator = evaluator
 
     # -- the entry point ---------------------------------------------------- #
 
@@ -156,6 +164,8 @@ class MCTS:
             only = options[0] if options else (Action.PASS,) * decisions_wanted(state, player)
             return SearchResult(only, ((only, 1.0),), 0.0, 0)
 
+        if self.evaluator is not None:
+            self.evaluator.reset()
         root = self._node(state, player)
         per_draw = max(1, self.config.iterations // max(1, self.config.determinizations))
         done = 0
@@ -248,6 +258,8 @@ class MCTS:
     # -- leaves ------------------------------------------------------------- #
 
     def _evaluate(self, state: BattleState, player: int, cursor: RngCursor) -> float:
+        if self.evaluator is not None:
+            return self.evaluator.value(state, player)
         if self.config.rollout_turns <= 0:
             return heuristic(state, player)
 
@@ -265,8 +277,11 @@ class MCTS:
         fallback = [(Action.PASS,) * max(1, decisions_wanted(state, player))]
         mine = joint_actions(state, player, self.config.max_branching) or fallback
         theirs = joint_actions(state, 1 - player, self.config.max_branching) or fallback
-        return Node(
-            (mine, theirs),
-            priors=(prior_over(state, player, mine),
-                    prior_over(state, 1 - player, theirs)),
-        )
+        return Node((mine, theirs),
+                    priors=(self._prior(state, player, mine),
+                            self._prior(state, 1 - player, theirs)))
+
+    def _prior(self, state: BattleState, player: int, options: list) -> list[float]:
+        if self.evaluator is not None:
+            return self.evaluator.prior(state, player, options)
+        return prior_over(state, player, options)

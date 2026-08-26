@@ -12,6 +12,7 @@ Usage:
     python scripts/arena.py --a greedy --b random --battles 100
     python scripts/arena.py --a search --b greedy --battles 40 --iterations 300
     python scripts/arena.py --a search --b greedy --format doubles --battles 20
+    python scripts/arena.py --a net --b search --battles 40 --checkpoint runs/latest/net.pt
 """
 
 from __future__ import annotations
@@ -31,8 +32,29 @@ from pkcm.search import MCTS, GreedyPolicy, RandomPolicy, SearchConfig  # noqa: 
 from pkcm.search.policy import SearchPolicy, play_out  # noqa: E402
 
 
+#: One evaluator shared by every search in the run. Loading a checkpoint per
+#: battle would cost more than the battles do.
+_EVALUATOR = None
+
+
+def evaluator_for(checkpoint, dex, battle_format: str, trust: float):
+    """Load the network once, as the search's prior and leaf value."""
+    global _EVALUATOR
+    if checkpoint is None:
+        return None
+    if _EVALUATOR is None:
+        from pkcm.envs.encoding import SCALAR_SIZE, action_space_size
+        from pkcm.train.evaluator import from_checkpoint
+
+        registered, brought = dex.regulation("m_b").bring_select(battle_format)
+        _EVALUATOR = from_checkpoint(
+            checkpoint, dex, action_space_size(registered, brought),
+            SCALAR_SIZE, device="cpu", trust=trust)
+    return _EVALUATOR
+
+
 def build(name: str, seed: int, iterations: int, determinizations: int,
-          rollout: int, prior: float | None = None):
+          rollout: int, prior: float | None = None, evaluator=None):
     if name == "random":
         return RandomPolicy.seeded(seed)
     if name == "greedy":
@@ -42,7 +64,19 @@ def build(name: str, seed: int, iterations: int, determinizations: int,
         config = SearchConfig(iterations=iterations,
                               determinizations=determinizations,
                               rollout_turns=rollout, **extra)
-        return SearchPolicy(MCTS(config), Rng.from_seed(seed).cursor())
+        return SearchPolicy(MCTS(config, evaluator=evaluator),
+                            Rng.from_seed(seed).cursor())
+    if name == "net":
+        # Same search, network prior and value instead of the handcrafted ones.
+        # A separate name so a run can put the two against each other, which is
+        # the only comparison that says whether training did anything.
+        if evaluator is None:
+            raise SystemExit("--checkpoint is required for the 'net' policy")
+        config = SearchConfig(iterations=iterations,
+                              determinizations=determinizations,
+                              rollout_turns=rollout)
+        return SearchPolicy(MCTS(config, evaluator=evaluator),
+                            Rng.from_seed(seed).cursor())
     raise SystemExit(f"unknown policy {name!r}")
 
 
@@ -59,12 +93,17 @@ def main() -> int:
     parser.add_argument("--prior", type=float, default=None,
                         help="PUCT prior weight; 0 ablates the prior entirely")
     parser.add_argument("--seed", type=int, default=0)
+    parser.add_argument("--checkpoint", type=Path, default=None,
+                        help="network to use for the 'net' policy")
+    parser.add_argument("--trust", type=float, default=1.0,
+                        help="how far 'net' believes the network over the heuristic")
     args = parser.parse_args()
 
     dex = load_dex()
     config = BattleConfig(dex=dex, regulation=dex.regulation("m_b"),
                           battle_format=args.format)
 
+    evaluator = evaluator_for(args.checkpoint, dex, args.format, args.trust)
     wins = {"a": 0, "b": 0, "draw": 0}
     start = time.perf_counter()
     for match in range(args.battles):
@@ -77,9 +116,9 @@ def main() -> int:
         # Same teams, both seatings. A win rate from the draw is not a win rate.
         for swap in (False, True):
             a = build(args.a, args.seed + match, args.iterations,
-                      args.determinizations, args.rollout, args.prior)
+                      args.determinizations, args.rollout, args.prior, evaluator)
             b = build(args.b, args.seed + match + 5000, args.iterations,
-                      args.determinizations, args.rollout, args.prior)
+                      args.determinizations, args.rollout, args.prior, evaluator)
             policies = (b, a) if swap else (a, b)
             state = new_battle(config, teams, seed=args.seed + match)
             state = play_out(state, policies)

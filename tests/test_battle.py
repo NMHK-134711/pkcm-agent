@@ -258,8 +258,11 @@ def test_random_selfplay_terminates(dex, config, seed):
     state, _ = play(dex, config, seed)
     assert state.phase is Phase.FINISHED
     assert state.winner in (0, 1, None)
+    # A win is either a knockout or a timer-out ruling; only the first implies
+    # the loser has nothing left standing.
     losers = [side.has_lost() for side in state.sides]
-    assert state.winner is None or losers[1 - state.winner]
+    if state.winner is not None and state.turn < config.turn_limit:
+        assert losers[1 - state.winner]
 
 
 def test_identical_seeds_replay_identically(dex, config):
@@ -304,6 +307,14 @@ def test_declarative_moves_are_supported_now(dex):
     assert move_support(dex.moves["reflect"]) is None, "sideCondition"
     assert move_support(dex.moves["gyroball"]) is None, "variable power, implemented"
 
-    assert move_support(dex.moves["solarbeam"]) == "two-turn"
-    assert move_support(dex.moves["uturn"]) == "switches the user out"
-    assert move_support(dex.moves["counter"]) == "damage computed from what it was hit by"
+    # These were blanket exclusions once. They are structural rather than
+    # declarative, which was a reason to write code for them, not to skip them.
+    assert move_support(dex.moves["solarbeam"]) is None, "two-turn"
+    assert move_support(dex.moves["uturn"]) is None, "self-switch"
+    assert move_support(dex.moves["counter"]) is None, "answers the hit it took"
+    assert move_support(dex.moves["roar"]) is None, "forces a switch"
+    assert move_support(dex.moves["explosion"]) is None, "self-destructing"
+    assert move_support(dex.moves["outrage"]) is None, "locks in"
+
+    # Still out: an effect the data does not describe at all.
+    assert move_support(dex.moves["haze"]) == "effect not described by the data"

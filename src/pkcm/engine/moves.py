@@ -374,6 +374,24 @@ def use_move(
         )
         return
 
+    from pkcm.engine import tactics
+
+    # A two-turn move spends its first turn charging and its second attacking.
+    if "charge" in move.flags:
+        if tactics.is_charging(ctx, attacker) is None:
+            if ctx.state.item_id(*attacker) != "powerherb":
+                tactics.start_charging(ctx, attacker, move, move_index)
+                return
+            mutate.consume_item(ctx, attacker, move.id)
+        else:
+            tactics.finish_charging(ctx, attacker)
+
+    if "recharge" in move.flags:
+        mutate.add_volatile(ctx, attacker, "mustrecharge")
+
+    if move.raw.get("multihit") is None and _locks_in(move):
+        tactics.start_locked_move(ctx, attacker, move, move_index)
+
     active = activate(ctx, attacker, defender, move)
     target = resolve_target(active, attacker, defender)
     targets_opponent = target != attacker
@@ -445,9 +463,38 @@ def _clear_flinch(ctx: Context, ref: Ref) -> None:
     mutate.remove_volatile(ctx, ref, "flinch", quiet=True)
 
 
-def _apply_damaging_move(ctx: Context, attacker: Ref, defender: Ref, move: Move) -> bool:
+def _apply_damaging_move(ctx: Context, attacker: Ref, defender: Ref, move) -> bool:
+    from pkcm.engine import tactics
+
+    if move.id in tactics.COUNTER_MOVES:
+        amount = tactics.counter_damage(ctx, attacker, defender, move)
+        if amount is None:
+            ctx.emit(Event("move_failed", side=attacker[0], move=move.id))
+            return False
+        apply_damage(ctx, defender, amount, "damage", move=move.id, effectiveness=1.0,
+                     __source__=attacker, __move__=move)
+        return True
+
+    if move.id == "endeavor":
+        amount = tactics.endeavor_damage(ctx, attacker, defender)
+        if amount is None:
+            ctx.emit(Event("move_failed", side=attacker[0], move=move.id))
+            return False
+        apply_damage(ctx, defender, amount, "damage", move=move.id, effectiveness=1.0,
+                     __source__=attacker, __move__=move)
+        return True
+
     if move.raw.get("ohko"):
         return _apply_ohko(ctx, attacker, defender, move)
+
+    if move.id == "superfang":
+        amount = max(1, mutate.current_hp(ctx.state, defender) // 2)
+        if type_effectiveness(ctx, attacker, defender, move) == 0.0:
+            ctx.emit(ev.immune(defender[0], defender[1], move.id))
+            return False
+        apply_damage(ctx, defender, amount, "damage", move=move.id, effectiveness=1.0,
+                     __source__=attacker, __move__=move)
+        return True
 
     fixed = move.raw.get("damage")
     if fixed is not None:
@@ -490,7 +537,36 @@ def _apply_damaging_move(ctx: Context, attacker: Ref, defender: Ref, move: Move)
     _apply_recoil(ctx, attacker, move, total)
     if total:
         _apply_secondaries(ctx, attacker, defender, move)
+        if "partiallytrapped" in _volatile_names(move):
+            tactics.start_trapping(ctx, defender, move)
+    _after_effects(ctx, attacker, defender, move, landed=bool(total))
     return True
+
+
+def _volatile_names(move) -> set[str]:
+    names = {move.raw.get("volatileStatus")}
+    single = move.raw.get("secondary") or {}
+    names.add(single.get("volatileStatus"))
+    for secondary in move.raw.get("secondaries") or ():
+        names.add((secondary or {}).get("volatileStatus"))
+    return {name for name in names if name}
+
+
+def _after_effects(ctx: Context, attacker: Ref, defender: Ref, move, landed: bool) -> None:
+    """Things a move does once its damage or status is settled."""
+    from pkcm.engine import tactics
+
+    if move.id in tactics.SELF_DESTRUCT_MOVES:
+        tactics.self_destruct(ctx, attacker, defender, move)
+        return
+
+    if move.raw.get("forceSwitch") and landed:
+        if not tactics.force_switch(ctx, defender):
+            ctx.emit(Event("move_failed", side=attacker[0], move=move.id,
+                           detail="nobody to drag in"))
+
+    if move.raw.get("selfSwitch") and landed:
+        tactics.self_switch(ctx, attacker)
 
 
 def _deal_or_break_substitute(
@@ -508,9 +584,13 @@ def _deal_or_break_substitute(
                            amount=damage, move=move.id))
         return 0
 
-    return apply_damage(ctx, defender, damage, "damage", move=move.id,
-                        effectiveness=effectiveness, crit=crit,
-                        __source__=attacker, __move__=move)
+    from pkcm.engine import tactics
+
+    dealt = apply_damage(ctx, defender, damage, "damage", move=move.id,
+                         effectiveness=effectiveness, crit=crit,
+                         __source__=attacker, __move__=move)
+    tactics.record_hit(ctx, defender, attacker, move, dealt)
+    return dealt
 
 
 def _apply_ohko(ctx: Context, attacker: Ref, defender: Ref, move: Move) -> bool:
@@ -554,7 +634,7 @@ def _apply_status_move(ctx: Context, attacker: Ref, target: Ref, move: Move) -> 
     if raw.get("status"):
         did_something |= mutate.set_status(ctx, target, raw["status"], source=attacker)
 
-    if raw.get("volatileStatus"):
+    if raw.get("volatileStatus") and raw["volatileStatus"] not in TACTICS_MANAGED_VOLATILES:
         did_something |= mutate.add_volatile(ctx, target, raw["volatileStatus"],
                                              **_volatile_data(ctx, raw["volatileStatus"]))
 
@@ -567,9 +647,32 @@ def _apply_status_move(ctx: Context, attacker: Ref, target: Ref, move: Move) -> 
 
     did_something |= _apply_field_effects(ctx, attacker, target, move)
 
+    from pkcm.engine import tactics
+
+    if move.id in tactics.SELF_DESTRUCT_MOVES or move.raw.get("forceSwitch") \
+            or move.raw.get("selfSwitch"):
+        _after_effects(ctx, attacker, target, move, landed=True)
+        return True
+
     if not did_something:
         ctx.emit(Event("move_failed", side=attacker[0], move=move.id))
     return did_something
+
+
+#: Moves that lock their user in for a few turns and then confuse it.
+LOCKING_MOVES = frozenset({"outrage", "thrash", "petaldance", "ragingfury"})
+
+
+def _locks_in(move) -> bool:
+    return move.id in LOCKING_MOVES
+
+
+#: Volatiles that ``tactics`` owns outright. The move data mentions some of
+#: them too, but it cannot supply the counters they need, and applying it a
+#: second time overwrites the bookkeeping.
+TACTICS_MANAGED_VOLATILES = frozenset({
+    "lockedmove", "partiallytrapped", "twoturn", "mustrecharge", "invulnerable",
+})
 
 
 def _volatile_data(ctx: Context, name: str) -> dict:
@@ -697,7 +800,7 @@ def _apply_self_effects(ctx: Context, attacker: Ref, move) -> None:
         return
     if payload.get("boosts"):
         mutate.boost(ctx, attacker, payload["boosts"], source=attacker)
-    if payload.get("volatileStatus"):
+    if payload.get("volatileStatus") and payload["volatileStatus"] not in TACTICS_MANAGED_VOLATILES:
         mutate.add_volatile(ctx, attacker, payload["volatileStatus"])
 
 
@@ -719,7 +822,8 @@ def _apply_secondaries(ctx: Context, attacker: Ref, defender: Ref, move) -> None
 
         if secondary.get("status"):
             mutate.set_status(ctx, defender, secondary["status"], source=attacker)
-        if secondary.get("volatileStatus"):
+        if (secondary.get("volatileStatus")
+                and secondary["volatileStatus"] not in TACTICS_MANAGED_VOLATILES):
             mutate.add_volatile(ctx, defender, secondary["volatileStatus"],
                                 **_volatile_data(ctx, secondary["volatileStatus"]))
         if secondary.get("boosts"):
@@ -838,14 +942,22 @@ def _all_secondaries(move: Move) -> list[dict]:
 
 def move_support(move: Move) -> str | None:
     """``None`` if the engine executes this move correctly, else why it does not."""
+    from pkcm.engine.tactics import COUNTER_MOVES, SELF_DESTRUCT_MOVES
+
+    # These four used to be blanket exclusions. They are structural rather than
+    # declarative, which is a reason to write real code for them, not a reason
+    # to skip them -- forcing a switch, U-turning out and answering a hit with
+    # Counter are all ordinary competitive play.
+    if move.id in COUNTER_MOVES or move.id in SELF_DESTRUCT_MOVES:
+        return None
+    if move.id in ("endeavor", "superfang"):
+        return None
+    if move.raw.get("forceSwitch") or move.raw.get("selfSwitch"):
+        return None
     if "charge" in move.flags or "recharge" in move.flags:
-        return MULTI_TURN
-    if move.raw.get("selfdestruct") is not None:
-        return SELF_DESTRUCT
-    if move.raw.get("forceSwitch"):
-        return FORCE_SWITCH
-    if move.raw.get("selfSwitch"):
-        return SELF_SWITCH
+        return None
+    if move.id in LOCKING_MOVES:
+        return None
 
     unwired = _unwired_condition(move)
     if unwired is not None:
@@ -858,8 +970,7 @@ def move_support(move: Move) -> str | None:
             return None
         return NO_EFFECT_DATA
 
-    if move.id in COUNTER_MOVES:
-        return SPECIAL_DAMAGE
+
     if move.base_power == 0 and move.raw.get("damage") is None and not move.raw.get("ohko"):
         if move.id not in VARIABLE_POWER:
             return VARIABLE_POWER_REASON

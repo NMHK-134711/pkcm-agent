@@ -348,7 +348,7 @@ def test_moves_setting_unwired_conditions_are_not_claimed(dex):
     assert move_support(dex.moves["safeguard"]) == "unhandled side condition: safeguard"
     assert move_support(dex.moves["taunt"]) == "unhandled volatile condition: taunt"
     assert move_support(dex.moves["gravity"]) == "unhandled field effect: gravity"
-    assert move_support(dex.moves["outrage"]) == "unhandled volatile condition: lockedmove"
+    assert move_support(dex.moves["yawn"]) == "unhandled volatile condition: yawn"
 
     assert move_support(dex.moves["reflect"]) is None
     assert move_support(dex.moves["spikes"]) is None

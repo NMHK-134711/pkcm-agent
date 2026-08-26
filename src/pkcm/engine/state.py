@@ -56,6 +56,10 @@ class Phase(IntEnum):
     BATTLE = 1
     FORCED_SWITCH = 2
     FINISHED = 3
+    #: A turn stopped halfway because someone used U-turn and owes a
+    #: replacement *before* the rest of the turn happens. Distinct from
+    #: FORCED_SWITCH, which comes after the turn is over.
+    MID_TURN_SWITCH = 4
 
 
 @dataclass(frozen=True, slots=True)
@@ -169,6 +173,11 @@ class BattleState:
     #: before ``field`` because that attribute shadows ``dataclasses.field``
     #: for everything after it.
     mega_used: list[bool] = field(default_factory=lambda: [False, False])
+    #: The turn currently being resolved: the actions both sides chose, and who
+    #: has yet to act. Kept on the state so a turn interrupted by a self-switch
+    #: can be picked up again on the next ``step``.
+    turn_actions: tuple = ()
+    turn_queue: list[int] = field(default_factory=list)
     field: FieldState = field(default_factory=FieldState)
     phase: Phase = Phase.TEAM_PREVIEW
     turn: int = 0
@@ -197,6 +206,8 @@ class BattleState:
             turn=self.turn,
             winner=self.winner,
             mega_used=list(self.mega_used),
+            turn_actions=self.turn_actions,
+            turn_queue=list(self.turn_queue),
             overrides=(
                 [dict(slot) for slot in self.overrides[0]],
                 [dict(slot) for slot in self.overrides[1]],
@@ -329,12 +340,21 @@ def legal_actions(state: BattleState, player: int) -> tuple[Action, ...]:
 
     side = state.sides[player]
 
-    if state.phase is Phase.FORCED_SWITCH:
+    if state.phase in (Phase.FORCED_SWITCH, Phase.MID_TURN_SWITCH):
         if not side.must_switch:
             return (Action.PASS,)
         return tuple(
             Action.switch(slot) for slot in side.living_slots() if slot != side.active
         )
+
+    if side.has_volatile(side.active, "mustrecharge"):
+        return (Action.PASS,)
+
+    locked = side.volatiles[side.active].get("twoturn") or side.volatiles[side.active].get("lockedmove")
+    if locked and "move" in locked:
+        index = locked["move"]
+        if index < len(side.pp[side.active]):
+            return (Action.move(index),)
 
     # Normal turn: any move with PP left, plus any living benched Pokemon.
     volatiles = side.volatiles[side.active]

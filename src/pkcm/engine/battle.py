@@ -16,6 +16,7 @@ from pkcm.data.dex import Move, Stat
 from pkcm.engine import abilities  # noqa: F401  -- registers its effects on import
 from pkcm.engine import conditions  # noqa: F401  -- registers its effects on import
 from pkcm.engine import items  # noqa: F401  -- registers its effects on import
+from pkcm.engine import tactics  # noqa: F401  -- registers its effects on import
 from pkcm.engine import effects as fx
 from pkcm.engine import events as ev
 from pkcm.engine import moves as mv
@@ -68,6 +69,8 @@ def step(
         _resolve_team_preview(ctx, actions)
     elif state.phase is Phase.FORCED_SWITCH:
         _resolve_forced_switch(ctx, actions)
+    elif state.phase is Phase.MID_TURN_SWITCH:
+        _resume_turn(ctx, actions)
     elif state.phase is Phase.BATTLE:
         _resolve_turn(ctx, actions)
 
@@ -118,6 +121,15 @@ def _resolve_turn(ctx: Context, actions: tuple[Action, ...]) -> None:
     state.turn += 1
     ctx.emit(ev.turn_start(state.turn))
 
+    # Recharging is spent by doing nothing, and a PASS never reaches the queue,
+    # so it is settled before the queue is built.
+    for player in (0, 1):
+        side = state.sides[player]
+        if actions[player].kind is ActionKind.PASS and side.hp \
+                and side.has_volatile(side.active, "mustrecharge"):
+            ctx.emit(Event("recharging", side=player, slot=side.active))
+            mutate.remove_volatile(ctx, (player, side.active), "mustrecharge", quiet=True)
+
     switchers = [p for p in (0, 1) if actions[p].kind is ActionKind.SWITCH]
     attackers = [p for p in (0, 1) if actions[p].kind in (ActionKind.MOVE, ActionKind.STRUGGLE)]
 
@@ -130,22 +142,53 @@ def _resolve_turn(ctx: Context, actions: tuple[Action, ...]) -> None:
     for player in _by_speed(ctx, [p for p in (0, 1) if actions[p].mega]):
         _mega_evolve(ctx, player)
 
-    for player in _move_order(ctx, actions, attackers):
+    state.turn_actions = actions
+    state.turn_queue = _move_order(ctx, actions, attackers)
+    _run_queue(ctx)
+
+
+def _resume_turn(ctx: Context, actions: tuple[Action, ...]) -> None:
+    """Pick a turn back up after a mid-turn switch has been chosen."""
+    for player, action in enumerate(actions):
+        if action.kind is ActionKind.SWITCH:
+            _switch(ctx, player, action.index)
+            ctx.state.sides[player].must_switch = False
+    if not ctx.state.finished:
+        ctx.state.phase = Phase.BATTLE
+        _run_queue(ctx)
+
+
+def _run_queue(ctx: Context) -> None:
+    """Work through whoever still has to act. May stop partway."""
+    state = ctx.state
+    while state.turn_queue:
         if state.finished:
             return
+        player = state.turn_queue.pop(0)
         side = state.sides[player]
         if side.is_fainted(side.active):
             continue  # knocked out before it could act
-        _use(ctx, player, actions[player])
+
+        _use(ctx, player, state.turn_actions[player])
         ctx.acted.add((player, side.active))
         for who in (0, 1):
-            other = ctx.state.sides[who]
+            other = state.sides[who]
             if other.hp and not other.is_fainted(other.active):
                 mutate.check_item_triggers(ctx, (who, other.active))
         if _check_loss(ctx):
             return
 
+        # A self-switch stops the turn here: the replacement has to be chosen
+        # and has to be on the field before anyone else moves.
+        if _owes_mid_turn_switch(ctx):
+            state.phase = Phase.MID_TURN_SWITCH
+            return
+
     _end_of_turn(ctx)
+
+
+def _owes_mid_turn_switch(ctx: Context) -> bool:
+    return any(side.must_switch for side in ctx.state.sides)
 
 
 # --------------------------------------------------------------------------- #
@@ -203,6 +246,9 @@ def _enter_field(ctx: Context, player: int) -> None:
     )
     apply_entry_hazards(ctx, ref)
     if side.hp[side.active] > 0:
+        from pkcm.engine.tactics import _healing_wish_on_entry
+
+        _healing_wish_on_entry(ctx, ref)
         fx.notify(ctx, "switch_in", ref)
 
 
@@ -345,6 +391,8 @@ def _clear_turn_volatiles(ctx: Context) -> None:
             elif "stall" in volatiles:
                 del volatiles["stall"]
             volatiles.pop("flinch", None)
+            # Counter and Mirror Coat only answer damage from this turn.
+            volatiles.pop("hurtthisturn", None)
             volatiles.pop("lastmove", None) if slot != side.active else None
 
 
@@ -368,19 +416,41 @@ def _check_loss(ctx: Context) -> bool:
 
 
 def _decide_by_attrition(state: BattleState) -> int | None:
-    """Timer-out ruling: more Pokemon standing, then more total HP, else a draw."""
-    remaining = [len(side.living_slots()) for side in state.sides]
-    if remaining[0] != remaining[1]:
-        return 0 if remaining[0] > remaining[1] else 1
+    """The official time-over ruling, in its four tiers.
 
-    fractions = []
-    for player, side in enumerate(state.sides):
-        fractions.append(
-            sum(side.hp[slot] / state.pokemon(player, slot).max_hp for slot in range(len(side.hp)))
-        )
-    if fractions[0] == fractions[1]:
-        return None
-    return 0 if fractions[0] > fractions[1] else 1
+    1. how many Pokemon are still standing
+    2. remaining HP as a share of the HP that side started with
+    3. remaining HP in absolute terms
+    4. remaining PP
+
+    Tiers two and three are not the same test. Two sides can hold the same
+    *share* of their HP while holding very different amounts of it, and a
+    bulky team is not entitled to win a tie on that alone -- so the ratio is
+    asked first and the raw number second.
+    """
+    for measure in (_living_count, _hp_share, _hp_absolute, _pp_remaining):
+        scores = [measure(state, player) for player in (0, 1)]
+        if scores[0] != scores[1]:
+            return 0 if scores[0] > scores[1] else 1
+    return None
+
+
+def _living_count(state: BattleState, player: int) -> int:
+    return len(state.sides[player].living_slots())
+
+
+def _hp_absolute(state: BattleState, player: int) -> int:
+    return sum(state.sides[player].hp)
+
+
+def _hp_share(state: BattleState, player: int) -> float:
+    side = state.sides[player]
+    total = sum(state.pokemon(player, slot).max_hp for slot in range(len(side.hp)))
+    return sum(side.hp) / total if total else 0.0
+
+
+def _pp_remaining(state: BattleState, player: int) -> int:
+    return sum(sum(slot) for slot in state.sides[player].pp)
 
 
 def _finish(ctx: Context, winner: int | None, detail: str) -> None:

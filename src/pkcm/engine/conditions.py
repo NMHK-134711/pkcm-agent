@@ -406,10 +406,14 @@ def apply_entry_hazards(ctx: Context, ref: Ref) -> None:
 # --------------------------------------------------------------------------- #
 
 IMPLEMENTED_STATUSES = frozenset({"brn", "par", "psn", "tox", "slp", "frz"})
-IMPLEMENTED_VOLATILES = frozenset({"confusion", "flinch", "leechseed", "protect",
-                                   "substitute", "trapped"})
+IMPLEMENTED_VOLATILES = frozenset({
+    "confusion", "flinch", "leechseed", "protect", "substitute", "trapped",
+    "partiallytrapped", "lockedmove", "twoturn", "mustrecharge", "invulnerable",
+    "disabled", "attract", "charge", "ingrain",
+})
 IMPLEMENTED_SIDE_CONDITIONS = frozenset({"reflect", "lightscreen", "auroraveil", "tailwind",
-                                         "spikes", "toxicspikes", "stealthrock", "stickyweb"})
+                                         "spikes", "toxicspikes", "stealthrock", "stickyweb",
+                                         "healingwish"})
 IMPLEMENTED_WEATHER = frozenset({"sunnyday", "raindance", "sandstorm", "snowscape"})
 IMPLEMENTED_TERRAIN = frozenset({"electricterrain", "grassyterrain", "mistyterrain",
                                  "psychicterrain"})

@@ -51,6 +51,17 @@
       "evasion_clause": "moves that raise evasion are banned",
       "nickname_clause": "cosmetic; not modelled",
       "source": "mods/champions/rulesets.ts -- 'standard' ruleset"
+    },
+    "time_over_decision": {
+      "order": [
+        "number of Pokemon still standing",
+        "remaining HP as a share of that side's starting HP",
+        "remaining HP in absolute terms",
+        "remaining PP"
+      ],
+      "then": "draw",
+      "source": "official ruling, reported by hk",
+      "note": "Tiers 2 and 3 are separate tests: equal shares need not mean equal amounts."
     }
   },
   "assumed": {},

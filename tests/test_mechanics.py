@@ -102,6 +102,7 @@ def test_burn_halves_attack_and_chips_hp(dex, config):
 
 
 def test_paralysis_halves_speed(dex, config):
+    """Champions nerfed the *chance* to 1/8 and left this alone (hk, confirmed)."""
     # Dragonite, not a Ground type -- Ground is immune to Electric moves entirely.
     state = build(config, a_set("dragonite", ("tackle",)), a_set("snorlax", ("thunderwave",)))
     ctx = make_context(state)

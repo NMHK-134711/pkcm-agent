@@ -72,6 +72,7 @@ def test_base_pp_is_capped_at_twenty(dex):
 
 
 def test_pp_formula_is_not_the_series_one(dex):
+    """``(base // 5 + 1) * 4``, on a base capped at 20 (hk, confirmed)."""
     """Champions: (pp/5 + 1) * 4. The mainline games: pp * 8/5."""
     assert max_pp(15) == 16, "the series would give 24"
     assert max_pp(10) == 12, "the series would give 16"

@@ -140,7 +140,11 @@ def test_the_target_code_picks_the_right_foe(config, dex):
 
 
 def test_you_may_aim_at_your_own_partner(config, dex):
-    """Rarely wise, occasionally exactly right, and always legal."""
+    """Rarely wise, occasionally exactly right, and always legal.
+
+    hk confirmed the game really does offer the partner as a target, so this
+    belongs in the action space rather than being trimmed out of it.
+    """
     state = build(config, a_set("pikachu", "static", ("thunderbolt",)))
     ctx = make_context(state)
     cast(ctx, dex, "thunderbolt", target_code=TARGET_ALLY)
@@ -660,6 +664,7 @@ def test_gravity_refuses_a_jumping_move(config, dex):
 
 
 def test_intimidate_drops_both_foes(config):
+    """Both of them, hk confirmed -- it used to drop only the first."""
     from pkcm.engine import effects as fx
 
     state = build(config, a_set("gyarados", "intimidate"))
@@ -728,7 +733,7 @@ def test_imposter_copies_diagonally(config):
 
     Showdown indexes the foe side backwards from the copier's own position, so
     the left Ditto becomes the right-hand foe. Singles has one of each and the
-    distinction cannot show up.
+    distinction cannot show up. hk confirmed the diagonal.
     """
     from pkcm.engine import effects as fx
 
@@ -750,3 +755,63 @@ def test_supersweet_syrup_drops_both_foes_once(config):
 
     fx.notify(ctx, "switch_in", RED_A)
     assert state.sides[1].boost(0, "evasion") == -1, "and only once a battle"
+
+
+# --------------------------------------------------------------------------- #
+# Confirmed against the game by hk, 2026-08-26
+#
+# These were the open questions doubles left behind. All eight came back
+# matching what the engine already did, so what these tests protect is the
+# answer rather than a fix -- nobody should have to ask again.
+# --------------------------------------------------------------------------- #
+
+
+def test_a_speed_tie_is_settled_at_random(config):
+    """hk: random, with no positional rule behind it.
+
+    Two identical Pokemon with identical Speed, played out repeatedly: both
+    orders have to show up, or something deterministic has crept in.
+    """
+    from pkcm.engine.rng import Rng
+
+    seen = set()
+    for seed in range(30):
+        state = build(config, a_set("snorlax", "thickfat", ("bodyslam",)),
+                      red2=a_set("shuckle", "sturdy", ("protect",)),
+                      blue=a_set("snorlax", "thickfat", ("bodyslam",)),
+                      blue2=a_set("shuckle", "sturdy", ("protect",)))
+        state.rng = Rng.from_seed(seed)
+        _, log = step(state,
+                      (Action.move(0, target=0), Action.move(0)),
+                      (Action.move(0, target=0), Action.move(0)))
+        movers = [(e.side, e.slot) for e in log if e.kind == "move_used"]
+        first_snorlax = next(m for m in movers if m[1] == 0)
+        seen.add(first_snorlax[0])
+        if len(seen) == 2:
+            return
+    pytest.fail(f"the same side always won the tie over 30 seeds: {seen}")
+
+
+def test_time_over_uses_the_same_four_tiers_in_doubles(config):
+    """hk: the ruling does not change between formats.
+
+    Pokemon standing, then HP as a share of the side's own maximum, then HP in
+    absolute terms, then PP.
+    """
+    from pkcm.engine.battle import _decide_by_attrition
+
+    state = build(config, a_set("garchomp", "roughskin"))
+    # Red has three left, blue two: tier one settles it and nothing else is read.
+    state.sides[1].hp[3] = 0
+    assert _decide_by_attrition(state) == 0
+
+    # Level the count, and the HP share decides instead.
+    state.sides[0].hp[3] = 0
+    state.sides[0].hp[0] //= 4
+    assert _decide_by_attrition(state) == 1
+
+    # Level that too, and it comes down to PP.
+    for side in state.sides:
+        side.hp = [pokemon_hp for pokemon_hp in state.sides[0].hp]
+    state.sides[1].pp[0][0] -= 1
+    assert _decide_by_attrition(state) == 0

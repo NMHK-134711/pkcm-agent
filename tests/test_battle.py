@@ -81,6 +81,7 @@ def test_damage_stays_inside_the_analytic_bounds(dex, config):
 
 
 def test_crit_rate_is_one_in_twentyfour(dex, config):
+    """Same as the series, crit multiplier included (hk, confirmed)."""
     state = build(config, a_set("garchomp", ("earthquake",)), a_set("snorlax", ("bodyslam",)))
     ctx = make_context(state)
     move = dex.moves["earthquake"]

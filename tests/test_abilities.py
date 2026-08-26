@@ -540,3 +540,73 @@ def test_only_item_abilities_remain(dex):
     assert missing == {"cudchew", "ripen", "stickyhold"}, (
         f"expected only the held-item abilities to be pending, got {sorted(missing)}"
     )
+
+
+# --------------------------------------------------------------------------- #
+# How long a change to what a Pokemon *is* lasts
+# --------------------------------------------------------------------------- #
+
+
+def _wall_team():
+    return tuple(a_set(s, "sturdy", ("protect",)) for s in
+                 ("skarmory", "aggron", "steelix", "forretress", "bastiodon", "registeel"))
+
+
+def test_protean_fires_once_per_entry_and_recharges_on_a_switch(dex, config):
+    """Reported by hk: gen 9 allows it once, and leaving the field refills it.
+
+    Showdown stores the flag in the ability's ``effectState``, which is per
+    activation -- switching out ends the activation.
+    """
+    greninja = a_set("greninja", "protean", ("surf", "shadowball"))
+    bench = [a_set(s, "__none__", ("bodyslam",)) for s in
+             ("snorlax", "pikachu", "starmie", "gengar", "alakazam")]
+    state = new_battle(config, (tuple([greninja] + bench), _wall_team()), seed=1)
+    state, _ = step(state, Action.select(0, 1, 2), Action.select(0, 1, 2))
+    assert state.types(0, 0) == ("water", "dark")
+
+    state, _ = step(state, Action.move(0), Action.move(0))       # Surf
+    assert state.types(0, 0) == ("water",)
+
+    state, _ = step(state, Action.move(1), Action.move(0))       # Shadow Ball
+    assert state.types(0, 0) == ("water",), "only once per entry"
+
+    state, _ = step(state, Action.switch(1), Action.move(0))     # out
+    assert state.types(0, 0) == ("water", "dark"), "the retype reverts on the way out"
+
+    state, _ = step(state, Action.switch(0), Action.move(0))     # back in
+    state, _ = step(state, Action.move(1), Action.move(0))       # Shadow Ball
+    assert state.types(0, 0) == ("ghost",), "and it is charged again"
+
+
+def test_transform_also_reverts_on_switching_out(dex, config):
+    ditto = a_set("ditto", "imposter", ("transform",))
+    bench = [a_set(s, "__none__", ("bodyslam",)) for s in
+             ("snorlax", "pikachu", "starmie", "gengar", "alakazam")]
+    state = new_battle(config, (tuple([bench[0], ditto] + bench[1:]), _wall_team()), seed=2)
+    state, _ = step(state, Action.select(0, 1, 2), Action.select(0, 1, 2))
+
+    state, _ = step(state, Action.switch(1), Action.move(0))
+    assert state.species_id(0, 1) == "skarmory"
+
+    state, _ = step(state, Action.switch(0), Action.move(0))
+    assert state.species_id(0, 1) == "ditto", "Ditto is itself again on the bench"
+
+
+def test_a_busted_disguise_stays_busted(dex, config):
+    """The contrast: some changes are meant to outlive a switch."""
+    mimikyu = a_set("mimikyu", "disguise", ("bodyslam",))
+    bench = [a_set(s, "__none__", ("bodyslam",)) for s in
+             ("snorlax", "pikachu", "starmie", "gengar", "alakazam")]
+    attacker = tuple([a_set("garchomp", "roughskin", ("earthquake",))]
+                     + [a_set(s, "__none__", ("bodyslam",)) for s in
+                        ("snorlax", "pikachu", "starmie", "gengar", "alakazam")])
+    state = new_battle(config, (tuple([mimikyu] + bench), attacker), seed=3)
+    state, _ = step(state, Action.select(0, 1, 2), Action.select(0, 1, 2))
+
+    state, _ = step(state, Action.move(0), Action.move(0))
+    assert "busted" in state.species_id(0, 0)
+
+    state, _ = step(state, Action.switch(1), Action.move(0))
+    state, _ = step(state, Action.switch(0), Action.move(0))
+    assert "busted" in state.species_id(0, 0), "the disguise does not come back"

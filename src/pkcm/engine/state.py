@@ -47,6 +47,9 @@ MIN_BOOST = -6
 #: Major status conditions. At most one at a time, and it survives switching.
 MAJOR_STATUSES = ("brn", "par", "psn", "tox", "slp", "frz")
 
+#: Key inside an override entry naming the fields that survive switching out.
+PERMANENT = "__permanent__"
+
 
 class Phase(IntEnum):
     TEAM_PREVIEW = 0
@@ -167,6 +170,12 @@ class BattleState:
     turn: int = 0
     winner: int | None = None
     #: Per-slot overrides of what a Pokemon *is*, as opposed to how it is doing.
+    #:
+    #: Most of them last only while the Pokemon is on the field: Protean's
+    #: retype, Transform, Trace's borrowed ability, Stance Change's forme all
+    #: revert when it leaves. A few do not -- Mega Evolution and a busted
+    #: Disguise are done for the rest of the battle. The ones that stay are
+    #: named in the entry's ``__permanent__`` key.
     #: Mega Evolution rewrites species/ability/stats; Transform rewrites nearly
     #: everything but HP. Empty dict means "as registered". Keeping this one
     #: structure rather than a field per mechanic is what stops Transform from
@@ -200,6 +209,22 @@ class BattleState:
 
     def override(self, side: int, slot: int) -> dict[str, Any]:
         return self.overrides[side][slot] if self.overrides[side] else {}
+
+    def set_override(self, side: int, slot: int, key: str, value: Any,
+                     permanent: bool = False) -> None:
+        entry = self.overrides[side][slot]
+        entry[key] = value
+        if permanent:
+            entry[PERMANENT] = frozenset(entry.get(PERMANENT, ())) | {key}
+
+    def clear_temporary_overrides(self, side: int, slot: int) -> None:
+        """Everything a Pokemon stops being the moment it leaves the field."""
+        entry = self.overrides[side][slot]
+        permanent = frozenset(entry.get(PERMANENT, ()))
+        kept = {key: value for key, value in entry.items() if key in permanent}
+        if permanent:
+            kept[PERMANENT] = permanent
+        self.overrides[side][slot] = kept
 
     def species_id(self, side: int, slot: int) -> str:
         """Current forme, which Mega Evolution and Transform can change."""

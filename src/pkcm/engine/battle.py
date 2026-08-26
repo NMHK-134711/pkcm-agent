@@ -150,6 +150,7 @@ def _switch(ctx: Context, player: int, slot: int) -> None:
         if not side.is_fainted(side.active):
             fx.notify(ctx, "switch_out", (player, side.active), scope="self")
         side.clear_on_switch_out(side.active)
+        ctx.state.clear_temporary_overrides(player, side.active)
     side.active = slot
     _enter_field(ctx, player)
 

@@ -37,7 +37,7 @@ from pkcm.engine.moves import (
     MODIFIER_SCALE, X0_5, X0_75, X1_2, X1_25, X1_3, X1_5, X2, chain_modify,
 )
 from pkcm.engine.mutate import boost, fraction_of_max, heal
-from pkcm.engine.state import BOOST_STATS
+from pkcm.engine.state import BOOST_STATS, PERMANENT
 
 CONTACT = "contact"
 ALL_STATUSES = ("brn", "par", "psn", "tox", "slp", "frz")
@@ -997,7 +997,7 @@ def _protean(ctx, ref, active, attacker, defender, **_):
     if ctx.state.types(*ref) == (active.type,):
         return
     side.volatiles[ref[1]]["typechanged"] = True
-    ctx.state.overrides[ref[0]][ref[1]]["types"] = (active.type,)
+    ctx.state.set_override(ref[0], ref[1], "types", (active.type,))
     announce(ctx, ref, "protean")
     ctx.emit(Event("type_change", side=ref[0], slot=ref[1], detail=active.type))
 
@@ -1143,7 +1143,7 @@ def _replaces_attacker_ability(new_ability, ability: str):
         if ctx.state.ability_id(*attacker) == replacement:
             return
         announce(ctx, defender, ability)
-        ctx.state.overrides[attacker[0]][attacker[1]]["ability"] = replacement
+        ctx.state.set_override(attacker[0], attacker[1], "ability", replacement)
         ctx.emit(Event("ability_change", side=attacker[0], slot=attacker[1],
                        detail=replacement))
 
@@ -1161,8 +1161,8 @@ def _wandering_spirit(ctx, ref, attacker, defender, move, damage, **_):
     mine = ctx.state.ability_id(*defender)
     theirs = ctx.state.ability_id(*attacker)
     announce(ctx, defender, "wanderingspirit")
-    ctx.state.overrides[defender[0]][defender[1]]["ability"] = theirs
-    ctx.state.overrides[attacker[0]][attacker[1]]["ability"] = mine
+    ctx.state.set_override(defender[0], defender[1], "ability", theirs)
+    ctx.state.set_override(attacker[0], attacker[1], "ability", mine)
     ctx.emit(Event("ability_change", side=attacker[0], slot=attacker[1], detail=mine))
 
 
@@ -1437,7 +1437,7 @@ def _trace(ctx, ref, **_):
     if copied in UNCOPYABLE:
         return
     announce(ctx, ref, "trace")
-    ctx.state.overrides[ref[0]][ref[1]]["ability"] = copied
+    ctx.state.set_override(ref[0], ref[1], "ability", copied)
     ctx.emit(Event("ability_change", side=ref[0], slot=ref[1], detail=copied))
 
 
@@ -1457,17 +1457,18 @@ def _imposter(ctx, ref, **_):
     if ctx.state.sides[ref[0]].volatiles[ref[1]].get("transformed"):
         return
 
-    override = ctx.state.overrides[ref[0]][ref[1]]
-    override["species"] = ctx.state.species_id(*target)
-    override["ability"] = ctx.state.ability_id(*target)
-    override["types"] = ctx.state.types(*target)
-
     stats = list(ctx.state.stats(*target))
     stats[Stat.HP] = ctx.state.pokemon(*ref).stats[Stat.HP]
-    override["stats"] = tuple(stats)
-
     copied = [move.id for move in ctx.state.moves(*target)]
-    override["moves"] = tuple(copied)
+
+    for key, value in (
+        ("species", ctx.state.species_id(*target)),
+        ("ability", ctx.state.ability_id(*target)),
+        ("types", ctx.state.types(*target)),
+        ("stats", tuple(stats)),
+        ("moves", tuple(copied)),
+    ):
+        ctx.state.set_override(ref[0], ref[1], key, value)
     ctx.state.sides[ref[0]].pp[ref[1]] = [5] * len(copied)
 
     # Stat stages come along too -- the part a naive Transform forgets.
@@ -1476,7 +1477,7 @@ def _imposter(ctx, ref, **_):
     ctx.state.sides[ref[0]].volatiles[ref[1]]["transformed"] = True
     announce(ctx, ref, "imposter")
     ctx.emit(Event("transform", side=ref[0], slot=ref[1],
-                   species=ctx.state.species_name(*ref), detail=override["species"]))
+                   species=ctx.state.species_name(*ref), detail=ctx.state.species_id(*ref)))
 
 
 register("ability", "imposter", name="Imposter", switch_in=_imposter)
@@ -1491,8 +1492,9 @@ def _forme_by_weather(ctx, ref, **_):
     species = formes.get(ctx.state.field.weather, "castform")
     if ctx.state.species_id(*ref) == species:
         return
-    ctx.state.overrides[ref[0]][ref[1]]["species"] = species
-    ctx.state.overrides[ref[0]][ref[1]]["types"] = ctx.state.config.dex.species[species].types
+    ctx.state.set_override(ref[0], ref[1], "species", species)
+    ctx.state.set_override(ref[0], ref[1], "types",
+                           ctx.state.config.dex.species[species].types)
     ctx.emit(Event("forme_change", side=ref[0], slot=ref[1], detail=species))
 
 
@@ -1510,7 +1512,7 @@ def _mimicry(ctx, ref, **_):
         return
     if override.get("types") == (terrain_type,):
         return
-    override["types"] = (terrain_type,)
+    ctx.state.set_override(ref[0], ref[1], "types", (terrain_type,))
     announce(ctx, ref, "mimicry")
     ctx.emit(Event("type_change", side=ref[0], slot=ref[1], detail=terrain_type))
 
@@ -1614,11 +1616,8 @@ register("ability", "supersweetsyrup", name="Supersweet Syrup", switch_in=_super
 def _zero_to_hero(ctx, ref, **_):
     if ctx.state.species_id(*ref) != "palafin":
         return
-    ctx.state.overrides[ref[0]][ref[1]]["species"] = "palafinhero"
-    ctx.state.overrides[ref[0]][ref[1]]["stats"] = None
-    ctx.state.overrides[ref[0]][ref[1]].pop("stats")
     announce(ctx, ref, "zerotohero")
-    ctx.emit(Event("forme_change", side=ref[0], slot=ref[1], detail="palafinhero"))
+    _become(ctx, ref, "palafinhero", permanent=True)
 
 
 register("ability", "zerotohero", name="Zero to Hero", switch_out=_zero_to_hero)
@@ -1629,8 +1628,9 @@ def _hunger_switch(ctx, ref, **_):
     if current not in ("morpeko", "morpekohangry"):
         return
     flipped = "morpekohangry" if current == "morpeko" else "morpeko"
-    ctx.state.overrides[ref[0]][ref[1]]["species"] = flipped
-    ctx.state.overrides[ref[0]][ref[1]]["types"] = ctx.state.config.dex.species[flipped].types
+    ctx.state.set_override(ref[0], ref[1], "species", flipped)
+    ctx.state.set_override(ref[0], ref[1], "types",
+                           ctx.state.config.dex.species[flipped].types)
     ctx.emit(Event("forme_change", side=ref[0], slot=ref[1], detail=flipped))
 
 
@@ -1678,21 +1678,25 @@ register("ability", "illusion", name="Illusion", switch_in=_illusion)
 # --------------------------------------------------------------------------- #
 
 
-def _become(ctx: Context, ref: Ref, species_id: str) -> None:
-    """Swap forme, keeping HP. Stats and types follow the new forme."""
+def _become(ctx: Context, ref: Ref, species_id: str, permanent: bool = False) -> None:
+    """Swap forme, keeping HP. Stats and types follow the new forme.
+
+    ``permanent`` for the ones that outlive a switch: a busted Disguise stays
+    busted, Palafin stays Hero. Stance Change and Hunger Switch do not.
+    """
     if ctx.state.species_id(*ref) == species_id:
         return
     species = ctx.state.config.dex.species[species_id]
-    override = ctx.state.overrides[ref[0]][ref[1]]
-    override["species"] = species_id
-    override["types"] = species.types
 
     from pkcm.engine.stats import compute_stats
 
     stats = list(compute_stats(species.base_stats, ctx.state.pokemon(*ref).set.sp,
                                ctx.state.pokemon(*ref).nature))
     stats[Stat.HP] = ctx.state.pokemon(*ref).stats[Stat.HP]
-    override["stats"] = tuple(stats)
+
+    for key, value in (("species", species_id), ("types", species.types),
+                       ("stats", tuple(stats))):
+        ctx.state.set_override(ref[0], ref[1], key, value, permanent=permanent)
     ctx.emit(Event("forme_change", side=ref[0], slot=ref[1], detail=species_id))
 
 
@@ -1733,7 +1737,7 @@ def _disguise(ctx, ref, attacker, defender, move, **_):
         return None
 
     _blocked(ctx, defender, "disguise", move)
-    _become(ctx, defender, ctx.state.species_id(*defender) + "busted")
+    _become(ctx, defender, ctx.state.species_id(*defender) + "busted", permanent=True)
     mutate.apply_damage(ctx, defender, fraction_of_max(ctx.state, defender, 8),
                         "recoil", detail="disguise")
     return False

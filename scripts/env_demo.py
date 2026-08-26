@@ -73,15 +73,31 @@ def show_assessment(env) -> None:
         print(f"position {position}: {mine.species_id}")
         for slot, estimate in assessment.damage:
             target = next(k for k in observation.foe if k.slot == slot)
-            note = " KO" if estimate.guaranteed_ko else ""
+            if estimate.guaranteed_ko:
+                verdict = "확정 1타"
+            elif estimate.ko_chance > 0:
+                verdict = f"난수 1타 {estimate.ko_chance:.0%}"
+            else:
+                verdict = f"{str(estimate.hits_to_ko)} hits"
+            accuracy = "" if estimate.hit_chance == 1.0 else f"  (명중 {estimate.hit_chance:.0%})"
             print(f"  {estimate.move_id:16} -> {target.species_id:14} "
                   f"x{estimate.effectiveness:<5} {str(estimate.percent):>7}%  "
-                  f"{str(estimate.hits_to_ko):>5} hits{note}")
+                  f"{verdict}{accuracy}")
         for slot, faster in assessment.outspeeds:
             target = next(k for k in observation.foe if k.slot == slot)
             answer = {True: "we move first", False: "they move first"}.get(
                 faster, "depends on their spread")
             print(f"  speed vs {target.species_id:14} {answer}")
+
+
+def _use_utf8() -> None:
+    """Windows consoles default to a codepage that cannot print Hangul."""
+    for stream in (sys.stdout, sys.stderr):
+        if hasattr(stream, "reconfigure"):
+            try:
+                stream.reconfigure(encoding="utf-8")
+            except (AttributeError, ValueError):  # pragma: no cover
+                pass
 
 
 def main() -> int:
@@ -93,6 +109,7 @@ def main() -> int:
     parser.add_argument("--explain", action="store_true",
                         help="print the damage calculator's view of turn one")
     args = parser.parse_args()
+    _use_utf8()
 
     env = ChampionsEnv(battle_format=args.format, seed=args.seed)
     rng = np.random.default_rng(args.seed)

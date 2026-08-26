@@ -517,10 +517,12 @@ def test_the_matchup_block_matches_the_structured_assessment(dex):
         }
         observations, _, _, _, _ = env.step(actions)
 
+    from pkcm.envs.encoding import MATCHUP_FEATURES
+
     matchup = observations["player_0"]["matchup"]
     assessment = env.assess(0)
     assert assessment is not None
-    assert matchup.shape[1] == 5
+    assert matchup.shape[1] == MATCHUP_FEATURES
     # Every move the assessment scored should be non-zero somewhere in the block.
     assert np.abs(matchup).sum() > 0 or not assessment.damage
 
@@ -529,4 +531,125 @@ def test_analysis_can_be_turned_off(dex):
     env = ChampionsEnv(battle_format="singles", dex=dex, seed=1, with_analysis=False)
     observations, _ = env.reset()
     assert "matchup" not in observations["player_0"]
+    assert env.observation_space("player_0").contains(observations["player_0"])
+
+
+# --------------------------------------------------------------------------- #
+# Randomness
+#
+# hk: the same move against the same target with the same spread kills on a
+# high roll and does not on a low one. A bracket alone does not say whether to
+# go for it -- "3-6 hits" and "난수 1타 43%" are different pieces of advice, and
+# only the second one decides a turn.
+# --------------------------------------------------------------------------- #
+
+
+def test_the_damage_roll_matches_showdown(dex):
+    """Sixteen uniform values from 85% to 100%, which is Showdown's randomizer."""
+    import collections
+
+    from pkcm.engine.moves import DAMAGE_ROLL_HIGH, DAMAGE_ROLL_LOW
+
+    assert (DAMAGE_ROLL_LOW, DAMAGE_ROLL_HIGH) == (85, 100)
+    cursor = Rng.from_seed(1).cursor()
+    seen = collections.Counter(cursor.between(DAMAGE_ROLL_LOW, DAMAGE_ROLL_HIGH)
+                               for _ in range(32000))
+    assert len(seen) == 16
+    # Four standard deviations of a binomial, rather than a ratio pulled out of
+    # the air: with 2000 expected per bucket the sd is about 43, and a tighter
+    # bound fails on honest noise.
+    expected = 32000 / 16
+    tolerance = 4 * (expected * (1 - 1 / 16)) ** 0.5
+    for value, count in seen.items():
+        assert abs(count - expected) < tolerance, (value, count)
+
+
+def test_the_estimate_carries_every_roll(dex, sheet):
+    from pkcm.envs.analysis import ROLL_COUNT, estimate_damage
+
+    state = chosen_battle(dex, a_set("garchomp", ("earthquake",)),
+                          a_set("alakazam", ("psychic",)))
+    observation = Observation.of(state, 0)
+    estimate = estimate_damage(observation, sheet, dex, observation.own[0],
+                               observation.foe[0], dex.moves["earthquake"])
+    assert estimate is not None
+    assert len(estimate.rolls) == ROLL_COUNT == 16
+    assert estimate.rolls == tuple(sorted(estimate.rolls)), "low roll first"
+    assert estimate.rolls[-1] > estimate.rolls[0], "there is a spread to speak of"
+
+
+def test_a_move_that_sometimes_kills_reports_a_probability(dex, sheet):
+    """The case the bracket cannot express: it kills on some rolls, not all."""
+    from pkcm.envs.analysis import estimate_damage
+
+    state = chosen_battle(dex, a_set("garchomp", ("earthquake",)),
+                          a_set("alakazam", ("psychic",)))
+    observation = Observation.of(state, 0)
+    estimate = estimate_damage(observation, sheet, dex, observation.own[0],
+                               observation.foe[0], dex.moves["earthquake"])
+    assert estimate is not None
+    assert 0.0 < estimate.ko_chance < 1.0, estimate.ko_chance
+    assert not estimate.guaranteed_ko
+    low, high = estimate.ko_chance_bracket
+    assert low <= estimate.ko_chance <= high, (low, estimate.ko_chance, high)
+
+
+def test_a_certain_kill_reads_as_certain(dex, sheet):
+    from pkcm.envs.analysis import estimate_damage
+
+    state = chosen_battle(dex, a_set("garchomp", ("earthquake",)),
+                          a_set("alakazam", ("psychic",)))
+    state.sides[1].hp[0] = 1          # nothing survives anything
+    observation = Observation.of(state, 0)
+    estimate = estimate_damage(observation, sheet, dex, observation.own[0],
+                               observation.foe[0], dex.moves["earthquake"])
+    assert estimate is not None
+    assert estimate.guaranteed_ko and estimate.certain_ko
+    assert estimate.ko_chance == 1.0
+
+
+def test_accuracy_is_kept_apart_from_the_roll(dex, sheet):
+    """확정 1타 with 80 accuracy is a real thing to say, and two facts."""
+    from pkcm.envs.analysis import estimate_damage
+
+    state = chosen_battle(dex, a_set("garchomp", ("stoneedge",)),
+                          a_set("alakazam", ("psychic",)))
+    state.sides[1].hp[0] = 1
+    observation = Observation.of(state, 0)
+    estimate = estimate_damage(observation, sheet, dex, observation.own[0],
+                               observation.foe[0], dex.moves["stoneedge"])
+    assert estimate is not None
+    assert estimate.guaranteed_ko, "the damage always kills"
+    assert estimate.hit_chance == 0.8, "and it still misses one time in five"
+    assert estimate.ko_chance == pytest.approx(0.8), "which is what decides the turn"
+
+
+def test_a_missing_move_never_reads_as_a_kill(dex, sheet):
+    from pkcm.envs.analysis import estimate_damage
+
+    state = chosen_battle(dex, a_set("garchomp", ("earthquake",)),
+                          a_set("skarmory", ("bodyslam",)))
+    observation = Observation.of(state, 0)
+    estimate = estimate_damage(observation, sheet, dex, observation.own[0],
+                               observation.foe[0], dex.moves["earthquake"])
+    assert estimate is not None and estimate.immune
+    assert estimate.ko_chance == 0.0 and estimate.hit_chance == 0.0
+
+
+def test_the_crit_rate_is_folded_in(dex, sheet):
+    """A high-crit move kills a little more often than its rolls alone say."""
+    from pkcm.envs.analysis import _crit_chance
+
+    assert _crit_chance(dex.moves["earthquake"]) == pytest.approx(1 / 24)
+    assert _crit_chance(dex.moves["stoneedge"]) == pytest.approx(1 / 8)
+    assert _crit_chance(dex.moves["frostbreath"]) == 1.0, "it always crits"
+
+
+def test_the_matchup_block_carries_the_probability(dex):
+    env = ChampionsEnv(battle_format="singles", dex=dex, seed=31)
+    from pkcm.envs.encoding import MATCHUP_FEATURES
+
+    assert MATCHUP_FEATURES == 7
+    observations, _ = env.reset()
+    assert observations["player_0"]["matchup"].shape[1] == MATCHUP_FEATURES
     assert env.observation_space("player_0").contains(observations["player_0"])

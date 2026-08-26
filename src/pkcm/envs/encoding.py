@@ -160,8 +160,10 @@ SCALAR_SIZE = (
 #: Field positions per side, at most. Doubles has two; singles uses the first.
 MAX_POSITIONS = 2
 #: Per (our move, their standing Pokemon): effectiveness, the damage bracket,
-#: whether it is a guaranteed knockout, whether they are immune.
-MATCHUP_FEATURES = 5
+#: whether it is a guaranteed knockout, whether they are immune, and the two
+#: numbers a player actually decides on -- the chance it knocks them out this
+#: turn, and the chance it connects at all.
+MATCHUP_FEATURES = 7
 MATCHUP_ROWS = MAX_POSITIONS * MAX_MOVES * MAX_POSITIONS
 #: Per (our position, their position): we outspeed, we are outsped. Both zero
 #: means their spread could decide it either way, which is a real third answer.
@@ -209,6 +211,8 @@ def encode_matchup(observation: Observation, sheet, dex) -> tuple:
             matchup[row, 2] = estimate.percent.high / 100.0
             matchup[row, 3] = float(estimate.guaranteed_ko)
             matchup[row, 4] = float(estimate.immune)
+            matchup[row, 5] = estimate.ko_chance
+            matchup[row, 6] = estimate.hit_chance
 
         for slot, faster in assessment.outspeeds:
             target = foe_position.get(slot)

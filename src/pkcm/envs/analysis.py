@@ -55,6 +55,11 @@ class Bracket:
         return f"{self.low}" if self.certain else f"{self.low}-{self.high}"
 
 
+#: Every damage roll, as Showdown draws it: sixteen uniform values from 85% to
+#: 100%. The whole reason "확정 1타" and "난수 1타" are different words.
+ROLL_COUNT = DAMAGE_ROLL_HIGH - DAMAGE_ROLL_LOW + 1
+
+
 @dataclass(frozen=True, slots=True)
 class DamageEstimate:
     """What one move would do to one target, as far as we can tell."""
@@ -68,10 +73,37 @@ class DamageEstimate:
     hits_to_ko: Bracket
     #: True when even the unluckiest roll against the bulkiest spread kills.
     guaranteed_ko: bool
+    #: The probability this move knocks the target out **this turn**, counting
+    #: the sixteen damage rolls, the accuracy check and the critical hit. This
+    #: is the number a player means by "난수 1타 43%", and the reason a bracket
+    #: alone is not enough: 3-6 hits does not say whether to go for it.
+    ko_chance: float = 0.0
+    #: The same probability at their bulkiest and frailest plausible spread.
+    ko_chance_bracket: tuple[float, float] = (0.0, 0.0)
+    #: Chance the move connects at all, after the accuracy we can see.
+    hit_chance: float = 1.0
+    #: The sixteen rolls themselves, at the middle of the spread bracket. A
+    #: policy that wants the shape of the distribution rather than a summary.
+    rolls: tuple[int, ...] = ()
 
     @property
     def immune(self) -> bool:
         return self.effectiveness == 0.0
+
+    @property
+    def certain_ko(self) -> bool:
+        """확정타. Every roll kills, even against their bulkiest spread.
+
+        Says nothing about connecting -- that is ``hit_chance``, and a move can
+        be a 확정 1타 with 80 accuracy. Keeping them apart is the point: they
+        are answered by different decisions.
+        """
+        return self.guaranteed_ko
+
+    @property
+    def likely_ko(self) -> bool:
+        """난수타 worth taking -- more often than not, but not certain."""
+        return not self.guaranteed_ko and self.ko_chance >= 0.5
 
 
 def defensive_bracket(dex: Dex, species_id: str, stat: Stat) -> tuple[int, int]:
@@ -132,7 +164,8 @@ def estimate_damage(
     effectiveness = sheet.effectiveness(move.type, defender_types)
 
     if effectiveness == 0.0:
-        return DamageEstimate(move.id, 0.0, Bracket(0, 0), Bracket(99, 99), False)
+        return DamageEstimate(move.id, 0.0, Bracket(0, 0), Bracket(99, 99), False,
+                              ko_chance=0.0, hit_chance=0.0)
 
     attack_stat = Stat.ATK if move.category == "Physical" else Stat.SPA
     defense_stat = Stat.DEF if move.category == "Physical" else Stat.SPD
@@ -145,23 +178,69 @@ def estimate_damage(
     if power <= 0:
         return None
 
-    # Worst case for us: their bulkiest spread, our unluckiest roll.
-    worst = damage_formula(power=power, attack=attack, defense=defense_high,
-                           roll=DAMAGE_ROLL_LOW, spread=spread, stab=stab,
+    def rolls_against(defense: int, crit: bool = False) -> tuple[int, ...]:
+        return tuple(
+            damage_formula(power=power, attack=attack, defense=defense, roll=roll,
+                           crit=crit, spread=spread, stab=stab,
                            effectiveness=effectiveness)
-    best = damage_formula(power=power, attack=attack, defense=defense_low,
-                          roll=DAMAGE_ROLL_HIGH, spread=spread, stab=stab,
-                          effectiveness=effectiveness)
+            for roll in range(DAMAGE_ROLL_LOW, DAMAGE_ROLL_HIGH + 1)
+        )
+
+    defense_mid = (defense_low + defense_high) // 2
+    hp_mid = (hp_low + hp_high) // 2
+
+    bulky, frail, middle = (rolls_against(defense_high), rolls_against(defense_low),
+                            rolls_against(defense_mid))
+    middle_crit = rolls_against(defense_mid, crit=True)
 
     remaining_low = max(1, int(hp_low * defender.hp_fraction))
     remaining_high = max(1, int(hp_high * defender.hp_fraction))
+    remaining_mid = max(1, int(hp_mid * defender.hp_fraction))
+
+    hit_chance = 1.0 if move.accuracy is None else min(100, move.accuracy) / 100.0
+    crit_chance = _crit_chance(move)
+
+    def knockout(rolls: tuple[int, ...], crit_rolls: tuple[int, ...], hp: int) -> float:
+        plain = sum(1 for damage in rolls if damage >= hp) / len(rolls)
+        critical = sum(1 for damage in crit_rolls if damage >= hp) / len(crit_rolls)
+        return hit_chance * ((1 - crit_chance) * plain + crit_chance * critical)
+
     return DamageEstimate(
         move_id=move.id,
         effectiveness=effectiveness,
-        percent=Bracket(_percent(worst, hp_high), _percent(best, hp_low)),
-        hits_to_ko=Bracket(_hits(best, remaining_low), _hits(worst, remaining_high)),
-        guaranteed_ko=worst >= remaining_high,
+        percent=Bracket(_percent(bulky[0], hp_high), _percent(frail[-1], hp_low)),
+        hits_to_ko=Bracket(_hits(frail[-1], remaining_low),
+                           _hits(bulky[0], remaining_high)),
+        # 확정 1타 is a statement about the damage roll, not about accuracy.
+        # A player says "확정 1타지만 명중 80" -- two facts, kept apart, because
+        # they are answered by different decisions.
+        guaranteed_ko=bulky[0] >= remaining_high,
+        ko_chance=knockout(middle, middle_crit, remaining_mid),
+        ko_chance_bracket=(
+            knockout(bulky, rolls_against(defense_high, crit=True), remaining_high),
+            knockout(frail, rolls_against(defense_low, crit=True), remaining_low),
+        ),
+        hit_chance=hit_chance,
+        rolls=middle,
     )
+
+
+def _crit_chance(move: Move) -> float:
+    """How often this move crits, from its own crit ratio.
+
+    Ignores Focus Energy and the like: those live on the attacker, and the
+    observation does carry its volatiles, but the extra fidelity is not worth
+    a second code path here -- the engine remains the authority.
+    """
+    from pkcm.engine.moves import CRIT_DENOMINATOR, NEVER_CRITS
+
+    ratio = move.raw.get("critRatio", 1)
+    if move.raw.get("willCrit"):
+        return 1.0
+    if ratio <= NEVER_CRITS:
+        return 0.0
+    denominator = CRIT_DENOMINATOR.get(ratio, 1)
+    return 1.0 if denominator <= 1 else 1.0 / denominator
 
 
 def _percent(damage: int, maximum: int) -> int:

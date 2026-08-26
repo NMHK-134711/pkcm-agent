@@ -76,6 +76,81 @@ def joint_actions(state: BattleState, player: int,
 #: given a floor rather than left to lose every comparison.
 SWITCH_PROMISE = 0.6
 
+#: How much more the lead is worth than the Pokemon behind it. The lead is the
+#: only one of the three that is guaranteed to be on the field, and the only one
+#: the opponent gets to aim their own lead at.
+LEAD_WEIGHT = 1.6
+
+
+def _threat(state: BattleState, attacker, defender) -> float:
+    """Roughly what share of ``defender``'s health ``attacker``'s best move takes.
+
+    The damage formula's shape at level 50, without any of the modifiers that
+    need a live field -- weather, screens, items, abilities. Those matter, and
+    this is not trying to be the calculator in ``envs.analysis``; it is trying
+    to be cheap enough to run over every one of a hundred and twenty team picks
+    and right about which of them are worth the search's budget.
+    """
+    chart = state.config.dex.type_chart
+    best = 0.0
+    for move in attacker.moves:
+        if not move.base_power:
+            continue
+        effectiveness = chart.multiplier(move.type, defender.species.types)
+        if not effectiveness:
+            continue
+        offence, defence = ((attacker.stats[1], defender.stats[2])
+                            if move.category == "Physical"
+                            else (attacker.stats[3], defender.stats[4]))
+        stab = 1.5 if move.type in attacker.species.types else 1.0
+        damage = ((22 * move.base_power * offence / defence) / 50 + 2)
+        best = max(best, damage * stab * effectiveness / defender.max_hp)
+    return min(1.0, best)
+
+
+def _matchup(state: BattleState, mine, theirs) -> float:
+    """One of my six against one of theirs. Positive means I am ahead.
+
+    Who threatens whom, and -- when the threats are close -- who moves first,
+    because between two Pokemon that each take the other out in two hits the
+    faster one takes zero more hits than it has to.
+    """
+    edge = _threat(state, mine, theirs) - _threat(state, theirs, mine)
+    if abs(edge) < 0.2 and mine.stats[5] != theirs.stats[5]:
+        edge += 0.1 if mine.stats[5] > theirs.stats[5] else -0.1
+    return edge
+
+
+def _pick_promise(state: BattleState, player: int,
+                  selection: tuple[int, ...]) -> float:
+    """How good a team pick looks against the opponent's registered six.
+
+    **The pick phase is public information and the largest single decision in
+    the game**, and until this existed the search scored every one of the
+    hundred and twenty orderings at zero. With a uniform prior the truncation
+    in ``joint_actions`` kept whichever twenty-four ``permutations`` emitted
+    first, which meant the search could not lead with anything but the first two
+    Pokemon on the sheet. It was not choosing badly; it was not choosing.
+
+    Averaging over the opponent's six rather than their best three is the
+    deliberate simplification. They only bring three and they bring the three
+    aimed at us, so this is optimistic -- but it is a prior, the search corrects
+    it, and guessing which three they bring is the thing the search is for.
+    """
+    theirs = state.parties[1 - player]
+    mine = state.parties[player]
+    if not theirs or not mine:
+        return 0.0
+    leads = 1 if state.config.active_count == 1 else 2
+    total = 0.0
+    for position, slot in enumerate(selection):
+        if slot >= len(mine):
+            continue
+        weight = LEAD_WEIGHT if position < leads else 1.0
+        average = sum(_matchup(state, mine[slot], foe) for foe in theirs) / len(theirs)
+        total += weight * average
+    return total
+
 
 def _promise(state: BattleState, player: int, choice: tuple[Action, ...]) -> float:
     """A cheap guess at how good a choice is, for ordering only.
@@ -85,6 +160,9 @@ def _promise(state: BattleState, player: int, choice: tuple[Action, ...]) -> flo
     a guess about everything hidden. It is never used to decide anything -- only
     to pick which branches are worth the budget.
     """
+    if choice and choice[0].kind is ActionKind.SELECT:
+        return _pick_promise(state, player, choice[0].selection)
+
     total = 0.0
     for position, action in enumerate(choice):
         if action.kind is ActionKind.SWITCH:
@@ -228,9 +306,22 @@ def prior_over(state: BattleState, player: int,
 
     ``_promise`` is standing in for a policy network. When there is one, it
     replaces this function and nothing else changes.
+
+    Shifted by the worst score rather than clamped at a floor. Move promises are
+    never negative so the two agree there, but team picks are a difference
+    between two threats and are negative whenever the matchup is bad -- and a
+    clamp would flatten every option to the floor exactly when the choice
+    between them matters most.
     """
-    scores = [max(0.01, _promise(state, player, choice)) for choice in options]
+    if not options:
+        return []
+    raw = [_promise(state, player, choice) for choice in options]
+    span = max(raw) - min(raw)
+    if span <= 0:
+        return [1.0 / len(options)] * len(options)
+    # A floor proportional to the span, so the worst option keeps a look-in
+    # without the number meaning something different at a different scale.
+    floor = 0.05 * span
+    scores = [score - min(raw) + floor for score in raw]
     total = sum(scores)
-    if total <= 0:
-        return [1.0 / max(1, len(options))] * len(options)
     return [score / total for score in scores]

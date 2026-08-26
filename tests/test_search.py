@@ -268,3 +268,109 @@ def test_greedy_beats_random_by_a_lot(dex):
                 played += 1
                 wins += state.winner == greedy_side
     assert wins / played > 0.65, f"greedy won only {wins}/{played}"
+
+
+# --------------------------------------------------------------------------- #
+# The team pick -- the largest decision in the game, and it was made at random
+# --------------------------------------------------------------------------- #
+
+
+def preview(dex, battle_format="singles", seed=5):
+    """A state stopped at team preview, before anything is brought."""
+    config = BattleConfig(dex=dex, regulation=dex.regulation("m_b"),
+                          battle_format=battle_format)
+    teams = tuple(
+        random_team(dex, config.regulation, Rng.from_seed(seed + offset).cursor(),
+                    battle_format)
+        for offset in (1, 2)
+    )
+    return new_battle(config, teams, seed=seed)
+
+
+@pytest.mark.parametrize("battle_format", ("singles", "doubles"))
+def test_every_pokemon_can_be_led_with(dex, battle_format):
+    """The regression this exists for.
+
+    ``joint_actions`` truncates to the most promising options, and team picks
+    all scored zero, so the sort was a no-op and the cap kept whichever
+    ``permutations`` emitted first -- every one of which starts with Pokemon 0
+    or 1. The search was not choosing its lead badly. It could not choose it.
+    """
+    state = preview(dex, battle_format)
+    kept = joint_actions(state, 0, 24)
+    leads = {choice[0].selection[0] for choice in kept}
+    assert len(leads) > 2, f"can only lead with {sorted(leads)}"
+
+
+def test_a_pick_is_scored_by_the_matchup_not_by_its_index(dex):
+    """The ordering has to come from the Pokemon, not from where it sits."""
+    from pkcm.search.policy import _pick_promise
+
+    state = preview(dex)
+    every = joint_actions(state, 0, None)
+    scores = [_pick_promise(state, 0, choice[0].selection) for choice in every]
+    assert max(scores) - min(scores) > 0.3, "the prior cannot tell picks apart"
+
+
+def test_the_pick_prior_reads_only_what_preview_shows(dex):
+    """Both registered sixes are public at preview -- that is the whole point of
+    the phase -- but nothing below them is, and a prior that peeked at the
+    opponent's brought three would be reading the future."""
+    from pkcm.search.policy import _pick_promise
+
+    state = preview(dex)
+    assert not state.sides[1].selection, (
+        "the opponent has not chosen yet, so there is nothing to peek at")
+    assert isinstance(_pick_promise(state, 0, (0, 1, 2)), float)
+
+
+def test_a_prior_does_not_flatten_when_every_option_is_bad(dex):
+    """Clamping negatives at a floor made every option identical exactly when
+    the choice between them mattered most."""
+    from pkcm.search.policy import prior_over
+
+    state = preview(dex)
+    options = joint_actions(state, 0, 24)
+    weights = prior_over(state, 0, options)
+    assert pytest.approx(1.0) == sum(weights)
+    assert max(weights) > 1.5 * min(weights), "the prior is flat"
+
+
+# --------------------------------------------------------------------------- #
+# Comparing a Q against an exploration bonus needs them on one scale
+# --------------------------------------------------------------------------- #
+
+
+def test_min_max_puts_the_best_line_at_one_and_the_worst_at_zero():
+    from pkcm.search.mcts import MinMax
+
+    bounds = MinMax()
+    for value in (-0.2, 0.0, 0.034):
+        bounds.add(value)
+    assert bounds.scale(-0.2, 0) == pytest.approx(0.0)
+    assert bounds.scale(0.034, 0) == pytest.approx(1.0)
+
+
+def test_min_max_mirrors_the_range_for_the_other_side():
+    """Side 1 accumulates the negation, so its means live in the mirrored range
+    and scaling them with side 0's formula would push them outside [0, 1]."""
+    from pkcm.search.mcts import MinMax
+
+    bounds = MinMax()
+    bounds.add(-0.2)
+    bounds.add(0.034)
+    # Side 1's mean of +0.2 means the value was -0.2, the best thing side 1
+    # found, so it scales to 1. The mirror, not a sign flip on the answer.
+    assert bounds.scale(0.2, 1) == pytest.approx(1.0)
+    assert bounds.scale(-0.034, 1) == pytest.approx(0.0)
+
+
+def test_min_max_leaves_a_value_alone_until_there_is_a_range():
+    """One value seen is not a range, and inventing a span would be worse than
+    admitting there is not one yet."""
+    from pkcm.search.mcts import MinMax
+
+    bounds = MinMax()
+    assert bounds.scale(0.5, 0) == 0.5
+    bounds.add(0.3)
+    assert bounds.scale(0.3, 0) == 0.3

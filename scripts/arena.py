@@ -59,13 +59,21 @@ def evaluator_for(checkpoint, dex, battle_format: str, trust: float):
 
 
 def build(name: str, seed: int, iterations: int, determinizations: int,
-          rollout: int, prior: float | None = None, evaluator=None):
+          rollout: int, prior: float | None = None, evaluator=None,
+          ablate: tuple[str, ...] = ()):
+    """``ablate`` switches named ``SearchConfig`` flags off.
+
+    An ablation is the only way to find out whether a change did anything. Two
+    runs that differ in one flag and nothing else, mirrored teams, both
+    seatings: that is a measurement. A number on its own is not.
+    """
     if name == "random":
         return RandomPolicy.seeded(seed)
     if name == "greedy":
         return GreedyPolicy.seeded(seed)
     if name == "search":
         extra = {} if prior is None else {"prior_weight": prior}
+        extra.update({flag: False for flag in ablate})
         config = SearchConfig(iterations=iterations,
                               determinizations=determinizations,
                               rollout_turns=rollout, **extra)
@@ -100,6 +108,9 @@ def main() -> int:
     parser.add_argument("--seed", type=int, default=0)
     parser.add_argument("--checkpoint", type=Path, default=None,
                         help="network to use for the 'net' policy")
+    parser.add_argument("--ablate", default="",
+                        help="SearchConfig flags to switch off in --a, comma "
+                             "separated (e.g. normalize_value,sample_opponent)")
     parser.add_argument("--trust", type=float, default=1.0,
                         help="how far 'net' believes the network over the heuristic")
     args = parser.parse_args()
@@ -108,6 +119,10 @@ def main() -> int:
     config = BattleConfig(dex=dex, regulation=dex.regulation("m_b"),
                           battle_format=args.format)
 
+    ablated = tuple(flag for flag in args.ablate.split(",") if flag)
+    for flag in ablated:
+        if not hasattr(SearchConfig(), flag):
+            raise SystemExit(f"SearchConfig has no flag {flag!r}")
     evaluator = evaluator_for(args.checkpoint, dex, args.format, args.trust)
     wins = {"a": 0, "b": 0, "draw": 0}
     start = time.perf_counter()
@@ -121,7 +136,8 @@ def main() -> int:
         # Same teams, both seatings. A win rate from the draw is not a win rate.
         for swap in (False, True):
             a = build(args.a, args.seed + match, args.iterations,
-                      args.determinizations, args.rollout, args.prior, evaluator)
+                      args.determinizations, args.rollout, args.prior, evaluator,
+                      ablate=ablated)
             b = build(args.b, args.seed + match + 5000, args.iterations,
                       args.determinizations, args.rollout, args.prior, evaluator)
             policies = (b, a) if swap else (a, b)

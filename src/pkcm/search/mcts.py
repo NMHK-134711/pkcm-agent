@@ -50,6 +50,51 @@ Choice = tuple[Action, ...]
 UNVISITED_BONUS = 1e6
 
 
+@dataclass
+class MinMax:
+    """The range of values one search has actually seen. MuZero's trick.
+
+    PUCT adds a Q in the evaluation's units to an exploration bonus in units of
+    nothing at all, so the two only balance if the Q happens to span roughly the
+    same distance. Here it does not, and not by a little: ``heuristic`` reads
+    -0.2 for a whole Pokemon lost and -0.02 for half a health bar, while the
+    exploration term at eight hundred visits is worth 0.26. Measured at the
+    root, the Q spread across actions was 0.054. The search was choosing almost
+    entirely on exploration.
+
+    That is not a tuning complaint, it is the reason the learning loop was dead.
+    Visit counts decided by exploration are uniform by construction, 73% of the
+    self-play policy targets came out within 0.15 nats of uniform, and the
+    policy head settled at exactly the mean entropy of its own targets -- having
+    learned everything that was there, which was nothing.
+
+    Rescaling by the observed range makes the comparison scale-free. Whatever
+    the evaluation's units, the best line this search has found sits at 1 and
+    the worst at 0, so the exploration constant means the same thing whether the
+    leaves are a blunt material count or a trained value head.
+    """
+
+    low: float = math.inf
+    high: float = -math.inf
+
+    def add(self, value: float) -> None:
+        self.low = min(self.low, value)
+        self.high = max(self.high, value)
+
+    def scale(self, mean: float, side: int) -> float:
+        """``mean`` into ``[0, 1]``, from ``side``'s point of view.
+
+        Side 1 accumulates the negation, so its means live in the mirrored
+        range. Until two distinct values have turned up there is no range to
+        scale by and the number is left alone -- inventing a span would be worse
+        than admitting there is not one yet.
+        """
+        span = self.high - self.low
+        if span <= 0 or span == math.inf:
+            return mean
+        return (mean - self.low) / span if side == 0 else (mean + self.high) / span
+
+
 @dataclass(frozen=True, slots=True)
 class SearchConfig:
     """How much thinking to do, and of what kind."""
@@ -105,6 +150,9 @@ class SearchConfig:
     #: at the entropy of its own targets -- having learned everything there was,
     #: which was nothing.
     sample_opponent: bool = True
+    #: Rescale Q by the range of values this search has actually met, before
+    #: comparing it against the exploration bonus. See ``MinMax``.
+    normalize_value: bool = True
 
 
 @dataclass
@@ -182,12 +230,13 @@ class MCTS:
         if self.evaluator is not None:
             self.evaluator.reset()
         root = self._node(state, player)
+        bounds = MinMax()
         per_draw = max(1, self.config.iterations // max(1, self.config.determinizations))
         done = 0
         while done < self.config.iterations:
             sampled = determinize(observation, state, draw)
             for _ in range(min(per_draw, self.config.iterations - done)):
-                self._simulate(sampled.clone(), root, player, draw)
+                self._simulate(sampled.clone(), root, player, draw, bounds)
                 done += 1
 
         counts = root.counts[0]
@@ -203,7 +252,7 @@ class MCTS:
     # -- one simulation ----------------------------------------------------- #
 
     def _simulate(self, state: BattleState, node: Node, player: int,
-                  cursor: RngCursor) -> float:
+                  cursor: RngCursor, bounds: MinMax | None = None) -> float:
         """One simulation: descend the tree, add **one** node, evaluate, back up.
 
         The one-node rule is not a detail. Recursing to the depth limit and
@@ -232,9 +281,9 @@ class MCTS:
                 value = self._evaluate(state, player, cursor)
                 break
 
-            mine = self._select(current, 0)
+            mine = self._select(current, 0, bounds)
             theirs = (self._sample(current, 1, cursor) if self.config.sample_opponent
-                      else self._select(current, 1))
+                      else self._select(current, 1, bounds))
             picked = (mine, theirs)
             path.append((current, picked))
 
@@ -266,6 +315,8 @@ class MCTS:
             current = child
             depth += 1
 
+        if bounds is not None:
+            bounds.add(value)
         for visited, picked in path:
             visited.visits += 1
             for side in (0, 1):
@@ -297,7 +348,8 @@ class MCTS:
                 return index
         return len(weights) - 1
 
-    def _select(self, node: Node, side: int) -> int:
+    def _select(self, node: Node, side: int,
+                bounds: MinMax | None = None) -> int:
         """PUCT over this side's own marginals.
 
         Unvisited options are no longer taken in list order -- with a hundred
@@ -313,6 +365,8 @@ class MCTS:
         best_index, best_score = 0, -math.inf
         for index, count in enumerate(counts):
             mean = totals[index] / count if count else 0.0
+            if bounds is not None and self.config.normalize_value:
+                mean = bounds.scale(mean, side)
             # AlphaZero's exploration term: the prior decides where the early
             # visits go, and its pull decays as the statistics arrive.
             bias = self.config.prior_weight * priors[index] * parent / (1 + count)

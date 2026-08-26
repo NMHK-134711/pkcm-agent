@@ -45,6 +45,32 @@ def champions_items() -> frozenset[str]:
 _CHAMPIONS_ITEMS: frozenset[str] | None = None
 
 
+#: Abilities Champions has in its data and forbids by rule. hk confirmed Battle
+#: Bond is the banned kind rather than the missing kind, which is why this is a
+#: clause and not a hole in the dex: the ability exists, and no team may bring
+#: it. Written out because a ban is a decision, not something derivable from the
+#: ability's own data the way the move clauses are.
+BANNED_ABILITIES = {
+    "battlebond": "battle bond clause",
+}
+
+
+def ability_clause(ability_id: str) -> str | None:
+    """Why this ability may not be registered, or ``None`` if it may."""
+    return BANNED_ABILITIES.get(ability_id)
+
+
+def registrable_abilities(species) -> tuple[str, ...]:
+    """The species' abilities minus the ones the format forbids.
+
+    Falls back to the full list if a ban would leave nothing -- a species whose
+    every ability is banned would be unbuildable, and that is a mistake in the
+    ban list rather than a team the game refuses to accept.
+    """
+    allowed = tuple(a for a in species.abilities if ability_clause(a) is None)
+    return allowed or species.abilities
+
+
 def clause_violation(move) -> str | None:
     """Champions' standard ruleset bans three whole categories of move.
 
@@ -204,6 +230,9 @@ def set_errors(dex: Dex, regulation: Regulation, pokemon_set: PokemonSet) -> lis
         else:
             errors.append(f"{label}: not eligible in Regulation {regulation.name}")
 
+    banned = ability_clause(pokemon_set.ability)
+    if banned is not None:
+        errors.append(f"{label}: ability {pokemon_set.ability!r} is banned by the {banned}")
     if pokemon_set.ability not in species.abilities:
         errors.append(
             f"{label}: ability {pokemon_set.ability!r} is not one of {list(species.abilities)}"
@@ -373,7 +402,7 @@ def random_set(
 
     return PokemonSet(
         species=species_id,
-        ability=cursor.choice(species.abilities),
+        ability=cursor.choice(registrable_abilities(species)),
         moves=tuple(moves),
         nature=cursor.choice(sorted(NATURES)),
         sp=random_sp(cursor),

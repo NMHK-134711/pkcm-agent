@@ -33,6 +33,24 @@ RAW_DIR = ROOT / "data" / "raw" / "pokechams"
 #: How many rows a section prints before it starts counting instead.
 SAMPLE = 15
 
+#: Differences hk has already checked against the game, with the answer. Printed
+#: beside the diff so a later run does not "fix" something that is already right
+#: -- twice now the pokechams dex has been the incomplete side.
+SETTLED = {
+    "meowsticfmega": "hk: the female CAN Mega Evolve. Their dex lists one Mega "
+                     "Meowstic (the male's); ours is the complete pair.",
+    "vivillonfancy": "id spelling only. Same stats and types, and learnsets "
+                     "inherit from the base species, so nothing depends on it.",
+    "battlebond": "hk: in the data, banned by the ruleset. Lives in "
+                  "legality.BANNED_ABILITIES, not in the dex.",
+    "zoomlens": "hk: the item is real. The op.gg scrape simply lacks it.",
+}
+
+
+def settled_note(key: str) -> str:
+    note = SETTLED.get(key)
+    return f"   <- settled: {note}" if note else ""
+
 
 def normalise(name: str) -> str:
     return re.sub(r"[^a-z0-9]", "", name.lower())
@@ -118,10 +136,13 @@ def compare_roster(dex, theirs, regulation, full: bool) -> dict[str, str]:
     rows("their slugs we cannot resolve to a species we know", unmatched_slugs, full)
 
     theirs_as_ours = set(matched.values())
-    rows("they allow, we do not list as legal",
-         [f"{s:24} {dex.species[s].name}" for s in sorted(theirs_as_ours - ours_legal)], full)
+    rows("they allow, we do not list as legal  "
+         "(in-battle formes are expected here -- browsable, not selectable)",
+         [f"{s:24} {dex.species[s].name}{settled_note(s)}"
+          for s in sorted(theirs_as_ours - ours_legal)], full)
     rows("we list as legal, they do not allow",
-         [f"{s:24} {dex.species[s].name}" for s in sorted(ours_legal - theirs_as_ours)], full)
+         [f"{s:24} {dex.species[s].name}{settled_note(s)}"
+          for s in sorted(ours_legal - theirs_as_ours)], full)
     return matched
 
 
@@ -255,7 +276,8 @@ def compare_catalogue(dex, regulation, full: bool) -> None:
     print(f"\n  abilities  theirs: {len(their_abilities):>4}"
           f"   ours (roster only): {len(ours_abilities):>4}")
     rows("abilities on our roster that they do not list",
-         sorted(ours_abilities[k] for k in set(ours_abilities) - set(their_abilities)), full)
+         sorted(f"{ours_abilities[k]}{settled_note(k)}"
+                for k in set(ours_abilities) - set(their_abilities)), full)
     rows("abilities they list that no roster Pokemon of ours carries",
          sorted(their_abilities[k] for k in set(their_abilities) - set(ours_abilities)), full)
 

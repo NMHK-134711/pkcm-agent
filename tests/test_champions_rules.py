@@ -253,14 +253,51 @@ def test_no_species_learns_nothing(dex):
     assert not empty, empty
 
 
-def test_greninja_has_no_battle_bond(dex):
-    """Champions does not offer it, and team generation was handing it out.
+def test_battle_bond_is_banned_rather_than_absent(dex):
+    """hk: the data has it, the ruleset forbids it.
 
-    The pokechams dex disagreed with ours on exactly one species' abilities out
-    of 316 -- which is what says their list includes hidden abilities and is
-    worth believing over Showdown's main-series pokedex here.
+    That distinction decides which layer the fix belongs in. Deleting it from
+    ``Species.abilities`` would put a *rule* in the data layer, and the engine
+    would then have no way to say why the ability is unavailable -- the same
+    separation the move clauses keep (docs/DESIGN.md §1g).
     """
-    assert dex.species["greninja"].abilities == ("torrent", "protean")
+    from pkcm.engine.legality import ability_clause, registrable_abilities
+
+    assert "battlebond" in dex.species["greninja"].abilities, "the data still has it"
+    assert ability_clause("battlebond") == "battle bond clause"
+    assert registrable_abilities(dex.species["greninja"]) == ("torrent", "protean")
+
+
+def test_a_battle_bond_greninja_is_an_illegal_set(dex):
+    from pkcm.engine.legality import set_errors
+    from pkcm.engine.pokemon import PokemonSet
+
+    regulation = dex.regulation("m_b")
+    bonded = PokemonSet(species="greninja", ability="battlebond", moves=("surf",),
+                        item=None, nature="serious", sp=(0, 0, 0, 0, 0, 0))
+    errors = set_errors(dex, regulation, bonded)
+    assert any("banned" in error for error in errors), errors
+
+
+def test_our_abilities_match_the_pokechams_dex_once_bans_are_taken_out(dex):
+    """The two readings agree on all 316 species, Battle Bond aside.
+
+    That is the check that made the ban worth believing: one disagreement out
+    of 316 says their list includes hidden abilities rather than omitting them.
+    """
+    from pkcm.data.dex import champions_species_abilities
+    from pkcm.engine.legality import registrable_abilities
+
+    theirs = champions_species_abilities()
+    assert theirs, "run scripts/build_champions_learnsets.py"
+    mismatched = []
+    for species_id, their_abilities in theirs.items():
+        if species_id not in dex.species:
+            continue
+        ours = set(registrable_abilities(dex.species[species_id]))
+        if ours != set(their_abilities):
+            mismatched.append((species_id, sorted(ours), sorted(their_abilities)))
+    assert not mismatched, mismatched
 
 
 def test_no_random_team_carries_an_ability_the_game_lacks(dex):

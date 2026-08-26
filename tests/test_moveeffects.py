@@ -595,17 +595,39 @@ ENGINE_SIDE_VOLATILES = {
 }
 
 
-def test_volatiles_with_no_handlers_are_deliberate():
-    """A volatile nobody reads is a move that quietly does nothing."""
+#: The same question for the effects that are not attached to one Pokemon.
+#: Wide Guard, Magic Room and Wonder Room were all in this list with no reader
+#: at all -- registered, named, and doing nothing.
+ENGINE_SIDE_CONDITIONS = {
+    "spikes": "conditions.apply_entry_hazards",
+    "toxicspikes": "conditions.apply_entry_hazards",
+    "stealthrock": "conditions.apply_entry_hazards",
+    "stickyweb": "conditions.apply_entry_hazards",
+    "healingwish": "tactics._healing_wish_on_entry",
+    "wish": "battle._end_of_turn, which counts it down and then heals",
+    "magicroom": "effects.Context.item_of, which stops reporting the item",
+    "wonderroom": "mutate.raw_stat, which swaps Defence and Special Defence",
+    "trickroom": "battle._speed_key, which reverses the sort",
+}
+
+
+def test_registered_effects_with_no_handlers_are_deliberate():
+    """An effect nobody reads is a mechanic that quietly does nothing.
+
+    Volatiles, side conditions, weather, terrain and rooms all go through this:
+    every one of them can be applied by a move, named in a log, and consulted
+    by nobody. Each has to say where its reader lives.
+    """
     from pkcm.engine.effects import REGISTRY
 
-    for (kind, volatile_id), effect in REGISTRY.items():
-        if kind != "volatile" or effect.handlers:
-            continue
-        assert volatile_id in ENGINE_SIDE_VOLATILES, (
-            f"volatile {volatile_id!r} is registered with no handlers and no "
-            f"reason given. Either give it a reader, or record here where its "
-            f"reader lives."
+    accounted = ENGINE_SIDE_VOLATILES | ENGINE_SIDE_CONDITIONS
+    for (kind, effect_id), effect in REGISTRY.items():
+        if kind in ("ability", "item") or effect.handlers:
+            continue  # abilities have their own, stricter test
+        assert effect_id in accounted, (
+            f"{kind} {effect_id!r} is registered with no handlers and no reason "
+            f"given. Either give it a reader, or record here where its reader "
+            f"lives."
         )
 
 

@@ -789,7 +789,38 @@ SPECIAL_MOVES["gravity"] = _room("gravity")
 SPECIAL_MOVES["magicroom"] = _room("magicroom")
 SPECIAL_MOVES["wonderroom"] = _room("wonderroom")
 
-register("room", "gravity", name="Gravity")
+#: Gravity steadies everyone's aim by a third (5/3 in Showdown).
+GRAVITY_ACCURACY = (5, 3)
+
+#: Moves that leave the ground, and so cannot be used while Gravity holds.
+GROUNDED_MOVES = frozenset({
+    "fly", "bounce", "highjumpkick", "jumpkick", "splash", "magnetrise",
+    "telekinesis", "flyingpress", "skydrop",
+})
+
+
+def _gravity_steadies_aim(ctx, ref, value, attacker, defender, move, **_):
+    if ref != attacker:
+        return None
+    return value * GRAVITY_ACCURACY[0] / GRAVITY_ACCURACY[1]
+
+
+def _gravity_grounds_the_move(ctx, ref, move, **_):
+    if move.id not in GROUNDED_MOVES:
+        return None
+    ctx.emit(Event("cant_move", side=ref[0], slot=ref[1], detail="gravity"))
+    return False
+
+
+# Gravity also pulls everything down to earth -- that half is in
+# ``conditions.is_grounded``, which is the one place that answers the question.
+register("room", "gravity", name="Gravity",
+         modify_accuracy=_gravity_steadies_aim,
+         try_move=_gravity_grounds_the_move)
+
+# Magic Room and Wonder Room are read where the thing they suppress is read:
+# ``effects.Context.item_of`` for the items, ``mutate.raw_stat`` for the swap.
+# Both were registered and consulted by nobody until now.
 register("room", "magicroom", name="Magic Room")
 register("room", "wonderroom", name="Wonder Room")
 
@@ -847,7 +878,24 @@ register("side", "quickguard", name="Quick Guard",
          try_hit=lambda ctx, ref, attacker, defender, move, **_:
              False if ref == defender and attacker[0] != defender[0]
              and move.priority > 0 else None)
-register("side", "wideguard", name="Wide Guard")
+def _wide_guard(ctx, ref, attacker, defender, move, **_):
+    """Blocks a spread move for the whole side. The defining doubles wall.
+
+    Registered with no handler until doubles existed, which made it a move that
+    quietly did nothing -- the one failure this project keeps finding.
+    """
+    if ref != defender or attacker[0] == defender[0]:
+        return None
+    if move.target not in ("allAdjacent", "allAdjacentFoes"):
+        return None
+    if getattr(move, "breaks_protect", False):
+        return None
+    ctx.emit(Event("protected", side=ref[0], slot=ref[1], move=move.id,
+                   detail="wideguard"))
+    return False
+
+
+register("side", "wideguard", name="Wide Guard", try_hit=_wide_guard)
 
 
 @special("healbell")

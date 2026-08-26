@@ -64,7 +64,14 @@ def stage_multiplier(stage: int, accuracy_like: bool = False) -> float:
     return base / (base - stage)
 
 
+#: Wonder Room swaps these two. Stat *stages* are not swapped with them,
+#: which is why this is done here rather than in the boost table.
+WONDER_ROOM_SWAP = {Stat.DEF: Stat.SPD, Stat.SPD: Stat.DEF}
+
+
 def raw_stat(state, ref: Ref, stat: Stat) -> int:
+    if "wonderroom" in state.field.rooms:
+        stat = WONDER_ROOM_SWAP.get(stat, stat)
     return state.stats(ref[0], ref[1])[stat]
 
 

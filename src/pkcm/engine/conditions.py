@@ -43,6 +43,10 @@ def is_grounded(state, ref: Ref, ctx: Context | None = None) -> bool:
     Breaker) correctly stops floating.
     """
     side_index, slot = ref
+    # Gravity pulls everything down: Flying types, Levitate, Air Balloon and a
+    # Magnet Rise that is already up.
+    if "gravity" in state.field.rooms:
+        return True
     volatiles = state.sides[side_index].volatiles
     if slot < len(volatiles):
         # Smack Down pins a Pokemon to the ground whatever it is; Magnet Rise

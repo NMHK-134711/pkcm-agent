@@ -567,3 +567,85 @@ def test_magic_bounce_does_not_ping_pong(config, dex):
     cast(ctx, dex, "thunderwave", target_code=0)
     bounces = [e for e in ctx.log if e.kind == "ability_block" and e.detail == "magicbounce"]
     assert len(bounces) == 1, "it comes back once and stops"
+
+
+# --------------------------------------------------------------------------- #
+# Effects that were registered and read by nobody
+#
+# Wide Guard is a doubles staple; Magic Room and Wonder Room are not, but they
+# turned up in the same sweep and had the same problem.
+# --------------------------------------------------------------------------- #
+
+
+def test_wide_guard_stops_a_spread_move(config, dex):
+    state = build(config, a_set("garchomp", "roughskin", ("earthquake",)),
+                  blue=a_set("hariyama", "thickfat", ("wideguard",)))
+    ctx = make_context(state)
+    cast(ctx, dex, "wideguard", attacker=BLUE_A)
+    cast(ctx, dex, "earthquake")
+    assert state.sides[1].hp[0] == state.pokemon(1, 0).max_hp
+    assert state.sides[1].hp[1] == state.pokemon(1, 1).max_hp, "the partner too"
+
+
+def test_wide_guard_does_not_stop_a_single_target_move(config, dex):
+    state = build(config, a_set("garchomp", "roughskin", ("bodyslam",)),
+                  blue=a_set("hariyama", "thickfat", ("wideguard",)))
+    ctx = make_context(state)
+    cast(ctx, dex, "wideguard", attacker=BLUE_A)
+    cast(ctx, dex, "bodyslam", target_code=0)
+    assert state.sides[1].hp[0] < state.pokemon(1, 0).max_hp
+
+
+def test_magic_room_makes_items_inert(config, dex):
+    """Still held -- ``state.item_id`` says so -- and doing nothing."""
+    state = build(config, a_set("garchomp", "roughskin", ("bodyslam",)),
+                  blue=a_set("snorlax", "thickfat", ("bodyslam",), item="leftovers"))
+    state.sides[1].hp[0] //= 2
+    hurt = state.sides[1].hp[0]
+
+    state.field.rooms["magicroom"] = 5
+    ctx = make_context(state)
+    assert ctx.item_of(BLUE_A) is None
+    assert state.item_id(*BLUE_A) == "leftovers", "held, just inert"
+    mutate.check_item_triggers(ctx, BLUE_A)
+    from pkcm.engine import effects as fx
+
+    fx.notify(ctx, "residual", BLUE_A)
+    assert state.sides[1].hp[0] == hurt, "no Leftovers tick"
+
+    del state.field.rooms["magicroom"]
+    ctx = make_context(state)
+    fx.notify(ctx, "residual", BLUE_A)
+    assert state.sides[1].hp[0] > hurt, "and it works again once the room ends"
+
+
+def test_wonder_room_swaps_the_defences(config):
+    state = build(config, a_set("garchomp", "roughskin"),
+                  blue=a_set("blissey", "naturalcure"))
+    ctx = make_context(state)
+    physical = mutate.effective_stat(ctx, BLUE_A, Stat.DEF)
+    special = mutate.effective_stat(ctx, BLUE_A, Stat.SPD)
+    assert physical != special, "Blissey is the clearest case there is"
+
+    state.field.rooms["wonderroom"] = 5
+    ctx = make_context(state)
+    assert mutate.effective_stat(ctx, BLUE_A, Stat.DEF) == special
+    assert mutate.effective_stat(ctx, BLUE_A, Stat.SPD) == physical
+
+
+def test_gravity_brings_a_flying_type_down(config):
+    from pkcm.engine.conditions import is_grounded
+
+    state = build(config, a_set("garchomp", "roughskin"),
+                  blue=a_set("skarmory", "sturdy"))
+    assert not is_grounded(state, BLUE_A)
+    state.field.rooms["gravity"] = 5
+    assert is_grounded(state, BLUE_A), "nothing floats under Gravity"
+
+
+def test_gravity_refuses_a_jumping_move(config, dex):
+    state = build(config, a_set("hawlucha", "unburden", ("fly",)))
+    state.field.rooms["gravity"] = 5
+    ctx = make_context(state)
+    cast(ctx, dex, "fly", target_code=0)
+    assert any(e.kind == "cant_move" and e.detail == "gravity" for e in ctx.log)

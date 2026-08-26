@@ -187,6 +187,16 @@ class Context:
     def emit(self, event: Event) -> None:
         self.log.append(event)
 
+    def item_of(self, ref: Ref) -> str | None:
+        """The item in force right now -- ``None`` while Magic Room is up.
+
+        The Pokemon is still holding it, and ``state.item_id`` still says so;
+        this is the question everything that *acts* on an item should ask.
+        """
+        if "magicroom" in self.state.field.rooms:
+            return None
+        return self.state.item_id(*ref)
+
     def ability_of(self, ref: Ref) -> str | None:
         """The ability in force right now -- ``None`` while suppressed.
 
@@ -217,7 +227,7 @@ def effects_on(ctx: "Context", ref: Ref) -> Iterator[Effect]:
     if ability is not None:
         yield ability
 
-    item = lookup("item", state.item_id(side_index, slot))
+    item = lookup("item", ctx.item_of(ref))
     if item is not None:
         yield item
 

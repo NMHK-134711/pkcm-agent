@@ -960,3 +960,142 @@ def test_every_defensive_ability_on_the_roster_is_accounted_for(dex):
         f"these interfere with an incoming hit and the estimator ignores them: "
         f"{missing}"
     )
+
+
+# --------------------------------------------------------------------------- #
+# Who moves first
+#
+# hk asked about Trick Room, Skill Swap, Wandering Spirit and speed generally.
+# The engine had all of it; the estimator's speed comparison was base stats and
+# stat stages and nothing else, which is wrong about most turns.
+# --------------------------------------------------------------------------- #
+
+
+def test_trick_room_reverses_the_order_in_the_engine(dex):
+    state = chosen_battle(dex, a_set("alakazam", ("trickroom", "bodyslam")),
+                          a_set("snorlax", ("bodyslam",), ability="thickfat"))
+    state, _ = step(state, Action.move(0), Action.move(0))
+    assert "trickroom" in state.field.rooms
+
+    state, log = step(state, Action.move(1), Action.move(0))
+    order = [event.species for event in log if event.kind == "move_used"]
+    assert order and order[0] == "snorlax", "the slow one goes first"
+
+
+def test_the_estimator_knows_about_trick_room(dex):
+    from pkcm.envs.analysis import outspeeds
+
+    state = chosen_battle(dex, a_set("alakazam", ("psychic",)),
+                          a_set("snorlax", ("bodyslam",), ability="thickfat"))
+    observation = Observation.of(state, 0)
+    assert outspeeds(dex, observation.own[0], observation.foe[0], observation) is True
+
+    state.field.rooms["trickroom"] = 5
+    observation = Observation.of(state, 0)
+    assert outspeeds(dex, observation.own[0], observation.foe[0], observation) is False
+
+
+def test_priority_beats_speed(dex):
+    from pkcm.envs.analysis import outspeeds
+
+    state = chosen_battle(dex, a_set("snorlax", ("suckerpunch",), ability="thickfat"),
+                          a_set("alakazam", ("psychic",)))
+    observation = Observation.of(state, 0)
+    assert outspeeds(dex, observation.own[0], observation.foe[0], observation) is False
+    assert outspeeds(dex, observation.own[0], observation.foe[0], observation,
+                     our_priority=1) is True
+
+
+def test_paralysis_and_tailwind_reach_the_estimate(dex):
+    from pkcm.envs.analysis import speed_of
+
+    state = chosen_battle(dex, a_set("garchomp", ("earthquake",)),
+                          a_set("snorlax", ("bodyslam",), ability="thickfat"))
+    plain = speed_of(Observation.of(state, 0), Observation.of(state, 0).own[0], dex,
+                     ours=True)
+
+    state.sides[0].status[0] = "par"
+    slowed = speed_of(Observation.of(state, 0), Observation.of(state, 0).own[0], dex,
+                      ours=True)
+    assert slowed.high == plain.high // 2
+
+    state.sides[0].status[0] = None
+    state.sides[0].conditions["tailwind"] = 4
+    hurried = speed_of(Observation.of(state, 0), Observation.of(state, 0).own[0], dex,
+                       ours=True)
+    assert hurried.low == plain.low * 2
+
+
+def test_an_unknown_choice_scarf_widens_the_bracket(dex):
+    """Playing around a possible Scarf is the whole point of the range."""
+    from pkcm.envs.analysis import speed_of
+
+    state = chosen_battle(dex, a_set("garchomp", ("earthquake",)),
+                          a_set("snorlax", ("bodyslam",), ability="thickfat"))
+    observation = Observation.of(state, 0)
+    theirs = speed_of(observation, observation.foe[0], dex, ours=False)
+    assert theirs.high >= int(theirs.low * 1.5), "a Scarf is still on the table"
+
+    ours = speed_of(observation, observation.own[0], dex, ours=True)
+    assert ours.certain, "we know our own item"
+
+
+def test_our_speed_matches_the_engines(dex):
+    """Two implementations of one sum. This is what stops them drifting.
+
+    The estimator cannot call ``mutate.effective_stat`` -- that needs the battle
+    state, and then it could see everything -- so it mirrors the modifiers
+    instead, and this compares the two on real battles.
+    """
+    from pkcm.data.dex import Stat
+    from pkcm.engine.battle import make_context
+    from pkcm.engine.mutate import effective_stat
+    from pkcm.envs.analysis import speed_of
+
+    checked = 0
+    for seed in range(8):
+        state = battle(dex, seed=seed * 5 + 2)
+        for setup in (lambda s: None,
+                      lambda s: s.sides[0].status.__setitem__(0, "par"),
+                      lambda s: s.sides[0].conditions.__setitem__("tailwind", 4),
+                      lambda s: s.sides[0].boosts[0].__setitem__(4, 2)):
+            fresh = state.clone()
+            setup(fresh)
+            engine = effective_stat(make_context(fresh), (0, 0), Stat.SPE)
+            observation = Observation.of(fresh, 0)
+            estimate = speed_of(observation, observation.own[0], dex, ours=True)
+            assert estimate.low == estimate.high == engine, (
+                seed, estimate, engine, observation.own[0].species_id)
+            checked += 1
+    assert checked == 32
+
+
+def test_skill_swap_makes_both_abilities_public(dex):
+    """You watched them trade. Neither is a secret afterwards."""
+    from pkcm.engine.battle import make_context
+    from pkcm.engine.moves import use_move
+
+    state = chosen_battle(dex, a_set("alakazam", ("skillswap",), ability="synchronize"),
+                          a_set("dragonite", ("bodyslam",), ability="multiscale"))
+    ctx = make_context(state)
+    use_move(ctx, (0, 0), dex.moves["skillswap"], defender=(1, 0))
+
+    assert state.ability_id(0, 0) == "multiscale"
+    assert state.ability_id(1, 0) == "synchronize"
+    theirs = Observation.of(state, 0).foe[0]
+    assert theirs.ability_known and theirs.ability == "synchronize"
+
+
+def test_wandering_spirit_swaps_on_contact_only(dex):
+    from pkcm.engine.battle import make_context
+    from pkcm.engine.moves import use_move
+
+    def after(move_id):
+        state = chosen_battle(dex, a_set("garchomp", (move_id,), ability="roughskin"),
+                              a_set("runerigus", ("bodyslam",), ability="wanderingspirit"))
+        ctx = make_context(state)
+        use_move(ctx, (0, 0), dex.moves[move_id], defender=(1, 0))
+        return state.ability_id(0, 0), state.ability_id(1, 0)
+
+    assert after("dragonclaw") == ("wanderingspirit", "roughskin"), "contact swaps"
+    assert after("earthpower") == ("roughskin", "wanderingspirit"), "and nothing else does"

@@ -221,7 +221,12 @@ REVEALS_SPECIES = frozenset({"switch_in", "mega_evolve", "forme_change"})
 REVEALS_ITEM = frozenset({"use_item", "item_revealed", "knock_off", "item_stolen",
                           "ability"})
 REVEALS_ABILITY = frozenset({"ability", "ability_block", "ability_suppressed",
-                             "ability_change"})
+                             "ability_change", "ability_swapped"})
+#: Events that make the abilities of *both* Pokemon public at once. A swap is
+#: announced for both halves, so watching one happen tells you what each of
+#: them had -- and a record that only marked one side would have the observer
+#: knowing an ability arrived from nowhere.
+REVEALS_BOTH_ABILITIES = frozenset({"ability_swapped", "ability_change"})
 
 #: Everything above, in one set. Emit tests this first: the overwhelming
 #: majority of events reveal nothing, and they should cost one hash lookup.
@@ -247,6 +252,12 @@ def record_revelation(state: BattleState, event: Event) -> None:
         seen.items.add(slot)
     if event.kind in REVEALS_ABILITY:
         seen.abilities.add(slot)
+    if event.kind in REVEALS_BOTH_ABILITIES:
+        # Whoever it swapped with is on the field, and now visibly holding
+        # something that was not theirs a moment ago.
+        for other in state.active_refs(1 - side) + state.active_refs(side):
+            if other != (side, slot):
+                state.revealed[other[0]].abilities.add(other[1])
     if event.kind == "status":
         seen.status_since[slot] = state.turn
     elif event.kind == "cure_status":

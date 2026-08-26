@@ -328,32 +328,135 @@ def assess(observation: Observation, sheet: ReferenceSheet, dex: Dex,
         attacker_slot=attacker.slot,
         damage=tuple(damage),
         incoming=tuple(incoming),
-        outspeeds=tuple((target.slot, outspeeds(dex, attacker, target))
-                        for target in targets),
+        outspeeds=tuple(
+            (target.slot, outspeeds(dex, attacker, target, observation))
+            for target in targets
+        ),
     )
 
 
-def outspeeds(dex: Dex, ours: KnownPokemon, theirs: KnownPokemon) -> bool | None:
-    """Do we move first? ``None`` when their spread could decide it either way.
+# --------------------------------------------------------------------------- #
+# Who moves first
+#
+# The hardest of these sums, and the one most worth getting right: nearly every
+# turn is decided by it. The naive version -- compare base Speed -- is wrong
+# about paralysis, Tailwind, a Choice Scarf, half a dozen weather abilities, and
+# Trick Room, which reverses the whole thing.
+#
+# The modifiers are mirrored from the engine rather than invented, and a test
+# compares this against ``mutate.effective_stat`` on real battles. Two
+# implementations of the same arithmetic drift; a test is what keeps them
+# honest, since the estimator cannot call the engine's version (it would need
+# the battle state, and then it could see everything).
+# --------------------------------------------------------------------------- #
 
-    The honest three-state answer. A player who says "I outspeed" usually means
-    "I outspeed anything they could plausibly be running", and that is exactly
-    the case where both ends of the bracket agree.
+#: ability -> (multiplier as a fraction, the field condition it needs).
+#: From ``abilities._SPEED_ABILITIES``.
+SPEED_ABILITIES = {
+    "swiftswim": (2.0, ("weather", "raindance")),
+    "chlorophyll": (2.0, ("weather", "sunnyday")),
+    "sandrush": (2.0, ("weather", "sandstorm")),
+    "slushrush": (2.0, ("weather", "snowscape")),
+    "surgesurfer": (2.0, ("terrain", "electricterrain")),
+    "quickfeet": (1.5, ("status", None)),
+}
+#: item -> multiplier.
+SPEED_ITEMS = {"choicescarf": 1.5, "ironball": 0.5}
+#: Paralysis halves Speed. Champions nerfed the *chance*, not this.
+PARALYSIS_SPEED = 0.5
+TAILWIND_SPEED = 2.0
+
+
+def _field_gives(observation: Observation, requirement, known: KnownPokemon) -> bool:
+    kind, value = requirement
+    if kind == "weather":
+        return observation.weather == value
+    if kind == "terrain":
+        return observation.terrain == value
+    if kind == "status":
+        return known.status is not None
+    return False
+
+
+def speed_of(observation: Observation, known: KnownPokemon, dex: Dex,
+             ours: bool) -> Bracket:
+    """Effective Speed, as a bracket over what we cannot see.
+
+    Ours collapses to a point: we know the stat, the item and the ability.
+    Theirs stays a range, and the range is wide when a Choice Scarf is still
+    possible -- which is the honest answer, and the reason a strong player
+    plays around a Scarf rather than assuming one way or the other.
     """
-    if ours.species_id is None or theirs.species_id is None:
-        return None
     from pkcm.engine.mutate import stage_multiplier
     from pkcm.engine.state import BOOST_INDEX
 
-    index = BOOST_INDEX["spe"]
-    mine = _effective_stat(ours, dex, Stat.SPE)
-    low, high = defensive_bracket(dex, theirs.species_id, Stat.SPE)
-    stage = stage_multiplier(theirs.boosts[index])
-    if mine > int(high * stage):
-        return True
-    if mine < int(low * stage):
-        return False
+    if known.species_id is None:
+        return Bracket(0, 0)
+
+    if known.stats is not None:
+        low = high = known.stats[Stat.SPE]
+    else:
+        low, high = defensive_bracket(dex, known.species_id, Stat.SPE)
+
+    stage = stage_multiplier(known.boosts[BOOST_INDEX["spe"]])
+    low, high = int(low * stage), int(high * stage)
+
+    if known.status == "par":
+        low, high = int(low * PARALYSIS_SPEED), int(high * PARALYSIS_SPEED)
+
+    conditions = observation.own_conditions if ours else observation.foe_conditions
+    if any(name == "tailwind" for name, _ in conditions):
+        low, high = int(low * TAILWIND_SPEED), int(high * TAILWIND_SPEED)
+
+    # Item and ability: exact for us, a spread of possibilities for them.
+    factors = [1.0]
+    if known.item_known:
+        factors = [SPEED_ITEMS.get(known.item, 1.0)]
+    else:
+        factors = [1.0, SPEED_ITEMS["choicescarf"]]
+
+    ability_factors = [1.0]
+    if known.ability_known:
+        found = SPEED_ABILITIES.get(known.ability)
+        if found and _field_gives(observation, found[1], known):
+            ability_factors = [found[0]]
+    else:
+        from pkcm.engine.legality import registrable_abilities
+
+        for candidate in registrable_abilities(dex.species[known.species_id]):
+            found = SPEED_ABILITIES.get(candidate)
+            if found and _field_gives(observation, found[1], known):
+                ability_factors.append(found[0])
+
+    lowest = min(factors) * min(ability_factors)
+    highest = max(factors) * max(ability_factors)
+    return Bracket(int(low * lowest), int(high * highest))
+
+
+def outspeeds(dex: Dex, ours: KnownPokemon, theirs: KnownPokemon,
+              observation: Observation | None = None,
+              our_priority: int = 0, their_priority: int = 0) -> bool | None:
+    """Do we move first? ``None`` when what we cannot see could decide it.
+
+    Priority beats Speed outright, so it is answered first. Trick Room reverses
+    Speed and leaves priority alone, which is why it is applied to the
+    comparison rather than to the numbers.
+    """
+    if our_priority != their_priority:
+        return our_priority > their_priority
+    if ours.species_id is None or theirs.species_id is None or observation is None:
+        return None
+
+    mine = speed_of(observation, ours, dex, ours=True)
+    yours = speed_of(observation, theirs, dex, ours=False)
+    reversed_order = any(name == "trickroom" for name, _ in observation.rooms)
+
+    if mine.low > yours.high:
+        return not reversed_order
+    if mine.high < yours.low:
+        return reversed_order
     return None
+
 
 # --------------------------------------------------------------------------- #
 # Abilities that change what a hit does

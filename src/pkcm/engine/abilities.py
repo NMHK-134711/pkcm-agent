@@ -49,7 +49,7 @@ def announce(ctx: Context, ref: Ref, ability: str) -> None:
 
 def _blocked(ctx: Context, ref: Ref, ability: str, move) -> None:
     announce(ctx, ref, ability)
-    ctx.emit(Event("ability_block", side=ref[0], slot=ref[1], move=move.name, detail=ability))
+    ctx.emit(Event("ability_block", side=ref[0], slot=ref[1], move=move.id, detail=ability))
 
 
 # --------------------------------------------------------------------------- #
@@ -1477,7 +1477,7 @@ def _imposter(ctx, ref, **_):
     ctx.state.sides[ref[0]].volatiles[ref[1]]["transformed"] = True
     announce(ctx, ref, "imposter")
     ctx.emit(Event("transform", side=ref[0], slot=ref[1],
-                   species=ctx.state.species_name(*ref), detail=ctx.state.species_id(*ref)))
+                   species=ctx.state.species_id(*ref), detail=ctx.state.species_id(*ref)))
 
 
 register("ability", "imposter", name="Imposter", switch_in=_imposter)

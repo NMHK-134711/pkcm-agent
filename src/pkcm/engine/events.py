@@ -16,6 +16,13 @@ from dataclasses import dataclass, fields
 
 @dataclass(frozen=True, slots=True)
 class Event:
+    """One thing that happened.
+
+    ``species``, ``move`` and ``detail`` carry **ids**, not display names. The
+    engine has no opinion about what language anyone reads; ``pkcm.render.names``
+    turns an id into a name, and it is the only place that knows Korean exists.
+    """
+
     kind: str
     side: int | None = None
     slot: int | None = None

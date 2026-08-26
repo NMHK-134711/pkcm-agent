@@ -356,7 +356,7 @@ def use_move(
     if move_index is not None:
         side.pp[attacker[1]][move_index] -= 1
 
-    ctx.emit(ev.move_used(attacker[0], attacker[1], ctx.state.species_name(*attacker), move.name))
+    ctx.emit(ev.move_used(attacker[0], attacker[1], ctx.state.species_id(*attacker), move.id))
     _clear_flinch(ctx, attacker)
     if move_index is not None:
         side.volatiles[attacker[1]]["lastmove"] = move.id
@@ -370,7 +370,7 @@ def use_move(
     if unsupported is not None:
         ctx.emit(
             Event("unimplemented", side=attacker[0], slot=attacker[1],
-                  move=move.name, detail=unsupported)
+                  move=move.id, detail=unsupported)
         )
         return
 
@@ -413,7 +413,7 @@ def _resolve(
     move: Move,
 ) -> None:
     if targets_opponent and ctx.state.sides[defender[0]].hp[defender[1]] <= 0:
-        ctx.emit(Event("move_failed", side=attacker[0], move=move.name, detail="no target"))
+        ctx.emit(Event("move_failed", side=attacker[0], move=move.id, detail="no target"))
         return
 
     if targets_opponent and not fx.allows(
@@ -424,11 +424,11 @@ def _resolve(
     # Status moves are subject to the type chart as well: Thunder Wave never
     # reaches a Ground type, Growl never reaches a Ghost type.
     if targets_opponent and type_effectiveness(ctx, attacker, defender, move) == 0.0:
-        ctx.emit(ev.immune(defender[0], defender[1], move.name))
+        ctx.emit(ev.immune(defender[0], defender[1], move.id))
         return
 
     if targets_opponent and not connects(ctx, attacker, defender, move):
-        ctx.emit(ev.missed(attacker[0], attacker[1], move.name))
+        ctx.emit(ev.missed(attacker[0], attacker[1], move.id))
         return
 
     if move.category == "Status":
@@ -453,9 +453,9 @@ def _apply_damaging_move(ctx: Context, attacker: Ref, defender: Ref, move: Move)
     if fixed is not None:
         amount = LEVEL if fixed == "level" else int(fixed)
         if type_effectiveness(ctx, attacker, defender, move) == 0.0:
-            ctx.emit(ev.immune(defender[0], defender[1], move.name))
+            ctx.emit(ev.immune(defender[0], defender[1], move.id))
             return False
-        apply_damage(ctx, defender, amount, "damage", move=move.name, effectiveness=1.0)
+        apply_damage(ctx, defender, amount, "damage", move=move.id, effectiveness=1.0)
         return True
 
     hits = _hit_count(ctx, move)
@@ -470,13 +470,13 @@ def _apply_damaging_move(ctx: Context, attacker: Ref, defender: Ref, move: Move)
         if getattr(move, "parental_bond", False) and hit_number > 0:
             damage = max(1, chain_modify(damage, X0_25))
         if effectiveness == 0.0:
-            ctx.emit(ev.immune(defender[0], defender[1], move.name))
+            ctx.emit(ev.immune(defender[0], defender[1], move.id))
             return False
         dealt = _deal_or_break_substitute(ctx, attacker, defender, move, damage, effectiveness, crit)
         total += dealt
 
     if hits > 1:
-        ctx.emit(Event("multi_hit", side=attacker[0], move=move.name, amount=hits))
+        ctx.emit(Event("multi_hit", side=attacker[0], move=move.id, amount=hits))
 
     if total:
         fx.notify(ctx, "dealt_damage", attacker, scope="self", attacker=attacker,
@@ -505,20 +505,20 @@ def _deal_or_break_substitute(
             mutate.remove_volatile(ctx, defender, "substitute")
         else:
             ctx.emit(Event("substitute_hit", side=defender[0], slot=defender[1],
-                           amount=damage, move=move.name))
+                           amount=damage, move=move.id))
         return 0
 
-    return apply_damage(ctx, defender, damage, "damage", move=move.name,
+    return apply_damage(ctx, defender, damage, "damage", move=move.id,
                         effectiveness=effectiveness, crit=crit,
                         __source__=attacker, __move__=move)
 
 
 def _apply_ohko(ctx: Context, attacker: Ref, defender: Ref, move: Move) -> bool:
     if type_effectiveness(ctx, attacker, defender, move) == 0.0:
-        ctx.emit(ev.immune(defender[0], defender[1], move.name))
+        ctx.emit(ev.immune(defender[0], defender[1], move.id))
         return False
     apply_damage(ctx, defender, mutate.max_hp(ctx.state, defender), "damage",
-                 move=move.name, detail="ohko", effectiveness=1.0)
+                 move=move.id, detail="ohko", effectiveness=1.0)
     return True
 
 
@@ -562,13 +562,13 @@ def _apply_status_move(ctx: Context, attacker: Ref, target: Ref, move: Move) -> 
         numerator, denominator = raw["heal"]
         did_something |= bool(
             heal(ctx, attacker, mutate.max_hp(ctx.state, attacker) * numerator // denominator,
-                 reason=move.name)
+                 reason=move.id)
         )
 
     did_something |= _apply_field_effects(ctx, attacker, target, move)
 
     if not did_something:
-        ctx.emit(Event("move_failed", side=attacker[0], move=move.name))
+        ctx.emit(Event("move_failed", side=attacker[0], move=move.id))
     return did_something
 
 
@@ -584,7 +584,7 @@ def _apply_protect(ctx: Context, attacker: Ref, move: Move) -> bool:
     denominator = 3 ** stall["count"] if stall else 1
     if denominator > 1 and not ctx.cursor.chance(1, denominator):
         mutate.remove_volatile(ctx, attacker, "stall", quiet=True)
-        ctx.emit(Event("move_failed", side=attacker[0], move=move.name, detail="stalled out"))
+        ctx.emit(Event("move_failed", side=attacker[0], move=move.id, detail="stalled out"))
         return False
 
     mutate.add_volatile(ctx, attacker, "protect")
@@ -598,10 +598,10 @@ def _apply_protect(ctx: Context, attacker: Ref, move: Move) -> bool:
 def _apply_substitute(ctx: Context, attacker: Ref) -> bool:
     cost = mutate.max_hp(ctx.state, attacker) // 4
     if cost <= 0 or mutate.current_hp(ctx.state, attacker) <= cost:
-        ctx.emit(Event("move_failed", side=attacker[0], move="Substitute", detail="not enough HP"))
+        ctx.emit(Event("move_failed", side=attacker[0], move="substitute", detail="not enough HP"))
         return False
     if mutate.volatile(ctx.state, attacker, "substitute") is not None:
-        ctx.emit(Event("move_failed", side=attacker[0], move="Substitute", detail="already up"))
+        ctx.emit(Event("move_failed", side=attacker[0], move="substitute", detail="already up"))
         return False
     apply_damage(ctx, attacker, cost, "damage", detail="substitute")
     mutate.add_volatile(ctx, attacker, "substitute", hp=cost)

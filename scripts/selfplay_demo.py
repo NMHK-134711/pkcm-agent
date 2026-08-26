@@ -21,9 +21,10 @@ from pkcm.engine.legality import random_team
 from pkcm.engine.pokemon import compile_team
 from pkcm.engine.rng import Rng
 from pkcm.engine.state import BattleConfig, legal_actions, new_battle
-from pkcm.render.text import render_log
+from pkcm.render.names import Names
+from pkcm.render.text import Renderer
 
-NAMES = ("Red", "Blue")
+TRAINERS = ("레드", "블루")
 
 
 def make_battle(config, seed: int):
@@ -34,7 +35,8 @@ def make_battle(config, seed: int):
     return teams, new_battle(config, teams, seed=seed)
 
 
-def play(config, seed: int, log_lines: list[str] | None) -> tuple[int | None, int]:
+def play(config, seed: int, log_lines: list[str] | None,
+         renderer: Renderer | None = None) -> tuple[int | None, int]:
     _, state = make_battle(config, seed)
     policy = Rng.from_seed(seed ^ 0x5EED).cursor()
     decisions = 0
@@ -42,21 +44,21 @@ def play(config, seed: int, log_lines: list[str] | None) -> tuple[int | None, in
         actions = tuple(policy.choice(legal_actions(state, player)) for player in (0, 1))
         state, log = step(state, *actions)
         decisions += 1
-        if log_lines is not None:
-            log_lines.append(render_log(log, NAMES))
+        if log_lines is not None and renderer is not None:
+            log_lines.append(renderer.render_log(log))
     return state.winner, state.turn
 
 
-def show_teams(config, teams) -> None:
+def show_teams(config, teams, names: Names) -> None:
     for player, team in enumerate(teams):
-        print(f"\n{NAMES[player]}'s team")
+        print()
+        print(f"{TRAINERS[player]}의 팀")
         for pokemon in compile_team(config.dex, team):
-            spread = "/".join(str(v) for v in pokemon.set.sp)
-            moves = ", ".join(move.name for move in pokemon.moves)
-            item = config.dex.items[pokemon.item].name if pokemon.item else "-"
+            moves = ", ".join(names.move(move.id) for move in pokemon.moves)
+            item = names.item(pokemon.item) if pokemon.item else "-"
             print(
-                f"  {pokemon.species.name:<20} {pokemon.set.nature:<8} @ {item:<14}"
-                f" HP {pokemon.max_hp:<4} Spe {pokemon.stats[5]:<4} | {moves}"
+                f"  {names.species(pokemon.species.id):<16} @ {item:<12}"
+                f"  HP {pokemon.max_hp:<4} 스피드 {pokemon.stats[5]:<4} | {moves}"
             )
 
 
@@ -64,6 +66,7 @@ def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--seed", type=int, default=1)
     parser.add_argument("--bench", type=int, default=0, help="play N battles, print throughput only")
+    parser.add_argument("--lang", default="ko", choices=("ko", "en"))
     args = parser.parse_args()
 
     dex = load_dex()
@@ -96,15 +99,16 @@ def main() -> int:
         return 0
 
     teams, _ = make_battle(config, args.seed)
-    show_teams(config, teams)
+    renderer = Renderer(args.lang, dex, TRAINERS)
+    show_teams(config, teams, renderer.names)
 
     lines: list[str] = []
-    winner, turns = play(config, args.seed, lines)
+    winner, turns = play(config, args.seed, lines, renderer)
     print("\n" + "=" * 60)
     print("\n".join(lines))
     print("=" * 60)
-    result = "Draw" if winner is None else f"{NAMES[winner]} wins"
-    print(f"{result} after {turns} turns.")
+    result = "무승부" if winner is None else f"{TRAINERS[winner]} 승리"
+    print(f"{result} — {turns}턴.")
     return 0
 
 

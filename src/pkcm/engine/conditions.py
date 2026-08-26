@@ -174,7 +174,7 @@ def _protect_blocks(ctx, ref, attacker, defender, move, **_):
     if getattr(move, "breaks_protect", False):
         return None
     if "protect" in move.flags:
-        ctx.emit(Event("protected", side=defender[0], slot=defender[1], move=move.name))
+        ctx.emit(Event("protected", side=defender[0], slot=defender[1], move=move.id))
         return False
     return None
 

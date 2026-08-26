@@ -185,7 +185,7 @@ def check_faint(ctx: Context, ref: Ref, source: Ref | None = None, move=None) ->
     if side.volatiles[slot].get("__fainted__"):
         return True
     side.volatiles[slot]["__fainted__"] = True
-    ctx.emit(ev.faint(side_index, slot, ctx.state.species_name(side_index, slot)))
+    ctx.emit(ev.faint(side_index, slot, ctx.state.species_id(side_index, slot)))
     fx.notify(ctx, "faint", ref, source=source)
     # Moxie and friends hang off the *killer*, not the victim.
     if source is not None and source != ref:

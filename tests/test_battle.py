@@ -289,7 +289,7 @@ def test_unsupported_moves_are_named_not_silently_dropped(dex, config):
     _, log = step(state, Action.move(0), Action.move(0))
     skipped = [e for e in log if e.kind == "unimplemented"]
     assert len(skipped) == 1
-    assert skipped[0].move == "Haze"
+    assert skipped[0].move == "haze", "events carry ids; names are the renderer's job"
     assert skipped[0].detail == "effect not described by the data"
 
 

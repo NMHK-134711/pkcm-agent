@@ -20,6 +20,7 @@ Regulation Set M-B 룰을 따르는 배틀 엔진을 직접 구현하고, 그 �
 | 시나리오 검증 하네스 | 완료 — 실제 게임 관찰을 테스트로, 미구현 메커니즘은 skip |
 | 도구 | 챔피언스 배틀 도구 **72종 전부** (op.gg 실측 목록 기준) |
 | 메가진화 | 완료 — 배틀당 1회, 스톤 75종, 기절해도 유지 |
+| 한국어 표기 | 완료 — 폼 311·기술 500·도구 147, 조사 처리 포함 |
 | PettingZoo 어댑터 | 미착수 |
 | 하이브리드 배틀 정책 | 미착수 |
 | 파티 구성 학습 | 미착수 |
@@ -43,6 +44,14 @@ python -m venv .venv
 
 ```bash
 .venv/Scripts/python.exe scripts/build_champions_overrides.py
+```
+
+```bash
+.venv/Scripts/python.exe scripts/build_champions_items.py
+```
+
+```bash
+.venv/Scripts/python.exe scripts/build_names.py
 ```
 
 ```bash
@@ -78,7 +87,7 @@ src/pkcm/
              effects(훅) / conditions(상태·날씨·벽) / moves(기술 실행)
              mutate(원시 변경) / state / battle / legality / scope / rng / stats
   envs/      PettingZoo ParallelEnv 어댑터 (예정)
-  render/    이벤트 로그 소비자 — 텍스트 뷰어
+  render/    이벤트 로그 소비자 — 텍스트 뷰어(한/영), 표시명 테이블
   testing/   시나리오 러너 — 실제 게임 관찰을 테스트로
 tests/scenarios/  게임에서 본 동작 (형식은 그 안의 README)
 scripts/     데이터 수집·가공

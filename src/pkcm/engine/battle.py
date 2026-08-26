@@ -187,7 +187,7 @@ def _mega_evolve(ctx: Context, player: int) -> None:
                            permanent=True)
     ctx.emit(
         Event("mega_evolve", side=player, slot=side.active,
-              species=ctx.state.species_name(*ref), detail=target)
+              species=ctx.state.species_id(*ref), detail=target)
     )
     # The new forme's ability starts now: Mega Mawile's Intimidate fires here.
     fx.notify(ctx, "switch_in", ref)
@@ -198,7 +198,7 @@ def _enter_field(ctx: Context, player: int) -> None:
     ref: Ref = (player, side.active)
     pokemon = ctx.state.pokemon(*ref)
     ctx.emit(
-        ev.switch_in(player, side.active, ctx.state.species_name(*ref),
+        ev.switch_in(player, side.active, ctx.state.species_id(*ref),
                      side.hp[side.active], pokemon.max_hp)
     )
     apply_entry_hazards(ctx, ref)

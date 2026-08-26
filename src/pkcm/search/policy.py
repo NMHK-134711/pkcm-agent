@@ -82,42 +82,91 @@ SWITCH_PROMISE = 0.6
 LEAD_WEIGHT = 1.6
 
 
-def _threat(state: BattleState, attacker, defender) -> float:
-    """Roughly what share of ``defender``'s health ``attacker``'s best move takes.
+#: What a Pokemon's own STAB attack is worth when we have not seen it move.
+#: Real sets vary either side of this; the point is that everything gets the
+#: same guess, so the comparison between them is about the Pokemon.
+NOMINAL_POWER = 90.0
 
-    The damage formula's shape at level 50, without any of the modifiers that
-    need a live field -- weather, screens, items, abilities. Those matter, and
-    this is not trying to be the calculator in ``envs.analysis``; it is trying
-    to be cheap enough to run over every one of a hundred and twenty team picks
-    and right about which of them are worth the search's budget.
+
+def _damage_share(power: float, offence: float, defence: float, health: float,
+                  stab: float, effectiveness: float) -> float:
+    """The damage formula's shape at level 50, as a share of ``health``.
+
+    None of the modifiers that need a live field -- weather, screens, items,
+    abilities. This is not trying to be ``envs.analysis``; it is trying to be
+    cheap enough to run over three hundred and sixty team picks and right about
+    which of them deserve the search's budget.
     """
-    chart = state.config.dex.type_chart
+    damage = (22 * power * offence / max(1.0, defence)) / 50 + 2
+    return min(1.0, damage * stab * effectiveness / max(1.0, health))
+
+
+def _our_threat(state: BattleState, mine, foe_id: str) -> float:
+    """What our Pokemon does to one of theirs. Our set is ours to read."""
+    from pkcm.envs.analysis import midpoint
+
+    dex = state.config.dex
+    foe_types = dex.species[foe_id].types
     best = 0.0
-    for move in attacker.moves:
+    for move in mine.moves:
         if not move.base_power:
             continue
-        effectiveness = chart.multiplier(move.type, defender.species.types)
+        effectiveness = dex.type_chart.multiplier(move.type, foe_types)
         if not effectiveness:
             continue
-        offence, defence = ((attacker.stats[1], defender.stats[2])
-                            if move.category == "Physical"
-                            else (attacker.stats[3], defender.stats[4]))
-        stab = 1.5 if move.type in attacker.species.types else 1.0
-        damage = ((22 * move.base_power * offence / defence) / 50 + 2)
-        best = max(best, damage * stab * effectiveness / defender.max_hp)
-    return min(1.0, best)
+        physical = move.category == "Physical"
+        best = max(best, _damage_share(
+            move.base_power,
+            mine.stats[1] if physical else mine.stats[3],
+            midpoint(dex, foe_id, 2 if physical else 4),
+            midpoint(dex, foe_id, 0),
+            1.5 if move.type in mine.species.types else 1.0,
+            effectiveness))
+    return best
 
 
-def _matchup(state: BattleState, mine, theirs) -> float:
-    """One of my six against one of theirs. Positive means I am ahead.
+def _their_threat(state: BattleState, foe_id: str, mine) -> float:
+    """What one of theirs does to ours, from **what preview actually shows**.
+
+    Their species and nothing else. Their moves are hidden until we watch them
+    used and their SP spread is hidden for good, so this reads base stats
+    through the same public bracket ``envs.analysis`` uses, and assumes the one
+    thing every Pokemon has: a STAB attack off its better attacking stat.
+
+    Being wrong about their set is fine and expected. Being *told* their set
+    would make the pick phase look brilliant in self-play and transfer nothing,
+    which is the failure this whole file is arranged to avoid.
+    """
+    from pkcm.envs.analysis import midpoint
+
+    dex = state.config.dex
+    attack, special = midpoint(dex, foe_id, 1), midpoint(dex, foe_id, 3)
+    physical = attack >= special
+    offence, defence = (attack, mine.stats[2]) if physical else (special, mine.stats[4])
+    best = 0.0
+    for foe_type in dex.species[foe_id].types:
+        effectiveness = dex.type_chart.multiplier(foe_type, mine.species.types)
+        if not effectiveness:
+            continue
+        best = max(best, _damage_share(NOMINAL_POWER, offence, defence,
+                                       mine.max_hp, 1.5, effectiveness))
+    return best
+
+
+def _matchup(state: BattleState, mine, foe_id: str) -> float:
+    """One of ours against one of theirs. Positive means we are ahead.
 
     Who threatens whom, and -- when the threats are close -- who moves first,
-    because between two Pokemon that each take the other out in two hits the
-    faster one takes zero more hits than it has to.
+    because between two Pokemon that each take the other out in two hits, the
+    faster one takes one hit fewer.
     """
-    edge = _threat(state, mine, theirs) - _threat(state, theirs, mine)
-    if abs(edge) < 0.2 and mine.stats[5] != theirs.stats[5]:
-        edge += 0.1 if mine.stats[5] > theirs.stats[5] else -0.1
+    from pkcm.envs.analysis import midpoint
+
+    edge = _our_threat(state, mine, foe_id) - _their_threat(state, foe_id, mine)
+    if abs(edge) < 0.2:
+        theirs = midpoint(state.config.dex, foe_id, 5)
+        if mine.stats[5] != theirs:
+            edge += 0.1 if mine.stats[5] > theirs else -0.1
     return edge
 
 
@@ -141,14 +190,15 @@ def _pick_promise(state: BattleState, player: int,
     mine = state.parties[player]
     if not theirs or not mine:
         return 0.0
+    foes = [foe.species.id for foe in theirs]
     leads = 1 if state.config.active_count == 1 else 2
     total = 0.0
     for position, slot in enumerate(selection):
         if slot >= len(mine):
             continue
         weight = LEAD_WEIGHT if position < leads else 1.0
-        average = sum(_matchup(state, mine[slot], foe) for foe in theirs) / len(theirs)
-        total += weight * average
+        total += weight * sum(_matchup(state, mine[slot], foe)
+                              for foe in foes) / len(foes)
     return total
 
 

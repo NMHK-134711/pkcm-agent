@@ -374,3 +374,52 @@ def test_min_max_leaves_a_value_alone_until_there_is_a_range():
     assert bounds.scale(0.5, 0) == 0.5
     bounds.add(0.3)
     assert bounds.scale(0.3, 0) == 0.3
+
+
+def test_the_pick_prior_cannot_see_their_moves_or_their_spread(dex):
+    """The rule this whole file is arranged around, at the one phase where it
+    is easiest to break.
+
+    Preview shows six species. It does not show their movesets and it never
+    shows their SP spread. A prior fed those would pick brilliantly in
+    self-play and transfer nothing -- so swapping the opponent's sets for
+    different ones must not move the score by a hair.
+    """
+    from dataclasses import replace as _replace
+
+    from pkcm.search.policy import _pick_promise
+
+    state = preview(dex)
+    before = [_pick_promise(state, 0, choice[0].selection)
+              for choice in joint_actions(state, 0, None)]
+
+    def rewritten(mon):
+        # Same species, different everything the opponent is allowed to hide.
+        return _replace(mon,
+                        moves=tuple(reversed(mon.moves)),
+                        stats=tuple(value + 25 for value in mon.stats))
+
+    theirs = tuple(rewritten(mon) for mon in state.parties[1])
+    altered = _replace(state, parties=(state.parties[0], theirs))
+    after = [_pick_promise(altered, 0, choice[0].selection)
+             for choice in joint_actions(altered, 0, None)]
+
+    assert before == after, "the pick prior is reading their set"
+
+
+def test_the_pick_prior_does_see_their_species(dex):
+    """The other half. Species *is* public at preview, and a prior that ignored
+    it would be no better than the zero it replaced."""
+    from dataclasses import replace as _replace
+
+    from pkcm.search.policy import _pick_promise
+
+    state = preview(dex, seed=5)
+    other = preview(dex, seed=41)
+    assert ({mon.species.id for mon in state.parties[1]}
+            != {mon.species.id for mon in other.parties[1]})
+
+    before = _pick_promise(state, 0, (0, 1, 2))
+    after = _pick_promise(_replace(state, parties=(state.parties[0],
+                                                   other.parties[1])), 0, (0, 1, 2))
+    assert before != after, "the same pick scores the same against any opponent"

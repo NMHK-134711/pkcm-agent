@@ -126,6 +126,18 @@ def defensive_bracket(dex: Dex, species_id: str, stat: Stat) -> tuple[int, int]:
             (base + 20 + SP_CAP) * BOOST_NATURE // 100)
 
 
+def midpoint(dex: Dex, species_id: str, stat: Stat | int) -> int:
+    """The middle of ``defensive_bracket``. The guess a player makes.
+
+    Public by construction -- base stats from the dex and the format's SP and
+    nature limits, nothing about the Pokemon in front of us. Takes a plain index
+    as well as a ``Stat`` so callers outside this module need not import the
+    enum to ask about the opponent's bulk.
+    """
+    low, high = defensive_bracket(dex, species_id, Stat(stat))
+    return (low + high) // 2
+
+
 def _effective_stat(known: KnownPokemon, dex: Dex, stat: Stat) -> int:
     """A stat with its stage applied.
 

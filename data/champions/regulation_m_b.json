@@ -1,0 +1,2799 @@
+{
+ "regulation": "M-B",
+ "source": "https://bulbapedia.bulbagarden.net/wiki/Regulation_Set_M-B",
+ "eligible": [
+  {
+   "dex_num": 3,
+   "species": "Venusaur",
+   "form": "",
+   "showdown_ids": [
+    "venusaur"
+   ],
+   "missing": []
+  },
+  {
+   "dex_num": 6,
+   "species": "Charizard",
+   "form": "",
+   "showdown_ids": [
+    "charizard"
+   ],
+   "missing": []
+  },
+  {
+   "dex_num": 9,
+   "species": "Blastoise",
+   "form": "",
+   "showdown_ids": [
+    "blastoise"
+   ],
+   "missing": []
+  },
+  {
+   "dex_num": 15,
+   "species": "Beedrill",
+   "form": "",
+   "showdown_ids": [
+    "beedrill"
+   ],
+   "missing": []
+  },
+  {
+   "dex_num": 18,
+   "species": "Pidgeot",
+   "form": "",
+   "showdown_ids": [
+    "pidgeot"
+   ],
+   "missing": []
+  },
+  {
+   "dex_num": 24,
+   "species": "Arbok",
+   "form": "",
+   "showdown_ids": [
+    "arbok"
+   ],
+   "missing": []
+  },
+  {
+   "dex_num": 25,
+   "species": "Pikachu",
+   "form": "",
+   "showdown_ids": [
+    "pikachu"
+   ],
+   "missing": []
+  },
+  {
+   "dex_num": 26,
+   "species": "Raichu",
+   "form": "",
+   "showdown_ids": [
+    "raichu"
+   ],
+   "missing": []
+  },
+  {
+   "dex_num": 26,
+   "species": "Raichu",
+   "form": "-Alola",
+   "showdown_ids": [
+    "raichualola"
+   ],
+   "missing": []
+  },
+  {
+   "dex_num": 36,
+   "species": "Clefable",
+   "form": "",
+   "showdown_ids": [
+    "clefable"
+   ],
+   "missing": []
+  },
+  {
+   "dex_num": 38,
+   "species": "Ninetales",
+   "form": "",
+   "showdown_ids": [
+    "ninetales"
+   ],
+   "missing": []
+  },
+  {
+   "dex_num": 38,
+   "species": "Ninetales",
+   "form": "-Alola",
+   "showdown_ids": [
+    "ninetalesalola"
+   ],
+   "missing": []
+  },
+  {
+   "dex_num": 45,
+   "species": "Vileplume",
+   "form": "",
+   "showdown_ids": [
+    "vileplume"
+   ],
+   "missing": []
+  },
+  {
+   "dex_num": 59,
+   "species": "Arcanine",
+   "form": "",
+   "showdown_ids": [
+    "arcanine"
+   ],
+   "missing": []
+  },
+  {
+   "dex_num": 59,
+   "species": "Arcanine",
+   "form": "-Hisui",
+   "showdown_ids": [
+    "arcaninehisui"
+   ],
+   "missing": []
+  },
+  {
+   "dex_num": 65,
+   "species": "Alakazam",
+   "form": "",
+   "showdown_ids": [
+    "alakazam"
+   ],
+   "missing": []
+  },
+  {
+   "dex_num": 68,
+   "species": "Machamp",
+   "form": "",
+   "showdown_ids": [
+    "machamp"
+   ],
+   "missing": []
+  },
+  {
+   "dex_num": 71,
+   "species": "Victreebel",
+   "form": "",
+   "showdown_ids": [
+    "victreebel"
+   ],
+   "missing": []
+  },
+  {
+   "dex_num": 80,
+   "species": "Slowbro",
+   "form": "",
+   "showdown_ids": [
+    "slowbro"
+   ],
+   "missing": []
+  },
+  {
+   "dex_num": 80,
+   "species": "Slowbro",
+   "form": "-Galar",
+   "showdown_ids": [
+    "slowbrogalar"
+   ],
+   "missing": []
+  },
+  {
+   "dex_num": 94,
+   "species": "Gengar",
+   "form": "",
+   "showdown_ids": [
+    "gengar"
+   ],
+   "missing": []
+  },
+  {
+   "dex_num": 115,
+   "species": "Kangaskhan",
+   "form": "",
+   "showdown_ids": [
+    "kangaskhan"
+   ],
+   "missing": []
+  },
+  {
+   "dex_num": 121,
+   "species": "Starmie",
+   "form": "",
+   "showdown_ids": [
+    "starmie"
+   ],
+   "missing": []
+  },
+  {
+   "dex_num": 127,
+   "species": "Pinsir",
+   "form": "",
+   "showdown_ids": [
+    "pinsir"
+   ],
+   "missing": []
+  },
+  {
+   "dex_num": 128,
+   "species": "Tauros",
+   "form": "",
+   "showdown_ids": [
+    "tauros"
+   ],
+   "missing": []
+  },
+  {
+   "dex_num": 128,
+   "species": "Tauros",
+   "form": "-Paldea Combat",
+   "showdown_ids": [
+    "taurospaldeacombat"
+   ],
+   "missing": []
+  },
+  {
+   "dex_num": 128,
+   "species": "Tauros",
+   "form": "-Paldea Blaze",
+   "showdown_ids": [
+    "taurospaldeablaze"
+   ],
+   "missing": []
+  },
+  {
+   "dex_num": 128,
+   "species": "Tauros",
+   "form": "-Paldea Aqua",
+   "showdown_ids": [
+    "taurospaldeaaqua"
+   ],
+   "missing": []
+  },
+  {
+   "dex_num": 130,
+   "species": "Gyarados",
+   "form": "",
+   "showdown_ids": [
+    "gyarados"
+   ],
+   "missing": []
+  },
+  {
+   "dex_num": 132,
+   "species": "Ditto",
+   "form": "",
+   "showdown_ids": [
+    "ditto"
+   ],
+   "missing": []
+  },
+  {
+   "dex_num": 134,
+   "species": "Vaporeon",
+   "form": "",
+   "showdown_ids": [
+    "vaporeon"
+   ],
+   "missing": []
+  },
+  {
+   "dex_num": 135,
+   "species": "Jolteon",
+   "form": "",
+   "showdown_ids": [
+    "jolteon"
+   ],
+   "missing": []
+  },
+  {
+   "dex_num": 136,
+   "species": "Flareon",
+   "form": "",
+   "showdown_ids": [
+    "flareon"
+   ],
+   "missing": []
+  },
+  {
+   "dex_num": 142,
+   "species": "Aerodactyl",
+   "form": "",
+   "showdown_ids": [
+    "aerodactyl"
+   ],
+   "missing": []
+  },
+  {
+   "dex_num": 143,
+   "species": "Snorlax",
+   "form": "",
+   "showdown_ids": [
+    "snorlax"
+   ],
+   "missing": []
+  },
+  {
+   "dex_num": 149,
+   "species": "Dragonite",
+   "form": "",
+   "showdown_ids": [
+    "dragonite"
+   ],
+   "missing": []
+  },
+  {
+   "dex_num": 154,
+   "species": "Meganium",
+   "form": "",
+   "showdown_ids": [
+    "meganium"
+   ],
+   "missing": []
+  },
+  {
+   "dex_num": 157,
+   "species": "Typhlosion",
+   "form": "",
+   "showdown_ids": [
+    "typhlosion"
+   ],
+   "missing": []
+  },
+  {
+   "dex_num": 157,
+   "species": "Typhlosion",
+   "form": "-Hisui",
+   "showdown_ids": [
+    "typhlosionhisui"
+   ],
+   "missing": []
+  },
+  {
+   "dex_num": 160,
+   "species": "Feraligatr",
+   "form": "",
+   "showdown_ids": [
+    "feraligatr"
+   ],
+   "missing": []
+  },
+  {
+   "dex_num": 168,
+   "species": "Ariados",
+   "form": "",
+   "showdown_ids": [
+    "ariados"
+   ],
+   "missing": []
+  },
+  {
+   "dex_num": 181,
+   "species": "Ampharos",
+   "form": "",
+   "showdown_ids": [
+    "ampharos"
+   ],
+   "missing": []
+  },
+  {
+   "dex_num": 184,
+   "species": "Azumarill",
+   "form": "",
+   "showdown_ids": [
+    "azumarill"
+   ],
+   "missing": []
+  },
+  {
+   "dex_num": 186,
+   "species": "Politoed",
+   "form": "",
+   "showdown_ids": [
+    "politoed"
+   ],
+   "missing": []
+  },
+  {
+   "dex_num": 196,
+   "species": "Espeon",
+   "form": "",
+   "showdown_ids": [
+    "espeon"
+   ],
+   "missing": []
+  },
+  {
+   "dex_num": 197,
+   "species": "Umbreon",
+   "form": "",
+   "showdown_ids": [
+    "umbreon"
+   ],
+   "missing": []
+  },
+  {
+   "dex_num": 199,
+   "species": "Slowking",
+   "form": "",
+   "showdown_ids": [
+    "slowking"
+   ],
+   "missing": []
+  },
+  {
+   "dex_num": 199,
+   "species": "Slowking",
+   "form": "-Galar",
+   "showdown_ids": [
+    "slowkinggalar"
+   ],
+   "missing": []
+  },
+  {
+   "dex_num": 205,
+   "species": "Forretress",
+   "form": "",
+   "showdown_ids": [
+    "forretress"
+   ],
+   "missing": []
+  },
+  {
+   "dex_num": 208,
+   "species": "Steelix",
+   "form": "",
+   "showdown_ids": [
+    "steelix"
+   ],
+   "missing": []
+  },
+  {
+   "dex_num": 211,
+   "species": "Qwilfish",
+   "form": "",
+   "showdown_ids": [
+    "qwilfish"
+   ],
+   "missing": []
+  },
+  {
+   "dex_num": 212,
+   "species": "Scizor",
+   "form": "",
+   "showdown_ids": [
+    "scizor"
+   ],
+   "missing": []
+  },
+  {
+   "dex_num": 214,
+   "species": "Heracross",
+   "form": "",
+   "showdown_ids": [
+    "heracross"
+   ],
+   "missing": []
+  },
+  {
+   "dex_num": 227,
+   "species": "Skarmory",
+   "form": "",
+   "showdown_ids": [
+    "skarmory"
+   ],
+   "missing": []
+  },
+  {
+   "dex_num": 229,
+   "species": "Houndoom",
+   "form": "",
+   "showdown_ids": [
+    "houndoom"
+   ],
+   "missing": []
+  },
+  {
+   "dex_num": 248,
+   "species": "Tyranitar",
+   "form": "",
+   "showdown_ids": [
+    "tyranitar"
+   ],
+   "missing": []
+  },
+  {
+   "dex_num": 254,
+   "species": "Sceptile",
+   "form": "",
+   "showdown_ids": [
+    "sceptile"
+   ],
+   "missing": []
+  },
+  {
+   "dex_num": 257,
+   "species": "Blaziken",
+   "form": "",
+   "showdown_ids": [
+    "blaziken"
+   ],
+   "missing": []
+  },
+  {
+   "dex_num": 260,
+   "species": "Swampert",
+   "form": "",
+   "showdown_ids": [
+    "swampert"
+   ],
+   "missing": []
+  },
+  {
+   "dex_num": 279,
+   "species": "Pelipper",
+   "form": "",
+   "showdown_ids": [
+    "pelipper"
+   ],
+   "missing": []
+  },
+  {
+   "dex_num": 282,
+   "species": "Gardevoir",
+   "form": "",
+   "showdown_ids": [
+    "gardevoir"
+   ],
+   "missing": []
+  },
+  {
+   "dex_num": 302,
+   "species": "Sableye",
+   "form": "",
+   "showdown_ids": [
+    "sableye"
+   ],
+   "missing": []
+  },
+  {
+   "dex_num": 303,
+   "species": "Mawile",
+   "form": "",
+   "showdown_ids": [
+    "mawile"
+   ],
+   "missing": []
+  },
+  {
+   "dex_num": 306,
+   "species": "Aggron",
+   "form": "",
+   "showdown_ids": [
+    "aggron"
+   ],
+   "missing": []
+  },
+  {
+   "dex_num": 308,
+   "species": "Medicham",
+   "form": "",
+   "showdown_ids": [
+    "medicham"
+   ],
+   "missing": []
+  },
+  {
+   "dex_num": 310,
+   "species": "Manectric",
+   "form": "",
+   "showdown_ids": [
+    "manectric"
+   ],
+   "missing": []
+  },
+  {
+   "dex_num": 319,
+   "species": "Sharpedo",
+   "form": "",
+   "showdown_ids": [
+    "sharpedo"
+   ],
+   "missing": []
+  },
+  {
+   "dex_num": 323,
+   "species": "Camerupt",
+   "form": "",
+   "showdown_ids": [
+    "camerupt"
+   ],
+   "missing": []
+  },
+  {
+   "dex_num": 324,
+   "species": "Torkoal",
+   "form": "",
+   "showdown_ids": [
+    "torkoal"
+   ],
+   "missing": []
+  },
+  {
+   "dex_num": 334,
+   "species": "Altaria",
+   "form": "",
+   "showdown_ids": [
+    "altaria"
+   ],
+   "missing": []
+  },
+  {
+   "dex_num": 350,
+   "species": "Milotic",
+   "form": "",
+   "showdown_ids": [
+    "milotic"
+   ],
+   "missing": []
+  },
+  {
+   "dex_num": 351,
+   "species": "Castform",
+   "form": "",
+   "showdown_ids": [
+    "castform"
+   ],
+   "missing": []
+  },
+  {
+   "dex_num": 354,
+   "species": "Banette",
+   "form": "",
+   "showdown_ids": [
+    "banette"
+   ],
+   "missing": []
+  },
+  {
+   "dex_num": 358,
+   "species": "Chimecho",
+   "form": "",
+   "showdown_ids": [
+    "chimecho"
+   ],
+   "missing": []
+  },
+  {
+   "dex_num": 359,
+   "species": "Absol",
+   "form": "",
+   "showdown_ids": [
+    "absol"
+   ],
+   "missing": []
+  },
+  {
+   "dex_num": 362,
+   "species": "Glalie",
+   "form": "",
+   "showdown_ids": [
+    "glalie"
+   ],
+   "missing": []
+  },
+  {
+   "dex_num": 376,
+   "species": "Metagross",
+   "form": "",
+   "showdown_ids": [
+    "metagross"
+   ],
+   "missing": []
+  },
+  {
+   "dex_num": 389,
+   "species": "Torterra",
+   "form": "",
+   "showdown_ids": [
+    "torterra"
+   ],
+   "missing": []
+  },
+  {
+   "dex_num": 392,
+   "species": "Infernape",
+   "form": "",
+   "showdown_ids": [
+    "infernape"
+   ],
+   "missing": []
+  },
+  {
+   "dex_num": 395,
+   "species": "Empoleon",
+   "form": "",
+   "showdown_ids": [
+    "empoleon"
+   ],
+   "missing": []
+  },
+  {
+   "dex_num": 398,
+   "species": "Staraptor",
+   "form": "",
+   "showdown_ids": [
+    "staraptor"
+   ],
+   "missing": []
+  },
+  {
+   "dex_num": 405,
+   "species": "Luxray",
+   "form": "",
+   "showdown_ids": [
+    "luxray"
+   ],
+   "missing": []
+  },
+  {
+   "dex_num": 407,
+   "species": "Roserade",
+   "form": "",
+   "showdown_ids": [
+    "roserade"
+   ],
+   "missing": []
+  },
+  {
+   "dex_num": 409,
+   "species": "Rampardos",
+   "form": "",
+   "showdown_ids": [
+    "rampardos"
+   ],
+   "missing": []
+  },
+  {
+   "dex_num": 411,
+   "species": "Bastiodon",
+   "form": "",
+   "showdown_ids": [
+    "bastiodon"
+   ],
+   "missing": []
+  },
+  {
+   "dex_num": 428,
+   "species": "Lopunny",
+   "form": "",
+   "showdown_ids": [
+    "lopunny"
+   ],
+   "missing": []
+  },
+  {
+   "dex_num": 442,
+   "species": "Spiritomb",
+   "form": "",
+   "showdown_ids": [
+    "spiritomb"
+   ],
+   "missing": []
+  },
+  {
+   "dex_num": 445,
+   "species": "Garchomp",
+   "form": "",
+   "showdown_ids": [
+    "garchomp"
+   ],
+   "missing": []
+  },
+  {
+   "dex_num": 448,
+   "species": "Lucario",
+   "form": "",
+   "showdown_ids": [
+    "lucario"
+   ],
+   "missing": []
+  },
+  {
+   "dex_num": 450,
+   "species": "Hippowdon",
+   "form": "",
+   "showdown_ids": [
+    "hippowdon"
+   ],
+   "missing": []
+  },
+  {
+   "dex_num": 454,
+   "species": "Toxicroak",
+   "form": "",
+   "showdown_ids": [
+    "toxicroak"
+   ],
+   "missing": []
+  },
+  {
+   "dex_num": 460,
+   "species": "Abomasnow",
+   "form": "",
+   "showdown_ids": [
+    "abomasnow"
+   ],
+   "missing": []
+  },
+  {
+   "dex_num": 461,
+   "species": "Weavile",
+   "form": "",
+   "showdown_ids": [
+    "weavile"
+   ],
+   "missing": []
+  },
+  {
+   "dex_num": 464,
+   "species": "Rhyperior",
+   "form": "",
+   "showdown_ids": [
+    "rhyperior"
+   ],
+   "missing": []
+  },
+  {
+   "dex_num": 470,
+   "species": "Leafeon",
+   "form": "",
+   "showdown_ids": [
+    "leafeon"
+   ],
+   "missing": []
+  },
+  {
+   "dex_num": 471,
+   "species": "Glaceon",
+   "form": "",
+   "showdown_ids": [
+    "glaceon"
+   ],
+   "missing": []
+  },
+  {
+   "dex_num": 472,
+   "species": "Gliscor",
+   "form": "",
+   "showdown_ids": [
+    "gliscor"
+   ],
+   "missing": []
+  },
+  {
+   "dex_num": 473,
+   "species": "Mamoswine",
+   "form": "",
+   "showdown_ids": [
+    "mamoswine"
+   ],
+   "missing": []
+  },
+  {
+   "dex_num": 475,
+   "species": "Gallade",
+   "form": "",
+   "showdown_ids": [
+    "gallade"
+   ],
+   "missing": []
+  },
+  {
+   "dex_num": 478,
+   "species": "Froslass",
+   "form": "",
+   "showdown_ids": [
+    "froslass"
+   ],
+   "missing": []
+  },
+  {
+   "dex_num": 479,
+   "species": "Rotom",
+   "form": "",
+   "showdown_ids": [
+    "rotom"
+   ],
+   "missing": []
+  },
+  {
+   "dex_num": 479,
+   "species": "Rotom",
+   "form": "-Heat",
+   "showdown_ids": [
+    "rotomheat"
+   ],
+   "missing": []
+  },
+  {
+   "dex_num": 479,
+   "species": "Rotom",
+   "form": "-Wash",
+   "showdown_ids": [
+    "rotomwash"
+   ],
+   "missing": []
+  },
+  {
+   "dex_num": 479,
+   "species": "Rotom",
+   "form": "-Frost",
+   "showdown_ids": [
+    "rotomfrost"
+   ],
+   "missing": []
+  },
+  {
+   "dex_num": 479,
+   "species": "Rotom",
+   "form": "-Fan",
+   "showdown_ids": [
+    "rotomfan"
+   ],
+   "missing": []
+  },
+  {
+   "dex_num": 479,
+   "species": "Rotom",
+   "form": "-Mow",
+   "showdown_ids": [
+    "rotommow"
+   ],
+   "missing": []
+  },
+  {
+   "dex_num": 497,
+   "species": "Serperior",
+   "form": "",
+   "showdown_ids": [
+    "serperior"
+   ],
+   "missing": []
+  },
+  {
+   "dex_num": 500,
+   "species": "Emboar",
+   "form": "",
+   "showdown_ids": [
+    "emboar"
+   ],
+   "missing": []
+  },
+  {
+   "dex_num": 503,
+   "species": "Samurott",
+   "form": "",
+   "showdown_ids": [
+    "samurott"
+   ],
+   "missing": []
+  },
+  {
+   "dex_num": 503,
+   "species": "Samurott",
+   "form": "-Hisui",
+   "showdown_ids": [
+    "samurotthisui"
+   ],
+   "missing": []
+  },
+  {
+   "dex_num": 505,
+   "species": "Watchog",
+   "form": "",
+   "showdown_ids": [
+    "watchog"
+   ],
+   "missing": []
+  },
+  {
+   "dex_num": 510,
+   "species": "Liepard",
+   "form": "",
+   "showdown_ids": [
+    "liepard"
+   ],
+   "missing": []
+  },
+  {
+   "dex_num": 512,
+   "species": "Simisage",
+   "form": "",
+   "showdown_ids": [
+    "simisage"
+   ],
+   "missing": []
+  },
+  {
+   "dex_num": 514,
+   "species": "Simisear",
+   "form": "",
+   "showdown_ids": [
+    "simisear"
+   ],
+   "missing": []
+  },
+  {
+   "dex_num": 516,
+   "species": "Simipour",
+   "form": "",
+   "showdown_ids": [
+    "simipour"
+   ],
+   "missing": []
+  },
+  {
+   "dex_num": 518,
+   "species": "Musharna",
+   "form": "",
+   "showdown_ids": [
+    "musharna"
+   ],
+   "missing": []
+  },
+  {
+   "dex_num": 530,
+   "species": "Excadrill",
+   "form": "",
+   "showdown_ids": [
+    "excadrill"
+   ],
+   "missing": []
+  },
+  {
+   "dex_num": 531,
+   "species": "Audino",
+   "form": "",
+   "showdown_ids": [
+    "audino"
+   ],
+   "missing": []
+  },
+  {
+   "dex_num": 534,
+   "species": "Conkeldurr",
+   "form": "",
+   "showdown_ids": [
+    "conkeldurr"
+   ],
+   "missing": []
+  },
+  {
+   "dex_num": 545,
+   "species": "Scolipede",
+   "form": "",
+   "showdown_ids": [
+    "scolipede"
+   ],
+   "missing": []
+  },
+  {
+   "dex_num": 547,
+   "species": "Whimsicott",
+   "form": "",
+   "showdown_ids": [
+    "whimsicott"
+   ],
+   "missing": []
+  },
+  {
+   "dex_num": 553,
+   "species": "Krookodile",
+   "form": "",
+   "showdown_ids": [
+    "krookodile"
+   ],
+   "missing": []
+  },
+  {
+   "dex_num": 560,
+   "species": "Scrafty",
+   "form": "",
+   "showdown_ids": [
+    "scrafty"
+   ],
+   "missing": []
+  },
+  {
+   "dex_num": 563,
+   "species": "Cofagrigus",
+   "form": "",
+   "showdown_ids": [
+    "cofagrigus"
+   ],
+   "missing": []
+  },
+  {
+   "dex_num": 569,
+   "species": "Garbodor",
+   "form": "",
+   "showdown_ids": [
+    "garbodor"
+   ],
+   "missing": []
+  },
+  {
+   "dex_num": 571,
+   "species": "Zoroark",
+   "form": "",
+   "showdown_ids": [
+    "zoroark"
+   ],
+   "missing": []
+  },
+  {
+   "dex_num": 571,
+   "species": "Zoroark",
+   "form": "-Hisui",
+   "showdown_ids": [
+    "zoroarkhisui"
+   ],
+   "missing": []
+  },
+  {
+   "dex_num": 579,
+   "species": "Reuniclus",
+   "form": "",
+   "showdown_ids": [
+    "reuniclus"
+   ],
+   "missing": []
+  },
+  {
+   "dex_num": 584,
+   "species": "Vanilluxe",
+   "form": "",
+   "showdown_ids": [
+    "vanilluxe"
+   ],
+   "missing": []
+  },
+  {
+   "dex_num": 587,
+   "species": "Emolga",
+   "form": "",
+   "showdown_ids": [
+    "emolga"
+   ],
+   "missing": []
+  },
+  {
+   "dex_num": 604,
+   "species": "Eelektross",
+   "form": "",
+   "showdown_ids": [
+    "eelektross"
+   ],
+   "missing": []
+  },
+  {
+   "dex_num": 609,
+   "species": "Chandelure",
+   "form": "",
+   "showdown_ids": [
+    "chandelure"
+   ],
+   "missing": []
+  },
+  {
+   "dex_num": 614,
+   "species": "Beartic",
+   "form": "",
+   "showdown_ids": [
+    "beartic"
+   ],
+   "missing": []
+  },
+  {
+   "dex_num": 618,
+   "species": "Stunfisk",
+   "form": "",
+   "showdown_ids": [
+    "stunfisk"
+   ],
+   "missing": []
+  },
+  {
+   "dex_num": 618,
+   "species": "Stunfisk",
+   "form": "-Galar",
+   "showdown_ids": [
+    "stunfiskgalar"
+   ],
+   "missing": []
+  },
+  {
+   "dex_num": 623,
+   "species": "Golurk",
+   "form": "",
+   "showdown_ids": [
+    "golurk"
+   ],
+   "missing": []
+  },
+  {
+   "dex_num": 635,
+   "species": "Hydreigon",
+   "form": "",
+   "showdown_ids": [
+    "hydreigon"
+   ],
+   "missing": []
+  },
+  {
+   "dex_num": 637,
+   "species": "Volcarona",
+   "form": "",
+   "showdown_ids": [
+    "volcarona"
+   ],
+   "missing": []
+  },
+  {
+   "dex_num": 652,
+   "species": "Chesnaught",
+   "form": "",
+   "showdown_ids": [
+    "chesnaught"
+   ],
+   "missing": []
+  },
+  {
+   "dex_num": 655,
+   "species": "Delphox",
+   "form": "",
+   "showdown_ids": [
+    "delphox"
+   ],
+   "missing": []
+  },
+  {
+   "dex_num": 658,
+   "species": "Greninja",
+   "form": "",
+   "showdown_ids": [
+    "greninja"
+   ],
+   "missing": []
+  },
+  {
+   "dex_num": 660,
+   "species": "Diggersby",
+   "form": "",
+   "showdown_ids": [
+    "diggersby"
+   ],
+   "missing": []
+  },
+  {
+   "dex_num": 663,
+   "species": "Talonflame",
+   "form": "",
+   "showdown_ids": [
+    "talonflame"
+   ],
+   "missing": []
+  },
+  {
+   "dex_num": 666,
+   "species": "Vivillon",
+   "form": "-Fancy",
+   "showdown_ids": [
+    "vivillonfancy"
+   ],
+   "missing": []
+  },
+  {
+   "dex_num": 668,
+   "species": "Pyroar",
+   "form": "",
+   "showdown_ids": [
+    "pyroar"
+   ],
+   "missing": []
+  },
+  {
+   "dex_num": 670,
+   "species": "Floette",
+   "form": "-Eternal",
+   "showdown_ids": [
+    "floetteeternal"
+   ],
+   "missing": []
+  },
+  {
+   "dex_num": 671,
+   "species": "Florges",
+   "form": "",
+   "showdown_ids": [
+    "florges"
+   ],
+   "missing": []
+  },
+  {
+   "dex_num": 675,
+   "species": "Pangoro",
+   "form": "",
+   "showdown_ids": [
+    "pangoro"
+   ],
+   "missing": []
+  },
+  {
+   "dex_num": 676,
+   "species": "Furfrou",
+   "form": "",
+   "showdown_ids": [
+    "furfrou"
+   ],
+   "missing": []
+  },
+  {
+   "dex_num": 678,
+   "species": "Meowstic",
+   "form": "",
+   "showdown_ids": [
+    "meowstic"
+   ],
+   "missing": []
+  },
+  {
+   "dex_num": 678,
+   "species": "Meowstic",
+   "form": "-Female",
+   "showdown_ids": [
+    "meowsticf"
+   ],
+   "missing": []
+  },
+  {
+   "dex_num": 681,
+   "species": "Aegislash",
+   "form": "",
+   "showdown_ids": [
+    "aegislash"
+   ],
+   "missing": []
+  },
+  {
+   "dex_num": 683,
+   "species": "Aromatisse",
+   "form": "",
+   "showdown_ids": [
+    "aromatisse"
+   ],
+   "missing": []
+  },
+  {
+   "dex_num": 685,
+   "species": "Slurpuff",
+   "form": "",
+   "showdown_ids": [
+    "slurpuff"
+   ],
+   "missing": []
+  },
+  {
+   "dex_num": 687,
+   "species": "Malamar",
+   "form": "",
+   "showdown_ids": [
+    "malamar"
+   ],
+   "missing": []
+  },
+  {
+   "dex_num": 689,
+   "species": "Barbaracle",
+   "form": "",
+   "showdown_ids": [
+    "barbaracle"
+   ],
+   "missing": []
+  },
+  {
+   "dex_num": 691,
+   "species": "Dragalge",
+   "form": "",
+   "showdown_ids": [
+    "dragalge"
+   ],
+   "missing": []
+  },
+  {
+   "dex_num": 693,
+   "species": "Clawitzer",
+   "form": "",
+   "showdown_ids": [
+    "clawitzer"
+   ],
+   "missing": []
+  },
+  {
+   "dex_num": 695,
+   "species": "Heliolisk",
+   "form": "",
+   "showdown_ids": [
+    "heliolisk"
+   ],
+   "missing": []
+  },
+  {
+   "dex_num": 697,
+   "species": "Tyrantrum",
+   "form": "",
+   "showdown_ids": [
+    "tyrantrum"
+   ],
+   "missing": []
+  },
+  {
+   "dex_num": 699,
+   "species": "Aurorus",
+   "form": "",
+   "showdown_ids": [
+    "aurorus"
+   ],
+   "missing": []
+  },
+  {
+   "dex_num": 700,
+   "species": "Sylveon",
+   "form": "",
+   "showdown_ids": [
+    "sylveon"
+   ],
+   "missing": []
+  },
+  {
+   "dex_num": 701,
+   "species": "Hawlucha",
+   "form": "",
+   "showdown_ids": [
+    "hawlucha"
+   ],
+   "missing": []
+  },
+  {
+   "dex_num": 702,
+   "species": "Dedenne",
+   "form": "",
+   "showdown_ids": [
+    "dedenne"
+   ],
+   "missing": []
+  },
+  {
+   "dex_num": 706,
+   "species": "Goodra",
+   "form": "",
+   "showdown_ids": [
+    "goodra"
+   ],
+   "missing": []
+  },
+  {
+   "dex_num": 706,
+   "species": "Goodra",
+   "form": "-Hisui",
+   "showdown_ids": [
+    "goodrahisui"
+   ],
+   "missing": []
+  },
+  {
+   "dex_num": 707,
+   "species": "Klefki",
+   "form": "",
+   "showdown_ids": [
+    "klefki"
+   ],
+   "missing": []
+  },
+  {
+   "dex_num": 709,
+   "species": "Trevenant",
+   "form": "",
+   "showdown_ids": [
+    "trevenant"
+   ],
+   "missing": []
+  },
+  {
+   "dex_num": 711,
+   "species": "Gourgeist",
+   "form": "",
+   "showdown_ids": [
+    "gourgeist"
+   ],
+   "missing": []
+  },
+  {
+   "dex_num": 711,
+   "species": "Gourgeist",
+   "form": "-Small",
+   "showdown_ids": [
+    "gourgeistsmall"
+   ],
+   "missing": []
+  },
+  {
+   "dex_num": 711,
+   "species": "Gourgeist",
+   "form": "-Large",
+   "showdown_ids": [
+    "gourgeistlarge"
+   ],
+   "missing": []
+  },
+  {
+   "dex_num": 711,
+   "species": "Gourgeist",
+   "form": "-Jumbo",
+   "showdown_ids": [
+    "gourgeistsuper"
+   ],
+   "missing": []
+  },
+  {
+   "dex_num": 713,
+   "species": "Avalugg",
+   "form": "",
+   "showdown_ids": [
+    "avalugg"
+   ],
+   "missing": []
+  },
+  {
+   "dex_num": 713,
+   "species": "Avalugg",
+   "form": "-Hisui",
+   "showdown_ids": [
+    "avalugghisui"
+   ],
+   "missing": []
+  },
+  {
+   "dex_num": 715,
+   "species": "Noivern",
+   "form": "",
+   "showdown_ids": [
+    "noivern"
+   ],
+   "missing": []
+  },
+  {
+   "dex_num": 724,
+   "species": "Decidueye",
+   "form": "",
+   "showdown_ids": [
+    "decidueye"
+   ],
+   "missing": []
+  },
+  {
+   "dex_num": 724,
+   "species": "Decidueye",
+   "form": "-Hisui",
+   "showdown_ids": [
+    "decidueyehisui"
+   ],
+   "missing": []
+  },
+  {
+   "dex_num": 727,
+   "species": "Incineroar",
+   "form": "",
+   "showdown_ids": [
+    "incineroar"
+   ],
+   "missing": []
+  },
+  {
+   "dex_num": 730,
+   "species": "Primarina",
+   "form": "",
+   "showdown_ids": [
+    "primarina"
+   ],
+   "missing": []
+  },
+  {
+   "dex_num": 733,
+   "species": "Toucannon",
+   "form": "",
+   "showdown_ids": [
+    "toucannon"
+   ],
+   "missing": []
+  },
+  {
+   "dex_num": 740,
+   "species": "Crabominable",
+   "form": "",
+   "showdown_ids": [
+    "crabominable"
+   ],
+   "missing": []
+  },
+  {
+   "dex_num": 745,
+   "species": "Lycanroc",
+   "form": "",
+   "showdown_ids": [
+    "lycanroc"
+   ],
+   "missing": []
+  },
+  {
+   "dex_num": 745,
+   "species": "Lycanroc",
+   "form": "-Midnight",
+   "showdown_ids": [
+    "lycanrocmidnight"
+   ],
+   "missing": []
+  },
+  {
+   "dex_num": 745,
+   "species": "Lycanroc",
+   "form": "-Dusk",
+   "showdown_ids": [
+    "lycanrocdusk"
+   ],
+   "missing": []
+  },
+  {
+   "dex_num": 748,
+   "species": "Toxapex",
+   "form": "",
+   "showdown_ids": [
+    "toxapex"
+   ],
+   "missing": []
+  },
+  {
+   "dex_num": 750,
+   "species": "Mudsdale",
+   "form": "",
+   "showdown_ids": [
+    "mudsdale"
+   ],
+   "missing": []
+  },
+  {
+   "dex_num": 752,
+   "species": "Araquanid",
+   "form": "",
+   "showdown_ids": [
+    "araquanid"
+   ],
+   "missing": []
+  },
+  {
+   "dex_num": 758,
+   "species": "Salazzle",
+   "form": "",
+   "showdown_ids": [
+    "salazzle"
+   ],
+   "missing": []
+  },
+  {
+   "dex_num": 763,
+   "species": "Tsareena",
+   "form": "",
+   "showdown_ids": [
+    "tsareena"
+   ],
+   "missing": []
+  },
+  {
+   "dex_num": 765,
+   "species": "Oranguru",
+   "form": "",
+   "showdown_ids": [
+    "oranguru"
+   ],
+   "missing": []
+  },
+  {
+   "dex_num": 766,
+   "species": "Passimian",
+   "form": "",
+   "showdown_ids": [
+    "passimian"
+   ],
+   "missing": []
+  },
+  {
+   "dex_num": 778,
+   "species": "Mimikyu",
+   "form": "",
+   "showdown_ids": [
+    "mimikyu"
+   ],
+   "missing": []
+  },
+  {
+   "dex_num": 780,
+   "species": "Drampa",
+   "form": "",
+   "showdown_ids": [
+    "drampa"
+   ],
+   "missing": []
+  },
+  {
+   "dex_num": 784,
+   "species": "Kommo-o",
+   "form": "",
+   "showdown_ids": [
+    "kommoo"
+   ],
+   "missing": []
+  },
+  {
+   "dex_num": 823,
+   "species": "Corviknight",
+   "form": "",
+   "showdown_ids": [
+    "corviknight"
+   ],
+   "missing": []
+  },
+  {
+   "dex_num": 841,
+   "species": "Flapple",
+   "form": "",
+   "showdown_ids": [
+    "flapple"
+   ],
+   "missing": []
+  },
+  {
+   "dex_num": 842,
+   "species": "Appletun",
+   "form": "",
+   "showdown_ids": [
+    "appletun"
+   ],
+   "missing": []
+  },
+  {
+   "dex_num": 844,
+   "species": "Sandaconda",
+   "form": "",
+   "showdown_ids": [
+    "sandaconda"
+   ],
+   "missing": []
+  },
+  {
+   "dex_num": 855,
+   "species": "Polteageist",
+   "form": "",
+   "showdown_ids": [
+    "polteageist"
+   ],
+   "missing": []
+  },
+  {
+   "dex_num": 858,
+   "species": "Hatterene",
+   "form": "",
+   "showdown_ids": [
+    "hatterene"
+   ],
+   "missing": []
+  },
+  {
+   "dex_num": 861,
+   "species": "Grimmsnarl",
+   "form": "",
+   "showdown_ids": [
+    "grimmsnarl"
+   ],
+   "missing": []
+  },
+  {
+   "dex_num": 866,
+   "species": "Mr. Rime",
+   "form": "",
+   "showdown_ids": [
+    "mrrime"
+   ],
+   "missing": []
+  },
+  {
+   "dex_num": 867,
+   "species": "Runerigus",
+   "form": "",
+   "showdown_ids": [
+    "runerigus"
+   ],
+   "missing": []
+  },
+  {
+   "dex_num": 869,
+   "species": "Alcremie",
+   "form": "",
+   "showdown_ids": [
+    "alcremie"
+   ],
+   "missing": []
+  },
+  {
+   "dex_num": 870,
+   "species": "Falinks",
+   "form": "",
+   "showdown_ids": [
+    "falinks"
+   ],
+   "missing": []
+  },
+  {
+   "dex_num": 877,
+   "species": "Morpeko",
+   "form": "",
+   "showdown_ids": [
+    "morpeko"
+   ],
+   "missing": []
+  },
+  {
+   "dex_num": 887,
+   "species": "Dragapult",
+   "form": "",
+   "showdown_ids": [
+    "dragapult"
+   ],
+   "missing": []
+  },
+  {
+   "dex_num": 899,
+   "species": "Wyrdeer",
+   "form": "",
+   "showdown_ids": [
+    "wyrdeer"
+   ],
+   "missing": []
+  },
+  {
+   "dex_num": 900,
+   "species": "Kleavor",
+   "form": "",
+   "showdown_ids": [
+    "kleavor"
+   ],
+   "missing": []
+  },
+  {
+   "dex_num": 902,
+   "species": "Basculegion",
+   "form": "",
+   "showdown_ids": [
+    "basculegion"
+   ],
+   "missing": []
+  },
+  {
+   "dex_num": 902,
+   "species": "Basculegion",
+   "form": "-Female",
+   "showdown_ids": [
+    "basculegionf"
+   ],
+   "missing": []
+  },
+  {
+   "dex_num": 903,
+   "species": "Sneasler",
+   "form": "",
+   "showdown_ids": [
+    "sneasler"
+   ],
+   "missing": []
+  },
+  {
+   "dex_num": 904,
+   "species": "Overqwil",
+   "form": "",
+   "showdown_ids": [
+    "overqwil"
+   ],
+   "missing": []
+  },
+  {
+   "dex_num": 908,
+   "species": "Meowscarada",
+   "form": "",
+   "showdown_ids": [
+    "meowscarada"
+   ],
+   "missing": []
+  },
+  {
+   "dex_num": 911,
+   "species": "Skeledirge",
+   "form": "",
+   "showdown_ids": [
+    "skeledirge"
+   ],
+   "missing": []
+  },
+  {
+   "dex_num": 914,
+   "species": "Quaquaval",
+   "form": "",
+   "showdown_ids": [
+    "quaquaval"
+   ],
+   "missing": []
+  },
+  {
+   "dex_num": 925,
+   "species": "Maushold",
+   "form": "",
+   "showdown_ids": [
+    "maushold"
+   ],
+   "missing": []
+  },
+  {
+   "dex_num": 934,
+   "species": "Garganacl",
+   "form": "",
+   "showdown_ids": [
+    "garganacl"
+   ],
+   "missing": []
+  },
+  {
+   "dex_num": 936,
+   "species": "Armarouge",
+   "form": "",
+   "showdown_ids": [
+    "armarouge"
+   ],
+   "missing": []
+  },
+  {
+   "dex_num": 937,
+   "species": "Ceruledge",
+   "form": "",
+   "showdown_ids": [
+    "ceruledge"
+   ],
+   "missing": []
+  },
+  {
+   "dex_num": 939,
+   "species": "Bellibolt",
+   "form": "",
+   "showdown_ids": [
+    "bellibolt"
+   ],
+   "missing": []
+  },
+  {
+   "dex_num": 952,
+   "species": "Scovillain",
+   "form": "",
+   "showdown_ids": [
+    "scovillain"
+   ],
+   "missing": []
+  },
+  {
+   "dex_num": 956,
+   "species": "Espathra",
+   "form": "",
+   "showdown_ids": [
+    "espathra"
+   ],
+   "missing": []
+  },
+  {
+   "dex_num": 959,
+   "species": "Tinkaton",
+   "form": "",
+   "showdown_ids": [
+    "tinkaton"
+   ],
+   "missing": []
+  },
+  {
+   "dex_num": 964,
+   "species": "Palafin",
+   "form": "",
+   "showdown_ids": [
+    "palafin"
+   ],
+   "missing": []
+  },
+  {
+   "dex_num": 968,
+   "species": "Orthworm",
+   "form": "",
+   "showdown_ids": [
+    "orthworm"
+   ],
+   "missing": []
+  },
+  {
+   "dex_num": 970,
+   "species": "Glimmora",
+   "form": "",
+   "showdown_ids": [
+    "glimmora"
+   ],
+   "missing": []
+  },
+  {
+   "dex_num": 972,
+   "species": "Houndstone",
+   "form": "",
+   "showdown_ids": [
+    "houndstone"
+   ],
+   "missing": []
+  },
+  {
+   "dex_num": 979,
+   "species": "Annihilape",
+   "form": "",
+   "showdown_ids": [
+    "annihilape"
+   ],
+   "missing": []
+  },
+  {
+   "dex_num": 981,
+   "species": "Farigiraf",
+   "form": "",
+   "showdown_ids": [
+    "farigiraf"
+   ],
+   "missing": []
+  },
+  {
+   "dex_num": 983,
+   "species": "Kingambit",
+   "form": "",
+   "showdown_ids": [
+    "kingambit"
+   ],
+   "missing": []
+  },
+  {
+   "dex_num": 1000,
+   "species": "Gholdengo",
+   "form": "",
+   "showdown_ids": [
+    "gholdengo"
+   ],
+   "missing": []
+  },
+  {
+   "dex_num": 1013,
+   "species": "Sinistcha",
+   "form": "",
+   "showdown_ids": [
+    "sinistcha"
+   ],
+   "missing": []
+  },
+  {
+   "dex_num": 1018,
+   "species": "Archaludon",
+   "form": "",
+   "showdown_ids": [
+    "archaludon"
+   ],
+   "missing": []
+  },
+  {
+   "dex_num": 1019,
+   "species": "Hydrapple",
+   "form": "",
+   "showdown_ids": [
+    "hydrapple"
+   ],
+   "missing": []
+  }
+ ],
+ "megas": [
+  {
+   "dex_num": 3,
+   "species": "Venusaur",
+   "form": "-Mega",
+   "showdown_ids": [
+    "venusaurmega"
+   ],
+   "missing": []
+  },
+  {
+   "dex_num": 6,
+   "species": "Charizard",
+   "form": "-Mega X",
+   "showdown_ids": [
+    "charizardmegax"
+   ],
+   "missing": []
+  },
+  {
+   "dex_num": 6,
+   "species": "Charizard",
+   "form": "-Mega Y",
+   "showdown_ids": [
+    "charizardmegay"
+   ],
+   "missing": []
+  },
+  {
+   "dex_num": 9,
+   "species": "Blastoise",
+   "form": "-Mega",
+   "showdown_ids": [
+    "blastoisemega"
+   ],
+   "missing": []
+  },
+  {
+   "dex_num": 15,
+   "species": "Beedrill",
+   "form": "-Mega",
+   "showdown_ids": [
+    "beedrillmega"
+   ],
+   "missing": []
+  },
+  {
+   "dex_num": 18,
+   "species": "Pidgeot",
+   "form": "-Mega",
+   "showdown_ids": [
+    "pidgeotmega"
+   ],
+   "missing": []
+  },
+  {
+   "dex_num": 26,
+   "species": "Raichu",
+   "form": "-Mega X",
+   "showdown_ids": [
+    "raichumegax"
+   ],
+   "missing": []
+  },
+  {
+   "dex_num": 26,
+   "species": "Raichu",
+   "form": "-Mega Y",
+   "showdown_ids": [
+    "raichumegay"
+   ],
+   "missing": []
+  },
+  {
+   "dex_num": 36,
+   "species": "Clefable",
+   "form": "-Mega",
+   "showdown_ids": [
+    "clefablemega"
+   ],
+   "missing": []
+  },
+  {
+   "dex_num": 65,
+   "species": "Alakazam",
+   "form": "-Mega",
+   "showdown_ids": [
+    "alakazammega"
+   ],
+   "missing": []
+  },
+  {
+   "dex_num": 71,
+   "species": "Victreebel",
+   "form": "-Mega",
+   "showdown_ids": [
+    "victreebelmega"
+   ],
+   "missing": []
+  },
+  {
+   "dex_num": 80,
+   "species": "Slowbro",
+   "form": "-Mega",
+   "showdown_ids": [
+    "slowbromega"
+   ],
+   "missing": []
+  },
+  {
+   "dex_num": 94,
+   "species": "Gengar",
+   "form": "-Mega",
+   "showdown_ids": [
+    "gengarmega"
+   ],
+   "missing": []
+  },
+  {
+   "dex_num": 115,
+   "species": "Kangaskhan",
+   "form": "-Mega",
+   "showdown_ids": [
+    "kangaskhanmega"
+   ],
+   "missing": []
+  },
+  {
+   "dex_num": 121,
+   "species": "Starmie",
+   "form": "-Mega",
+   "showdown_ids": [
+    "starmiemega"
+   ],
+   "missing": []
+  },
+  {
+   "dex_num": 127,
+   "species": "Pinsir",
+   "form": "-Mega",
+   "showdown_ids": [
+    "pinsirmega"
+   ],
+   "missing": []
+  },
+  {
+   "dex_num": 130,
+   "species": "Gyarados",
+   "form": "-Mega",
+   "showdown_ids": [
+    "gyaradosmega"
+   ],
+   "missing": []
+  },
+  {
+   "dex_num": 142,
+   "species": "Aerodactyl",
+   "form": "-Mega",
+   "showdown_ids": [
+    "aerodactylmega"
+   ],
+   "missing": []
+  },
+  {
+   "dex_num": 149,
+   "species": "Dragonite",
+   "form": "-Mega",
+   "showdown_ids": [
+    "dragonitemega"
+   ],
+   "missing": []
+  },
+  {
+   "dex_num": 154,
+   "species": "Meganium",
+   "form": "-Mega",
+   "showdown_ids": [
+    "meganiummega"
+   ],
+   "missing": []
+  },
+  {
+   "dex_num": 160,
+   "species": "Feraligatr",
+   "form": "-Mega",
+   "showdown_ids": [
+    "feraligatrmega"
+   ],
+   "missing": []
+  },
+  {
+   "dex_num": 181,
+   "species": "Ampharos",
+   "form": "-Mega",
+   "showdown_ids": [
+    "ampharosmega"
+   ],
+   "missing": []
+  },
+  {
+   "dex_num": 208,
+   "species": "Steelix",
+   "form": "-Mega",
+   "showdown_ids": [
+    "steelixmega"
+   ],
+   "missing": []
+  },
+  {
+   "dex_num": 212,
+   "species": "Scizor",
+   "form": "-Mega",
+   "showdown_ids": [
+    "scizormega"
+   ],
+   "missing": []
+  },
+  {
+   "dex_num": 214,
+   "species": "Heracross",
+   "form": "-Mega",
+   "showdown_ids": [
+    "heracrossmega"
+   ],
+   "missing": []
+  },
+  {
+   "dex_num": 227,
+   "species": "Skarmory",
+   "form": "-Mega",
+   "showdown_ids": [
+    "skarmorymega"
+   ],
+   "missing": []
+  },
+  {
+   "dex_num": 229,
+   "species": "Houndoom",
+   "form": "-Mega",
+   "showdown_ids": [
+    "houndoommega"
+   ],
+   "missing": []
+  },
+  {
+   "dex_num": 248,
+   "species": "Tyranitar",
+   "form": "-Mega",
+   "showdown_ids": [
+    "tyranitarmega"
+   ],
+   "missing": []
+  },
+  {
+   "dex_num": 254,
+   "species": "Sceptile",
+   "form": "-Mega",
+   "showdown_ids": [
+    "sceptilemega"
+   ],
+   "missing": []
+  },
+  {
+   "dex_num": 257,
+   "species": "Blaziken",
+   "form": "-Mega",
+   "showdown_ids": [
+    "blazikenmega"
+   ],
+   "missing": []
+  },
+  {
+   "dex_num": 260,
+   "species": "Swampert",
+   "form": "-Mega",
+   "showdown_ids": [
+    "swampertmega"
+   ],
+   "missing": []
+  },
+  {
+   "dex_num": 282,
+   "species": "Gardevoir",
+   "form": "-Mega",
+   "showdown_ids": [
+    "gardevoirmega"
+   ],
+   "missing": []
+  },
+  {
+   "dex_num": 302,
+   "species": "Sableye",
+   "form": "-Mega",
+   "showdown_ids": [
+    "sableyemega"
+   ],
+   "missing": []
+  },
+  {
+   "dex_num": 303,
+   "species": "Mawile",
+   "form": "-Mega",
+   "showdown_ids": [
+    "mawilemega"
+   ],
+   "missing": []
+  },
+  {
+   "dex_num": 306,
+   "species": "Aggron",
+   "form": "-Mega",
+   "showdown_ids": [
+    "aggronmega"
+   ],
+   "missing": []
+  },
+  {
+   "dex_num": 308,
+   "species": "Medicham",
+   "form": "-Mega",
+   "showdown_ids": [
+    "medichammega"
+   ],
+   "missing": []
+  },
+  {
+   "dex_num": 310,
+   "species": "Manectric",
+   "form": "-Mega",
+   "showdown_ids": [
+    "manectricmega"
+   ],
+   "missing": []
+  },
+  {
+   "dex_num": 319,
+   "species": "Sharpedo",
+   "form": "-Mega",
+   "showdown_ids": [
+    "sharpedomega"
+   ],
+   "missing": []
+  },
+  {
+   "dex_num": 323,
+   "species": "Camerupt",
+   "form": "-Mega",
+   "showdown_ids": [
+    "cameruptmega"
+   ],
+   "missing": []
+  },
+  {
+   "dex_num": 334,
+   "species": "Altaria",
+   "form": "-Mega",
+   "showdown_ids": [
+    "altariamega"
+   ],
+   "missing": []
+  },
+  {
+   "dex_num": 354,
+   "species": "Banette",
+   "form": "-Mega",
+   "showdown_ids": [
+    "banettemega"
+   ],
+   "missing": []
+  },
+  {
+   "dex_num": 358,
+   "species": "Chimecho",
+   "form": "-Mega",
+   "showdown_ids": [
+    "chimechomega"
+   ],
+   "missing": []
+  },
+  {
+   "dex_num": 359,
+   "species": "Absol",
+   "form": "-Mega",
+   "showdown_ids": [
+    "absolmega"
+   ],
+   "missing": []
+  },
+  {
+   "dex_num": 362,
+   "species": "Glalie",
+   "form": "-Mega",
+   "showdown_ids": [
+    "glaliemega"
+   ],
+   "missing": []
+  },
+  {
+   "dex_num": 376,
+   "species": "Metagross",
+   "form": "-Mega",
+   "showdown_ids": [
+    "metagrossmega"
+   ],
+   "missing": []
+  },
+  {
+   "dex_num": 398,
+   "species": "Staraptor",
+   "form": "-Mega",
+   "showdown_ids": [
+    "staraptormega"
+   ],
+   "missing": []
+  },
+  {
+   "dex_num": 428,
+   "species": "Lopunny",
+   "form": "-Mega",
+   "showdown_ids": [
+    "lopunnymega"
+   ],
+   "missing": []
+  },
+  {
+   "dex_num": 445,
+   "species": "Garchomp",
+   "form": "-Mega",
+   "showdown_ids": [
+    "garchompmega"
+   ],
+   "missing": []
+  },
+  {
+   "dex_num": 448,
+   "species": "Lucario",
+   "form": "-Mega",
+   "showdown_ids": [
+    "lucariomega"
+   ],
+   "missing": []
+  },
+  {
+   "dex_num": 460,
+   "species": "Abomasnow",
+   "form": "-Mega",
+   "showdown_ids": [
+    "abomasnowmega"
+   ],
+   "missing": []
+  },
+  {
+   "dex_num": 475,
+   "species": "Gallade",
+   "form": "-Mega",
+   "showdown_ids": [
+    "gallademega"
+   ],
+   "missing": []
+  },
+  {
+   "dex_num": 478,
+   "species": "Froslass",
+   "form": "-Mega",
+   "showdown_ids": [
+    "froslassmega"
+   ],
+   "missing": []
+  },
+  {
+   "dex_num": 500,
+   "species": "Emboar",
+   "form": "-Mega",
+   "showdown_ids": [
+    "emboarmega"
+   ],
+   "missing": []
+  },
+  {
+   "dex_num": 530,
+   "species": "Excadrill",
+   "form": "-Mega",
+   "showdown_ids": [
+    "excadrillmega"
+   ],
+   "missing": []
+  },
+  {
+   "dex_num": 531,
+   "species": "Audino",
+   "form": "-Mega",
+   "showdown_ids": [
+    "audinomega"
+   ],
+   "missing": []
+  },
+  {
+   "dex_num": 545,
+   "species": "Scolipede",
+   "form": "-Mega",
+   "showdown_ids": [
+    "scolipedemega"
+   ],
+   "missing": []
+  },
+  {
+   "dex_num": 560,
+   "species": "Scrafty",
+   "form": "-Mega",
+   "showdown_ids": [
+    "scraftymega"
+   ],
+   "missing": []
+  },
+  {
+   "dex_num": 604,
+   "species": "Eelektross",
+   "form": "-Mega",
+   "showdown_ids": [
+    "eelektrossmega"
+   ],
+   "missing": []
+  },
+  {
+   "dex_num": 609,
+   "species": "Chandelure",
+   "form": "-Mega",
+   "showdown_ids": [
+    "chandeluremega"
+   ],
+   "missing": []
+  },
+  {
+   "dex_num": 623,
+   "species": "Golurk",
+   "form": "-Mega",
+   "showdown_ids": [
+    "golurkmega"
+   ],
+   "missing": []
+  },
+  {
+   "dex_num": 652,
+   "species": "Chesnaught",
+   "form": "-Mega",
+   "showdown_ids": [
+    "chesnaughtmega"
+   ],
+   "missing": []
+  },
+  {
+   "dex_num": 655,
+   "species": "Delphox",
+   "form": "-Mega",
+   "showdown_ids": [
+    "delphoxmega"
+   ],
+   "missing": []
+  },
+  {
+   "dex_num": 658,
+   "species": "Greninja",
+   "form": "-Mega",
+   "showdown_ids": [
+    "greninjamega"
+   ],
+   "missing": []
+  },
+  {
+   "dex_num": 668,
+   "species": "Pyroar",
+   "form": "-Mega",
+   "showdown_ids": [
+    "pyroarmega"
+   ],
+   "missing": []
+  },
+  {
+   "dex_num": 670,
+   "species": "Floette",
+   "form": "-Mega",
+   "showdown_ids": [
+    "floettemega"
+   ],
+   "missing": []
+  },
+  {
+   "dex_num": 678,
+   "species": "Meowstic",
+   "form": "-Mega",
+   "showdown_ids": [
+    "meowsticmmega",
+    "meowsticfmega"
+   ],
+   "missing": []
+  },
+  {
+   "dex_num": 687,
+   "species": "Malamar",
+   "form": "-Mega",
+   "showdown_ids": [
+    "malamarmega"
+   ],
+   "missing": []
+  },
+  {
+   "dex_num": 689,
+   "species": "Barbaracle",
+   "form": "-Mega",
+   "showdown_ids": [
+    "barbaraclemega"
+   ],
+   "missing": []
+  },
+  {
+   "dex_num": 691,
+   "species": "Dragalge",
+   "form": "-Mega",
+   "showdown_ids": [
+    "dragalgemega"
+   ],
+   "missing": []
+  },
+  {
+   "dex_num": 701,
+   "species": "Hawlucha",
+   "form": "-Mega",
+   "showdown_ids": [
+    "hawluchamega"
+   ],
+   "missing": []
+  },
+  {
+   "dex_num": 740,
+   "species": "Crabominable",
+   "form": "-Mega",
+   "showdown_ids": [
+    "crabominablemega"
+   ],
+   "missing": []
+  },
+  {
+   "dex_num": 780,
+   "species": "Drampa",
+   "form": "-Mega",
+   "showdown_ids": [
+    "drampamega"
+   ],
+   "missing": []
+  },
+  {
+   "dex_num": 870,
+   "species": "Falinks",
+   "form": "-Mega",
+   "showdown_ids": [
+    "falinksmega"
+   ],
+   "missing": []
+  },
+  {
+   "dex_num": 952,
+   "species": "Scovillain",
+   "form": "-Mega",
+   "showdown_ids": [
+    "scovillainmega"
+   ],
+   "missing": []
+  },
+  {
+   "dex_num": 970,
+   "species": "Glimmora",
+   "form": "-Mega",
+   "showdown_ids": [
+    "glimmoramega"
+   ],
+   "missing": []
+  }
+ ]
+}

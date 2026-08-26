@@ -1,0 +1,19 @@
+.venv/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+*.egg-info/
+build/
+dist/
+
+# Downloaded upstream data (regenerate with: python scripts/fetch_showdown_data.py)
+data/raw/
+
+# Training artifacts
+runs/
+checkpoints/
+wandb/
+*.pt
+*.ckpt

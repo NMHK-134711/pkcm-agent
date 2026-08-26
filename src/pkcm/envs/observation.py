@@ -237,35 +237,66 @@ def determinize(observation: Observation, truth: BattleState,
                 cursor: "RngCursor") -> BattleState:
     """One full state consistent with what the observer knows.
 
-    Search needs a concrete state to roll out from, and the observation is not
-    one -- it has holes where the opponent's secrets are. This fills them in
-    with a sample that contradicts nothing observed.
+    Search needs a concrete state to roll out from, and an observation is not
+    one -- it has holes where the opponent's secrets are. This fills them with a
+    sample that contradicts nothing observed.
 
-    ``truth`` supplies the *shape*: the config, the parties, the turn. Its
-    hidden fields are the ones being resampled, so passing the real state is
-    not cheating as long as only the observable parts survive -- which is what
-    the assertions here are for.
+    ``truth`` supplies the *shape*: the config, our own side, the turn, the
+    field. Every hidden field of the opponent's is resampled rather than copied,
+    and that distinction is the whole value of the function. A determinization
+    that quietly kept the real species would produce a search that plays
+    perfectly against the team actually in front of it and has learned nothing
+    transferable -- and it would look like a very strong search.
+
+    What gets resampled, and from what:
+
+    * **species of an unrevealed Pokemon** -- from their registered six, minus
+      the ones already seen. Team preview is why that pool is known at all.
+    * **moves** -- the ones we have watched, topped up from what the species can
+      learn.
+    * **ability** -- from the ones that species may have.
+    * **item** -- from what the format allows, honouring the Item Clause against
+      the items we have already seen them use.
+    * **SP spread and nature** -- a legal random spread. The bracket in
+      ``pkcm.envs.analysis`` is the honest summary of this uncertainty; here it
+      has to be resolved into one concrete answer.
     """
-    from pkcm.engine.legality import learnable_moves, registrable_abilities
+    from pkcm.engine.legality import (
+        champions_items,
+        learnable_moves,
+        random_sp,
+        registrable_abilities,
+    )
     from pkcm.engine.pokemon import MAX_MOVES, PokemonSet, compile_team
+    from pkcm.engine.stats import NATURES
 
     dex = truth.config.dex
     foe = 1 - observation.player
     sampled = list(truth.parties[foe])
+    side = truth.sides[foe]
+
+    # The pool an unrevealed Pokemon is drawn from: their registered six, less
+    # whatever we have already watched come out.
+    seen_species = {known.species_id for known in observation.foe if known.species_id}
+    unseen = [species for species in observation.registered[1]
+              if species not in seen_species]
+    taken_items = {known.item for known in observation.foe
+                   if known.item_known and known.item}
 
     for known in observation.foe:
-        if known.slot >= len(truth.sides[foe].selection):
+        if known.slot >= len(side.selection):
             continue
-        party_index = truth.sides[foe].selection[known.slot]
-        actual = truth.parties[foe][party_index]
+        party_index = side.selection[known.slot]
 
-        # Species is public once seen; before that the registered six bound it,
-        # and we keep the real one rather than reshuffling the whole selection.
-        species_id = known.species_id or actual.species.id
-        pool = sorted(learnable_moves(dex, species_id))
+        if known.species_id is not None:
+            species_id = known.species_id
+        elif unseen:
+            species_id = unseen.pop(cursor.between(0, len(unseen) - 1))
+        else:
+            continue  # nothing left to draw from; leave the slot as it was
 
         moves = list(known.moves)
-        for candidate in _shuffled(pool, cursor):
+        for candidate in _shuffled(sorted(learnable_moves(dex, species_id)), cursor):
             if len(moves) >= MAX_MOVES:
                 break
             if candidate not in moves:
@@ -276,20 +307,67 @@ def determinize(observation: Observation, truth: BattleState,
             options = registrable_abilities(dex.species[species_id])
             ability = options[cursor.between(0, len(options) - 1)]
 
+        if known.item_known:
+            item = known.item
+        else:
+            item = _sample_item(dex, cursor, taken_items)
+            if item is not None:
+                taken_items.add(item)
+
         sampled[party_index] = compile_team(dex, (PokemonSet(
             species=species_id,
             ability=ability,
-            moves=tuple(moves[:MAX_MOVES]),
-            item=known.item if known.item_known else actual.item,
-            nature=actual.set.nature,
-            sp=actual.set.sp,
+            moves=tuple(moves[:MAX_MOVES]) or (moves + ["struggle"])[:1],
+            item=item,
+            nature=_sample_nature(cursor),
+            sp=random_sp(cursor),
         ),))[0]
 
     guess = truth.clone()
     parties = list(guess.parties)
     parties[foe] = tuple(sampled)
     guess.parties = tuple(parties)
+    _rescale_hp(guess, foe, observation)
     return guess
+
+
+def _sample_nature(cursor: "RngCursor") -> str:
+    from pkcm.engine.stats import NATURES
+
+    names = sorted(NATURES)
+    return names[cursor.between(0, len(names) - 1)]
+
+
+def _sample_item(dex, cursor: "RngCursor", taken: set[str]) -> str | None:
+    """A held item the Item Clause still allows them.
+
+    Mega stones are excluded: holding one is visible the moment it is used, and
+    an unrevealed Pokemon carrying one that never fires would make the search
+    plan around a Mega Evolution that cannot happen.
+    """
+    from pkcm.engine.legality import champions_items
+
+    pool = [item for item in sorted(champions_items())
+            if item not in taken and not dex.items[item].mega_stone]
+    if not pool:
+        return None
+    return pool[cursor.between(0, len(pool) - 1)]
+
+
+def _rescale_hp(state: BattleState, side: int, observation: Observation) -> None:
+    """Keep the HP *fraction* we observed after swapping the species underneath.
+
+    HP is stored as an absolute number and maximums differ by species, so a
+    resampled Pokemon would otherwise arrive at the wrong health -- sometimes
+    above its own maximum.
+    """
+    for known in observation.foe:
+        if known.slot >= len(state.sides[side].hp):
+            continue
+        maximum = state.pokemon(side, known.slot).max_hp
+        state.sides[side].hp[known.slot] = (
+            0 if known.fainted else max(1, round(known.hp_fraction * maximum))
+        )
 
 
 def _shuffled(items: list[str], cursor: "RngCursor") -> list[str]:

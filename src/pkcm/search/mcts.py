@@ -1,0 +1,225 @@
+"""Determinized simultaneous-move MCTS.
+
+The two departures from textbook MCTS are both forced by the game, and both are
+in the tree rather than around it.
+
+**Simultaneous moves.** A node does not belong to a player. It holds a set of
+action statistics for *each* side and selects a pair, which is Decoupled UCT:
+each player runs UCB1 over its own marginal statistics as though the other were
+part of the environment. That is known not to converge to a Nash equilibrium in
+general -- the marginals cannot represent a mixed strategy that needs
+correlation -- but it is cheap, it is unbiased about who moves first, and it is
+the standard place to start. ``select`` is one function, so replacing it with
+regret matching later is a small change rather than a rewrite.
+
+**Imperfect information.** Every iteration draws a fresh determinization from
+the observation and searches *that*. The tree is shared across draws and keyed
+by the sequence of joint actions, so a line that only works against one possible
+opponent team gets averaged down by the draws where that team is not there.
+This is IS-MCTS with a single tree, and the property worth having is that the
+search cannot exploit a secret it was never told.
+
+What it does **not** do yet: no learned value network (``evaluate.heuristic``
+stands in), no progressive widening, no transposition table. Those are the
+obvious next moves and none of them changes the shape here.
+"""
+
+from __future__ import annotations
+
+import math
+from dataclasses import dataclass, field
+
+from pkcm.engine.actions import Action
+from pkcm.engine.battle import step
+from pkcm.engine.rng import Rng, RngCursor
+from pkcm.engine.state import BattleState, Phase
+from pkcm.envs.observation import Observation, determinize
+from pkcm.search.evaluate import heuristic, terminal_value
+from pkcm.search.policy import RandomPolicy, decisions_wanted, joint_actions
+
+Choice = tuple[Action, ...]
+
+
+@dataclass(frozen=True, slots=True)
+class SearchConfig:
+    """How much thinking to do, and of what kind."""
+
+    #: Total simulations. The only real dial.
+    iterations: int = 400
+    #: How many determinizations to spread them over. One draw per
+    #: ``iterations // determinizations`` simulations. More draws means a
+    #: broader view of what the opponent might be holding and fewer simulations
+    #: each to judge it with.
+    determinizations: int = 20
+    #: Turns to play out at a leaf before falling back to the heuristic. Zero
+    #: uses the heuristic alone, which is much cheaper and much blunter. This is
+    #: the quality dial: at twenty turns the root value went from +0.02 to +0.38
+    #: on the same position, because the heuristic alone cannot see far enough
+    #: to tell the lines apart. It also costs about five times as much.
+    rollout_turns: int = 0
+    #: UCB1's exploration constant, against a value range of [-1, 1].
+    exploration: float = 0.7
+    #: Deepest the tree grows. Beyond this a node is evaluated, not expanded.
+    #:
+    #: Twelve rather than six, and the reason is the heuristic: six turns into a
+    #: thirty-turn battle almost nothing has happened, every line evaluates to
+    #: roughly zero, and the root distribution comes out flat. Depth is what
+    #: gives the material count something to count.
+    max_depth: int = 12
+    #: Cap on how many joint actions a node considers. Doubles can offer a few
+    #: hundred and a node that expands all of them learns nothing about any.
+    max_branching: int = 24
+
+
+@dataclass
+class Node:
+    """One position. Two players' statistics, one shared visit count."""
+
+    options: tuple[list[Choice], list[Choice]]
+    visits: int = 0
+    counts: tuple[list[int], list[int]] = field(default=None)  # type: ignore[assignment]
+    totals: tuple[list[float], list[float]] = field(default=None)  # type: ignore[assignment]
+    children: dict[tuple[int, int], "Node"] = field(default_factory=dict)
+
+    def __post_init__(self) -> None:
+        if self.counts is None:
+            self.counts = ([0] * len(self.options[0]), [0] * len(self.options[1]))
+        if self.totals is None:
+            self.totals = ([0.0] * len(self.options[0]), [0.0] * len(self.options[1]))
+
+    @property
+    def expanded(self) -> bool:
+        return bool(self.options[0]) and bool(self.options[1])
+
+    def mean(self, player: int, index: int) -> float:
+        count = self.counts[player][index]
+        return self.totals[player][index] / count if count else 0.0
+
+
+@dataclass(frozen=True, slots=True)
+class SearchResult:
+    action: Choice
+    #: Visit share per option, which is the search's policy at the root. Useful
+    #: as a training target later, and as the thing to look at when it plays a
+    #: move that looks wrong.
+    distribution: tuple[tuple[Choice, float], ...]
+    value: float
+    iterations: int
+
+
+class MCTS:
+    def __init__(self, config: SearchConfig | None = None) -> None:
+        self.config = config if config is not None else SearchConfig()
+
+    # -- the entry point ---------------------------------------------------- #
+
+    def choose(self, state: BattleState, player: int,
+               cursor: RngCursor | None = None) -> SearchResult:
+        """Pick actions for ``player``.
+
+        ``state`` is the real one, and it is used for exactly two things: the
+        observation this player is entitled to, and the shape a determinization
+        is built on. Nothing else here reads it.
+        """
+        draw = cursor if cursor is not None else Rng.from_seed(0).cursor()
+        observation = Observation.of(state, player)
+
+        options = joint_actions(state, player, self.config.max_branching)
+        if len(options) <= 1:
+            only = options[0] if options else (Action.PASS,) * decisions_wanted(state, player)
+            return SearchResult(only, ((only, 1.0),), 0.0, 0)
+
+        root = self._node(state, player)
+        per_draw = max(1, self.config.iterations // max(1, self.config.determinizations))
+        done = 0
+        while done < self.config.iterations:
+            sampled = determinize(observation, state, draw)
+            for _ in range(min(per_draw, self.config.iterations - done)):
+                self._simulate(sampled.clone(), root, player, draw, depth=0)
+                done += 1
+
+        counts = root.counts[0]
+        best = max(range(len(counts)), key=lambda index: counts[index])
+        total = sum(counts) or 1
+        distribution = tuple(
+            (root.options[0][index], counts[index] / total)
+            for index in range(len(counts))
+        )
+        return SearchResult(root.options[0][best], distribution,
+                            root.mean(0, best), done)
+
+    # -- one simulation ----------------------------------------------------- #
+
+    def _simulate(self, state: BattleState, node: Node, player: int,
+                  cursor: RngCursor, depth: int) -> float:
+        if state.finished:
+            return terminal_value(state, player)
+        if depth >= self.config.max_depth or not node.expanded:
+            return self._evaluate(state, player, cursor)
+
+        picked = tuple(self._select(node, side) for side in (0, 1))
+        choices = (node.options[0][picked[0]], node.options[1][picked[1]])
+        # ``player`` is index 0 of the node's option lists by construction, so
+        # the choices have to be put back the right way round for the engine.
+        ordered = choices if player == 0 else (choices[1], choices[0])
+
+        try:
+            after, _ = step(state, ordered[0], ordered[1])
+        except Exception:
+            # A determinization can disagree with the tree about what is legal
+            # -- a resampled Pokemon knows different moves. Treat the line as
+            # unplayable rather than letting it poison the statistics.
+            return self._evaluate(state, player, cursor)
+
+        child = node.children.get(picked)
+        if child is None:
+            child = node.children[picked] = self._node(after, player)
+        value = self._simulate(after, child, player, cursor, depth + 1)
+
+        node.visits += 1
+        for side in (0, 1):
+            index = picked[side]
+            node.counts[side][index] += 1
+            # Player 0 of the node is always ``player``; the other side is
+            # maximising the negation, which is what makes the opponent play
+            # well rather than randomly.
+            node.totals[side][index] += value if side == 0 else -value
+        return value
+
+    def _select(self, node: Node, side: int) -> int:
+        """UCB1 over this side's own marginals. Unvisited options come first."""
+        counts = node.counts[side]
+        for index, count in enumerate(counts):
+            if count == 0:
+                return index
+        parent = max(1, node.visits)
+        logarithm = math.log(parent)
+        best_index, best_score = 0, -math.inf
+        for index, count in enumerate(counts):
+            score = (node.totals[side][index] / count
+                     + self.config.exploration * math.sqrt(logarithm / count))
+            if score > best_score:
+                best_index, best_score = index, score
+        return best_index
+
+    # -- leaves ------------------------------------------------------------- #
+
+    def _evaluate(self, state: BattleState, player: int, cursor: RngCursor) -> float:
+        if self.config.rollout_turns <= 0:
+            return heuristic(state, player)
+
+        from pkcm.search.policy import play_out
+
+        rollout = RandomPolicy(cursor)
+        limit = state.turn + self.config.rollout_turns
+        finished = play_out(state, (rollout, rollout), turn_limit=limit)
+        if finished.finished:
+            return terminal_value(finished, player)
+        return heuristic(finished, player)
+
+    def _node(self, state: BattleState, player: int) -> Node:
+        """Options with ``player`` first, so index 0 is always the searcher."""
+        mine = joint_actions(state, player, self.config.max_branching)
+        theirs = joint_actions(state, 1 - player, self.config.max_branching)
+        fallback = ((Action.PASS,) * max(1, decisions_wanted(state, player)),)
+        return Node((mine or list(fallback), theirs or list(fallback)))

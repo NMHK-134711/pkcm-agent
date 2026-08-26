@@ -338,7 +338,14 @@ class BattleState:
         return self.active_refs(1 - ref[0])
 
     def ally(self, ref: Ref) -> Ref | None:
-        """The partner standing beside this one. Always ``None`` in singles."""
+        """The partner standing beside this one. Always ``None`` in singles.
+
+        The singles short-circuit is not premature: effect gathering asks this
+        for every hook on every Pokemon, which came to 85,000 calls in a single
+        search decision, and in singles the honest answer is a constant.
+        """
+        if self.config.active_count == 1:
+            return None
         for other in self.active_refs(ref[0]):
             if other != ref:
                 return other

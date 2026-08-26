@@ -983,6 +983,14 @@ MAX_CALL_DEPTH = 4
 
 
 def _call_move(ctx: Context, user: Ref, target: Ref, move_id: str) -> bool:
+    """Use another move as though it had been chosen.
+
+    ``target`` is *not* passed on. Sleep Talk and Copycat both target ``self``,
+    so inheriting their target aimed the called move at its own user -- Snorlax
+    Body Slamming itself for 84. The called move resolves its own target, which
+    is the only reading that makes sense: it is a Body Slam, and Body Slam has
+    an opinion about who it hits.
+    """
     from pkcm.engine.moves import use_move
 
     called = ctx.state.config.dex.moves.get(move_id)
@@ -996,7 +1004,7 @@ def _call_move(ctx: Context, user: Ref, target: Ref, move_id: str) -> bool:
     ctx.emit(Event("called_move", side=user[0], slot=user[1], move=move_id))
     ctx.call_depth = depth + 1
     try:
-        use_move(ctx, user, called, defender=target)
+        use_move(ctx, user, called)
     finally:
         ctx.call_depth = depth
     return True

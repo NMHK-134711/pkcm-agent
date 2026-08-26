@@ -912,3 +912,22 @@ def test_sleep_talk_actually_lands_the_move_it_picks(dex, config):
     assert any(e.kind == "called_move" and e.move == "bodyslam" for e in ctx.log)
     assert not any(e.kind == "cant_move" for e in ctx.log)
     assert state.sides[1].hp[0] < before, "the called move has to actually happen"
+
+
+def test_a_called_move_aims_where_it_would_have_aimed(dex, config):
+    """Sleep Talk targets ``self``; the move it calls does not.
+
+    Inheriting the caller's target had Snorlax calling Body Slam and hitting
+    itself with it, which no log line said out loud -- the damage event named
+    the move and not the victim.
+    """
+    state = build(config, a_set("snorlax", "thickfat", ("sleeptalk", "bodyslam")),
+                  a_set("pikachu", "static"))
+    state.sides[0].status[0] = "slp"
+    state.sides[0].status_data[0] = {"turns": 3}
+    ours, theirs = state.sides[0].hp[0], state.sides[1].hp[0]
+
+    ctx = make_context(state)
+    cast(ctx, dex, "sleeptalk")
+    assert state.sides[1].hp[0] < theirs, "it should hit the opponent"
+    assert state.sides[0].hp[0] == ours, "and not itself"

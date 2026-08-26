@@ -741,20 +741,38 @@ register("ability", "competitive", name="Competitive", try_boost=_retaliate("spa
 # --------------------------------------------------------------------------- #
 
 
-def _opponent_of(ctx: Context, ref: Ref) -> Ref:
-    other = 1 - ref[0]
-    return (other, ctx.state.sides[other].active[0])
+def _foes_of(ctx: Context, ref: Ref) -> list[Ref]:
+    """Everyone on the other side of the field. Both of them, in doubles."""
+    return ctx.state.foes(ref)
+
+
+def _drop_on_every_foe(boosts: dict, ability: str):
+    """Intimidate and Supersweet Syrup: it lands on each foe separately.
+
+    A Substitute protects the one behind it and nobody else, so the check is
+    per target rather than once for the ability.
+    """
+    def apply(ctx, ref) -> bool:
+        targets = _foes_of(ctx, ref)
+        if not targets:
+            return False
+        announce(ctx, ref, ability)
+        for target in targets:
+            if mutate.volatile(ctx.state, target, "substitute") is not None:
+                ctx.emit(Event("immune", side=target[0], slot=target[1],
+                               detail="substitute"))
+                continue
+            boost(ctx, target, dict(boosts), source=ref)
+        return True
+
+    return apply
+
+
+_intimidate_drop = _drop_on_every_foe({"atk": -1}, "intimidate")
 
 
 def _intimidate(ctx, ref, **_):
-    target = _opponent_of(ctx, ref)
-    if ctx.state.sides[target[0]].hp[target[1]] <= 0:
-        return
-    announce(ctx, ref, "intimidate")
-    if mutate.volatile(ctx.state, target, "substitute") is not None:
-        ctx.emit(Event("immune", side=target[0], slot=target[1], detail="substitute"))
-        return
-    boost(ctx, target, {"atk": -1}, source=ref)
+    _intimidate_drop(ctx, ref)
 
 
 register("ability", "intimidate", name="Intimidate", switch_in=_intimidate)
@@ -817,12 +835,18 @@ register("ability", "dauntlessshield", name="Dauntless Shield",
 
 
 def _download(ctx, ref, **_):
-    target = _opponent_of(ctx, ref)
-    if ctx.state.sides[target[0]].hp[target[1]] <= 0:
+    """Picks the attack that works on the *side*, not on one Pokemon.
+
+    Showdown adds the defences across every foe and compares the totals, so in
+    doubles a bulky physical partner can talk it out of boosting Attack.
+    """
+    targets = _foes_of(ctx, ref)
+    if not targets:
         return
-    stats = ctx.state.stats(*target)
+    total_def = sum(ctx.state.stats(*t)[Stat.DEF] for t in targets)
+    total_spd = sum(ctx.state.stats(*t)[Stat.SPD] for t in targets)
     announce(ctx, ref, "download")
-    boost(ctx, ref, {"atk": 1} if stats[Stat.DEF] < stats[Stat.SPD] else {"spa": 1}, source=ref)
+    boost(ctx, ref, {"atk": 1} if total_def < total_spd else {"spa": 1}, source=ref)
 
 
 register("ability", "download", name="Download", switch_in=_download)
@@ -1434,18 +1458,37 @@ UNCOPYABLE = frozenset({
 
 
 def _trace(ctx, ref, **_):
-    target = _opponent_of(ctx, ref)
-    if ctx.state.sides[target[0]].hp[target[1]] <= 0:
+    """Copies one foe's ability, chosen at random among the ones it can take."""
+    candidates = [target for target in _foes_of(ctx, ref)
+                  if ctx.state.ability_id(*target) not in UNCOPYABLE]
+    if not candidates:
         return
+    target = candidates[ctx.cursor.between(0, len(candidates) - 1)]
     copied = ctx.state.ability_id(*target)
-    if copied in UNCOPYABLE:
-        return
     announce(ctx, ref, "trace")
     ctx.state.set_override(ref[0], ref[1], "ability", copied)
     ctx.emit(Event("ability_change", side=ref[0], slot=ref[1], detail=copied))
 
 
 register("ability", "trace", name="Trace", switch_in=_trace)
+
+
+def _imposter_target(ctx: Context, ref: Ref) -> Ref | None:
+    """Whoever stands *diagonally* opposite, which is not who stands across.
+
+    Showdown indexes the foe side backwards from the copier's own position
+    (``foe.active[len - 1 - position]``), so in doubles the left Ditto copies
+    the right-hand foe. Singles has one of each and the distinction vanishes.
+    """
+    mine = ctx.state.sides[ref[0]]
+    position = mine.position_of(ref[1])
+    if position is None:
+        return None
+    across = ctx.state.sides[1 - ref[0]].active
+    index = len(across) - 1 - position
+    if not 0 <= index < len(across):
+        return None
+    return ctx.state.ref_at(1 - ref[0], index)
 
 
 def _imposter(ctx, ref, **_):
@@ -1455,8 +1498,8 @@ def _imposter(ctx, ref, **_):
     HP, moves at 5 PP each, and the stat stages it is sitting on. HP stays its
     own. Reported by hk and pinned in tests/scenarios/.
     """
-    target = _opponent_of(ctx, ref)
-    if ctx.state.sides[target[0]].hp[target[1]] <= 0:
+    target = _imposter_target(ctx, ref)
+    if target is None:
         return
     if ctx.state.sides[ref[0]].volatiles[ref[1]].get("transformed"):
         return
@@ -1551,13 +1594,16 @@ register("ability", "quickdraw", name="Quick Draw", modify_priority=_quick_draw)
 
 
 def _traps_the_opponent(ability: str, condition=None):
+    """Holds every foe, not the first one. Each is tested on its own terms.
+
+    Magnet Pull holds the Steel type and lets its partner walk; Arena Trap
+    holds whoever is standing on the ground.
+    """
     def handler(ctx, ref, **_):
-        target = _opponent_of(ctx, ref)
-        if ctx.state.sides[target[0]].hp[target[1]] <= 0:
-            return
-        if condition is not None and not condition(ctx, target):
-            return
-        mutate.add_volatile(ctx, target, "trapped", source=ref)
+        for target in _foes_of(ctx, ref):
+            if condition is not None and not condition(ctx, target):
+                continue
+            mutate.add_volatile(ctx, target, "trapped", source=ref)
 
     return handler
 
@@ -1604,14 +1650,14 @@ def _screen_cleaner(ctx, ref, **_):
 register("ability", "screencleaner", name="Screen Cleaner", switch_in=_screen_cleaner)
 
 
+_syrup_drop = _drop_on_every_foe({"evasion": -1}, "supersweetsyrup")
+
+
 def _super_sweet_syrup(ctx, ref, **_):
     if ctx.state.sides[ref[0]].volatiles[ref[1]].get("syrupused"):
         return
     ctx.state.sides[ref[0]].volatiles[ref[1]]["syrupused"] = True
-    target = _opponent_of(ctx, ref)
-    if ctx.state.sides[target[0]].hp[target[1]] > 0:
-        announce(ctx, ref, "supersweetsyrup")
-        boost(ctx, target, {"evasion": -1}, source=ref)
+    _syrup_drop(ctx, ref)
 
 
 register("ability", "supersweetsyrup", name="Supersweet Syrup", switch_in=_super_sweet_syrup)

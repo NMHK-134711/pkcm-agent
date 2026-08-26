@@ -615,6 +615,14 @@ def _resolve(
     # defaults ``ignoreImmunity`` to true for them and Thunder Wave sets it back
     # to false, which is the whole rule: Curse and Trick-or-Treat land on Normal
     # types, Thunder Wave does not reach a Ground type.
+    # A Prankster-boosted status move does not reach a Dark type (gen 6+).
+    # Showdown carries this as ``move.pranksterBoosted``, set when the holder
+    # uses a status move -- which is exactly the condition asked here, so the
+    # flag would only be a second copy of it.
+    if targets_opponent and move.category == "Status"             and ctx.ability_of(attacker) == "prankster"             and "dark" in ctx.state.types(*defender):
+        ctx.emit(ev.immune(defender[0], defender[1], move.id))
+        return
+
     if targets_opponent and _respects_type_immunity(move) \
             and type_effectiveness(ctx, attacker, defender, move) == 0.0:
         ctx.emit(ev.immune(defender[0], defender[1], move.id))

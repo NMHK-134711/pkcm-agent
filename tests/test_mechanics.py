@@ -365,3 +365,30 @@ def test_moves_setting_unwired_conditions_are_not_claimed(dex, monkeypatch):
     assert move_support(dex.moves["reflect"]) is None
     assert move_support(dex.moves["spikes"]) is None
     assert move_support(dex.moves["willowisp"]) is None
+
+
+def test_prankster_cannot_reach_a_dark_type(dex, config):
+    """A status move boosted by Prankster fails on Dark, gen 6 onward."""
+    state = build(config, a_set("thundurus", ("thunderwave",), ability="prankster"),
+                  a_set("umbreon", ("bodyslam",), ability="synchronize"))
+    ctx = make_context(state)
+    cast(ctx, dex, "thunderwave")
+    assert state.sides[1].status[0] is None
+    assert any(e.kind == "immune" for e in ctx.log)
+
+
+def test_without_prankster_the_same_move_lands(dex, config):
+    state = build(config, a_set("thundurus", ("thunderwave",), ability="defiant"),
+                  a_set("umbreon", ("bodyslam",), ability="synchronize"))
+    ctx = make_context(state)
+    cast(ctx, dex, "thunderwave")
+    assert state.sides[1].status[0] == "par"
+
+
+def test_prankster_still_reaches_its_own_side(dex, config):
+    """Only the other side is protected; a self-target is unaffected."""
+    state = build(config, a_set("thundurus", ("swordsdance",), ability="prankster"),
+                  a_set("umbreon", ("bodyslam",), ability="synchronize"))
+    ctx = make_context(state)
+    cast(ctx, dex, "swordsdance")
+    assert state.sides[0].boost(0, "atk") == 2

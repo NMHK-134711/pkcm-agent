@@ -741,3 +741,33 @@ def test_shell_armor_and_battle_armor_refuse_critical_hits(dex, config):
     assert crits_in("skilllink") > 10, "the control has to actually crit"
     assert crits_in("shellarmor") == 0
     assert crits_in("battlearmor") == 0
+
+
+def test_a_bounced_move_counts_as_an_ability_effect(dex, config):
+    """hk's report: a reflected status move cannot be reflected again.
+
+    The game treats the bounce itself as an ability effect, the same way it
+    treats an Intimidate drop or a Static paralysis -- and ability effects are
+    not reflectable. So between two Magic Bounce holders it comes back exactly
+    once, and only the Pokemon that used the move suffers.
+    """
+    state = build(config, a_set("hatterene", "magicbounce", ("thunderwave",)),
+                  a_set("espeon", "magicbounce"))
+    ctx = make_context(state)
+    cast(ctx, dex, "thunderwave")
+    assert state.sides[0].status[0] == "par", "the user eats its own move"
+    assert state.sides[1].status[0] is None
+    assert sum(e.kind == "ability_block" and e.detail == "magicbounce"
+               for e in ctx.log) == 1
+
+
+def test_magic_bounce_does_not_reflect_an_ability(dex, config):
+    """Intimidate and Static are not moves; there is nothing to send back."""
+    from pkcm.engine import effects as fx
+
+    state = build(config, a_set("gyarados", "intimidate"), a_set("espeon", "magicbounce"))
+    ctx = make_context(state)
+    ctx.log.clear()
+    fx.notify(ctx, "switch_in", RED)
+    assert state.sides[1].boost(0, "atk") < 0, "the drop lands"
+    assert state.sides[0].boost(0, "atk") == 0, "and does not come back"

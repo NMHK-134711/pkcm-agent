@@ -649,3 +649,104 @@ def test_gravity_refuses_a_jumping_move(config, dex):
     ctx = make_context(state)
     cast(ctx, dex, "fly", target_code=0)
     assert any(e.kind == "cant_move" and e.detail == "gravity" for e in ctx.log)
+
+
+# --------------------------------------------------------------------------- #
+# Abilities that quietly assumed one opponent
+#
+# Every one of these read ``foe.active[0]`` and stopped. Singles has nothing
+# else there, so none of them were wrong until now.
+# --------------------------------------------------------------------------- #
+
+
+def test_intimidate_drops_both_foes(config):
+    from pkcm.engine import effects as fx
+
+    state = build(config, a_set("gyarados", "intimidate"))
+    ctx = make_context(state)
+    state.sides[1].boosts[0][0] = 0
+    state.sides[1].boosts[1][0] = 0
+    fx.notify(ctx, "switch_in", RED_A)
+    assert state.sides[1].boost(0, "atk") == -1
+    assert state.sides[1].boost(1, "atk") == -1, "the partner too"
+
+
+def test_a_substitute_shields_only_the_one_behind_it(config):
+    from pkcm.engine import effects as fx
+
+    state = build(config, a_set("gyarados", "intimidate"))
+    mutate.add_volatile(make_context(state), BLUE_A, "substitute", hp=50)
+    state.sides[1].boosts[0][0] = 0
+    state.sides[1].boosts[1][0] = 0
+    ctx = make_context(state)
+    fx.notify(ctx, "switch_in", RED_A)
+    assert state.sides[1].boost(0, "atk") == 0, "behind a Substitute"
+    assert state.sides[1].boost(1, "atk") == -1, "its partner is not"
+
+
+def test_download_adds_up_both_defences(config):
+    """It picks the attack that works on the side, not on one Pokemon."""
+    from pkcm.engine import effects as fx
+
+    def boosted(partner):
+        state = build(config, a_set("porygonz", "download"),
+                      blue=a_set("blissey", "naturalcure"), blue2=a_set(partner))
+        ctx = make_context(state)
+        fx.notify(ctx, "switch_in", RED_A)
+        return "atk" if state.sides[0].boost(0, "atk") else "spa"
+
+    # Blissey is paper-thin physically and a wall specially, so with a partner
+    # in the same shape it invites a physical attack. Steelix is the mirror
+    # image, and between them the side's Defence total wins.
+    assert boosted("chansey") == "atk"
+    assert boosted("steelix") == "spa", "the partner's Defence counts too"
+
+
+def test_magnet_pull_holds_the_steel_type_only(config):
+    from pkcm.engine import effects as fx
+
+    state = build(config, a_set("magnezone", "magnetpull"),
+                  blue=a_set("skarmory", "sturdy"), blue2=a_set("snorlax", "thickfat"))
+    ctx = make_context(state)
+    fx.notify(ctx, "switch_in", RED_A)
+    assert state.sides[1].has_volatile(0, "trapped"), "Skarmory is Steel"
+    assert not state.sides[1].has_volatile(1, "trapped"), "Snorlax may leave"
+
+
+def test_shadow_tag_holds_both(config):
+    from pkcm.engine import effects as fx
+
+    state = build(config, a_set("gothitelle", "shadowtag"))
+    ctx = make_context(state)
+    fx.notify(ctx, "switch_in", RED_A)
+    assert state.sides[1].has_volatile(0, "trapped")
+    assert state.sides[1].has_volatile(1, "trapped")
+
+
+def test_imposter_copies_diagonally(config):
+    """Not the one across -- the one on the far side.
+
+    Showdown indexes the foe side backwards from the copier's own position, so
+    the left Ditto becomes the right-hand foe. Singles has one of each and the
+    distinction cannot show up.
+    """
+    from pkcm.engine import effects as fx
+
+    state = build(config, a_set("ditto", "imposter"),
+                  blue=a_set("snorlax", "thickfat"), blue2=a_set("garchomp", "roughskin"))
+    ctx = make_context(state)
+    fx.notify(ctx, "switch_in", RED_A)
+    assert state.species_id(0, 0) == "garchomp", "the far one, not the near one"
+
+
+def test_supersweet_syrup_drops_both_foes_once(config):
+    from pkcm.engine import effects as fx
+
+    state = build(config, a_set("dipplin", "supersweetsyrup"))
+    ctx = make_context(state)
+    fx.notify(ctx, "switch_in", RED_A)
+    assert state.sides[1].boost(0, "evasion") == -1
+    assert state.sides[1].boost(1, "evasion") == -1
+
+    fx.notify(ctx, "switch_in", RED_A)
+    assert state.sides[1].boost(0, "evasion") == -1, "and only once a battle"

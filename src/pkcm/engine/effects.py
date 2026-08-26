@@ -18,6 +18,14 @@ Two shapes of hook:
 ``notify``  handlers run for their side effects only. Used for switch-in,
             after-damage, end-of-turn.
 
+Doubles adds a third *scope* rather than a third shape. An effect registered
+under ``ally_<event>`` also runs when the event is about its holder's partner
+-- Showdown's ``onAllyBasePower``, ``onAllyFaint``. The handler receives both
+``ref`` (who the event is about) and ``holder`` (who owns the effect), which in
+singles are always the same Pokemon and in doubles are the whole point. Nothing
+outside this module has to know: gathering picks the partner's effects up on
+its own, so every existing dispatch site got ally scope for free.
+
 Handler signatures are keyword-only and documented per event in ``EVENTS``.
 A ``modify`` handler returns the new value, or ``None`` to leave it alone.
 """
@@ -113,7 +121,18 @@ EVENTS: dict[str, str] = {
     "dealt_damage": "ref, attacker, defender, move, damage -- our move connected",
     "modify_drain": "ref, move -- how much a draining move gives back (Big Root)",
     "update": "ref -- a checkpoint for items that watch HP or status (berries)",
+    # ally-scoped: fires when the event is about the holder's partner.
+    "ally_modify_base_power": "Battery, Power Spot -- boost the partner's move",
+    "ally_modify_damage": "Friend Guard -- soften what the partner takes",
+    "ally_modify_accuracy": "Victory Star -- steady the partner's aim",
+    "ally_try_status": "Sweet Veil -- refuse a status on the partner's behalf",
+    "ally_try_volatile": "Sweet Veil again, for Yawn",
+    "ally_after_use_item": "Symbiosis -- hand the partner your own item",
+    "ally_faint": "Receiver, Power of Alchemy -- inherit the partner's ability",
 }
+
+#: ``ally_x`` is dispatched whenever ``x`` is, for the partner's effects.
+ALLY_PREFIX = "ally_"
 
 
 @dataclass(frozen=True, slots=True)
@@ -234,21 +253,43 @@ def effects_on_field(state: BattleState) -> Iterator[Effect]:
             yield room
 
 
-def _ordered(effects: list[Effect], event: str) -> list[Effect]:
-    relevant = [effect for effect in effects if event in effect.handlers]
+#: (holder, effect). ``holder`` is ``None`` for effects nobody carries -- side
+#: conditions, weather, rooms.
+Held = tuple[Ref | None, Effect]
+
+
+def _ordered(held: list[Held], event: str, ref: Ref) -> list[tuple[Ref, Effect, str]]:
+    """Which handlers run, under which key, in priority order.
+
+    An effect held by the Pokemon the event is about answers to ``event``. One
+    held by its partner answers to ``ally_<event>`` -- and to nothing else, so
+    an ability without an ally variant stays silent about its partner.
+    """
+    relevant: list[tuple[Ref, Effect, str]] = []
+    for holder, effect in held:
+        key = event if holder is None or holder == ref else ALLY_PREFIX + event
+        if key in effect.handlers:
+            relevant.append((holder if holder is not None else ref, effect, key))
     if len(relevant) > 1:
-        relevant.sort(key=lambda effect: effect.priority)
+        relevant.sort(key=lambda triple: triple[1].priority)
     return relevant
 
 
-def _gather(ctx: "Context", ref: Ref, scope: str) -> list[Effect]:
-    """``scope`` picks how wide to look: ``"self"``, ``"side"``, ``"all"``."""
-    effects = list(effects_on(ctx, ref))
+def _gather(ctx: "Context", ref: Ref, scope: str) -> list[Held]:
+    """``scope`` picks how wide to look: ``"self"``, ``"side"``, ``"all"``.
+
+    The partner is always included. Its effects can only answer to the
+    ``ally_`` keys, so widening this cost singles nothing.
+    """
+    held: list[Held] = [(ref, effect) for effect in effects_on(ctx, ref)]
+    partner = ctx.state.ally(ref)
+    if partner is not None:
+        held.extend((partner, effect) for effect in effects_on(ctx, partner))
     if scope in ("side", "all"):
-        effects.extend(effects_on_side(ctx.state, ref[0]))
+        held.extend((None, effect) for effect in effects_on_side(ctx.state, ref[0]))
     if scope == "all":
-        effects.extend(effects_on_field(ctx.state))
-    return effects
+        held.extend((None, effect) for effect in effects_on_field(ctx.state))
+    return held
 
 
 # --------------------------------------------------------------------------- #
@@ -265,8 +306,9 @@ def modify(
     **kwargs: Any,
 ) -> Any:
     """Pass ``value`` through every handler for ``event``, in priority order."""
-    for effect in _ordered(_gather(ctx, ref, scope), event):
-        result = effect.handlers[event](ctx, ref=ref, value=value, effect=effect, **kwargs)
+    for holder, effect, key in _ordered(_gather(ctx, ref, scope), event, ref):
+        result = effect.handlers[key](ctx, ref=ref, value=value, effect=effect,
+                                      holder=holder, **kwargs)
         if result is not None:
             value = result
     return value
@@ -274,14 +316,15 @@ def modify(
 
 def notify(ctx: Context, event: str, ref: Ref, scope: str = "all", **kwargs: Any) -> None:
     """Run every handler for its side effects."""
-    for effect in _ordered(_gather(ctx, ref, scope), event):
-        effect.handlers[event](ctx, ref=ref, effect=effect, **kwargs)
+    for holder, effect, key in _ordered(_gather(ctx, ref, scope), event, ref):
+        effect.handlers[key](ctx, ref=ref, effect=effect, holder=holder, **kwargs)
 
 
 def allows(ctx: Context, event: str, ref: Ref, scope: str = "all", **kwargs: Any) -> bool:
     """``False`` as soon as any handler vetoes. Handlers returning ``None`` allow."""
-    for effect in _ordered(_gather(ctx, ref, scope), event):
-        if effect.handlers[event](ctx, ref=ref, effect=effect, **kwargs) is False:
+    for holder, effect, key in _ordered(_gather(ctx, ref, scope), event, ref):
+        if effect.handlers[key](ctx, ref=ref, effect=effect, holder=holder,
+                                **kwargs) is False:
             return False
     return True
 

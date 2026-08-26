@@ -1,12 +1,13 @@
-"""Play a Champions singles battle between two random policies and print it.
+"""Play a Champions battle between two random policies and print it.
 
 Also reports engine throughput, which is the number that decides how much search
 the hybrid policy can afford later (docs/DESIGN.md §1a).
 
 Usage:
-    python scripts/selfplay_demo.py                 # watch one battle
+    python scripts/selfplay_demo.py                    # watch one battle
     python scripts/selfplay_demo.py --seed 7
-    python scripts/selfplay_demo.py --bench 2000    # throughput only
+    python scripts/selfplay_demo.py --format doubles   # 6->4
+    python scripts/selfplay_demo.py --bench 2000       # throughput only
 """
 
 from __future__ import annotations
@@ -20,7 +21,8 @@ from pkcm.engine.battle import step
 from pkcm.engine.legality import random_team
 from pkcm.engine.pokemon import compile_team
 from pkcm.engine.rng import Rng
-from pkcm.engine.state import BattleConfig, legal_actions, new_battle
+from pkcm.engine.actions import ActionKind
+from pkcm.engine.state import BattleConfig, Phase, legal_actions, new_battle
 from pkcm.render.names import Names
 from pkcm.render.text import Renderer
 
@@ -28,11 +30,36 @@ TRAINERS = ("레드", "블루")
 
 
 def make_battle(config, seed: int):
+    fmt = config.battle_format
     teams = (
-        random_team(config.dex, config.regulation, Rng.from_seed(seed).cursor()),
-        random_team(config.dex, config.regulation, Rng.from_seed(~seed & 0xFFFF).cursor()),
+        random_team(config.dex, config.regulation, Rng.from_seed(seed).cursor(), fmt),
+        random_team(config.dex, config.regulation,
+                    Rng.from_seed(~seed & 0xFFFF).cursor(), fmt),
     )
     return teams, new_battle(config, teams, seed=seed)
+
+
+def choose(state, policy, player: int, positions: int):
+    """One action per field position, refusing to send the same Pokemon twice.
+
+    That constraint spans positions, so no per-position mask can carry it --
+    ``battle.step`` rejects the pair, and a policy has to keep track itself.
+    """
+    picks, taken = [], set()
+    for position in range(positions):
+        options = [
+            action for action in legal_actions(state, player, position)
+            if not (action.kind is ActionKind.SWITCH and action.index in taken)
+        ]
+        pick = policy.choice(options)
+        if pick.kind is ActionKind.SWITCH:
+            taken.add(pick.index)
+        picks.append(pick)
+    return tuple(picks)
+
+
+def positions_now(state, config) -> int:
+    return 1 if state.phase is Phase.TEAM_PREVIEW else config.active_count
 
 
 def play(config, seed: int, log_lines: list[str] | None,
@@ -41,8 +68,9 @@ def play(config, seed: int, log_lines: list[str] | None,
     policy = Rng.from_seed(seed ^ 0x5EED).cursor()
     decisions = 0
     while not state.finished:
-        actions = tuple(policy.choice(legal_actions(state, player)) for player in (0, 1))
-        state, log = step(state, *actions)
+        positions = positions_now(state, config)
+        choices = tuple(choose(state, policy, player, positions) for player in (0, 1))
+        state, log = step(state, *choices)
         decisions += 1
         if log_lines is not None and renderer is not None:
             log_lines.append(renderer.render_log(log))
@@ -67,10 +95,12 @@ def main() -> int:
     parser.add_argument("--seed", type=int, default=1)
     parser.add_argument("--bench", type=int, default=0, help="play N battles, print throughput only")
     parser.add_argument("--lang", default="ko", choices=("ko", "en"))
+    parser.add_argument("--format", default="singles", choices=("singles", "doubles"))
     args = parser.parse_args()
 
     dex = load_dex()
-    config = BattleConfig(dex=dex, regulation=dex.regulation("m_b"), battle_format="singles")
+    config = BattleConfig(dex=dex, regulation=dex.regulation("m_b"),
+                          battle_format=args.format)
 
     if args.bench:
         # Team generation is measured separately: it is a team-builder cost, not
@@ -85,8 +115,9 @@ def main() -> int:
             state = new_battle(config, teams, seed=args.seed + offset)
             policy = Rng.from_seed((args.seed + offset) ^ 0x5EED).cursor()
             while not state.finished:
-                actions = tuple(policy.choice(legal_actions(state, p)) for p in (0, 1))
-                state, _ = step(state, *actions)
+                positions = positions_now(state, config)
+                choices = tuple(choose(state, policy, p, positions) for p in (0, 1))
+                state, _ = step(state, *choices)
             turns += state.turn
         elapsed = time.perf_counter() - start
 

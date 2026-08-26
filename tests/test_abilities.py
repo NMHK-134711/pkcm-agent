@@ -331,7 +331,10 @@ def test_abilities_with_no_handlers_are_deliberate(dex):
     from pkcm.engine.effects import REGISTRY
     from pkcm.engine.moves import MOLD_BREAKER_ABILITIES
 
-    engine_side = {"levitate", "corrosion"} | set(MOLD_BREAKER_ABILITIES)
+    from pkcm.engine.abilities import IGNORES_REDIRECTION
+
+    engine_side = ({"levitate", "corrosion"} | set(MOLD_BREAKER_ABILITIES)
+                   | set(IGNORES_REDIRECTION))
     accounted = engine_side | abilities.INERT | abilities.SINGLES_INERT
     for (kind, ability_id), effect in REGISTRY.items():
         if kind != "ability" or effect.handlers:
@@ -718,3 +721,23 @@ def test_parental_bond_hits_twice_with_the_second_at_quarter_power(dex, config):
     hits = [e for e in ctx.log if e.kind == "damage"]
     assert len(hits) == 2
     assert hits[1].amount < hits[0].amount // 2, "the second hit is a quarter"
+
+
+def test_shell_armor_and_battle_armor_refuse_critical_hits(dex, config):
+    """They were registered, then silently registered over by the INERT list.
+
+    Nothing failed while they did nothing: an ability that only shows up on a
+    crit roll looks the same as one that is merely rarely relevant.
+    """
+    from pkcm.engine.moves import rolls_crit
+
+    def crits_in(ability, tries=200):
+        state = build(config, a_set("garchomp", "roughskin", ("slash",)),
+                      a_set("cloyster", ability))
+        ctx = make_context(state)
+        return sum(rolls_crit(ctx, RED, BLUE, dex.moves["slash"]) for _ in range(tries))
+
+    # Slash has a raised crit ratio, so an unprotected target is hit often.
+    assert crits_in("skilllink") > 10, "the control has to actually crit"
+    assert crits_in("shellarmor") == 0
+    assert crits_in("battlearmor") == 0

@@ -31,12 +31,13 @@ from __future__ import annotations
 from pkcm.data.dex import Stat
 from pkcm.engine import mutate
 from pkcm.engine.conditions import is_grounded
-from pkcm.engine.effects import REGISTRY, Context, Ref, register
+from pkcm.engine.effects import REGISTRY, Context, Ref, notify, register
 from pkcm.engine.events import Event
 from pkcm.engine.moves import (
-    MODIFIER_SCALE, X0_5, X0_75, X1_2, X1_25, X1_3, X1_5, X2, chain_modify,
+    MODIFIER_SCALE, NEVER_CRITS, X0_5, X0_75, X1_1, X1_2, X1_25, X1_3, X1_5, X2,
+    chain_modify,
 )
-from pkcm.engine.mutate import boost, fraction_of_max, heal
+from pkcm.engine.mutate import boost, fraction_of_max, heal, max_hp
 from pkcm.engine.state import BOOST_STATS, PERMANENT
 
 CONTACT = "contact"
@@ -405,7 +406,15 @@ register("ability", "bulletproof", name="Bulletproof",
          try_hit=_absorb("bulletproof", flag="bullet"))
 register("ability", "goodasgold", name="Good as Gold",
          try_hit=_absorb("goodasgold", status_only=True))
-register("ability", "telepathy", name="Telepathy")  # allies only; nothing in singles
+def _telepathy(ctx, ref, attacker, defender, move, **_):
+    """Cannot be hit by a partner's attack. Status moves still land."""
+    if attacker == ref or attacker[0] != ref[0] or move.category == "Status":
+        return None
+    ctx.emit(Event("ability", side=ref[0], slot=ref[1], detail="telepathy"))
+    return False
+
+
+register("ability", "telepathy", name="Telepathy", try_hit=_telepathy)
 
 register("volatile", "flashfire", name="Flash Fire boost",
          modify_stat=_offensive_type_boost("fire"))
@@ -1211,15 +1220,23 @@ def _anger_shell(ctx, ref, defender, damage):
 
 
 def _magic_bounce(ctx, ref, attacker, defender, move, **_):
-    """Reflectable status moves come straight back at the user."""
+    """Reflectable status moves come straight back at the user.
+
+    Once only. Two holders facing each other would otherwise return the same
+    Thunder Wave to each other until the stack runs out -- which doubles can
+    arrange and singles never could.
+    """
     if ref != defender or move.category != "Status":
         return None
-    if "reflectable" not in move.flags:
+    if "reflectable" not in move.flags or getattr(move, "has_bounced", False):
         return None
     _blocked(ctx, defender, "magicbounce", move)
-    from pkcm.engine.moves import use_move
+    from pkcm.engine.moves import activate, use_move
 
-    use_move(ctx, defender, move.base if hasattr(move, "base") else move, defender=attacker)
+    bounced = activate(ctx, defender, attacker,
+                       move.base if hasattr(move, "base") else move)
+    bounced.has_bounced = True
+    use_move(ctx, defender, bounced, defender=attacker)
     return False
 
 
@@ -1319,7 +1336,8 @@ register("ability", "merciless", name="Merciless",
              and ctx.state.sides[defender[0]].status[defender[1]] in ("psn", "tox")
              else None)
 def _no_crits(ctx, ref, value, attacker, defender, move, **_):
-    return 0 if ref == defender else None
+    """Not ratio zero -- that is a real 1/24. Nothing at all."""
+    return NEVER_CRITS if ref == defender else None
 
 
 for _name, _label in (("battlearmor", "Battle Armor"), ("shellarmor", "Shell Armor")):
@@ -1740,11 +1758,224 @@ register("ability", "disguise", name="Disguise", try_hit=_disguise)
 #: Abilities whose whole effect is on an ally, so they correctly do nothing in a
 #: singles battle. They are implemented -- as nothing -- rather than missing, and
 #: they will need real handlers when doubles arrives.
+# --------------------------------------------------------------------------- #
+# Abilities that need a partner
+#
+# Every one of these was registered and inert until doubles existed. They are
+# together rather than filed by shape because that is what they have in common,
+# and because ``SINGLES_INERT`` below is what is left after them -- a list that
+# should now be empty of anything that has a partner to act on.
+# --------------------------------------------------------------------------- #
+
+
+def _friend_guard(ctx, ref, value, attacker, defender, move, holder=None, **_):
+    """A quarter off whatever the partner takes. Never off the holder's own."""
+    if holder is None or holder == ref:
+        return None
+    return chain_modify(value, X0_75)
+
+
+register("ability", "friendguard", name="Friend Guard", ally_modify_damage=_friend_guard)
+
+
+HEALER_CHANCE = (3, 10)
+
+
+def _healer(ctx, ref, **_):
+    """Three turns in ten, the partner's status goes away."""
+    partner = ctx.state.ally(ref)
+    if partner is None or ctx.state.sides[partner[0]].status[partner[1]] is None:
+        return
+    if not ctx.cursor.chance(*HEALER_CHANCE):
+        return
+    ctx.emit(Event("ability", side=ref[0], slot=ref[1], detail="healer"))
+    mutate.cure_status(ctx, partner)
+
+
+register("ability", "healer", name="Healer", residual=_healer)
+
+
+def _plus_minus(ctx, ref, value, stat, **_):
+    """Half again the Special Attack, if the partner is the other half."""
+    if stat is not Stat.SPA:
+        return None
+    partner = ctx.state.ally(ref)
+    if partner is None or ctx.ability_of(partner) not in ("plus", "minus"):
+        return None
+    return chain_modify(value, X1_5)
+
+
+register("ability", "plus", name="Plus", modify_stat=_plus_minus)
+register("ability", "minus", name="Minus", modify_stat=_plus_minus)
+
+
+def _ally_power(category: str | None, modifier: int):
+    """Battery and Power Spot: the partner hits harder, the holder does not."""
+    def handler(ctx, ref, value, attacker, defender, move, holder=None, **_):
+        if holder is None or holder == ref or attacker != ref:
+            return None
+        if category is not None and move.category != category:
+            return None
+        return chain_modify(value, modifier)
+
+    return handler
+
+
+register("ability", "battery", name="Battery",
+         ally_modify_base_power=_ally_power("Special", X1_3))
+register("ability", "powerspot", name="Power Spot",
+         ally_modify_base_power=_ally_power(None, X1_3))
+
+
+def _victory_star_self(ctx, ref, value, attacker, defender, move, **_):
+    if attacker != ref:
+        return None
+    return chain_modify(int(value), X1_1)
+
+
+def _victory_star_ally(ctx, ref, value, attacker, defender, move, holder=None, **_):
+    if holder is None or holder == ref or attacker != ref:
+        return None
+    return chain_modify(int(value), X1_1)
+
+
+register("ability", "victorystar", name="Victory Star",
+         modify_accuracy=_victory_star_self,
+         ally_modify_accuracy=_victory_star_ally)
+
+
+def _sweet_veil_status(ctx, ref, status, source, holder=None, **_):
+    if status != "slp":
+        return None
+    ctx.emit(Event("status_immune", side=ref[0], slot=ref[1], detail="sweetveil"))
+    return False
+
+
+def _sweet_veil_volatile(ctx, ref, volatile, source, holder=None, **_):
+    if volatile != "yawn":
+        return None
+    return False
+
+
+register("ability", "sweetveil", name="Sweet Veil",
+         try_status=_sweet_veil_status, try_volatile=_sweet_veil_volatile,
+         ally_try_status=_sweet_veil_status, ally_try_volatile=_sweet_veil_volatile)
+
+
+def _symbiosis(ctx, ref, item, holder=None, **_):
+    """The partner used its item, so hand over yours."""
+    if holder is None or holder == ref:
+        return
+    mine = ctx.state.item_id(*holder)
+    if mine is None or ctx.state.item_id(*ref) is not None:
+        return
+    ctx.state.set_override(holder[0], holder[1], "item", None)
+    ctx.state.set_override(ref[0], ref[1], "item", mine)
+    ctx.emit(Event("ability", side=holder[0], slot=holder[1], detail="symbiosis",
+                   move=mine))
+
+
+register("ability", "symbiosis", name="Symbiosis", ally_after_use_item=_symbiosis)
+
+
+def _inherit_ability(name: str):
+    """Receiver and Power of Alchemy: take up the fallen partner's ability."""
+    def handler(ctx, ref, source=None, holder=None, **_):
+        if holder is None or holder == ref:
+            return
+        if ctx.state.sides[holder[0]].hp[holder[1]] <= 0:
+            return
+        inherited = ctx.state.ability_id(*ref)
+        if inherited in (name, "noability"):
+            return
+        ctx.state.set_override(holder[0], holder[1], "ability", inherited)
+        ctx.emit(Event("ability", side=holder[0], slot=holder[1], detail=inherited))
+        # The inherited ability starts now, the way Trace's does.
+        notify(ctx, "switch_in", holder)
+
+    return handler
+
+
+register("ability", "receiver", name="Receiver", ally_faint=_inherit_ability("receiver"))
+register("ability", "powerofalchemy", name="Power of Alchemy",
+         ally_faint=_inherit_ability("powerofalchemy"))
+
+
+HOSPITALITY_FRACTION = 4
+
+
+def _hospitality(ctx, ref, **_):
+    partner = ctx.state.ally(ref)
+    if partner is None:
+        return
+    ctx.emit(Event("ability", side=ref[0], slot=ref[1], detail="hospitality"))
+    mutate.heal(ctx, partner, max_hp(ctx.state, partner) // HOSPITALITY_FRACTION,
+                reason="hospitality")
+
+
+register("ability", "hospitality", name="Hospitality", switch_in=_hospitality)
+
+
+def _curious_medicine(ctx, ref, **_):
+    """Wipes the partner's stat stages -- the good ones too."""
+    partner = ctx.state.ally(ref)
+    if partner is None:
+        return
+    side = ctx.state.sides[partner[0]]
+    if not any(side.boosts[partner[1]]):
+        return
+    side.boosts[partner[1]] = [0] * len(side.boosts[partner[1]])
+    ctx.emit(Event("clear_boosts", side=partner[0], slot=partner[1],
+                   detail="curiousmedicine"))
+
+
+register("ability", "curiousmedicine", name="Curious Medicine", switch_in=_curious_medicine)
+
+
+def _costar(ctx, ref, **_):
+    """Arrives already holding whatever the partner has built up."""
+    partner = ctx.state.ally(ref)
+    if partner is None:
+        return
+    side = ctx.state.sides[ref[0]]
+    side.boosts[ref[1]] = list(side.boosts[partner[1]])
+    if side.has_volatile(partner[1], "focusenergy"):
+        mutate.add_volatile(ctx, ref, "focusenergy")
+    ctx.emit(Event("copy_boosts", side=ref[0], slot=ref[1], detail="costar"))
+
+
+register("ability", "costar", name="Costar", switch_in=_costar)
+
+
+def _redirect_to_me(move_type: str | None, name: str):
+    """Lightning Rod, Storm Drain: pull a move of one type onto yourself."""
+    def handler(ctx, ref, value, attacker, move, **_):
+        if move_type is not None and move.type != move_type:
+            return None
+        if ref == value:
+            return None
+        ctx.emit(Event("redirected", side=ref[0], slot=ref[1], detail=name))
+        return ref
+
+    return handler
+
+
+REGISTRY[("ability", "lightningrod")].handlers["redirect_target"] = \
+    _redirect_to_me("electric", "lightningrod")
+REGISTRY[("ability", "stormdrain")].handlers["redirect_target"] = \
+    _redirect_to_me("water", "stormdrain")
+
+#: Their holder's moves cannot be redirected at all -- Follow Me included.
+IGNORES_REDIRECTION = frozenset({"stalwart", "propellertail"})
+register("ability", "stalwart", name="Stalwart")
+register("ability", "propellertail", name="Propeller Tail")
+
+
+#: Abilities that do nothing in a singles battle. Everything that used to be
+#: here is implemented now; what remains is the one entry that has no partner
+#: to act on and no singles behaviour either.
 SINGLES_INERT = frozenset({
-    "telepathy", "friendguard", "healer", "symbiosis", "receiver",
-    "powerofalchemy", "plus", "minus", "hospitality", "curiousmedicine",
-    "stalwart", "propellertail", "battery", "powerspot", "victorystar",
-    "costar", "sweetveil2",
+    "sweetveil2",
 })
 for _name in SINGLES_INERT:
     if ("ability", _name) not in REGISTRY:
@@ -1755,10 +1986,20 @@ for _name in SINGLES_INERT:
 #: coverage report honest, because "implemented as nothing" is not "forgotten".
 INERT = frozenset({
     "honeygather", "pickup", "runaway", "ballfetch", "cheekpouch", "gluttony",
-    "klutz", "stall", "friendguard", "healer", "symbiosis", "receiver",
-    "powerofalchemy", "pickpocket", "magician", "harvest", "unburden",
-    "shellarmor", "battlearmor", "earlybird", "rattled",
+    "klutz", "stall", "pickpocket", "magician", "harvest", "unburden",
+    "earlybird", "rattled",
     "aftermath", "damp", "aromaveil", "flowerveil", "suctioncups",
 })
 for _name in INERT:
+    # Refusing to overwrite is the point. This loop used to register
+    # unconditionally, and it silently replaced five real implementations with
+    # empty ones the day doubles gave them something to do -- Friend Guard,
+    # Healer, Symbiosis, Receiver and Power of Alchemy all went quiet, and
+    # nothing failed, because an ability that does nothing looks like an
+    # ability that is merely situational.
+    if ("ability", _name) in REGISTRY:
+        raise RuntimeError(
+            f"{_name} is listed as inert but has a real implementation. "
+            f"Take it out of INERT rather than registering over it."
+        )
     register("ability", _name, name=_name.title())

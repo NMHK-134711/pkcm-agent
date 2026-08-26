@@ -23,6 +23,7 @@ from pkcm.data.dex import Stat
 from pkcm.engine import mutate
 from pkcm.engine.effects import Context, Ref, register
 from pkcm.engine.events import Event
+from pkcm.engine.moves import X1_5, chain_modify
 from pkcm.engine.mutate import boost, current_hp, fraction_of_max, heal, max_hp
 from pkcm.engine.state import BOOST_INDEX, BOOST_STATS
 
@@ -757,9 +758,7 @@ def _stuff_cheeks(ctx, user, target, move) -> bool:
 @special("teatime")
 def _teatime(ctx, user, target, move) -> bool:
     eaten = False
-    for player in (0, 1):
-        side = ctx.state.sides[player]
-        ref = (player, side.active)
+    for ref in ctx.state.everyone():
         item = ctx.state.item_id(*ref)
         if item and ctx.state.config.dex.items[item].raw.get("isBerry"):
             mutate.consume_item(ctx, ref, move.id)
@@ -914,18 +913,181 @@ def _call_move(ctx: Context, user: Ref, target: Ref, move_id: str) -> bool:
 # Only meaningful with an ally on the field
 # --------------------------------------------------------------------------- #
 
-ALLY_ONLY = frozenset({
-    "helpinghand", "followme", "ragepowder", "allyswitch", "afteryou", "quash",
-    "magneticflux", "instruct", "aromatherapy", "coaching", "decorate",
-})
+#: Moves that do nothing without a partner standing next to you. They are
+#: implemented -- they fail *because there is no ally*, which is a different
+#: thing from being unimplemented, and in doubles they stop failing.
+#:
+#: Coaching, Decorate and Helping Hand are not here: the first two are plain
+#: ``boosts`` moves the declarative executor already runs, and all three fail
+#: on their own when target resolution finds no partner. Instruct is not here
+#: either -- it works perfectly well on an opponent.
+ALLY_ONLY = frozenset({"followme", "ragepowder", "allyswitch", "afteryou", "quash"})
 
 
-def _needs_an_ally(ctx, user, target, move) -> bool:
+def _no_ally(ctx: Context, user: Ref) -> bool:
     return _fail(ctx, user, "there is no ally in a single battle")
 
 
-for _move_id in ALLY_ONLY:
-    SPECIAL_MOVES[_move_id] = _needs_an_ally
+# --------------------------------------------------------------------------- #
+# Taking the hit for your partner
+# --------------------------------------------------------------------------- #
+
+
+@special("followme", "ragepowder")
+def _draw_fire(ctx, user, target, move) -> bool:
+    """Every single-target move from the other side comes here instead."""
+    if ctx.state.ally(user) is None:
+        return _no_ally(ctx, user)
+    return mutate.add_volatile(ctx, user, move.id, source=user)
+
+
+def _pull_moves_to_me(name: str, powder: bool):
+    def handler(ctx, ref, value, attacker, move, **_):
+        if ref == value:
+            return None
+        if powder and not _powder_reaches(ctx, attacker):
+            return None
+        ctx.emit(Event("redirected", side=ref[0], slot=ref[1], detail=name))
+        return ref
+
+    return handler
+
+
+def _powder_reaches(ctx: Context, ref: Ref) -> bool:
+    """Grass types, Overcoat and Safety Goggles all ignore a powder."""
+    if "grass" in ctx.state.types(*ref):
+        return False
+    if ctx.ability_of(ref) == "overcoat":
+        return False
+    return ctx.state.item_id(*ref) != "safetygoggles"
+
+
+register("volatile", "followme", name="Follow Me",
+         redirect_target=_pull_moves_to_me("followme", powder=False))
+register("volatile", "ragepowder", name="Rage Powder",
+         redirect_target=_pull_moves_to_me("ragepowder", powder=True))
+
+
+@special("helpinghand")
+def _helping_hand(ctx, user, target, move) -> bool:
+    """Half again on the partner's move, and it stacks with a second one."""
+    data = mutate.volatile(ctx.state, target, "helpinghand")
+    if data is not None:
+        data["stacks"] = data.get("stacks", 1) + 1
+        return True
+    return mutate.add_volatile(ctx, target, "helpinghand", source=user, stacks=1)
+
+
+def _helping_hand_power(ctx, ref, value, attacker, defender, move, **_):
+    if ref != attacker:
+        return None
+    data = mutate.volatile(ctx.state, attacker, "helpinghand")
+    if data is None:
+        return None
+    for _ in range(data.get("stacks", 1)):
+        value = chain_modify(value, X1_5)
+    return value
+
+
+register("volatile", "helpinghand", name="Helping Hand",
+         modify_base_power=_helping_hand_power)
+
+
+# --------------------------------------------------------------------------- #
+# Rearranging the turn
+#
+# After You and Quash reach into the queue the turn loop is working through.
+# It holds (player, position) pairs, so moving one is a list operation -- which
+# is exactly why the queue lives on the state rather than in a local.
+# --------------------------------------------------------------------------- #
+
+
+def _queued_position(ctx: Context, ref: Ref) -> tuple[int, int] | None:
+    position = ctx.state.sides[ref[0]].position_of(ref[1])
+    if position is None:
+        return None
+    actor = (ref[0], position)
+    return actor if actor in ctx.state.turn_queue else None
+
+
+@special("afteryou")
+def _after_you(ctx, user, target, move) -> bool:
+    """The target moves next, whatever its Speed said."""
+    if ctx.state.ally(user) is None:
+        return _no_ally(ctx, user)
+    actor = _queued_position(ctx, target)
+    if actor is None:
+        return _fail(ctx, user, "it has already moved")
+    ctx.state.turn_queue.remove(actor)
+    ctx.state.turn_queue.insert(0, actor)
+    ctx.emit(Event("move_order", side=target[0], slot=target[1], detail="afteryou"))
+    return True
+
+
+@special("quash")
+def _quash(ctx, user, target, move) -> bool:
+    """The target moves last instead."""
+    if ctx.state.ally(user) is None:
+        return _no_ally(ctx, user)
+    actor = _queued_position(ctx, target)
+    if actor is None:
+        return _fail(ctx, user, "it has already moved")
+    ctx.state.turn_queue.remove(actor)
+    ctx.state.turn_queue.append(actor)
+    ctx.emit(Event("move_order", side=target[0], slot=target[1], detail="quash"))
+    return True
+
+
+@special("allyswitch")
+def _ally_switch(ctx, user, target, move) -> bool:
+    """Trade places with your partner. Nothing else about either changes."""
+    side = ctx.state.sides[user[0]]
+    partner = ctx.state.ally(user)
+    if partner is None:
+        return _no_ally(ctx, user)
+    here, there = side.position_of(user[1]), side.position_of(partner[1])
+    if here is None or there is None:
+        return _fail(ctx, user, "nobody to swap with")
+    side.active[here], side.active[there] = side.active[there], side.active[here]
+    ctx.emit(Event("ally_switch", side=user[0], slot=user[1]))
+    return True
+
+
+@special("magneticflux")
+def _magnetic_flux(ctx, user, target, move) -> bool:
+    """Defences up, but only for the ones running Plus or Minus."""
+    boosted = False
+    for ref in ctx.state.allies_and_self(user):
+        if ctx.ability_of(ref) in ("plus", "minus"):
+            boosted |= bool(mutate.boost(ctx, ref, {"def": 1, "spd": 1}, source=user))
+    return boosted or _fail(ctx, user, "nobody here runs Plus or Minus")
+
+
+#: Moves Instruct refuses to repeat -- the ones whose state it cannot restore.
+INSTRUCT_REFUSES = frozenset({"instruct", "struggle", "transform", "mimic", "sketch",
+                              "kingsshield", "beakblast", "focuspunch", "shelltrap"})
+
+
+@special("instruct")
+def _instruct(ctx, user, target, move) -> bool:
+    """Make the target use its last move again, right now.
+
+    Works on an opponent as readily as on a partner, which is why this is not
+    an ally-only move -- singles gets it too.
+    """
+    last = _volatiles(ctx, target).get("lastmove")
+    if last is None or last in INSTRUCT_REFUSES:
+        return _fail(ctx, user, "there is nothing to repeat")
+    repeated = ctx.state.config.dex.moves[last]
+    if "charge" in repeated.flags or "recharge" in repeated.flags:
+        return _fail(ctx, user, "that move cannot be repeated")
+
+    ctx.emit(Event("instructed", side=target[0], slot=target[1], move=last))
+    from pkcm.engine.moves import use_move
+
+    foes = ctx.state.foes(target)
+    use_move(ctx, target, repeated, defender=foes[0] if foes else None)
+    return True
 
 
 # --------------------------------------------------------------------------- #

@@ -22,6 +22,7 @@ from pkcm.engine import mutate
 from pkcm.engine.effects import Context, Ref
 from pkcm.engine.events import Event
 from pkcm.engine.mutate import apply_damage, effective_stat, heal, stage_multiplier
+from pkcm.engine.actions import TARGET_ALLY, TARGET_SELF
 from pkcm.engine.state import imprisoned_moves
 
 LEVEL = 50
@@ -47,6 +48,10 @@ CRIT_MULTIPLIER_NUM, CRIT_MULTIPLIER_DEN = 3, 2
 
 #: Gen 7+ critical hit rate by crit ratio: the denominator of a 1/N chance.
 CRIT_DENOMINATOR = {0: 24, 1: 24, 2: 8, 3: 2}
+#: A crit ratio below zero means no critical hit is possible at all. Shell
+#: Armor and Battle Armor return it. Zero will not do: it is a real ratio worth
+#: 1/24, which is what those two were quietly granting.
+NEVER_CRITS = -1
 
 STRUGGLE_ID = "struggle"
 STRUGGLE_RECOIL_FRACTION = 4
@@ -269,6 +274,8 @@ def rolls_crit(ctx: Context, attacker: Ref, defender: Ref, move: Move) -> bool:
         return True
     ratio = move.raw.get("critRatio", 1)
     ratio = _both_sides(ctx, "modify_crit_ratio", ratio, attacker, defender, move)
+    if ratio <= NEVER_CRITS:
+        return False
     denominator = CRIT_DENOMINATOR.get(ratio, 1)
     if denominator <= 1:
         return True
@@ -330,6 +337,10 @@ class ActiveMove:
     parental_bond: bool = False
     #: Which hit of a multi-hit move is being resolved. Beat Up reads it.
     hit_index: int = 0
+    #: Reflected once already, by Magic Bounce or Magic Coat. Without this two
+    #: Magic Bounce holders facing each other bounce the same move forever --
+    #: singles could only ever have one of them on the field to be hit.
+    has_bounced: bool = False
     #: This use landed on more than one Pokemon, so each takes a quarter less.
     #: Set at resolution, not read off the data: a spread move that finds only
     #: one target left standing does full damage.
@@ -366,6 +377,7 @@ def activate(ctx: Context, attacker: Ref, defender: Ref, move: Move) -> ActiveMo
         secondaries=list(_all_secondaries(move)),
         self_effects=move.raw.get("self") if isinstance(move.raw.get("self"), dict) else None,
         multihit=move.raw.get("multihit"),
+        has_bounced=getattr(move, "has_bounced", False),
     )
     fx.notify(ctx, "modify_move", attacker, scope="self",
               active=active, attacker=attacker, defender=defender)
@@ -409,6 +421,16 @@ def resolve_targets(ctx: Context, attacker: Ref, move, target_code: int = 0) -> 
         if not foes:
             return []
         return [foes[ctx.cursor.between(0, len(foes) - 1)]]
+    if kind == "adjacentAlly":
+        # Never the foe, whatever the code says -- in singles there is simply
+        # nobody to aim at, and the move fails rather than hitting across.
+        partner = state.ally(attacker)
+        return [partner] if partner is not None else []
+    if kind == "adjacentAllyOrSelf":
+        partner = state.ally(attacker)
+        if target_code == TARGET_ALLY and partner is not None:
+            return [partner]
+        return [attacker]
 
     chosen = resolve_target_code(state, attacker, target_code)
     if chosen is None:
@@ -432,7 +454,12 @@ def redirect(ctx: Context, attacker: Ref, target: Ref, move) -> Ref:
     the field, because the Pokemon doing the pulling is neither the attacker
     nor the current target.
     """
+    from pkcm.engine.abilities import IGNORES_REDIRECTION
+
     if move.target not in ("normal", "any", "adjacentFoe") or target[0] == attacker[0]:
+        return target
+    # Stalwart and Propeller Tail hit what they aimed at, Follow Me or no.
+    if ctx.ability_of(attacker) in IGNORES_REDIRECTION:
         return target
     pulled = target
     for candidate in ctx.state.foes(attacker):

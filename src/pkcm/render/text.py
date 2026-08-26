@@ -141,6 +141,19 @@ class Renderer:
     def _hp(self, event: Event) -> str:
         return f"-> {event.hp}/{event.max_hp}"
 
+    def _pokemon(self, event: Event) -> str:
+        """Whoever the event is about, by name.
+
+        Doubles made this necessary: with four on the field, "it" is ambiguous
+        and the side alone no longer identifies anyone.
+        """
+        if event.species:
+            return self.names.species(event.species)
+        if event.side is None or event.slot is None:
+            return "?"
+        return f"{self._who(event)}의 {event.slot + 1}번" if self.language == "ko" \
+            else f"{self._who(event)}'s #{event.slot + 1}"
+
     def _stat(self, key: str | None) -> str:
         return self._phrase(BOOST_STAT_TEXT, key, key) or (key or "")
 
@@ -175,6 +188,135 @@ class Renderer:
             subject = josa(self._who(e), "\uc740")
             return [f"{subject} {josa(name, '\uc744')} 내보냈다! ({e.hp}/{e.max_hp})"]
         return [f"{self._who(e)} sent out {name}! ({e.hp}/{e.max_hp})"]
+
+    # -- doubles ---------------------------------------------------------- #
+    #
+    # Reading the log is how most of this engine's bugs were caught, so an
+    # event that renders as ``repr(Event(...))`` is a blind spot rather than a
+    # cosmetic problem -- and doubles put four Pokemon in every turn to lose
+    # track of.
+
+    def _on_redirected(self, e):
+        who = self._pokemon(e)
+        if self.language == "ko":
+            return [f"  {josa(who, '\uac00')} 공격을 대신 받아냈다!"]
+        return [f"  {who} drew the attack!"]
+
+    def _on_ally_switch(self, e):
+        if self.language == "ko":
+            return ["  파트너와 자리를 바꿨다!"]
+        return ["  It swapped places with its ally!"]
+
+    def _on_move_order(self, e):
+        who = self._pokemon(e)
+        later = e.detail == "quash"
+        if self.language == "ko":
+            return [f"  {josa(who, '\uc758')} 순서가 " + ("뒤로 밀렸다!" if later else "앞당겨졌다!")]
+        return [f"  {who} will move " + ("last!" if later else "next!")]
+
+    def _on_instructed(self, e):
+        who, move = self._pokemon(e), self.names.move(e.move)
+        if self.language == "ko":
+            return [f"  {josa(who, '\uc774')} {josa(move, '\uc744')} 다시 사용했다!"]
+        return [f"  {who} used {move} again!"]
+
+    def _on_position_empty(self, e):
+        if self.language == "ko":
+            return [f"  {self._who(e)}는 더 이상 내보낼 포켓몬이 없다!"]
+        return [f"  {self._who(e)} has nobody left to send out!"]
+
+    # -- everything else that used to print as a repr ---------------------- #
+
+    def _on_charging(self, e):
+        move = self.names.move(e.move)
+        if self.language == "ko":
+            return [f"  {josa(move, '\uc744')} 준비하고 있다!"]
+        return [f"  It is charging {move}!"]
+
+    def _on_recharging(self, e):
+        return ["  움직일 수 없다! 반동으로 쉬고 있다!" if self.language == "ko"
+                else "  It must recharge!"]
+
+    def _on_avoided(self, e):
+        return ["  하지만 닿지 않았다!" if self.language == "ko"
+                else "  ...but it could not be reached!"]
+
+    def _on_endured(self, e):
+        return ["  공격을 버텨냈다!" if self.language == "ko"
+                else "  It endured the hit!"]
+
+    def _on_dragged_out(self, e):
+        who = self._pokemon(e)
+        if self.language == "ko":
+            return [f"  {josa(who, '\uc774')} 강제로 교체되었다!"]
+        return [f"  {who} was dragged out!"]
+
+    def _on_self_switch(self, e):
+        who = self._pokemon(e)
+        if self.language == "ko":
+            return [f"  {josa(who, '\uc774')} 돌아왔다!"]
+        return [f"  {who} went back!"]
+
+    def _on_self_destruct(self, e):
+        who = self._pokemon(e)
+        if self.language == "ko":
+            return [f"  {josa(who, '\uc740')} 자폭했다!"]
+        return [f"  {who} blew itself up!"]
+
+    def _on_set_hp(self, e):
+        return [f"  {self._hp(e)}"]
+
+    def _on_pp_lost(self, e):
+        move = self.names.move(e.move)
+        if self.language == "ko":
+            return [f"  {josa(move, '\uc758')} PP가 줄어들었다!"]
+        return [f"  The PP of {move} was reduced!"]
+
+    def _on_ability_swapped(self, e):
+        return ["  특성이 바뀌었다!" if self.language == "ko"
+                else "  Abilities were swapped!"]
+
+    def _on_items_swapped(self, e):
+        return ["  도구를 교환했다!" if self.language == "ko"
+                else "  Items were swapped!"]
+
+    def _on_boosts_copied(self, e):
+        return ["  랭크 변화를 복사했다!" if self.language == "ko"
+                else "  It copied the stat changes!"]
+
+    def _on_copy_boosts(self, e):
+        return self._on_boosts_copied(e)
+
+    def _on_boosts_swapped(self, e):
+        return ["  랭크 변화를 교환했다!" if self.language == "ko"
+                else "  Stat changes were swapped!"]
+
+    def _on_boosts_cleared(self, e):
+        return ["  랭크 변화가 사라졌다!" if self.language == "ko"
+                else "  Stat changes were removed!"]
+
+    def _on_clear_boosts(self, e):
+        return self._on_boosts_cleared(e)
+
+    def _on_team_cured(self, e):
+        return ["  파티 전원의 상태이상이 회복되었다!" if self.language == "ko"
+                else "  The whole team was cured!"]
+
+    def _on_called_move(self, e):
+        move = self.names.move(e.move)
+        if self.language == "ko":
+            return [f"  {josa(move, '\uc744')} 불러냈다!"]
+        return [f"  It called {move}!"]
+
+    def _on_heal_blocked(self, e):
+        return ["  회복이 봉인되어 있다!" if self.language == "ko"
+                else "  It cannot heal!"]
+
+    def _on_cant_move(self, e):
+        who = self._pokemon(e)
+        if self.language == "ko":
+            return [f"  {josa(who, '\uc740')} 움직일 수 없다!"]
+        return [f"  {who} could not move!"]
 
     def _on_move_used(self, e):
         species, move = self.names.species(e.species), self.names.move(e.move)

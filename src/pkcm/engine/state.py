@@ -209,6 +209,44 @@ class SideState:
 
 
 @dataclass(slots=True)
+class Revealed:
+    """What the opponent has been shown about one side.
+
+    Kept on the state rather than accumulated by a wrapper, because
+    ``Observation(state, player)`` has to be a pure function of the state for
+    search to determinize from it (docs/DESIGN.md §1c). A wrapper that folds the
+    log works for a training loop and is useless to a tree search, which arrives
+    at a node without having watched how it got there.
+
+    Every revelation is already an event, so this is folded in ``Context.emit``
+    -- one place, and one that cannot be incomplete for an event that exists.
+    """
+
+    #: Party slots the opponent has seen on the field.
+    species: set[int] = field(default_factory=set)
+    #: Party slot -> move ids the opponent has watched it use.
+    moves: dict[int, set[str]] = field(default_factory=dict)
+    #: Slots whose held item has been shown (used, knocked off, Frisked).
+    items: set[int] = field(default_factory=set)
+    #: Slots whose ability has announced itself.
+    abilities: set[int] = field(default_factory=set)
+
+    def clone(self) -> "Revealed":
+        return Revealed(
+            species=set(self.species),
+            moves={slot: set(moves) for slot, moves in self.moves.items()},
+            items=set(self.items),
+            abilities=set(self.abilities),
+        )
+
+    def saw_move(self, slot: int, move_id: str) -> None:
+        self.moves.setdefault(slot, set()).add(move_id)
+
+    def moves_of(self, slot: int) -> frozenset[str]:
+        return frozenset(self.moves.get(slot, ()))
+
+
+@dataclass(slots=True)
 class BattleState:
     config: BattleConfig
     #: The six compiled Pokemon per side. Constant; shared across clones.
@@ -219,6 +257,10 @@ class BattleState:
     #: before ``field`` because that attribute shadows ``dataclasses.field``
     #: for everything after it.
     mega_used: list[bool] = field(default_factory=lambda: [False, False])
+    #: What each side has shown the other, indexed by the side being *observed*.
+    #: Declared up here for the same reason ``mega_used`` is.
+    revealed: tuple[Revealed, Revealed] = field(
+        default_factory=lambda: (Revealed(), Revealed()))
     #: The turn currently being resolved: the actions both sides chose, and who
     #: has yet to act. Kept on the state so a turn interrupted by a self-switch
     #: can be picked up again on the next ``step``.
@@ -254,6 +296,7 @@ class BattleState:
             mega_used=list(self.mega_used),
             turn_actions=self.turn_actions,
             turn_queue=list(self.turn_queue),
+            revealed=(self.revealed[0].clone(), self.revealed[1].clone()),
             overrides=(
                 [dict(slot) for slot in self.overrides[0]],
                 [dict(slot) for slot in self.overrides[1]],

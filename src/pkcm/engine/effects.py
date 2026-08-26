@@ -186,6 +186,8 @@ class Context:
 
     def emit(self, event: Event) -> None:
         self.log.append(event)
+        if event.kind in REVELATION_KINDS:
+            record_revelation(self.state, event)
 
     def item_of(self, ref: Ref) -> str | None:
         """The item in force right now -- ``None`` while Magic Room is up.
@@ -210,6 +212,40 @@ class Context:
         if slot < len(volatiles) and "abilitysuppressed" in volatiles[slot]:
             return None
         return self.state.ability_id(side, slot)
+
+
+#: Events that make something about a Pokemon public, and what they reveal.
+#: Folded into ``state.revealed`` as they are emitted, so the information set is
+#: a property of the state rather than of whoever happened to watch the log.
+REVEALS_SPECIES = frozenset({"switch_in", "mega_evolve", "forme_change"})
+REVEALS_ITEM = frozenset({"use_item", "item_revealed", "knock_off", "item_stolen",
+                          "ability"})
+REVEALS_ABILITY = frozenset({"ability", "ability_block", "ability_suppressed",
+                             "ability_change"})
+
+#: Everything above, in one set. Emit tests this first: the overwhelming
+#: majority of events reveal nothing, and they should cost one hash lookup.
+REVELATION_KINDS = REVEALS_SPECIES | REVEALS_ITEM | REVEALS_ABILITY | {"move_used"}
+
+
+def record_revelation(state: BattleState, event: Event) -> None:
+    """Fold one event into what its side has now shown the opponent."""
+    side, slot = event.side, event.slot
+    if side is None or slot is None or not state.revealed:
+        return
+    if slot >= len(state.sides[side].hp):
+        return  # a side-wide event whose ``slot`` means something else
+    seen = state.revealed[side]
+
+    if event.kind in REVEALS_SPECIES:
+        seen.species.add(slot)
+    if event.kind == "move_used" and event.move:
+        seen.species.add(slot)
+        seen.saw_move(slot, event.move)
+    if event.kind in REVEALS_ITEM:
+        seen.items.add(slot)
+    if event.kind in REVEALS_ABILITY:
+        seen.abilities.add(slot)
 
 
 # --------------------------------------------------------------------------- #

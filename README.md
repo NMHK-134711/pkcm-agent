@@ -13,7 +13,8 @@ Regulation Set M-B 룰을 따르는 배틀 엔진을 직접 구현하고, 그 �
 | 데이터 레이어 | 완료 — 235종 + 메가 76종 전부 해석됨 |
 | SP 능력치 체계 | 완료 — SP 66/32, Stat Alignment 21종, 레벨 50 공식 |
 | 팀 합법성 + 랜덤 팀 생성 | 완료 — 원종 단위 종족 클로즈, 아이템 클로즈, SP 예산 |
-| M0 배틀 엔진 골격 | 완료 — 11,000 turns/s, 테스트 125개 |
+| M0 배틀 엔진 골격 | 완료 — 11,000 turns/s |
+| 시나리오 검증 하네스 | 완료 — 실제 게임 관찰을 테스트로, 미구현 메커니즘은 skip |
 | PettingZoo 어댑터 | 미착수 |
 | 하이브리드 배틀 정책 | 미착수 |
 | 파티 구성 학습 | 미착수 |
@@ -63,6 +64,8 @@ src/pkcm/
   engine/    순수 함수 배틀 코어 — rng, stats, pokemon, legality, scope, state, battle
   envs/      PettingZoo ParallelEnv 어댑터 (예정)
   render/    이벤트 로그 소비자 — 텍스트 뷰어
+  testing/   시나리오 러너 — 실제 게임 관찰을 테스트로
+tests/scenarios/  게임에서 본 동작 (형식은 그 안의 README)
 scripts/     데이터 수집·가공
 data/raw/         Showdown 클라이언트 데이터 (gitignored)
 data/champions/   레귤레이션 합법 목록 + 룰 상수 (커밋)

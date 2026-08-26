@@ -1,0 +1,33 @@
+{
+  "name": "ground-move-does-not-affect-a-flying-type",
+  "source": "series-wide type chart; trivially checkable in game",
+  "requires": ["damage", "type-chart", "switching"],
+  "notes": "Skarmory is Steel/Flying. Earthquake should report no effect and deal nothing, rather than being resisted down to 1.",
+
+  "format": "singles",
+  "teams": [
+    [
+      {"species": "garchomp", "ability": "roughskin", "moves": ["earthquake"]},
+      {"species": "pikachu",  "ability": "static",    "moves": ["thunderbolt"]},
+      {"species": "snorlax",  "ability": "thickfat",  "moves": ["bodyslam"]},
+      {"species": "starmie",  "ability": "illuminate","moves": ["surf"]},
+      {"species": "gengar",   "ability": "cursedbody","moves": ["shadowball"]},
+      {"species": "alakazam", "ability": "synchronize","moves": ["psychic"]}
+    ],
+    [
+      {"species": "skarmory", "ability": "sturdy",    "moves": ["peck"]},
+      {"species": "pikachu",  "ability": "static",    "moves": ["thunderbolt"]},
+      {"species": "snorlax",  "ability": "thickfat",  "moves": ["bodyslam"]},
+      {"species": "starmie",  "ability": "illuminate","moves": ["surf"]},
+      {"species": "gengar",   "ability": "cursedbody","moves": ["shadowball"]},
+      {"species": "alakazam", "ability": "synchronize","moves": ["psychic"]}
+    ]
+  ],
+  "select": [[0, 1, 2], [0, 1, 2]],
+  "turns": [["move:0", "move:0"]],
+
+  "expect": [
+    {"check": "event", "kind": "immune", "side": 1, "value": true},
+    {"check": "hp", "side": 1, "value": 140, "note": "Skarmory base 65 HP, untouched"}
+  ]
+}

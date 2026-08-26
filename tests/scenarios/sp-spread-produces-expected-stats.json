@@ -1,0 +1,36 @@
+{
+  "name": "sp-spread-produces-expected-stats",
+  "source": "Champions SP formula; checkable on any Pokemon's summary screen",
+  "requires": ["sp-stats", "team-preview"],
+  "notes": "Garchomp base 108/130/95/80/85/102, Jolly (+Spe -SpA), 32 SP into Attack and 32 into Speed. HP = base + 75 + SP. Others = floor((base + 20 + SP) * alignment).",
+
+  "format": "singles",
+  "teams": [
+    [
+      {"species": "garchomp", "ability": "roughskin", "moves": ["dragonclaw"],
+       "nature": "jolly", "sp": [0, 32, 0, 0, 0, 32]},
+      {"species": "snorlax",  "ability": "thickfat",  "moves": ["bodyslam"]},
+      {"species": "starmie",  "ability": "illuminate","moves": ["surf"]},
+      {"species": "gengar",   "ability": "cursedbody","moves": ["shadowball"]},
+      {"species": "skarmory", "ability": "sturdy",    "moves": ["peck"]},
+      {"species": "alakazam", "ability": "synchronize","moves": ["psychic"]}
+    ],
+    [
+      {"species": "snorlax",  "ability": "thickfat",  "moves": ["bodyslam"]},
+      {"species": "starmie",  "ability": "illuminate","moves": ["surf"]},
+      {"species": "gengar",   "ability": "cursedbody","moves": ["shadowball"]},
+      {"species": "skarmory", "ability": "sturdy",    "moves": ["peck"]},
+      {"species": "alakazam", "ability": "synchronize","moves": ["psychic"]},
+      {"species": "pikachu",  "ability": "static",    "moves": ["thunderbolt"]}
+    ]
+  ],
+  "select": [[0, 1, 2], [0, 1, 2]],
+  "turns": [],
+
+  "expect": [
+    {"check": "stat", "side": 0, "stat": "hp",  "value": 183, "note": "108 + 75 + 0"},
+    {"check": "stat", "side": 0, "stat": "atk", "value": 182, "note": "(130 + 20 + 32) * 1.0"},
+    {"check": "stat", "side": 0, "stat": "spa", "value": 90,  "note": "(80 + 20 + 0) * 0.9"},
+    {"check": "stat", "side": 0, "stat": "spe", "value": 169, "note": "(102 + 20 + 32) * 1.1"}
+  ]
+}

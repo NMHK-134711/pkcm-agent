@@ -1,0 +1,46 @@
+{
+  "name": "imposter-ditto-copies-mega-forme-and-stat-stages",
+  "source": "Pokemon Champions, reported by hk (2026-08-26)",
+  "requires": ["abilities", "stat-stages", "mega-evolution", "transform"],
+  "notes": "Ditto's Imposter Transforms on switch-in into the Pokemon facing it. It copies the target's CURRENT state: if the target has Mega Evolved, Ditto becomes the Mega forme (and gains that forme's ability); stat stages come along too. HP stays Ditto's own, and every copied move gets 5 PP. Here Gengar has already Mega Evolved and is at +2 Special Attack when Ditto comes in.",
+
+  "format": "singles",
+  "teams": [
+    [
+      {"species": "snorlax",  "ability": "thickfat",   "moves": ["bodyslam"]},
+      {"species": "ditto",    "ability": "imposter",   "moves": ["transform"]},
+      {"species": "pikachu",  "ability": "static",     "moves": ["thunderbolt"]},
+      {"species": "skarmory", "ability": "sturdy",     "moves": ["peck"]},
+      {"species": "gyarados", "ability": "intimidate", "moves": ["waterfall"]},
+      {"species": "starmie",  "ability": "naturalcure","moves": ["surf"]}
+    ],
+    [
+      {"species": "gengar",   "ability": "cursedbody", "moves": ["shadowball", "nastyplot"], "item": "gengarite"},
+      {"species": "dragonite","ability": "multiscale", "moves": ["dragonclaw"]},
+      {"species": "tyranitar","ability": "sandstream", "moves": ["crunch"]},
+      {"species": "garchomp", "ability": "roughskin",  "moves": ["earthquake"]},
+      {"species": "arcanine", "ability": "intimidate", "moves": ["flamethrower"]},
+      {"species": "alakazam", "ability": "synchronize","moves": ["psychic"]}
+    ]
+  ],
+  "select": [[0, 1, 2], [0, 1, 2]],
+
+  "setup": [
+    {"do": "mega",  "side": 1, "slot": 0},
+    {"do": "boost", "side": 1, "slot": 0, "stat": "spa", "stages": 2}
+  ],
+  "turns": [["switch:1", "move:0"]],
+
+  "expect": [
+    {"check": "species", "side": 0, "value": "gengarmega",
+     "note": "Ditto copies the Mega forme, not the base forme"},
+    {"check": "ability", "side": 0, "value": "shadowtag",
+     "note": "and the Mega forme's ability with it"},
+    {"check": "boost",   "side": 0, "stat": "spa", "value": 2,
+     "note": "stat stages are copied"},
+    {"check": "stat",    "side": 0, "stat": "spa", "value": 190,
+     "note": "Mega Gengar base 170 SpA, 0 SP, neutral alignment"},
+    {"check": "hp",      "side": 0, "value": 123,
+     "note": "HP is Ditto's own (base 48), not the target's"}
+  ]
+}

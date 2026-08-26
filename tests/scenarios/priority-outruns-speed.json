@@ -1,0 +1,32 @@
+{
+  "name": "priority-move-goes-first-despite-lower-speed",
+  "source": "series-wide turn order rule",
+  "requires": ["priority", "move-order", "speed"],
+  "notes": "Garchomp is faster than Pikachu, but Quick Attack has +1 priority, so Pikachu (side 1) must act first.",
+
+  "format": "singles",
+  "teams": [
+    [
+      {"species": "garchomp", "ability": "roughskin", "moves": ["dragonclaw"]},
+      {"species": "snorlax",  "ability": "thickfat",  "moves": ["bodyslam"]},
+      {"species": "starmie",  "ability": "illuminate","moves": ["surf"]},
+      {"species": "gengar",   "ability": "cursedbody","moves": ["shadowball"]},
+      {"species": "skarmory", "ability": "sturdy",    "moves": ["peck"]},
+      {"species": "alakazam", "ability": "synchronize","moves": ["psychic"]}
+    ],
+    [
+      {"species": "pikachu",  "ability": "static",    "moves": ["quickattack"]},
+      {"species": "snorlax",  "ability": "thickfat",  "moves": ["bodyslam"]},
+      {"species": "starmie",  "ability": "illuminate","moves": ["surf"]},
+      {"species": "gengar",   "ability": "cursedbody","moves": ["shadowball"]},
+      {"species": "skarmory", "ability": "sturdy",    "moves": ["peck"]},
+      {"species": "alakazam", "ability": "synchronize","moves": ["psychic"]}
+    ]
+  ],
+  "select": [[0, 1, 2], [0, 1, 2]],
+  "turns": [["move:0", "move:0"]],
+
+  "expect": [
+    {"check": "first_mover", "value": 1}
+  ]
+}

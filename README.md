@@ -23,13 +23,14 @@ Regulation Set M-B 룰을 따르는 배틀 엔진을 직접 구현하고, 그 �
 | 학습기술 | 게임 도감 기준 (전 세대 합집합 아님) |
 | 환경 | PettingZoo **ParallelEnv** (싱글/더블, 행동 마스크, 정보집합 분리) |
 | 에이전트 도구 | 도감 참조표 + 데미지 계산기 + 확률 (난수·명중·급소·부가효과·턴 손실) |
+| 탐색 | 결정화 + 동시행동 MCTS (Decoupled UCT, IS-MCTS 단일 트리) |
 | 더블 전용 | 타겟팅, 광범위 0.75배, 유인(따라하기·분노가루·피뢰침·저수), 동맹 특성·기술 |
 | 메가진화 | 배틀당 1회, 기절해도 유지 |
 | 표기 | 한국어(조사 처리 포함) / 영어 |
-| 테스트 | 514 |
+| 테스트 | 530 |
 | 처리량 | 싱글 2,500 / 더블 680 turns/s (단일 코어) |
 
-미착수: 학습 루프, 파티 구성 학습, 탐색 정책.
+미착수: 학습 루프(가치망·정책망), 파티 구성 학습.
 
 ## 셋업
 
@@ -113,6 +114,16 @@ PettingZoo 환경으로 (행동 마스크를 읽는 랜덤 정책):
 .venv/Scripts/python.exe scripts/env_demo.py --explain --seed 4
 ```
 
+정책끼리 붙여보기 (팀을 미러링하고 신뢰구간까지 출력):
+
+```bash
+.venv/Scripts/python.exe scripts/arena.py --a greedy --b random --battles 60
+```
+
+```bash
+.venv/Scripts/python.exe scripts/arena.py --a search --b greedy --battles 25
+```
+
 처리량 측정:
 
 ```bash
@@ -153,6 +164,10 @@ src/pkcm/
     observation  정보집합 — 그 플레이어가 아는 것만 + determinize
     reference    도감 참조표 — 가중치에 외우는 대신 조회하는 시트
     analysis     데미지 계산기 — 관측만 보고, 모르는 건 구간으로
+  search/       탐색 — 엔진에 직접 올라탄다 (환경을 안 거친다)
+    mcts         결정화 + 동시행동 MCTS
+    policy       Policy 프로토콜 — random / greedy / search
+    evaluate     리프 평가 — 물량 휴리스틱 또는 롤아웃
     encoding     관측 → 배열, 행동 ↔ 정수 인덱스
     champions    ParallelEnv 본체
   render/       이벤트 로그 소비자 — 텍스트 뷰어(한/영), 표시명

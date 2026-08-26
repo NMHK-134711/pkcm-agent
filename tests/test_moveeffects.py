@@ -892,3 +892,23 @@ def test_sleeping_through_sleep_talk_still_costs_a_turn_of_sleep(dex, config):
     ctx = make_context(state)
     cast(ctx, dex, "sleeptalk")
     assert state.sides[0].status_data[0]["turns"] == 2
+
+
+def test_sleep_talk_actually_lands_the_move_it_picks(dex, config):
+    """It was calling one and then having it blocked by the same sleep.
+
+    A called move is part of its caller's action, not a second action, so it
+    does not face ``try_move`` again -- which is also what stopped the sleep
+    counter ticking twice in a turn.
+    """
+    state = build(config, a_set("snorlax", "thickfat", ("sleeptalk", "bodyslam")),
+                  a_set("pikachu", "static"))
+    state.sides[0].status[0] = "slp"
+    state.sides[0].status_data[0] = {"turns": 3}
+    before = state.sides[1].hp[0]
+
+    ctx = make_context(state)
+    cast(ctx, dex, "sleeptalk")
+    assert any(e.kind == "called_move" and e.move == "bodyslam" for e in ctx.log)
+    assert not any(e.kind == "cant_move" for e in ctx.log)
+    assert state.sides[1].hp[0] < before, "the called move has to actually happen"

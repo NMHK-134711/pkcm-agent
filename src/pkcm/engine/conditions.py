@@ -122,6 +122,13 @@ def _sleep_blocks_move(ctx, ref, move, **_):
     asleep is what stopped them. The counter ticks either way, so sleeping
     through Sleep Talk still costs a turn of sleep.
     """
+    # A move called by another one -- Sleep Talk's pick, Copycat's copy -- is
+    # part of the caller's action, not a second action. Checking it again would
+    # block the very move Sleep Talk exists to make, and tick the sleep counter
+    # twice in one turn.
+    if getattr(ctx, "call_depth", 0) > 0:
+        return None
+
     data = ctx.state.sides[ref[0]].status_data[ref[1]]
     data["turns"] = data.get("turns", SLEEP_DURATIONS[-1]) - 1
     if data["turns"] <= 0:

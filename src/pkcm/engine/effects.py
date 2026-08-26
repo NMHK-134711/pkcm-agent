@@ -75,6 +75,10 @@ EVENTS: dict[str, str] = {
         "Unaware answers no, and it has to be asked from the other side."
     ),
     "modify_weight": "ref -- the Pokemon's weight in kg (Light Metal, Heavy Metal)",
+    "modify_field_duration": (
+        "ref (whoever set it), field, kind -- how long a weather, terrain or "
+        "screen lasts. The weather rocks and Light Clay live here."
+    ),
     "modify_effectiveness": "ref, target, move -- type multiplier",
     "modify_crit_ratio": "ref, target, move -- denominator of the crit chance",
     "modify_indirect_damage": (
@@ -93,6 +97,14 @@ EVENTS: dict[str, str] = {
     "try_hit": "ref, attacker, defender, move -- may this move hit at all",
     "try_volatile": "ref, volatile, source -- may this volatile condition be added",
     "try_secondary": "ref, attacker, move -- may a move's secondary effects land",
+    "after_use_item": "ref, item -- the held item was just consumed",
+    "commit_move": (
+        "ref, move, move_index -- the holder has committed to a move this turn. "
+        "Choice items lock in here."
+    ),
+    "dealt_damage": "ref, attacker, defender, move, damage -- our move connected",
+    "modify_drain": "ref, move -- how much a draining move gives back (Big Root)",
+    "update": "ref -- a checkpoint for items that watch HP or status (berries)",
 }
 
 

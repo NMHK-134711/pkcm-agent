@@ -1,0 +1,1102 @@
+{
+ "source": "op.gg Pokemon Champions item list, scraped by hk",
+ "inferred_mega_stones": [
+  "absolite",
+  "alakazite",
+  "blastoisinite",
+  "chimechite",
+  "dragoninite",
+  "froslassite",
+  "gardevoirite",
+  "gyaradosite",
+  "hawluchanite",
+  "houndoominite",
+  "medichamite",
+  "tyranitarite"
+ ],
+ "inferred_note": "Not in the op.gg scrape, but their Mega formes are legal in Regulation M-B, so the stones exist. Showdown's Champions mod enables all 12 as well.",
+ "note": "The item roster as it stands in the live game. More current than Showdown's Champions mod, which is a community port. Korean names were matched to Showdown ids through PokeAPI's multilingual names.",
+ "count": 135,
+ "items": [
+  {
+   "korean": "큰뿌리",
+   "new_in_champions": true,
+   "description_ko": "HP를 흡수하는 기술의 회복량이 1.3배가 된다. 뿌리박기, 힘흡수 등도 1.3배가 된다.",
+   "source": "Shop",
+   "price": "700",
+   "id": "bigroot"
+  },
+  {
+   "korean": "검은띠",
+   "new_in_champions": false,
+   "description_ko": "격투타입 기술의 위력이 1.2배가 된다.",
+   "source": "Shop",
+   "price": "700",
+   "id": "blackbelt"
+  },
+  {
+   "korean": "검은안경",
+   "new_in_champions": false,
+   "description_ko": "악타입 기술의 위력이 1.2배가 된다.",
+   "source": "Shop",
+   "price": "700",
+   "id": "blackglasses"
+  },
+  {
+   "korean": "반짝가루",
+   "new_in_champions": false,
+   "description_ko": "자신에게 상대가 사용하는 기술의 명중률이 0.9배가 된다.",
+   "source": "Beginning",
+   "price": "-",
+   "id": "brightpowder"
+  },
+  {
+   "korean": "목탄",
+   "new_in_champions": false,
+   "description_ko": "불꽃타입 기술의 위력이 1.2배가 된다.",
+   "source": "Shop",
+   "price": "700",
+   "id": "charcoal"
+  },
+  {
+   "korean": "구애스카프",
+   "new_in_champions": false,
+   "description_ko": "스피드가 1.5배가 되지만 한번 기술을 사용하면 교체하기 전까지 그 기술만 사용할 수 있게 된다.",
+   "source": "Beginning",
+   "price": "-",
+   "id": "choicescarf"
+  },
+  {
+   "korean": "축축한바위",
+   "new_in_champions": true,
+   "description_ko": "기술이나 특성으로 비 상태로 만들었을 때 지속 시간이 3턴 증가한다. (총 8턴)",
+   "source": "Shop",
+   "price": "700",
+   "id": "damprock"
+  },
+  {
+   "korean": "용의이빨",
+   "new_in_champions": false,
+   "description_ko": "드래곤타입 기술의 위력이 1.2배가 된다.",
+   "source": "Shop",
+   "price": "700",
+   "id": "dragonfang"
+  },
+  {
+   "korean": "달인의띠",
+   "new_in_champions": true,
+   "description_ko": "사용한 기술이 효과가 굉장했을 때 위력이 1.2배가 된다.",
+   "source": "Shop",
+   "price": "1,000",
+   "id": "expertbelt"
+  },
+  {
+   "korean": "요정의깃털",
+   "new_in_champions": false,
+   "description_ko": "페어리타입 기술의 위력이 1.2배가 된다.",
+   "source": "Shop",
+   "price": "700",
+   "id": "fairyfeather"
+  },
+  {
+   "korean": "기합의머리띠",
+   "new_in_champions": false,
+   "description_ko": "기절할 듯한 기술로 데미지를 입으면 10% 확률로 HP를 1 남기고 버틴다.",
+   "source": "Beginning",
+   "price": "-",
+   "id": "focusband"
+  },
+  {
+   "korean": "기합의띠",
+   "new_in_champions": false,
+   "description_ko": "HP가 꽉 찼을 때 일격에 기절할 듯한 기술로 데미지를 입으면 HP를 1 남기고 버틴다. 한 번 사용하면 그 대전 중에는 사라진다.",
+   "source": "Beginning",
+   "price": "-",
+   "id": "focussash"
+  },
+  {
+   "korean": "딱딱한돌",
+   "new_in_champions": false,
+   "description_ko": "바위타입 기술의 위력이 1.2배가 된다.",
+   "source": "Shop",
+   "price": "700",
+   "id": "hardstone"
+  },
+  {
+   "korean": "뜨거운바위",
+   "new_in_champions": true,
+   "description_ko": "기술이나 특성으로 쾌청 상태로 만들었을 때 지속 시간이 3턴 증가한다. (총 8턴)",
+   "source": "Shop",
+   "price": "700",
+   "id": "heatrock"
+  },
+  {
+   "korean": "차가운바위",
+   "new_in_champions": true,
+   "description_ko": "기술이나 특성으로 눈 상태로 만들었을 때 지속 시간이 3턴 증가한다. (총 8턴)",
+   "source": "Shop",
+   "price": "700",
+   "id": "icyrock"
+  },
+  {
+   "korean": "검은철구",
+   "new_in_champions": true,
+   "description_ko": "스피드가 1/2이 된다. 땅 위에 있지 않은 포켓몬은 땅 위에 있게 되어 땅타입 기술, 압정뿌리기, 독압정, 끈적끈적네트 상태의 효과를 받게 된다.",
+   "source": "Shop",
+   "price": "1,000",
+   "id": "ironball"
+  },
+  {
+   "korean": "왕의징표석",
+   "new_in_champions": false,
+   "description_ko": "기술로 데미지를 주었을 때 10% 확률로 상대를 풀죽게 한다.",
+   "source": "Beginning",
+   "price": "-",
+   "id": "kingsrock"
+  },
+  {
+   "korean": "먹다남은음식",
+   "new_in_champions": false,
+   "description_ko": "턴 종료 시 최대 HP의 1/16만큼 회복한다.",
+   "source": "Beginning",
+   "price": "-",
+   "id": "leftovers"
+  },
+  {
+   "korean": "생명의구슬",
+   "new_in_champions": true,
+   "description_ko": "기술의 위력이 1.3배가 되지만 공격이 성공할 때마다 최대 HP의 1/10만큼 HP가 줄어든다.",
+   "source": "Shop",
+   "price": "1,000",
+   "id": "lifeorb"
+  },
+  {
+   "korean": "전기구슬",
+   "new_in_champions": false,
+   "description_ko": "피카츄의 공격, 특수공격이 2배가 된다.",
+   "source": "Shop",
+   "price": "1,000",
+   "id": "lightball"
+  },
+  {
+   "korean": "빛의점토",
+   "new_in_champions": true,
+   "description_ko": "빛의장막, 리플렉터, 오로라베일을 사용했을 때 지속 시간이 3턴 증가한다. (총 8턴)",
+   "source": "Shop",
+   "price": "1,000",
+   "id": "lightclay"
+  },
+  {
+   "korean": "자석",
+   "new_in_champions": false,
+   "description_ko": "전기타입 기술의 위력이 1.2배가 된다.",
+   "source": "Shop",
+   "price": "700",
+   "id": "magnet"
+  },
+  {
+   "korean": "멘탈허브",
+   "new_in_champions": false,
+   "description_ko": "헤롱헤롱, 도발, 연속 불가, 기술봉인, 회복봉인, 앙코르 상태를 회복한다. 한 번 사용하면 그 대전 중에는 사라진다.",
+   "source": "Shop",
+   "price": "1,000",
+   "id": "mentalherb"
+  },
+  {
+   "korean": "금속코트",
+   "new_in_champions": false,
+   "description_ko": "강철타입 기술의 위력이 1.2배가 된다.",
+   "source": "Shop",
+   "price": "700",
+   "id": "metalcoat"
+  },
+  {
+   "korean": "메트로놈",
+   "new_in_champions": true,
+   "description_ko": "같은 기술을 연속해서 사용하면 위력이 올라간다. 2회 연속 시 1.2배, 3회 연속 시 1.4배가 올라가며 최대 2배까지 올라간다. 멈추면 원래대로 돌아온다.",
+   "source": "Shop",
+   "price": "700",
+   "id": "metronome"
+  },
+  {
+   "korean": "기적의씨",
+   "new_in_champions": false,
+   "description_ko": "풀타입 기술의 위력이 1.2배가 된다.",
+   "source": "Shop",
+   "price": "700",
+   "id": "miracleseed"
+  },
+  {
+   "korean": "힘의머리띠",
+   "new_in_champions": true,
+   "description_ko": "물리 기술의 위력이 1.1배가 된다.",
+   "source": "Shop",
+   "price": "700",
+   "id": "muscleband"
+  },
+  {
+   "korean": "신비의물방울",
+   "new_in_champions": false,
+   "description_ko": "물타입 기술의 위력이 1.2배가 된다.",
+   "source": "Shop",
+   "price": "700",
+   "id": "mysticwater"
+  },
+  {
+   "korean": "녹지않는얼음",
+   "new_in_champions": false,
+   "description_ko": "얼음타입 기술의 위력이 1.2배가 된다.",
+   "source": "Shop",
+   "price": "700",
+   "id": "nevermeltice"
+  },
+  {
+   "korean": "독바늘",
+   "new_in_champions": false,
+   "description_ko": "독타입 기술의 위력이 1.2배가 된다.",
+   "source": "Shop",
+   "price": "700",
+   "id": "poisonbarb"
+  },
+  {
+   "korean": "선제공격손톱",
+   "new_in_champions": false,
+   "description_ko": "20% 확률로 우선도가 같은 기술 중에서 가장 먼저 행동한다.",
+   "source": "Beginning",
+   "price": "-",
+   "id": "quickclaw"
+  },
+  {
+   "korean": "초점렌즈",
+   "new_in_champions": false,
+   "description_ko": "급소업+1이 된다.",
+   "source": "Shop",
+   "price": "1,000",
+   "id": "scopelens"
+  },
+  {
+   "korean": "예리한부리",
+   "new_in_champions": false,
+   "description_ko": "비행타입 기술의 위력이 1.2배가 된다.",
+   "source": "Shop",
+   "price": "700",
+   "id": "sharpbeak"
+  },
+  {
+   "korean": "아름다운허물",
+   "new_in_champions": true,
+   "description_ko": "교체를 방해하는 효과를 무시하고 다른 지닌 포켓몬과 교체할 수 있게 된다.",
+   "source": "Shop",
+   "price": "700",
+   "id": "shedshell"
+  },
+  {
+   "korean": "조개껍질방울",
+   "new_in_champions": false,
+   "description_ko": "기술로 데미지를 주었을 때 그 데미지의 1/8만큼 자신의 HP를 회복한다.",
+   "source": "Shop",
+   "price": "700",
+   "id": "shellbell"
+  },
+  {
+   "korean": "실크스카프",
+   "new_in_champions": false,
+   "description_ko": "노말타입 기술의 위력이 1.2배가 된다.",
+   "source": "Shop",
+   "price": "700",
+   "id": "silkscarf"
+  },
+  {
+   "korean": "은빛가루",
+   "new_in_champions": false,
+   "description_ko": "벌레타입 기술의 위력이 1.2배가 된다.",
+   "source": "Shop",
+   "price": "700",
+   "id": "silverpowder"
+  },
+  {
+   "korean": "보송보송바위",
+   "new_in_champions": true,
+   "description_ko": "기술이나 특성으로 모래바람 상태로 만들었을 때 지속 시간이 3턴 증가한다. (총 8턴)",
+   "source": "Shop",
+   "price": "700",
+   "id": "smoothrock"
+  },
+  {
+   "korean": "부드러운모래",
+   "new_in_champions": false,
+   "description_ko": "땅타입 기술의 위력이 1.2배가 된다.",
+   "source": "Shop",
+   "price": "700",
+   "id": "softsand"
+  },
+  {
+   "korean": "저주의부적",
+   "new_in_champions": false,
+   "description_ko": "고스트타입 기술의 위력이 1.2배가 된다.",
+   "source": "Shop",
+   "price": "700",
+   "id": "spelltag"
+  },
+  {
+   "korean": "휘어진스푼",
+   "new_in_champions": false,
+   "description_ko": "에스퍼타입 기술의 위력이 1.2배가 된다.",
+   "source": "Shop",
+   "price": "700",
+   "id": "twistedspoon"
+  },
+  {
+   "korean": "하양허브",
+   "new_in_champions": false,
+   "description_ko": "능력이 떨어지면 원래대로 되돌린다. 한 번 사용하면 그 대전 중에는 사라진다.",
+   "source": "Beginning",
+   "price": "-",
+   "id": "whiteherb"
+  },
+  {
+   "korean": "광각렌즈",
+   "new_in_champions": true,
+   "description_ko": "기술의 명중률이 1.1배가 된다.",
+   "source": "Shop",
+   "price": "700",
+   "id": "widelens"
+  },
+  {
+   "korean": "박식안경",
+   "new_in_champions": true,
+   "description_ko": "특수 기술의 위력이 1.1배가 된다.",
+   "source": "Shop",
+   "price": "700",
+   "id": "wiseglasses"
+  },
+  {
+   "korean": "눈설왕나이트",
+   "new_in_champions": false,
+   "description_ko": "눈설왕이 메가진화할 수 있게 되는 도구. Mega Evolution Tutorial - 앱솔나이트 앱솔나이트 앱솔이 메가진화할 수 있게 되는 도구. (메가앱솔)",
+   "source": "Shop",
+   "price": "2,000",
+   "id": "abomasite"
+  },
+  {
+   "korean": "프테라나이트",
+   "new_in_champions": false,
+   "description_ko": "프테라가 메가진화할 수 있게 되는 도구.",
+   "source": "Shop",
+   "price": "2,000",
+   "id": "aerodactylite"
+  },
+  {
+   "korean": "보스로라나이트",
+   "new_in_champions": false,
+   "description_ko": "보스로라가 메가진화할 수 있게 되는 도구. Mega Evolution Tutorial - 후디나이트 후디나이트 후딘이 메가진화할 수 있게 되는 도구.",
+   "source": "Shop",
+   "price": "2,000",
+   "id": "aggronite"
+  },
+  {
+   "korean": "파비코리나이트",
+   "new_in_champions": false,
+   "description_ko": "파비코리가 메가진화할 수 있게 되는 도구.",
+   "source": "Shop",
+   "price": "2,000",
+   "id": "altarianite"
+  },
+  {
+   "korean": "전룡나이트",
+   "new_in_champions": false,
+   "description_ko": "전룡이 메가진화할 수 있게 되는 도구.",
+   "source": "Shop",
+   "price": "2,000",
+   "id": "ampharosite"
+  },
+  {
+   "korean": "다부니나이트",
+   "new_in_champions": false,
+   "description_ko": "다부니가 메가진화할 수 있게 되는 도구.",
+   "source": "Shop",
+   "price": "2,000",
+   "id": "audinite"
+  },
+  {
+   "korean": "다크펫나이트",
+   "new_in_champions": false,
+   "description_ko": "다크펫이 메가진화할 수 있게 되는 도구.",
+   "source": "Shop",
+   "price": "2,000",
+   "id": "banettite"
+  },
+  {
+   "korean": "독침붕나이트",
+   "new_in_champions": false,
+   "description_ko": "독침붕이 메가진화할 수 있게 되는 도구. Mega Evolution Tutorial - 거북왕나이트 거북왕나이트 거북왕이 메가진화할 수 있게 되는 도구.",
+   "source": "Shop",
+   "price": "2,000",
+   "id": "beedrillite"
+  },
+  {
+   "korean": "폭타나이트",
+   "new_in_champions": false,
+   "description_ko": "폭타가 메가진화할 수 있게 되는 도구.",
+   "source": "Shop",
+   "price": "2,000",
+   "id": "cameruptite"
+  },
+  {
+   "korean": "샹델라나이트",
+   "new_in_champions": false,
+   "description_ko": "샹델라가 메가진화할 수 있게 되는 도구.",
+   "source": "Shop",
+   "price": "2,000",
+   "id": "chandelurite"
+  },
+  {
+   "korean": "리자몽나이트X",
+   "new_in_champions": false,
+   "description_ko": "리자몽이 메가진화할 수 있게 되는 도구. (메가리자몽X)",
+   "source": "Shop",
+   "price": "2,000",
+   "id": "charizarditex"
+  },
+  {
+   "korean": "리자몽나이트Y",
+   "new_in_champions": false,
+   "description_ko": "리자몽이 메가진화할 수 있게 되는 도구. (메가리자몽Y)",
+   "source": "Shop",
+   "price": "2,000",
+   "id": "charizarditey"
+  },
+  {
+   "korean": "브리가론나이트",
+   "new_in_champions": false,
+   "description_ko": "브리가론이 메가진화할 수 있게 되는 도구. Deposit Chesnaught from Pokemon Legends: Z-A - 치렁나이트 치렁나이트 치렁이 메가진화할 수 있게 되는 도구.",
+   "source": "Shop",
+   "price": "2,000",
+   "id": "chesnaughtite"
+  },
+  {
+   "korean": "픽시나이트",
+   "new_in_champions": false,
+   "description_ko": "픽시가 메가진화할 수 있게 되는 도구.",
+   "source": "Shop",
+   "price": "2,000",
+   "id": "clefablite"
+  },
+  {
+   "korean": "모단단게나이트",
+   "new_in_champions": false,
+   "description_ko": "모단단게가 메가진화할 수 있게 되는 도구.",
+   "source": "Shop",
+   "price": "2,000",
+   "id": "crabominite"
+  },
+  {
+   "korean": "마폭시나이트",
+   "new_in_champions": false,
+   "description_ko": "마폭시가 메가진화할 수 있게 되는 도구. Deposit Delphox from Pokemon Legends: Z-A - 망나뇽나이트 망나뇽나이트 망나뇽이 메가진화할 수 있게 되는 도구.",
+   "source": "Shop",
+   "price": "2,000",
+   "id": "delphoxite"
+  },
+  {
+   "korean": "할비롱나이트",
+   "new_in_champions": false,
+   "description_ko": "할비롱이 메가진화할 수 있게 되는 도구.",
+   "source": "Shop",
+   "price": "2,000",
+   "id": "drampanite"
+  },
+  {
+   "korean": "염무왕나이트",
+   "new_in_champions": false,
+   "description_ko": "염무왕이 메가진화할 수 있게 되는 도구.",
+   "source": "Shop",
+   "price": "2,000",
+   "id": "emboarite"
+  },
+  {
+   "korean": "몰드류나이트",
+   "new_in_champions": false,
+   "description_ko": "몰드류가 메가진화할 수 있게 되는 도구.",
+   "source": "Shop",
+   "price": "2,000",
+   "id": "excadrite"
+  },
+  {
+   "korean": "장크로다일나이트",
+   "new_in_champions": false,
+   "description_ko": "장크로다일이 메가진화할 수 있게 되는 도구.",
+   "source": "Shop",
+   "price": "2,000",
+   "id": "feraligite"
+  },
+  {
+   "korean": "플라엣테나이트",
+   "new_in_champions": false,
+   "description_ko": "플라엣테(영원의 꽃)가 메가진화할 수 있게 되는 도구. Deposit Floette Eternal Flower from Pokemon Legends: Z-A - 눈여아나이트 눈여아나이트 눈여아가 메가진화할 수 있게 되는 도구.",
+   "source": "Shop",
+   "price": "2,000",
+   "id": "floettite"
+  },
+  {
+   "korean": "엘레이드나이트",
+   "new_in_champions": false,
+   "description_ko": "엘레이드가 메가진화할 수 있게 되는 도구.",
+   "source": "Shop",
+   "price": "2,000",
+   "id": "galladite"
+  },
+  {
+   "korean": "한카리아스나이트",
+   "new_in_champions": false,
+   "description_ko": "한카리아스가 메가진화할 수 있게 되는 도구. (메가한카리아스) Mega Evolution Tutorial - 가디안나이트 가디안나이트 가디안이 메가진화할 수 있게 되는 도구.",
+   "source": "Shop",
+   "price": "2,000",
+   "id": "garchompite"
+  },
+  {
+   "korean": "팬텀나이트",
+   "new_in_champions": false,
+   "description_ko": "팬텀이 메가진화할 수 있게 되는 도구.",
+   "source": "Shop",
+   "price": "2,000",
+   "id": "gengarite"
+  },
+  {
+   "korean": "얼음귀신나이트",
+   "new_in_champions": false,
+   "description_ko": "얼음귀신이 메가진화할 수 있게 되는 도구.",
+   "source": "Shop",
+   "price": "2,000",
+   "id": "glalitite"
+  },
+  {
+   "korean": "킬라플로르나이트",
+   "new_in_champions": false,
+   "description_ko": "킬라플로르가 메가진화할 수 있게 되는 도구.",
+   "source": "Shop",
+   "price": "2,000",
+   "id": "glimmoranite"
+  },
+  {
+   "korean": "골루그나이트",
+   "new_in_champions": false,
+   "description_ko": "골루그가 메가진화할 수 있게 되는 도구.",
+   "source": "Shop",
+   "price": "2,000",
+   "id": "golurkite"
+  },
+  {
+   "korean": "개굴닌자나이트",
+   "new_in_champions": false,
+   "description_ko": "개굴닌자가 메가진화할 수 있게 되는 도구. Deposit Greninja from Pokemon Legends: Z-A - 갸라도스나이트 갸라도스나이트 갸라도스가 메가진화할 수 있게 되는 도구. Mega Evolution Tutorial - 루차불나이트 루차불나이트 루차불이 메가진화할 수 있게 되는 도구.",
+   "source": "Shop",
+   "price": "2,000",
+   "id": "greninjite"
+  },
+  {
+   "korean": "헤라크로스나이트",
+   "new_in_champions": false,
+   "description_ko": "헤라크로스가 메가진화할 수 있게 되는 도구. Mega Evolution Tutorial - 헬가나이트 헬가나이트 헬가가 메가진화할 수 있게 되는 도구.",
+   "source": "Shop",
+   "price": "2,000",
+   "id": "heracronite"
+  },
+  {
+   "korean": "캥카나이트",
+   "new_in_champions": false,
+   "description_ko": "캥카가 메가진화할 수 있게 되는 도구.",
+   "source": "Shop",
+   "price": "2,000",
+   "id": "kangaskhanite"
+  },
+  {
+   "korean": "이어롭나이트",
+   "new_in_champions": false,
+   "description_ko": "이어롭이 메가진화할 수 있게 되는 도구.",
+   "source": "Shop",
+   "price": "2,000",
+   "id": "lopunnite"
+  },
+  {
+   "korean": "루카리오나이트",
+   "new_in_champions": false,
+   "description_ko": "루카리오가 메가진화할 수 있게 되는 도구. (메가루카리오)",
+   "source": "Shop",
+   "price": "2,000",
+   "id": "lucarionite"
+  },
+  {
+   "korean": "썬더볼트나이트",
+   "new_in_champions": false,
+   "description_ko": "썬더볼트가 메가진화할 수 있게 되는 도구. Mega Evolution Tutorial - 요가램나이트 요가램나이트 요가램이 메가진화할 수 있게 되는 도구.",
+   "source": "Shop",
+   "price": "2,000",
+   "id": "manectite"
+  },
+  {
+   "korean": "메가니움나이트",
+   "new_in_champions": false,
+   "description_ko": "메가니움이 메가진화할 수 있게 되는 도구.",
+   "source": "Shop",
+   "price": "2,000",
+   "id": "meganiumite"
+  },
+  {
+   "korean": "냐오닉스나이트",
+   "new_in_champions": false,
+   "description_ko": "냐오닉스가 메가진화할 수 있게 되는 도구.",
+   "source": "Shop",
+   "price": "2,000",
+   "id": "meowsticite"
+  },
+  {
+   "korean": "피죤투나이트",
+   "new_in_champions": false,
+   "description_ko": "피죤투가 메가진화할 수 있게 되는 도구.",
+   "source": "Shop",
+   "price": "2,000",
+   "id": "pidgeotite"
+  },
+  {
+   "korean": "쁘사이저나이트",
+   "new_in_champions": false,
+   "description_ko": "쁘사이저가 메가진화할 수 있게 되는 도구.",
+   "source": "Shop",
+   "price": "2,000",
+   "id": "pinsirite"
+  },
+  {
+   "korean": "깜까미나이트",
+   "new_in_champions": false,
+   "description_ko": "깜까미가 메가진화할 수 있게 되는 도구.",
+   "source": "Shop",
+   "price": "2,000",
+   "id": "sablenite"
+  },
+  {
+   "korean": "핫삼나이트",
+   "new_in_champions": false,
+   "description_ko": "핫삼이 메가진화할 수 있게 되는 도구.",
+   "source": "Shop",
+   "price": "2,000",
+   "id": "scizorite"
+  },
+  {
+   "korean": "스코빌런나이트",
+   "new_in_champions": false,
+   "description_ko": "스코빌런이 메가진화할 수 있게 되는 도구.",
+   "source": "Shop",
+   "price": "2,000",
+   "id": "scovillainite"
+  },
+  {
+   "korean": "샤크니아나이트",
+   "new_in_champions": false,
+   "description_ko": "샤크니아가 메가진화할 수 있게 되는 도구.",
+   "source": "Shop",
+   "price": "2,000",
+   "id": "sharpedonite"
+  },
+  {
+   "korean": "무장조나이트",
+   "new_in_champions": false,
+   "description_ko": "무장조가 메가진화할 수 있게 되는 도구.",
+   "source": "Shop",
+   "price": "2,000",
+   "id": "skarmorite"
+  },
+  {
+   "korean": "야도란나이트",
+   "new_in_champions": false,
+   "description_ko": "야도란이 메가진화할 수 있게 되는 도구. 가라르의 모습에게는 효과가 없다.",
+   "source": "Shop",
+   "price": "2,000",
+   "id": "slowbronite"
+  },
+  {
+   "korean": "아쿠스타나이트",
+   "new_in_champions": false,
+   "description_ko": "아쿠스타가 메가진화할 수 있게 되는 도구.",
+   "source": "Shop",
+   "price": "2,000",
+   "id": "starminite"
+  },
+  {
+   "korean": "강철톤나이트",
+   "new_in_champions": false,
+   "description_ko": "강철톤이 메가진화할 수 있게 되는 도구. Mega Evolution Tutorial - 마기라스나이트 마기라스나이트 마기라스가 메가진화할 수 있게 되는 도구.",
+   "source": "Shop",
+   "price": "2,000",
+   "id": "steelixite"
+  },
+  {
+   "korean": "이상해꽃나이트",
+   "new_in_champions": false,
+   "description_ko": "이상해꽃이 메가진화할 수 있게 되는 도구.",
+   "source": "Shop",
+   "price": "2,000",
+   "id": "venusaurite"
+  },
+  {
+   "korean": "우츠보트나이트",
+   "new_in_champions": false,
+   "description_ko": "우츠보트가 메가진화할 수 있게 되는 도구.",
+   "source": "Shop",
+   "price": "2,000",
+   "id": "victreebelite"
+  },
+  {
+   "korean": "나무킹나이트",
+   "new_in_champions": true,
+   "description_ko": "나무킹이 메가진화할 수 있게 되는 도구.",
+   "source": "Shop",
+   "price": "2,000",
+   "id": "sceptilite"
+  },
+  {
+   "korean": "번치코나이트",
+   "new_in_champions": true,
+   "description_ko": "번치코가 메가진화할 수 있게 되는 도구.",
+   "source": "Shop",
+   "price": "2,000",
+   "id": "blazikenite"
+  },
+  {
+   "korean": "대짱이나이트",
+   "new_in_champions": true,
+   "description_ko": "대짱이가 메가진화할 수 있게 되는 도구.",
+   "source": "Shop",
+   "price": "2,000",
+   "id": "swampertite"
+  },
+  {
+   "korean": "입치트나이트",
+   "new_in_champions": true,
+   "description_ko": "입치트가 메가진화할 수 있게 되는 도구.",
+   "source": "Shop",
+   "price": "2,000",
+   "id": "mawilite"
+  },
+  {
+   "korean": "메타그로스나이트",
+   "new_in_champions": true,
+   "description_ko": "메타그로스가 메가진화할 수 있게 되는 도구.",
+   "source": "Shop",
+   "price": "2,000",
+   "id": "metagrossite"
+  },
+  {
+   "korean": "찌르호크나이트",
+   "new_in_champions": true,
+   "description_ko": "찌르호크가 메가진화할 수 있게 되는 도구.",
+   "source": "Shop",
+   "price": "2,000",
+   "id": "staraptite"
+  },
+  {
+   "korean": "펜드라나이트",
+   "new_in_champions": true,
+   "description_ko": "펜드라가 메가진화할 수 있게 되는 도구.",
+   "source": "Shop",
+   "price": "2,000",
+   "id": "scolipite"
+  },
+  {
+   "korean": "곤율거니나이트",
+   "new_in_champions": true,
+   "description_ko": "곤율거니가 메가진화할 수 있게 되는 도구.",
+   "source": "Shop",
+   "price": "2,000",
+   "id": "scraftinite"
+  },
+  {
+   "korean": "저리더프나이트",
+   "new_in_champions": true,
+   "description_ko": "저리더프가 메가진화할 수 있게 되는 도구.",
+   "source": "Shop",
+   "price": "2,000",
+   "id": "eelektrossite"
+  },
+  {
+   "korean": "화염레오나이트",
+   "new_in_champions": true,
+   "description_ko": "화염레오가 메가진화할 수 있게 되는 도구.",
+   "source": "Shop",
+   "price": "2,000",
+   "id": "pyroarite"
+  },
+  {
+   "korean": "칼라마네로나이트",
+   "new_in_champions": true,
+   "description_ko": "칼라마네로가 메가진화할 수 있게 되는 도구.",
+   "source": "Shop",
+   "price": "2,000",
+   "id": "malamarite"
+  },
+  {
+   "korean": "거북손데스나이트",
+   "new_in_champions": true,
+   "description_ko": "거북손데스가 메가진화할 수 있게 되는 도구.",
+   "source": "Shop",
+   "price": "2,000",
+   "id": "barbaracite"
+  },
+  {
+   "korean": "드래캄나이트",
+   "new_in_champions": true,
+   "description_ko": "드래캄이 메가진화할 수 있게 되는 도구.",
+   "source": "Shop",
+   "price": "2,000",
+   "id": "dragalgite"
+  },
+  {
+   "korean": "대여르나이트",
+   "new_in_champions": true,
+   "description_ko": "대여르가 메가진화할 수 있게 되는 도구.",
+   "source": "Shop",
+   "price": "2,000",
+   "id": "falinksite"
+  },
+  {
+   "korean": "라이츄나이트X",
+   "new_in_champions": true,
+   "description_ko": "라이츄가 메가진화할 수 있게 되는 도구. 알로라의 모습에게는 효과가 없다. (메가라이츄X)",
+   "source": "Shop",
+   "price": "2,000",
+   "id": "raichunitex"
+  },
+  {
+   "korean": "라이츄나이트Y",
+   "new_in_champions": true,
+   "description_ko": "라이츄가 메가진화할 수 있게 되는 도구. 알로라의 모습에게는 효과가 없다. (메가라이츄Y)",
+   "source": "Shop",
+   "price": "2,000",
+   "id": "raichunitey"
+  },
+  {
+   "korean": "배리열매",
+   "new_in_champions": false,
+   "description_ko": "얼음 상태를 회복한다. 한 번 사용하면 그 대전 중에는 사라진다.",
+   "source": "Shop",
+   "price": "400",
+   "id": "aspearberry"
+  },
+  {
+   "korean": "바리비열매",
+   "new_in_champions": false,
+   "description_ko": "효과가 굉장한 강철타입 기술을 받으면 데미지가 반감된다. 한 번 사용하면 그 대전 중에는 사라진다.",
+   "source": "Shop",
+   "price": "400",
+   "id": "babiriberry"
+  },
+  {
+   "korean": "루미열매",
+   "new_in_champions": false,
+   "description_ko": "효과가 굉장한 바위타입 기술을 받으면 데미지가 반감된다. 한 번 사용하면 그 대전 중에는 사라진다.",
+   "source": "Shop",
+   "price": "400",
+   "id": "chartiberry"
+  },
+  {
+   "korean": "버치열매",
+   "new_in_champions": false,
+   "description_ko": "마비 상태를 회복한다. 한 번 사용하면 그 대전 중에는 사라진다.",
+   "source": "Shop",
+   "price": "400",
+   "id": "cheriberry"
+  },
+  {
+   "korean": "유루열매",
+   "new_in_champions": false,
+   "description_ko": "잠듦 상태를 회복한다. 한 번 사용하면 그 대전 중에는 사라진다.",
+   "source": "Shop",
+   "price": "400",
+   "id": "chestoberry"
+  },
+  {
+   "korean": "카리열매",
+   "new_in_champions": false,
+   "description_ko": "노말타입 기술을 받으면 데미지가 반감된다. 한 번 사용하면 그 대전 중에는 사라진다.",
+   "source": "Shop",
+   "price": "400",
+   "id": "chilanberry"
+  },
+  {
+   "korean": "로플열매",
+   "new_in_champions": false,
+   "description_ko": "효과가 굉장한 격투타입 기술을 받으면 데미지가 반감된다. 한 번 사용하면 그 대전 중에는 사라진다.",
+   "source": "Shop",
+   "price": "400",
+   "id": "chopleberry"
+  },
+  {
+   "korean": "바코열매",
+   "new_in_champions": false,
+   "description_ko": "효과가 굉장한 비행타입 기술을 받으면 데미지가 반감된다. 한 번 사용하면 그 대전 중에는 사라진다.",
+   "source": "Shop",
+   "price": "400",
+   "id": "cobaberry"
+  },
+  {
+   "korean": "마코열매",
+   "new_in_champions": false,
+   "description_ko": "효과가 굉장한 악타입 기술을 받으면 데미지가 반감된다. 한 번 사용하면 그 대전 중에는 사라진다.",
+   "source": "Shop",
+   "price": "400",
+   "id": "colburberry"
+  },
+  {
+   "korean": "하반열매",
+   "new_in_champions": false,
+   "description_ko": "효과가 굉장한 드래곤타입 기술을 받으면 데미지가 반감된다. 한 번 사용하면 그 대전 중에는 사라진다.",
+   "source": "Shop",
+   "price": "400",
+   "id": "habanberry"
+  },
+  {
+   "korean": "수불열매",
+   "new_in_champions": false,
+   "description_ko": "효과가 굉장한 고스트타입 기술을 받으면 데미지가 반감된다. 한 번 사용하면 그 대전 중에는 사라진다.",
+   "source": "Shop",
+   "price": "400",
+   "id": "kasibberry"
+  },
+  {
+   "korean": "으름열매",
+   "new_in_champions": false,
+   "description_ko": "효과가 굉장한 독타입 기술을 받으면 데미지가 반감된다. 한 번 사용하면 그 대전 중에는 사라진다.",
+   "source": "Shop",
+   "price": "400",
+   "id": "kebiaberry"
+  },
+  {
+   "korean": "과사열매",
+   "new_in_champions": false,
+   "description_ko": "PP가 0이 된 기술의 PP를 10 회복한다. 한 번 사용하면 그 대전 중에는 사라진다.",
+   "source": "Shop",
+   "price": "400",
+   "id": "leppaberry"
+  },
+  {
+   "korean": "리샘열매",
+   "new_in_champions": false,
+   "description_ko": "모든 상태 이상과 혼란 상태를 회복한다. 한 번 사용하면 그 대전 중에는 사라진다.",
+   "source": "Beginning",
+   "price": "-",
+   "id": "lumberry"
+  },
+  {
+   "korean": "오카열매",
+   "new_in_champions": false,
+   "description_ko": "효과가 굉장한 불꽃타입 기술을 받으면 데미지가 반감된다. 한 번 사용하면 그 대전 중에는 사라진다.",
+   "source": "Shop",
+   "price": "400",
+   "id": "occaberry"
+  },
+  {
+   "korean": "오랭열매",
+   "new_in_champions": false,
+   "description_ko": "남은 HP가 최대 HP의 1/2 이하가 되었을 때 HP를 10 회복한다. 한 번 사용하면 그 대전 중에는 사라진다.",
+   "source": "Shop",
+   "price": "400",
+   "id": "oranberry"
+  },
+  {
+   "korean": "꼬시개열매",
+   "new_in_champions": false,
+   "description_ko": "효과가 굉장한 물타입 기술을 받으면 데미지가 반감된다. 한 번 사용하면 그 대전 중에는 사라진다.",
+   "source": "Shop",
+   "price": "400",
+   "id": "passhoberry"
+  },
+  {
+   "korean": "야파열매",
+   "new_in_champions": false,
+   "description_ko": "효과가 굉장한 에스퍼타입 기술을 받으면 데미지가 반감된다. 한 번 사용하면 그 대전 중에는 사라진다.",
+   "source": "Shop",
+   "price": "400",
+   "id": "payapaberry"
+  },
+  {
+   "korean": "복슝열매",
+   "new_in_champions": false,
+   "description_ko": "독, 맹독 상태를 회복한다. 한 번 사용하면 그 대전 중에는 사라진다.",
+   "source": "Shop",
+   "price": "400",
+   "id": "pechaberry"
+  },
+  {
+   "korean": "시몬열매",
+   "new_in_champions": false,
+   "description_ko": "혼란 상태를 회복한다. 한 번 사용하면 그 대전 중에는 사라진다.",
+   "source": "Shop",
+   "price": "400",
+   "id": "persimberry"
+  },
+  {
+   "korean": "복분열매",
+   "new_in_champions": false,
+   "description_ko": "화상 상태를 회복한다. 한 번 사용하면 그 대전 중에는 사라진다.",
+   "source": "Shop",
+   "price": "400",
+   "id": "rawstberry"
+  },
+  {
+   "korean": "린드열매",
+   "new_in_champions": false,
+   "description_ko": "효과가 굉장한 풀타입 기술을 받으면 데미지가 반감된다. 한 번 사용하면 그 대전 중에는 사라진다.",
+   "source": "Shop",
+   "price": "400",
+   "id": "rindoberry"
+  },
+  {
+   "korean": "로셀열매",
+   "new_in_champions": false,
+   "description_ko": "효과가 굉장한 페어리타입 기술을 받으면 데미지가 반감된다. 한 번 사용하면 그 대전 중에는 사라진다.",
+   "source": "Shop",
+   "price": "400",
+   "id": "roseliberry"
+  },
+  {
+   "korean": "슈캐열매",
+   "new_in_champions": false,
+   "description_ko": "효과가 굉장한 땅타입 기술을 받으면 데미지가 반감된다. 한 번 사용하면 그 대전 중에는 사라진다.",
+   "source": "Shop",
+   "price": "400",
+   "id": "shucaberry"
+  },
+  {
+   "korean": "자뭉열매",
+   "new_in_champions": false,
+   "description_ko": "남은 HP가 최대 HP의 1/2 이하가 되었을 때 최대 HP의 1/4만큼 회복한다. 한 번 사용하면 그 대전 중에는 사라진다.",
+   "source": "Beginning",
+   "price": "-",
+   "id": "sitrusberry"
+  },
+  {
+   "korean": "리체열매",
+   "new_in_champions": false,
+   "description_ko": "효과가 굉장한 벌레타입 기술을 받으면 데미지가 반감된다. 한 번 사용하면 그 대전 중에는 사라진다.",
+   "source": "Shop",
+   "price": "400",
+   "id": "tangaberry"
+  },
+  {
+   "korean": "초나열매",
+   "new_in_champions": false,
+   "description_ko": "효과가 굉장한 전기타입 기술을 받으면 데미지가 반감된다. 한 번 사용하면 그 대전 중에는 사라진다.",
+   "source": "Shop",
+   "price": "400",
+   "id": "wacanberry"
+  },
+  {
+   "korean": "플카열매",
+   "new_in_champions": false,
+   "description_ko": "",
+   "source": "?",
+   "price": "-",
+   "id": "yacheberry"
+  }
+ ]
+}

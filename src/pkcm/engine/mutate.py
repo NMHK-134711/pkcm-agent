@@ -325,5 +325,23 @@ def remove_volatile(ctx: Context, ref: Ref, name: str, quiet: bool = False) -> b
     return True
 
 
+def consume_item(ctx: Context, ref: Ref, reason: str | None = None) -> str | None:
+    """Use up the held item. Gone for the rest of the battle, not just the turn."""
+    item_id = ctx.state.item_id(*ref)
+    if item_id is None:
+        return None
+    ctx.state.set_override(ref[0], ref[1], "item", None, permanent=True)
+    ctx.emit(Event("item_used", side=ref[0], slot=ref[1], detail=item_id,
+                   move=reason))
+    fx.notify(ctx, "after_use_item", ref, scope="self", item=item_id)
+    return item_id
+
+
+def check_item_triggers(ctx: Context, ref: Ref) -> None:
+    """Give held items a chance to react to whatever just happened."""
+    if ctx.state.sides[ref[0]].hp[ref[1]] > 0:
+        fx.notify(ctx, "update", ref, scope="self")
+
+
 def volatile(state, ref: Ref, name: str) -> dict | None:
     return state.sides[ref[0]].volatiles[ref[1]].get(name)

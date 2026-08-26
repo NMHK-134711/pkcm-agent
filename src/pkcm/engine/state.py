@@ -315,15 +315,23 @@ def legal_actions(state: BattleState, player: int) -> tuple[Action, ...]:
         )
 
     # Normal turn: any move with PP left, plus any living benched Pokemon.
-    disabled = side.volatiles[side.active].get("disabled", {}).get("move")
+    volatiles = side.volatiles[side.active]
+    disabled = volatiles.get("disabled", {}).get("move")
+    # A Choice item locks the holder into the first move it picks, until it
+    # leaves the field. Enforced here so the search and the environment mask
+    # see the same thing the engine does.
+    locked = volatiles.get("choicelock", {}).get("move")
+
     actions = [
         Action.move(index)
         for index, pp in enumerate(side.pp[side.active])
-        if pp > 0 and index != disabled
+        if pp > 0 and index != disabled and (locked is None or index == locked)
     ]
     if not actions:
         actions.append(Action.struggle())
-    if not side.has_volatile(side.active, "trapped"):
+    trapped = (side.has_volatile(side.active, "trapped")
+               and state.item_id(player, side.active) != "shedshell")
+    if not trapped:
         actions.extend(
             Action.switch(slot) for slot in side.living_slots() if slot != side.active
         )

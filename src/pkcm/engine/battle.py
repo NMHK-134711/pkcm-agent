@@ -15,6 +15,7 @@ from __future__ import annotations
 from pkcm.data.dex import Move, Stat
 from pkcm.engine import abilities  # noqa: F401  -- registers its effects on import
 from pkcm.engine import conditions  # noqa: F401  -- registers its effects on import
+from pkcm.engine import items  # noqa: F401  -- registers its effects on import
 from pkcm.engine import effects as fx
 from pkcm.engine import events as ev
 from pkcm.engine import moves as mv
@@ -132,6 +133,10 @@ def _resolve_turn(ctx: Context, actions: tuple[Action, ...]) -> None:
             continue  # knocked out before it could act
         _use(ctx, player, actions[player])
         ctx.acted.add((player, side.active))
+        for who in (0, 1):
+            other = ctx.state.sides[who]
+            if other.hp and not other.is_fainted(other.active):
+                mutate.check_item_triggers(ctx, (who, other.active))
         if _check_loss(ctx):
             return
 
@@ -243,6 +248,7 @@ def _end_of_turn(ctx: Context) -> None:
         if side.is_fainted(side.active):
             continue
         fx.notify(ctx, "residual", (player, side.active))
+        mutate.check_item_triggers(ctx, (player, side.active))
         if _check_loss(ctx):
             return
 
@@ -306,6 +312,7 @@ def _clear_turn_volatiles(ctx: Context) -> None:
             elif "stall" in volatiles:
                 del volatiles["stall"]
             volatiles.pop("flinch", None)
+            volatiles.pop("lastmove", None) if slot != side.active else None
 
 
 # --------------------------------------------------------------------------- #

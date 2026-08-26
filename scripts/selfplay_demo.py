@@ -53,8 +53,9 @@ def show_teams(config, teams) -> None:
         for pokemon in compile_team(config.dex, team):
             spread = "/".join(str(v) for v in pokemon.set.sp)
             moves = ", ".join(move.name for move in pokemon.moves)
+            item = config.dex.items[pokemon.item].name if pokemon.item else "-"
             print(
-                f"  {pokemon.species.name:<22} {pokemon.set.nature:<8} SP {spread:<18}"
+                f"  {pokemon.species.name:<20} {pokemon.set.nature:<8} @ {item:<14}"
                 f" HP {pokemon.max_hp:<4} Spe {pokemon.stats[5]:<4} | {moves}"
             )
 

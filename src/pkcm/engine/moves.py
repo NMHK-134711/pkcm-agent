@@ -30,8 +30,8 @@ LEVEL = 50
 #: change how many hits a KO takes, so the magic numbers below are the ones the
 #: source actually uses: 1.3 is 5325/4096, not 1.3.
 MODIFIER_SCALE = 4096
-X0_25, X0_5, X0_75 = 1024, 2048, 3072
-X1_2, X1_25, X1_3, X1_5 = 4915, 5120, 5325, 6144
+X0_25, X0_5, X0_75, X0_9 = 1024, 2048, 3072, 3686
+X1_1, X1_2, X1_25, X1_3, X1_5 = 4506, 4915, 5120, 5325, 6144
 X2 = 8192
 
 
@@ -356,6 +356,10 @@ def use_move(
 
     ctx.emit(ev.move_used(attacker[0], attacker[1], ctx.state.species_name(*attacker), move.name))
     _clear_flinch(ctx, attacker)
+    if move_index is not None:
+        side.volatiles[attacker[1]]["lastmove"] = move.id
+        fx.notify(ctx, "commit_move", attacker, scope="self",
+                  move=move, move_index=move_index)
 
     # A move this executor cannot run must say so. Letting it fall through would
     # look like a move that legitimately did nothing, and a policy trained on
@@ -471,6 +475,8 @@ def _apply_damaging_move(ctx: Context, attacker: Ref, defender: Ref, move: Move)
         ctx.emit(Event("multi_hit", side=attacker[0], move=move.name, amount=hits))
 
     if total:
+        fx.notify(ctx, "dealt_damage", attacker, scope="self", attacker=attacker,
+                  defender=defender, move=move, damage=total)
         fx.notify(ctx, "after_damage", defender, attacker=attacker, defender=defender,
                   move=move, damage=total, crit=any_crit)
         fx.notify(ctx, "after_damage", attacker, scope="self", attacker=attacker,
@@ -604,16 +610,12 @@ def _apply_field_effects(ctx: Context, attacker: Ref, target: Ref, move: Move) -
 
     weather = raw.get("weather")
     if weather:
-        ctx.state.field.weather = _to_id(weather)
-        ctx.state.field.weather_turns = 5
-        ctx.emit(Event("weather_start", detail=ctx.state.field.weather))
+        set_weather(ctx, _to_id(weather), attacker)
         changed = True
 
     terrain = raw.get("terrain")
     if terrain:
-        ctx.state.field.terrain = _to_id(terrain)
-        ctx.state.field.terrain_turns = 5
-        ctx.emit(Event("terrain_start", detail=ctx.state.field.terrain))
+        set_terrain(ctx, _to_id(terrain), attacker)
         changed = True
 
     pseudo = raw.get("pseudoWeather")
@@ -634,7 +636,9 @@ def _apply_field_effects(ctx: Context, attacker: Ref, target: Ref, move: Move) -
         if name in SIDE_CONDITION_DURATION:
             if name in conditions:
                 return changed  # a screen already up cannot be re-set
-            conditions[name] = SIDE_CONDITION_DURATION[name]
+            conditions[name] = fx.modify(
+                ctx, "modify_field_duration", SIDE_CONDITION_DURATION[name],
+                attacker, scope="self", field=name, kind="side")
         else:
             cap = SIDE_CONDITION_LAYERS.get(name, 1)
             if conditions.get(name, 0) >= cap:
@@ -650,6 +654,34 @@ def _apply_field_effects(ctx: Context, attacker: Ref, target: Ref, move: Move) -
 
 def _to_id(value: str) -> str:
     return "".join(character for character in value.lower() if character.isalnum())
+
+
+#: Base duration for weather, terrain and screens. The rocks and Light Clay
+#: extend it through ``modify_field_duration``.
+FIELD_DURATION = 5
+
+
+def field_duration(ctx: Context, setter: Ref, field: str, kind: str) -> int:
+    return fx.modify(ctx, "modify_field_duration", FIELD_DURATION, setter,
+                     scope="self", field=field, kind=kind)
+
+
+def set_weather(ctx: Context, weather: str, setter: Ref) -> bool:
+    if ctx.state.field.weather == weather:
+        return False
+    ctx.state.field.weather = weather
+    ctx.state.field.weather_turns = field_duration(ctx, setter, weather, "weather")
+    ctx.emit(Event("weather_start", detail=weather, turn=ctx.state.field.weather_turns))
+    return True
+
+
+def set_terrain(ctx: Context, terrain: str, setter: Ref) -> bool:
+    if ctx.state.field.terrain == terrain:
+        return False
+    ctx.state.field.terrain = terrain
+    ctx.state.field.terrain_turns = field_duration(ctx, setter, terrain, "terrain")
+    ctx.emit(Event("terrain_start", detail=terrain, turn=ctx.state.field.terrain_turns))
+    return True
 
 
 def _apply_self_effects(ctx: Context, attacker: Ref, move) -> None:
@@ -699,7 +731,9 @@ def _apply_drain(ctx: Context, attacker: Ref, move: Move, damage: int) -> None:
     if not drain or damage <= 0:
         return
     numerator, denominator = drain
-    heal(ctx, attacker, max(1, damage * numerator // denominator), reason="drain")
+    restored = max(1, damage * numerator // denominator)
+    restored = fx.modify(ctx, "modify_drain", restored, attacker, scope="self", move=move)
+    heal(ctx, attacker, restored, reason="drain")
 
 
 def _apply_recoil(ctx: Context, attacker: Ref, move: Move, damage: int) -> None:

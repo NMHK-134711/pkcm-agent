@@ -30,6 +30,19 @@ from pkcm.engine.stats import NATURES, SP_PER_STAT_CAP, SP_TOTAL, StatTuple, sp_
 ABSENT_MECHANIC_MOVES = frozenset({"terablast", "terastarstorm"})
 
 
+def champions_items() -> frozenset[str]:
+    """Every item id Champions actually has. Cached; the file never changes."""
+    global _CHAMPIONS_ITEMS
+    if _CHAMPIONS_ITEMS is None:
+        from pkcm.engine.items import champions_items as roster
+
+        _CHAMPIONS_ITEMS = frozenset(roster())
+    return _CHAMPIONS_ITEMS
+
+
+_CHAMPIONS_ITEMS: frozenset[str] | None = None
+
+
 def clause_violation(move) -> str | None:
     """Champions' standard ruleset bans three whole categories of move.
 
@@ -140,8 +153,13 @@ def set_errors(dex: Dex, regulation: Regulation, pokemon_set: PokemonSet) -> lis
             f"{label}: ability {pokemon_set.ability!r} is not one of {list(species.abilities)}"
         )
 
-    if pokemon_set.item is not None and pokemon_set.item not in dex.items:
-        errors.append(f"{label}: unknown item {pokemon_set.item!r}")
+    if pokemon_set.item is not None:
+        if pokemon_set.item not in dex.items:
+            errors.append(f"{label}: unknown item {pokemon_set.item!r}")
+        elif pokemon_set.item not in champions_items():
+            errors.append(
+                f"{label}: {dex.items[pokemon_set.item].name} does not exist in Champions"
+            )
 
     if not 1 <= len(pokemon_set.moves) <= MAX_MOVES:
         errors.append(f"{label}: carries {len(pokemon_set.moves)} moves, must be 1-{MAX_MOVES}")
@@ -225,9 +243,10 @@ def is_legal_team(dex: Dex, regulation: Regulation, team: Team, battle_format: s
 
 @dataclass(frozen=True, slots=True)
 class RandomTeamOptions:
-    #: M0 implements no item effects, so random sets hold nothing. Generating
-    #: items the engine ignores would produce sets that lie about themselves.
-    with_items: bool = False
+    #: Held items are implemented now, so random teams use them. Mega Stones
+    #: are left out until Mega Evolution exists -- a stone that cannot be
+    #: activated is a wasted slot, not a decision.
+    with_items: bool = True
     #: Without a damaging move a Pokemon cannot win, and battles never end.
     require_damaging_move: bool = True
     moves_per_pokemon: int = MAX_MOVES
@@ -301,6 +320,7 @@ def random_set(
         nature=cursor.choice(sorted(NATURES)),
         sp=random_sp(cursor),
         item=None,
+        gender=cursor.choice(("M", "F")) if species.gender is None else species.gender,
     )
 
 
@@ -330,7 +350,28 @@ def random_team(
         )
 
     chosen_bases = cursor.sample(sorted(by_base), registered)
-    return tuple(
+    team = [
         random_set(dex, cursor.choice(sorted(by_base[base])), cursor, options)
         for base in chosen_bases
-    )
+    ]
+
+    if options.with_items:
+        # Item Clause: one each, so deal from a shuffled pool.
+        pool = cursor.sample(sorted(holdable_items(dex)), len(team))
+        team = [pokemon.replace(item=item) for pokemon, item in zip(team, pool)]
+
+    return tuple(team)
+
+
+def holdable_items(dex: Dex) -> frozenset[str]:
+    """Champions items worth giving a random team: everything but Mega Stones."""
+    global _HOLDABLE
+    if _HOLDABLE is None:
+        _HOLDABLE = frozenset(
+            item_id for item_id in champions_items()
+            if not dex.items[item_id].mega_stone
+        )
+    return _HOLDABLE
+
+
+_HOLDABLE: frozenset[str] | None = None

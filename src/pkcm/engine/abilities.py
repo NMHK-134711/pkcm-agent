@@ -767,12 +767,12 @@ register("ability", "intimidate", name="Intimidate", switch_in=_intimidate)
 
 def _sets_weather(weather: str, ability: str):
     def handler(ctx, ref, **_):
+        from pkcm.engine.moves import set_weather
+
         if ctx.state.field.weather == weather:
             return
         announce(ctx, ref, ability)
-        ctx.state.field.weather = weather
-        ctx.state.field.weather_turns = 5
-        ctx.emit(Event("weather_start", detail=weather))
+        set_weather(ctx, weather, ref)
 
     return handler
 
@@ -788,12 +788,12 @@ for _name, (_label, _weather) in {
 
 def _sets_terrain(terrain: str, ability: str):
     def handler(ctx, ref, **_):
+        from pkcm.engine.moves import set_terrain
+
         if ctx.state.field.terrain == terrain:
             return
         announce(ctx, ref, ability)
-        ctx.state.field.terrain = terrain
-        ctx.state.field.terrain_turns = 5
-        ctx.emit(Event("terrain_start", detail=terrain))
+        set_terrain(ctx, terrain, ref)
 
     return handler
 
@@ -1111,10 +1111,10 @@ register("ability", "effectspore", name="Effect Spore", after_damage=_effect_spo
 def _sand_spit(ctx, ref, attacker, defender, move, damage, **_):
     if ref != defender or ctx.state.field.weather == "sandstorm":
         return
+    from pkcm.engine.moves import set_weather
+
     announce(ctx, defender, "sandspit")
-    ctx.state.field.weather = "sandstorm"
-    ctx.state.field.weather_turns = 5
-    ctx.emit(Event("weather_start", detail="sandstorm"))
+    set_weather(ctx, "sandstorm", defender)
 
 
 register("ability", "sandspit", name="Sand Spit", after_damage=_sand_spit)

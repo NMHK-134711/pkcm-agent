@@ -15,7 +15,9 @@ may be illegal in game. Tighten ``learnable_moves`` when real data appears.
 
 from __future__ import annotations
 
+import json
 from dataclasses import dataclass
+from pathlib import Path
 
 
 from pkcm.data.dex import Dex, Regulation, Stat
@@ -95,7 +97,61 @@ def _learnset_sources(dex: Dex, species_id: str) -> list[str]:
     return sources
 
 
+#: The Champions learnset table, built from the 포케챔스 dex by
+#: ``scripts/build_champions_learnsets.py``. Empty if the file is absent, which
+#: falls the whole thing back to the union below.
+_CHAMPIONS_LEARNSETS: dict[str, frozenset[str]] | None = None
+
+
+def champions_learnsets() -> dict[str, frozenset[str]]:
+    """Species id -> what Champions actually teaches it.
+
+    This is the table, not an approximation of it. Showdown's ``learnsets.json``
+    is an all-generations record of the *main series*, and it is wrong in both
+    directions here: it keeps TM moves Champions dropped, and misses egg and
+    tutor moves Champions gives out.
+    """
+    global _CHAMPIONS_LEARNSETS
+    if _CHAMPIONS_LEARNSETS is None:
+        path = (Path(__file__).resolve().parents[3]
+                / "data" / "champions" / "learnsets.json")
+        if path.exists():
+            raw = json.loads(path.read_text(encoding="utf-8"))
+            _CHAMPIONS_LEARNSETS = {
+                species: frozenset(moves) for species, moves in raw.items()
+            }
+        else:
+            _CHAMPIONS_LEARNSETS = {}
+    return _CHAMPIONS_LEARNSETS
+
+
+def _champions_entry(dex: Dex, species_id: str) -> frozenset[str] | None:
+    """This species' row, or its base species' -- cosmetic formes share one.
+
+    The dex splits Vivillon into twenty patterns; the game lists one. They all
+    learn the same moves, so the base species' row is the right answer rather
+    than a fallback.
+    """
+    table = champions_learnsets()
+    if species_id in table:
+        return table[species_id]
+    base = dex.species[species_id].base_species
+    return table.get(base)
+
+
 def _compute_learnable(dex: Dex, species_id: str) -> frozenset[str]:
+    taught = _champions_entry(dex, species_id)
+    if taught is not None:
+        # Still filtered: the table says what the game teaches, and the clauses
+        # say what the format allows. Two different questions, and a move can
+        # be taught and still banned (Hypnosis, Double Team).
+        return frozenset(
+            move_id for move_id in taught
+            if move_id in dex.moves
+            and move_id not in ABSENT_MECHANIC_MOVES
+            and clause_violation(dex.moves[move_id]) is None
+        )
+
     move_ids: set[str] = set()
     for source in _learnset_sources(dex, species_id):
         entry = dex.learnsets.get(source)

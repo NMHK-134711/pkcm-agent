@@ -179,3 +179,73 @@ def test_nature_uses_integer_arithmetic(dex):
         for sp in (0, 16, 32):
             expected = (base + 20 + sp) * 110 // 100
             assert compute_stat(base, sp, jolly, Stat.SPE) == expected
+
+
+# --------------------------------------------------------------------------- #
+# The Champions learnset table
+#
+# Built from the 포케챔스 dex, which hk found. Everything before it derived
+# learnsets from Showdown's all-generations record of the main series -- the
+# wrong table, and wrong in both directions.
+# --------------------------------------------------------------------------- #
+
+
+def test_every_legal_species_uses_the_champions_table(dex):
+    """No species may quietly keep the old union."""
+    from pkcm.engine.legality import _champions_entry
+
+    regulation = dex.regulation("m_b")
+    missing = [species for species in sorted(regulation.legal_species | regulation.legal_megas)
+               if _champions_entry(dex, species) is None]
+    assert not missing, f"still on the all-generations union: {missing}"
+
+
+def test_clefable_lost_its_gen_one_tm_moves(dex):
+    """The clearest case: Soft-Boiled has no legal user, so Champions has no
+    Soft-Boiled. Chansey and Blissey are not in the roster (hk), and Clefable
+    only ever had it from a TM the game no longer offers."""
+    from pkcm.engine.legality import learnable_moves
+
+    assert "softboiled" not in learnable_moves(dex, "clefable")
+    for gone in ("seismictoss", "zapcannon", "dynamicpunch", "toxic"):
+        assert gone not in learnable_moves(dex, "clefable"), gone
+
+
+def test_the_table_also_adds_what_the_union_missed(dex):
+    """It is not a subset. Egg and tutor moves the union never carried."""
+    from pkcm.engine.legality import learnable_moves
+
+    clefable = learnable_moves(dex, "clefable")
+    for gained in ("wish", "healpulse", "airslash", "tickle"):
+        assert gained in clefable, gained
+
+    # Sing is on its row too, and the sleep clause still keeps it off the team --
+    # which is the separation the next test is about.
+    from pkcm.engine.legality import champions_learnsets
+
+    assert "sing" in champions_learnsets()["clefable"]
+    assert "sing" not in clefable
+
+
+def test_clauses_still_apply_on_top_of_the_table(dex):
+    """Taught and allowed are different questions, and the table answers one.
+
+    Hypnosis is on plenty of rows; the sleep clause keeps it off every team.
+    """
+    from pkcm.engine.legality import champions_learnsets, learnable_moves
+
+    table = champions_learnsets()
+    teaches_hypnosis = [s for s, moves in table.items() if "hypnosis" in moves]
+    assert teaches_hypnosis, "the table should carry banned moves too"
+    for species in teaches_hypnosis[:5]:
+        if species in dex.species:
+            assert "hypnosis" not in learnable_moves(dex, species)
+
+
+def test_no_species_learns_nothing(dex):
+    """A row that came back empty means a mapping went wrong upstream."""
+    from pkcm.engine.legality import learnable_moves
+
+    regulation = dex.regulation("m_b")
+    empty = [s for s in regulation.legal_species if not learnable_moves(dex, s)]
+    assert not empty, empty

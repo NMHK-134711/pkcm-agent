@@ -20,10 +20,11 @@ Regulation Set M-B 룰을 따르는 배틀 엔진을 직접 구현하고, 그 �
 | 특성 | 198 / 201 (남은 3종은 도구에 작용 — 되새김질·숙성·점착) |
 | 도구 | **147 / 147** (배틀 도구 72 + 메가스톤 75) |
 | 메커니즘 | 상태이상·랭크변화·날씨·필드·룸·벽·설치기·조이기·2턴·강제교체·카운터 계열 |
+| 학습기술 | 게임 도감 기준 (전 세대 합집합 아님) |
 | 더블 전용 | 타겟팅, 광범위 0.75배, 유인(따라하기·분노가루·피뢰침·저수), 동맹 특성·기술 |
 | 메가진화 | 배틀당 1회, 기절해도 유지 |
 | 표기 | 한국어(조사 처리 포함) / 영어 |
-| 테스트 | 431 |
+| 테스트 | 444 |
 | 처리량 | 싱글 2,500 / 더블 680 turns/s (단일 코어) |
 
 미착수: PettingZoo 어댑터, 학습 루프, 파티 구성 학습.
@@ -68,6 +69,20 @@ python -m venv .venv
 
 ```bash
 .venv/Scripts/python.exe scripts/build_names.py
+```
+
+포챔스 도감 대조 (학습기술표의 출처):
+
+```bash
+.venv/Scripts/python.exe scripts/fetch_pokechams.py
+```
+
+```bash
+.venv/Scripts/python.exe scripts/build_champions_learnsets.py
+```
+
+```bash
+.venv/Scripts/python.exe scripts/compare_pokechams.py
 ```
 
 ## 써보기
@@ -135,6 +150,9 @@ data/champions/    레귤레이션·override·도구 목록·표시명 (커밋)
   `data/mods/champions/`가 챔피언스 구현 그 자체라 메커니즘의 명세서 역할을 한다.
 - 출전 목록: [Bulbapedia — Regulation Set M-B](https://bulbapedia.bulbagarden.net/wiki/Regulation_Set_M-B)
 - 도구 목록: op.gg 챔피언스 도구 화면 스크랩 (`포챔스 아이템 목록.txt`)
+- **학습기술표**: [포케챔스](https://pokemon.yodams.com) 도감 (Flutter 앱, 정적 JSON 에셋).
+  게임 도감에서 나온 종족별 습득 기술 목록 — Showdown의 전 세대 합집합보다 정확하다.
+  `compare_pokechams.py`가 두 출처의 차이를 출력한다.
 - 한국어 표기: [PokéAPI](https://github.com/PokeAPI/pokeapi) 다국어 CSV + 위 스크랩
 
 최종 권위는 **게임 본편**이다. 관찰한 것은 `tests/scenarios/`에 적으면 영구 테스트가 된다.

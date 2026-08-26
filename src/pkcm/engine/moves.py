@@ -946,6 +946,13 @@ def _apply_status_move(ctx: Context, attacker: Ref, target: Ref, move) -> bool:
     if move.id == "substitute":
         return _apply_substitute(ctx, attacker)
 
+    # Shed Tail buys the same doll for half the HP and leaves it behind. Its
+    # data says ``volatileStatus: substitute``, which the declarative path below
+    # would honour by creating one with no HP at all -- and the first hit on it
+    # would then raise rather than break it.
+    if move.id == "shedtail":
+        return _apply_substitute(ctx, attacker, SHED_TAIL_FRACTION, "shedtail")
+
     if "boosts" in raw and raw["boosts"]:
         did_something |= bool(mutate.boost(ctx, target, raw["boosts"], source=attacker))
 
@@ -994,6 +1001,7 @@ TACTICS_MANAGED_VOLATILES = frozenset({
     "curse", "taunt", "torment", "encore", "disable", "imprison", "yawn",
     "destinybond", "saltcure", "syrupbomb", "perishsong", "stockpile",
     "focusenergy", "magnetrise", "lockon", "endure", "noretreat", "roost",
+    "substitute",
     "aquaring", "minimize", "healblock", "uproar", "smackdown", "electrify",
     "powertrick", "powershift", "kingsshield", "banefulbunker", "spikyshield",
     "silktrap", "obstruct", "burningbulwark", "attract",
@@ -1023,13 +1031,27 @@ def _apply_protect(ctx: Context, attacker: Ref, move: Move) -> bool:
     return True
 
 
-def _apply_substitute(ctx: Context, attacker: Ref) -> bool:
-    cost = mutate.max_hp(ctx.state, attacker) // 4
+#: A Substitute costs this fraction of maximum HP and is worth that much.
+#: Shed Tail pays half instead, and hands the result to a replacement.
+SUBSTITUTE_FRACTION = 4
+SHED_TAIL_FRACTION = 2
+
+
+def _apply_substitute(ctx: Context, attacker: Ref, fraction: int = SUBSTITUTE_FRACTION,
+                      move_id: str = "substitute") -> bool:
+    """Pay HP for a doll that takes hits until its own HP runs out.
+
+    The cost is also the doll's HP, which is why they are one number. Shed Tail
+    calls this too: it is the same doll bought at a different price, and giving
+    it its own path is how one of them ends up without the HP key that the
+    damage path assumes is there.
+    """
+    cost = mutate.max_hp(ctx.state, attacker) // fraction
     if cost <= 0 or mutate.current_hp(ctx.state, attacker) <= cost:
-        ctx.emit(Event("move_failed", side=attacker[0], move="substitute", detail="not enough HP"))
+        ctx.emit(Event("move_failed", side=attacker[0], move=move_id, detail="not enough HP"))
         return False
     if mutate.volatile(ctx.state, attacker, "substitute") is not None:
-        ctx.emit(Event("move_failed", side=attacker[0], move="substitute", detail="already up"))
+        ctx.emit(Event("move_failed", side=attacker[0], move=move_id, detail="already up"))
         return False
     apply_damage(ctx, attacker, cost, "damage", detail="substitute")
     mutate.add_volatile(ctx, attacker, "substitute", hp=cost)

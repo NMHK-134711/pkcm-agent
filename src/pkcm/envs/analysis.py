@@ -85,6 +85,13 @@ class DamageEstimate:
     #: The sixteen rolls themselves, at the middle of the spread bracket. A
     #: policy that wants the shape of the distribution rather than a summary.
     rolls: tuple[int, ...] = ()
+    #: The target's ability is unknown and one it could have would soften this.
+    #: Multiscale is the case that matters: a knockout promised into a full-HP
+    #: Dragonite is half a knockout if it turns out to have it.
+    blunted_possible: bool = False
+    #: Something could refuse the knockout outright -- Sturdy, a Focus Sash, or
+    #: a Disguise still intact.
+    survivable: bool = False
 
     @property
     def immune(self) -> bool:
@@ -163,6 +170,16 @@ def estimate_damage(
     defender_types = dex.species[defender.species_id].types
     effectiveness = sheet.effectiveness(move.type, defender_types)
 
+    # An ability that has announced itself is not hidden information any more,
+    # so use it. One that has not is left out of the number and reported as a
+    # risk instead -- see ``blunted_possible``.
+    if defender.ability_known:
+        modifier = defender_multiplier(defender.ability, move, defender, effectiveness)
+        if modifier is None:
+            return DamageEstimate(move.id, 0.0, Bracket(0, 0), Bracket(99, 99), False,
+                                  ko_chance=0.0, hit_chance=0.0)
+        effectiveness *= modifier
+
     if effectiveness == 0.0:
         return DamageEstimate(move.id, 0.0, Bracket(0, 0), Bracket(99, 99), False,
                               ko_chance=0.0, hit_chance=0.0)
@@ -222,6 +239,8 @@ def estimate_damage(
         ),
         hit_chance=hit_chance,
         rolls=middle,
+        blunted_possible=could_blunt(defender, dex),
+        survivable=could_survive_a_kill(defender, dex),
     )
 
 
@@ -337,6 +356,143 @@ def outspeeds(dex: Dex, ours: KnownPokemon, theirs: KnownPokemon) -> bool | None
     return None
 
 # --------------------------------------------------------------------------- #
+# Abilities that change what a hit does
+#
+# hk asked about Mimikyu's Disguise and Dragonite's Multiscale specifically, and
+# they are the two shapes: one refuses a hit outright, the other halves it under
+# a condition. The engine has both right. The *estimator* did not have either,
+# which meant a calculator that would happily promise a knockout into a
+# Multiscale Dragonite at full HP.
+#
+# Two cases, and keeping them apart is the whole job:
+#
+#   known    -- something announced it, so apply it exactly.
+#   unknown  -- it is one of the abilities that species is allowed. Do not
+#               apply it, but say that the number might be wrong, because a
+#               strong player thinks "얘 멀티스케일일 수도 있는데" and prices it.
+#
+# The tables below are the numeric effects. Which roster abilities touch
+# incoming damage *at all* is read out of the effect registry instead of being
+# listed here, so a newly implemented ability cannot be silently missed -- a
+# test asserts every one of them is accounted for.
+# --------------------------------------------------------------------------- #
+
+#: Halves damage while the holder is untouched. Multiscale and its clone.
+FULL_HP_HALVERS = frozenset({"multiscale", "shadowshield"})
+
+#: ability -> (move types it softens, multiplier).
+TYPE_SOFTENERS = {
+    "thickfat": (("fire", "ice"), 0.5),
+    "heatproof": (("fire",), 0.5),
+    "waterbubble": (("fire",), 0.5),
+    "purifyingsalt": (("ghost",), 0.5),
+}
+
+#: Quarter off anything super effective.
+SUPER_EFFECTIVE_SOFTENERS = frozenset({"filter", "solidrock", "prismarmor"})
+
+#: ability -> (category it halves).
+CATEGORY_SOFTENERS = {
+    "furcoat": "Physical",
+    "icescales": "Special",
+}
+
+#: ability -> the move type it absorbs outright.
+ABSORBS_TYPE = {
+    "flashfire": "fire",
+    "wellbakedbody": "fire",
+    "waterabsorb": "water",
+    "dryskin": "water",
+    "stormdrain": "water",
+    "voltabsorb": "electric",
+    "lightningrod": "electric",
+    "motordrive": "electric",
+    "sapsipper": "grass",
+    "eartheater": "ground",
+    "levitate": "ground",
+}
+
+#: ability -> the move flag it refuses.
+BLOCKS_FLAG = {
+    "bulletproof": "bullet",
+    "soundproof": "sound",
+    "overcoat": "powder",
+}
+
+#: Abilities in the registry's "touches incoming damage" set that work for the
+#: *attacker*, not the defender. Named so the completeness test can tell the
+#: difference between "handled" and "forgotten".
+ATTACKER_SIDE_ABILITIES = frozenset({
+    "adaptability", "sniper", "scrappy", "megasol", "waterbubble",
+    "magicbounce", "telepathy", "goodasgold", "armortail", "queenlymajesty",
+})
+
+
+def defender_multiplier(ability: str | None, move: Move, defender: KnownPokemon,
+                        effectiveness: float) -> float | None:
+    """What the defender's ability does to this hit.
+
+    ``None`` means it stops the hit entirely. ``1.0`` means it does nothing.
+    Only ever called with an ability we actually know about.
+    """
+    if ability is None:
+        return 1.0
+    if ABSORBS_TYPE.get(ability) == move.type:
+        return None
+    if BLOCKS_FLAG.get(ability) in move.flags:
+        return None
+    if ability in FULL_HP_HALVERS and defender.hp_fraction >= 1.0:
+        return 0.5
+    if ability in SUPER_EFFECTIVE_SOFTENERS and effectiveness > 1.0:
+        return 0.75
+    softened = TYPE_SOFTENERS.get(ability)
+    if softened is not None and move.type in softened[0]:
+        return softened[1]
+    if CATEGORY_SOFTENERS.get(ability) == move.category:
+        return 0.5
+    if ability == "fluffy":
+        if move.type == "fire":
+            return 2.0
+        if "contact" in move.flags:
+            return 0.5
+    return 1.0
+
+
+def blunting_abilities() -> frozenset[str]:
+    """Every roster ability that interferes with an incoming hit.
+
+    Read out of the effect registry rather than written down, so implementing a
+    new one cannot leave this list quietly behind.
+    """
+    from pkcm.engine import abilities as _abilities  # noqa: F401  -- fills REGISTRY
+    from pkcm.engine.effects import REGISTRY
+
+    interferes = {"modify_damage", "modify_effectiveness", "try_hit"}
+    return frozenset(
+        ability_id
+        for (kind, ability_id), effect in REGISTRY.items()
+        if kind == "ability"
+        and interferes & set(effect.handlers)
+        and ability_id not in ATTACKER_SIDE_ABILITIES
+    )
+
+
+def could_blunt(defender: KnownPokemon, dex: Dex) -> bool:
+    """Might an ability we cannot see make this hit land softer than the sum says?
+
+    True when the ability is unknown and at least one the species is allowed to
+    have would interfere. This is the flag that stops a policy from trusting a
+    knockout it has not earned.
+    """
+    if defender.ability_known or defender.species_id is None:
+        return False
+    from pkcm.engine.legality import registrable_abilities
+
+    possible = registrable_abilities(dex.species[defender.species_id])
+    return bool(set(possible) & blunting_abilities())
+
+
+# --------------------------------------------------------------------------- #
 # Losing the turn
 #
 # A turn taken away costs more than most damage, and every way of losing one is
@@ -429,10 +585,11 @@ def _still_asleep(known: KnownPokemon, durations: tuple[int, ...]) -> float:
     return sum(1 for turns in consistent if turns > elapsed) / len(consistent)
 
 
-#: Things that refuse to let their holder be knocked out from full HP. Both are
-#: hidden until they fire, which is exactly why they matter: a 확정 1타 into an
-#: unrevealed Focus Sash is not a knockout, and a strong player prices that in.
+#: Refuse a knockout, but only from full HP.
 SURVIVES_FROM_FULL = {"sturdy": "ability", "focussash": "item"}
+#: Refuses one hit at *any* HP, which is what makes Disguise different in kind
+#: from a Focus Sash -- and why hk asked about it separately.
+SURVIVES_AT_ANY_HP = {"disguise"}
 
 
 def could_survive_a_kill(known: KnownPokemon, dex: Dex) -> bool:
@@ -442,14 +599,31 @@ def could_survive_a_kill(known: KnownPokemon, dex: Dex) -> bool:
     would save it. Deliberately generous about the unknown: from across the
     field a Focus Sash looks exactly like no item at all.
     """
-    if known.hp_fraction < 1.0 or known.species_id is None:
+    if known.species_id is None:
+        return False
+
+    # Disguise first: it does not care about HP, and it is still up as long as
+    # the Pokemon has not changed forme.
+    if "busted" not in known.species_id:
+        if known.ability_known and known.ability in SURVIVES_AT_ANY_HP:
+            return True
+        if not known.ability_known:
+            from pkcm.engine.legality import registrable_abilities
+
+            possible = registrable_abilities(dex.species[known.species_id])
+            if set(possible) & SURVIVES_AT_ANY_HP:
+                return True
+
+    if known.hp_fraction < 1.0:
         return False
     if known.ability_known and known.ability in SURVIVES_FROM_FULL:
         return True
     if known.item_known and known.item in SURVIVES_FROM_FULL:
         return True
     if not known.ability_known:
-        possible = dex.species[known.species_id].abilities
+        from pkcm.engine.legality import registrable_abilities
+
+        possible = registrable_abilities(dex.species[known.species_id])
         if any(ability in SURVIVES_FROM_FULL for ability in possible):
             return True
     return not known.item_known

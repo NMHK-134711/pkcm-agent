@@ -809,3 +809,154 @@ def test_the_risk_block_reaches_the_policy(dex):
     risk = observations["player_0"]["risk"]
     assert risk.shape == (RISK_ROWS, RISK_FEATURES)
     assert env.observation_space("player_0").contains(observations["player_0"])
+
+
+# --------------------------------------------------------------------------- #
+# Abilities that change what a hit does
+#
+# hk asked about Disguise and Multiscale by name. The engine had both right;
+# the estimator had neither, which is a calculator that promises a knockout
+# into a full-HP Multiscale Dragonite.
+# --------------------------------------------------------------------------- #
+
+
+def test_the_engine_lets_disguise_eat_a_hit(dex):
+    """One hit refused, 1/8 of maximum HP paid, and the forme changes."""
+    from pkcm.engine.battle import make_context
+    from pkcm.engine.moves import use_move
+
+    state = chosen_battle(dex, a_set("garchomp", ("earthquake",)),
+                          a_set("mimikyu", ("bodyslam",), ability="disguise"))
+    maximum = state.pokemon(1, 0).max_hp
+    ctx = make_context(state)
+    use_move(ctx, (0, 0), dex.moves["earthquake"], defender=(1, 0))
+    assert state.sides[1].hp[0] == maximum - maximum // 8
+    assert state.species_id(1, 0) == "mimikyubusted"
+
+    before = state.sides[1].hp[0]
+    ctx = make_context(state)
+    use_move(ctx, (0, 0), dex.moves["earthquake"], defender=(1, 0))
+    assert state.sides[1].hp[0] < before - maximum // 8, "the second hit is real"
+
+
+def test_the_engine_halves_for_multiscale_only_at_full_health(dex):
+    from pkcm.engine.battle import make_context
+    from pkcm.engine.moves import use_move
+
+    def taken(fraction, ability):
+        state = chosen_battle(dex, a_set("garchomp", ("icefang",)),
+                              a_set("dragonite", ("bodyslam",), ability=ability))
+        maximum = state.pokemon(1, 0).max_hp
+        state.sides[1].hp[0] = max(1, int(maximum * fraction))
+        before = state.sides[1].hp[0]
+        ctx = make_context(state)
+        use_move(ctx, (0, 0), dex.moves["icefang"], defender=(1, 0))
+        return before - state.sides[1].hp[0]
+
+    assert taken(1.0, "multiscale") * 2 == taken(1.0, "innerfocus")
+    assert taken(0.9, "multiscale") == taken(0.9, "innerfocus"), "only from full"
+
+
+def test_a_revealed_multiscale_halves_the_estimate(dex, sheet):
+    from pkcm.envs.analysis import estimate_damage
+
+    def estimate(revealed):
+        state = chosen_battle(dex, a_set("garchomp", ("icefang",)),
+                              a_set("dragonite", ("bodyslam",), ability="multiscale"))
+        if revealed:
+            state.revealed[1].abilities.add(0)
+        observation = Observation.of(state, 0)
+        return estimate_damage(observation, sheet, dex, observation.own[0],
+                               observation.foe[0], dex.moves["icefang"])
+
+    hidden, known = estimate(False), estimate(True)
+    assert known.percent.high < hidden.percent.high / 1.8
+    assert hidden.blunted_possible, "unknown, and Dragonite can have it"
+    assert not known.blunted_possible, "known, so it is in the number instead"
+
+
+def test_an_unknown_ability_is_flagged_rather_than_guessed(dex, sheet):
+    """The estimate stays optimistic and says so, which is the honest shape.
+
+    Folding a maybe-Multiscale into the number would make every estimate wrong
+    against the Dragonites that do not have it.
+    """
+    from pkcm.envs.analysis import could_blunt
+
+    state = chosen_battle(dex, a_set("garchomp", ("icefang",)),
+                          a_set("dragonite", ("bodyslam",), ability="innerfocus"))
+    observation = Observation.of(state, 0)
+    assert could_blunt(observation.foe[0], dex), "it could be Multiscale"
+
+    state.revealed[1].abilities.add(0)
+    observation = Observation.of(state, 0)
+    assert not could_blunt(observation.foe[0], dex), "now we know it is not"
+
+
+def test_a_known_absorbing_ability_reads_as_immune(dex, sheet):
+    from pkcm.envs.analysis import estimate_damage
+
+    state = chosen_battle(dex, a_set("garchomp", ("earthquake",)),
+                          a_set("rotomheat", ("bodyslam",), ability="levitate"))
+    state.revealed[1].abilities.add(0)
+    observation = Observation.of(state, 0)
+    estimate = estimate_damage(observation, sheet, dex, observation.own[0],
+                               observation.foe[0], dex.moves["earthquake"])
+    assert estimate is not None and estimate.immune
+    assert estimate.ko_chance == 0.0
+
+
+def test_an_intact_disguise_makes_a_kill_survivable(dex):
+    from pkcm.engine.battle import make_context
+    from pkcm.engine.moves import use_move
+    from pkcm.envs.analysis import could_survive_a_kill
+
+    state = chosen_battle(dex, a_set("garchomp", ("earthquake",)),
+                          a_set("mimikyu", ("bodyslam",), ability="disguise"))
+    state.revealed[1].species.add(0)
+    intact = Observation.of(state, 0).foe[0]
+    assert could_survive_a_kill(intact, dex), "the disguise is still up"
+
+    # Break it for real, then check the answer changes for the right reason.
+    ctx = make_context(state)
+    use_move(ctx, (0, 0), dex.moves["earthquake"], defender=(1, 0))
+    busted = Observation.of(state, 0).foe[0]
+    assert busted.species_id == "mimikyubusted"
+    assert busted.hp_fraction < 1.0
+    assert not could_survive_a_kill(busted, dex), "broken, and no longer at full HP"
+
+
+def test_every_defensive_ability_on_the_roster_is_accounted_for(dex):
+    """Read out of the registry, so a new implementation cannot be missed.
+
+    The registry knows which abilities interfere with an incoming hit; this
+    checks each of them is either in one of the estimator's tables or named as
+    working for the attacker instead.
+    """
+    from pkcm.envs.analysis import (
+        ABSORBS_TYPE,
+        ATTACKER_SIDE_ABILITIES,
+        BLOCKS_FLAG,
+        CATEGORY_SOFTENERS,
+        FULL_HP_HALVERS,
+        SUPER_EFFECTIVE_SOFTENERS,
+        SURVIVES_AT_ANY_HP,
+        SURVIVES_FROM_FULL,
+        blunting_abilities,
+    )
+
+    handled = (set(ABSORBS_TYPE) | set(BLOCKS_FLAG) | set(CATEGORY_SOFTENERS)
+               | set(FULL_HP_HALVERS) | set(SUPER_EFFECTIVE_SOFTENERS)
+               | set(SURVIVES_FROM_FULL) | set(SURVIVES_AT_ANY_HP)
+               | ATTACKER_SIDE_ABILITIES | {"fluffy", "thickfat", "heatproof",
+                                            "purifyingsalt", "waterbubble"})
+
+    regulation = dex.regulation("m_b")
+    roster = {ability
+              for species in regulation.legal_species | regulation.legal_megas
+              for ability in dex.species[species].abilities}
+    missing = sorted((blunting_abilities() & roster) - handled)
+    assert not missing, (
+        f"these interfere with an incoming hit and the estimator ignores them: "
+        f"{missing}"
+    )

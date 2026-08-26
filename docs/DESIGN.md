@@ -93,18 +93,32 @@ pkcm/envs/     PettingZoo ParallelEnv 어댑터. 엔진을 감싸기만 한다.
 | upstream | `data/raw/` | Pokémon Showdown 클라이언트 데이터 | ignored (재생성) |
 | curated | `data/champions/` | Bulbapedia 레귤레이션 + 손으로 쓴 룰 상수 | 커밋 |
 
-Showdown이 **이미 Champions 데이터를 반영**하고 있다 — 신규 메가 76종의 종족값과
-`Mega Sol`, `Dragonize` 같은 신규 특성까지 들어 있다. 덕분에 override 레이어가 거의
-필요 없어졌다. 다만 `data/raw/MANIFEST.json`에 sha256을 남기는 이유가 이것이다:
-upstream은 메타가 바뀌면 조용히 갱신된다.
+**override 레이어는 필수다.** (한때 "거의 필요 없다"고 적었으나 틀렸다.) Showdown의 base
+데이터는 스칼렛/바이올렛이고, 챔피언스는 그것과 상당히 다르다:
+
+| | |
+|---|---|
+| 기술 | base가 "표준"이라 부르는 685종 중 **194종이 챔피언스에 없다.** 실제 풀 500종 |
+| 기술 수치 | ~30종의 위력·명중·PP·타입이 다름 (부리찌르기 120, 성장이 풀타입 등) |
+| PP | 기본 PP **20 상한**, 최대 PP는 `(pp/5+1)*4` — 시리즈의 `pp×8/5`가 아님 |
+| 도구 | 181개 제거, 76개 추가 |
+| 상태이상 | 마비 1/8, 잠듦 2~3턴, 얼음 3턴 타이머 + 1/4 해동 |
+| 클로즈 | 종족·아이템에 더해 **잠듦기술·일격필살·회피** 클로즈 |
+
+이 델타의 출처는 **Showdown 저장소의 `data/mods/champions/`** 다. Showdown이 챔피언스를
+모드로 구현해 두었고, 그게 우리가 가진 챔피언스 메커니즘의 가장 정확한 명세다.
 
 ```bash
-python scripts/fetch_showdown_data.py     # data/raw/*.json
-python scripts/fetch_regulation.py m_b    # data/raw/regulation_m_b.wikitext
-python scripts/build_champions_data.py    # data/champions/regulation_m_b.json
+python scripts/fetch_showdown_data.py         # data/raw/*.json (클라이언트 수치)
+python scripts/fetch_showdown_source.py       # data/reference/*.ts (구현 참조)
+python scripts/build_champions_overrides.py   # data/champions/overrides.json
+python scripts/fetch_regulation.py m_b        # data/raw/regulation_m_b.wikitext
+python scripts/build_champions_data.py        # data/champions/regulation_m_b.json
 ```
 
-특성/도구의 **동작**은 우리가 구현한다. upstream에서 가져오는 건 숫자와 메타데이터뿐이다.
+override 빌더는 **선언적 델타만** 추출한다 (존재 여부, 위력, 명중, PP, 타입). 핸들러 함수를
+덮어쓰는 항목은 `needs_hand_port`에 이름이 남고, TypeScript를 읽고 파이썬으로 옮기는 건
+사람이 한다. 자동 번역은 하지 않는다.
 
 ---
 
@@ -184,15 +198,18 @@ HP    = Base + 75 + SP
 
 ## 5. 검증 전략
 
-**챔피언스에 대한 유일한 정답지는 챔피언스 본편이다.**
+**최종 정답지는 챔피언스 본편이고, 명세서는 Showdown의 champions 모드다.**
 
-한때 pokemon-showdown을 오라클로 쓰는 차분 테스트를 계획했으나 **폐기했다.** Showdown이
-구현한 것은 스칼렛/바이올렛이고, 챔피언스가 다른 지점 — SP 능력치 체계, 랭크전 테라스탈
-부재, 부활한 메가진화와 신규 메가 76종, `Mega Sol`·`Dragonize` 같은 신규 특성 — 이 하필
-우리가 가장 정확해야 하는 지점이다. 거기서 Showdown은 오답지다. 게임을 직접 볼 수 있는
-사람이 정답지고, Showdown은 근사치일 뿐이다.
+두 가지를 구분해야 한다.
 
-대신 오라클이 하려던 **일**을 도구를 바꿔 살린다: 관찰을 영구 테스트로 만드는 것.
+- **차분 테스트 오라클로서의 Showdown**: 폐기. 두 엔진을 같은 시드로 돌려 로그를 비교하는
+  건 Node가 필요하고, base 엔진은 어차피 SV라 챔피언스 고유 동작에서 갈린다.
+- **명세서로서의 Showdown 소스**: 채택. `data/mods/champions/`는 챔피언스 구현 그 자체이고,
+  MIT 라이선스다. 특성·도구·상태이상의 동작을 **기억으로 재구성하지 않고 소스를 읽어서**
+  옮긴다. 실제로 그렇게 해서 마비 확률·잠듦 지속·PP 공식·기술 194종 부재를 전부 바로잡았다.
+
+그래도 최종 권위는 게임이다. 모드도 커뮤니티 구현이라 틀릴 수 있고, 챔피언스가 패치되면
+갱신이 늦을 수 있다. 그래서 관찰을 영구 테스트로 만드는 장치를 함께 둔다.
 
 ### 시나리오 (`tests/scenarios/`)
 

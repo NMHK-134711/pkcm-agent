@@ -271,6 +271,40 @@ def use_move(
     target = resolve_target(move, attacker, defender)
     targets_opponent = target != attacker
 
+    # Mold Breaker and friends blind the defender's ability for the *whole*
+    # resolution -- immunity, damage modifiers, contact reactions, all of it.
+    # Suppressing it here rather than at each check is the only version that
+    # cannot be quietly incomplete.
+    suppressing = targets_opponent and ignores_target_ability(ctx, attacker, move)
+    if suppressing:
+        ctx.suppressed_abilities.add(defender)
+        ctx.emit(Event("ability_suppressed", side=defender[0], slot=defender[1],
+                       detail=ctx.state.ability_id(*defender)))
+    try:
+        _resolve(ctx, attacker, defender, target, targets_opponent, move)
+    finally:
+        if suppressing:
+            ctx.suppressed_abilities.discard(defender)
+
+
+#: Abilities that ignore the target's ability while their holder attacks.
+MOLD_BREAKER_ABILITIES = frozenset({"moldbreaker", "turboblaze", "teravolt"})
+#: Moves that do the same regardless of who uses them.
+MOLD_BREAKER_MOVES = frozenset({"sunsteelstrike", "moongeistbeam", "photongeyser"})
+
+
+def ignores_target_ability(ctx: Context, attacker: Ref, move: Move) -> bool:
+    return ctx.ability_of(attacker) in MOLD_BREAKER_ABILITIES or move.id in MOLD_BREAKER_MOVES
+
+
+def _resolve(
+    ctx: Context,
+    attacker: Ref,
+    defender: Ref,
+    target: Ref,
+    targets_opponent: bool,
+    move: Move,
+) -> None:
     if targets_opponent and ctx.state.sides[defender[0]].hp[defender[1]] <= 0:
         ctx.emit(Event("move_failed", side=attacker[0], move=move.name, detail="no target"))
         return
@@ -290,7 +324,6 @@ def use_move(
         ctx.emit(ev.missed(attacker[0], attacker[1], move.name))
         return
 
-    landed = True
     if move.category == "Status":
         landed = _apply_status_move(ctx, attacker, target, move)
     else:

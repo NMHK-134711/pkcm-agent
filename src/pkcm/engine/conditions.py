@@ -20,8 +20,16 @@ from pkcm.engine.mutate import apply_damage, fraction_of_max, heal
 
 CONFUSION_SELF_HIT_POWER = 40
 CONFUSION_CHANCE = (1, 3)
-PARALYSIS_CHANCE = (1, 4)
-THAW_CHANCE = (1, 5)
+
+# Champions retunes all three of these away from the mainline series
+# (mods/champions/conditions.ts). Ported from that file, not from the games.
+#: Full paralysis is 1/8 here, not the series' 1/4.
+PARALYSIS_CHANCE = (1, 8)
+#: Sleep runs 2 or 3 turns -- ``sample([2, 3, 3])``, so 3 turns two times in three.
+SLEEP_DURATIONS = (2, 3, 3)
+#: Freeze has a hard 3-turn timer *and* a 1/4 thaw roll each turn.
+FREEZE_DURATION = 3
+THAW_CHANCE = (1, 4)
 
 SCREEN_MULTIPLIER = 0.5
 WEATHER_BOOST, WEATHER_DAMP = 1.5, 0.5
@@ -91,11 +99,10 @@ register("status", "tox", name="Bad Poison", residual=_toxic_residual)
 
 def _sleep_blocks_move(ctx, ref, move, **_):
     data = ctx.state.sides[ref[0]].status_data[ref[1]]
-    remaining = data.get("turns", 1) - 1
-    if remaining <= 0:
+    data["turns"] = data.get("turns", SLEEP_DURATIONS[-1]) - 1
+    if data["turns"] <= 0:
         mutate.cure_status(ctx, ref)
         return None
-    data["turns"] = remaining
     ctx.emit(Event("cant_move", side=ref[0], slot=ref[1], detail="slp"))
     return False
 
@@ -104,7 +111,13 @@ register("status", "slp", name="Sleep", try_move=_sleep_blocks_move)
 
 
 def _freeze_blocks_move(ctx, ref, move, **_):
-    if ctx.cursor.chance(*THAW_CHANCE):
+    # Moves flagged ``defrost`` thaw the user and go through.
+    if "defrost" in move.flags:
+        mutate.cure_status(ctx, ref)
+        return None
+    data = ctx.state.sides[ref[0]].status_data[ref[1]]
+    data["turns"] = data.get("turns", FREEZE_DURATION) - 1
+    if data["turns"] <= 0 or ctx.cursor.chance(*THAW_CHANCE):
         mutate.cure_status(ctx, ref)
         return None
     ctx.emit(Event("cant_move", side=ref[0], slot=ref[1], detail="frz"))

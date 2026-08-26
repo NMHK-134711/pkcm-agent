@@ -53,11 +53,20 @@ EVENTS: dict[str, str] = {
     "modify_damage": "ref, target, move -- final damage",
     "modify_effectiveness": "ref, target, move -- type multiplier",
     "modify_crit_ratio": "ref, target, move -- denominator of the crit chance",
+    "modify_indirect_damage": (
+        "ref, source_kind, cause -- damage from anything but a move connecting: "
+        "status, weather, hazards, recoil, confusion. Magic Guard zeroes it; "
+        "Poison Heal turns its own poison damage into healing."
+    ),
+    "status_immunity": (
+        "ref (the SOURCE), status, target -- the types immune to this status. "
+        "Corrosion empties it so Steel and Poison can be poisoned."
+    ),
     # veto: return False to prevent
     "try_move": "ref, move -- may this Pokemon act at all",
     "try_status": "ref, status, source -- may this status be applied",
     "try_boost": "ref, stat, stages -- stat stage change, return new stages",
-    "try_hit": "ref, target, move -- may this move hit at all",
+    "try_hit": "ref, attacker, defender, move -- may this move hit at all",
 }
 
 
@@ -98,9 +107,21 @@ class Context:
     state: BattleState
     cursor: RngCursor
     log: list[Event]
+    #: Pokemon whose ability is being ignored for the moment. Mold Breaker and
+    #: friends put the defender in here for the duration of one move. Gathering
+    #: consults it, which is the only way suppression can be correct: the
+    #: defender's ability has to be invisible to *every* hook the move runs,
+    #: not just the one place someone remembered to check.
+    suppressed_abilities: set[Ref] = field(default_factory=set)
 
     def emit(self, event: Event) -> None:
         self.log.append(event)
+
+    def ability_of(self, ref: Ref) -> str | None:
+        """The ability in force right now -- ``None`` while suppressed."""
+        if ref in self.suppressed_abilities:
+            return None
+        return self.state.ability_id(*ref)
 
 
 # --------------------------------------------------------------------------- #
@@ -108,12 +129,13 @@ class Context:
 # --------------------------------------------------------------------------- #
 
 
-def effects_on(state: BattleState, ref: Ref) -> Iterator[Effect]:
+def effects_on(ctx: "Context", ref: Ref) -> Iterator[Effect]:
     """Every effect attached to one Pokemon, innermost first."""
+    state = ctx.state
     side_index, slot = ref
     side = state.sides[side_index]
 
-    ability = lookup("ability", state.ability_id(side_index, slot))
+    ability = lookup("ability", ctx.ability_of(ref))
     if ability is not None:
         yield ability
 
@@ -160,13 +182,13 @@ def _ordered(effects: list[Effect], event: str) -> list[Effect]:
     return relevant
 
 
-def _gather(state: BattleState, ref: Ref, scope: str) -> list[Effect]:
+def _gather(ctx: "Context", ref: Ref, scope: str) -> list[Effect]:
     """``scope`` picks how wide to look: ``"self"``, ``"side"``, ``"all"``."""
-    effects = list(effects_on(state, ref))
+    effects = list(effects_on(ctx, ref))
     if scope in ("side", "all"):
-        effects.extend(effects_on_side(state, ref[0]))
+        effects.extend(effects_on_side(ctx.state, ref[0]))
     if scope == "all":
-        effects.extend(effects_on_field(state))
+        effects.extend(effects_on_field(ctx.state))
     return effects
 
 
@@ -184,7 +206,7 @@ def modify(
     **kwargs: Any,
 ) -> Any:
     """Pass ``value`` through every handler for ``event``, in priority order."""
-    for effect in _ordered(_gather(ctx.state, ref, scope), event):
+    for effect in _ordered(_gather(ctx, ref, scope), event):
         result = effect.handlers[event](ctx, ref=ref, value=value, effect=effect, **kwargs)
         if result is not None:
             value = result
@@ -193,13 +215,13 @@ def modify(
 
 def notify(ctx: Context, event: str, ref: Ref, scope: str = "all", **kwargs: Any) -> None:
     """Run every handler for its side effects."""
-    for effect in _ordered(_gather(ctx.state, ref, scope), event):
+    for effect in _ordered(_gather(ctx, ref, scope), event):
         effect.handlers[event](ctx, ref=ref, effect=effect, **kwargs)
 
 
 def allows(ctx: Context, event: str, ref: Ref, scope: str = "all", **kwargs: Any) -> bool:
     """``False`` as soon as any handler vetoes. Handlers returning ``None`` allow."""
-    for effect in _ordered(_gather(ctx.state, ref, scope), event):
+    for effect in _ordered(_gather(ctx, ref, scope), event):
         if effect.handlers[event](ctx, ref=ref, effect=effect, **kwargs) is False:
             return False
     return True

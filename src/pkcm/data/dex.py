@@ -6,7 +6,13 @@ Two layers stack here:
    ``scripts/fetch_showdown_data.py``. Showdown already carries Champions'
    new Mega Evolutions and abilities, so this covers the numbers.
 2. ``data/champions/`` - our curated layer: which species and Megas a
-   regulation actually allows, and the ruleset constants.
+   regulation actually allows, the ruleset constants, and **the Champions
+   override layer**.
+
+The override layer is not optional. Showdown's base data is Scarlet/Violet;
+Champions removes 194 of the moves it calls standard, re-enables 9 more, changes
+the numbers on ~30, and caps every move's base PP at 20. Reading the base data
+alone gives a move pool that is 28% moves the game does not have.
 
 Everything here is frozen and cached: the engine treats the dex as a constant
 and never mutates it, which is what keeps battle states cheap to clone.
@@ -178,6 +184,40 @@ class Regulation:
         raise KeyError(f"unknown battle format {battle_format!r}")
 
 
+#: Champions caps every move's base PP at 20 (mods/champions/scripts.ts, init()).
+CHAMPIONS_MAX_BASE_PP = 20
+
+
+def _apply_overrides(raw: dict[str, Any], changes: dict[str, dict[str, Any]]) -> int:
+    """Fold Champions' deltas into the base data. Returns how many entries changed.
+
+    ``isNonstandard: null`` in the mod means "Champions re-enables this", so the
+    marker is removed rather than set. ``"Past"`` means the entry does not exist
+    in Champions at all -- 194 of the moves the base data calls standard.
+    """
+    applied = 0
+    for key, fields in changes.items():
+        entry = raw.get(key)
+        if entry is None:
+            continue
+        for field, value in fields.items():
+            if value is None:
+                entry.pop(field, None)
+            else:
+                entry[field] = value
+        applied += 1
+    return applied
+
+
+def _load_overrides() -> dict[str, Any]:
+    path = CHAMPIONS_DIR / "overrides.json"
+    if not path.exists():
+        raise FileNotFoundError(
+            f"{path} is missing. Run: python scripts/build_champions_overrides.py"
+        )
+    return json.loads(path.read_text(encoding="utf-8"))
+
+
 def _load_raw(stem: str) -> dict[str, Any]:
     path = RAW_DIR / f"{stem}.json"
     if not path.exists():
@@ -191,21 +231,43 @@ class Dex:
     """Immutable bundle of every lookup table the engine needs."""
 
     def __init__(self) -> None:
+        overrides = _load_overrides()
+
         pokedex = _load_raw("pokedex")
         self.species: dict[str, Species] = {
             key: _build_species(key, value, pokedex) for key, value in pokedex.items()
         }
-        self.moves: dict[str, Move] = {
-            key: _build_move(key, value) for key, value in _load_raw("moves").items()
+
+        raw_moves = _load_raw("moves")
+        self.override_counts = {
+            "moves": _apply_overrides(raw_moves, overrides["moves"]["changes"]),
         }
+        for entry in raw_moves.values():
+            entry["pp"] = min(entry["pp"], CHAMPIONS_MAX_BASE_PP)
+        self.moves: dict[str, Move] = {
+            key: _build_move(key, value) for key, value in raw_moves.items()
+        }
+
+        raw_abilities = _load_raw("abilities")
+        self.override_counts["abilities"] = _apply_overrides(
+            raw_abilities, overrides["abilities"]["changes"]
+        )
         self.abilities: dict[str, Ability] = {
             key: Ability(key, value.get("name", key), value.get("num", -1), value)
-            for key, value in _load_raw("abilities").items()
+            for key, value in raw_abilities.items()
         }
+
+        raw_items = _load_raw("items")
+        self.override_counts["items"] = _apply_overrides(raw_items, overrides["items"]["changes"])
         self.items: dict[str, Item] = {
-            key: _build_item(key, value) for key, value in _load_raw("items").items()
+            key: _build_item(key, value) for key, value in raw_items.items()
         }
+
         self.type_chart = TypeChart(_load_raw("typechart"))
+
+    def exists_in_champions(self, entry) -> bool:
+        """Whether a move / item / ability is part of Champions at all."""
+        return entry.raw.get("isNonstandard") is None
 
     @cached_property
     def learnsets(self) -> dict[str, Any]:

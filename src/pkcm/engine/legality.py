@@ -30,6 +30,27 @@ from pkcm.engine.stats import NATURES, SP_PER_STAT_CAP, SP_TOTAL, StatTuple, sp_
 ABSENT_MECHANIC_MOVES = frozenset({"terablast", "terastarstorm"})
 
 
+def clause_violation(move) -> str | None:
+    """Champions' standard ruleset bans three whole categories of move.
+
+    From ``mods/champions/rulesets.ts``: the ``standard`` ruleset adds Sleep
+    Moves Clause, OHKO Clause and Evasion Clause on top of Species and Item
+    Clause. Checking the move's data rather than a hand-written ban list means
+    new moves are covered automatically.
+    """
+    if move.raw.get("status") == "slp":
+        return "sleep moves clause"
+    if move.raw.get("ohko"):
+        return "OHKO clause"
+    boosts = move.raw.get("boosts") or {}
+    if boosts.get("evasion", 0) > 0:
+        return "evasion clause"
+    secondary = move.raw.get("secondary") or {}
+    if (secondary.get("self") or {}).get("boosts", {}).get("evasion", 0) > 0:
+        return "evasion clause"
+    return None
+
+
 def _learnset_sources(dex: Dex, species_id: str) -> list[str]:
     """Which learnset entries make up this forme's pool, in priority order.
 
@@ -73,6 +94,7 @@ def _compute_learnable(dex: Dex, species_id: str) -> frozenset[str]:
         if move_id in dex.moves
         and dex.moves[move_id].raw.get("isNonstandard") is None
         and move_id not in ABSENT_MECHANIC_MOVES
+        and clause_violation(dex.moves[move_id]) is None
     )
 
 
@@ -130,6 +152,12 @@ def set_errors(dex: Dex, regulation: Regulation, pokemon_set: PokemonSet) -> lis
     for move_id in pokemon_set.moves:
         if move_id not in dex.moves:
             errors.append(f"{label}: unknown move {move_id!r}")
+            continue
+        move = dex.moves[move_id]
+        if move.raw.get("isNonstandard") is not None:
+            errors.append(f"{label}: {move.name} does not exist in Champions")
+        elif (clause := clause_violation(move)) is not None:
+            errors.append(f"{label}: {move.name} is banned by the {clause}")
         elif move_id not in legal_moves:
             errors.append(f"{label}: cannot learn {move_id!r}")
 

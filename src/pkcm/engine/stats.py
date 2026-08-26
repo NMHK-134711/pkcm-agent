@@ -33,8 +33,16 @@ LEVEL = 50
 SP_TOTAL = 66
 SP_PER_STAT_CAP = 32
 
-_BOOST = 1.1
-_HINDER = 0.9
+#: Showdown computes the nature step as ``trunc(trunc(stat * 110, 16) / 100)``.
+#: Integer arithmetic rather than a float multiply, so the result is exact --
+#: the 16-bit truncation only bites above stat 595, which Champions cannot reach
+#: (max base 255 + 20 + 32 SP = 307).
+_BOOST_PERCENT = 110
+_HINDER_PERCENT = 90
+_NEUTRAL_PERCENT = 100
+
+_BOOST = _BOOST_PERCENT / 100
+_HINDER = _HINDER_PERCENT / 100
 
 StatTuple = tuple[int, int, int, int, int, int]
 
@@ -56,13 +64,17 @@ class Nature:
         return self.boosted is None
 
     def multiplier(self, stat: Stat) -> float:
+        """The ratio, for display and for tests. ``percent`` is what stats use."""
+        return self.percent(stat) / 100
+
+    def percent(self, stat: Stat) -> int:
         if stat is Stat.HP:
-            return 1.0
+            return _NEUTRAL_PERCENT
         if stat is self.boosted:
-            return _BOOST
+            return _BOOST_PERCENT
         if stat is self.hindered:
-            return _HINDER
-        return 1.0
+            return _HINDER_PERCENT
+        return _NEUTRAL_PERCENT
 
 
 def _build_natures() -> dict[str, Nature]:
@@ -118,7 +130,7 @@ def compute_stat(base: int, sp: int, nature: Nature, stat: Stat, level: int = LE
         raise ValueError(f"Champions locks battles to level {LEVEL}; got {level}")
     if stat is Stat.HP:
         return base + 75 + sp
-    return int((base + 20 + sp) * nature.multiplier(stat))
+    return (base + 20 + sp) * nature.percent(stat) // 100
 
 
 def compute_stats(

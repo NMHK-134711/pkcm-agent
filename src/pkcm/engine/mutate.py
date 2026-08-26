@@ -17,6 +17,15 @@ from pkcm.engine.effects import Context, Ref
 from pkcm.engine.events import Event
 from pkcm.engine.state import BOOST_INDEX, BOOST_STATS, MAX_BOOST, MIN_BOOST
 
+#: Damage that did not come from a move connecting. Magic Guard ignores all of
+#: it; Poison Heal turns its own share of it into healing. Routing every such
+#: source through one funnel is what keeps those two abilities from having to be
+#: special-cased in the status handler, the weather handler and the hazard code
+#: separately.
+INDIRECT_DAMAGE_KINDS = frozenset(
+    {"status_damage", "weather_damage", "hazard_damage", "recoil"}
+)
+
 #: A type cannot be given the status it embodies. This is a rule of the game
 #: rather than an ability, so it lives here rather than as a registered effect.
 STATUS_TYPE_IMMUNITY = {
@@ -92,6 +101,13 @@ def apply_damage(
     side = ctx.state.sides[side_index]
     if side.hp[slot] <= 0 or amount <= 0:
         return 0
+
+    cause = event_fields.get("detail")
+    if kind in INDIRECT_DAMAGE_KINDS or cause == "confusion":
+        amount = fx.modify(ctx, "modify_indirect_damage", amount, ref,
+                           source_kind=kind, cause=cause)
+        if amount is None or amount <= 0:
+            return 0
 
     dealt = min(amount, side.hp[slot])
     side.hp[slot] -= dealt
@@ -204,7 +220,13 @@ def set_status(ctx: Context, ref: Ref, status: str, source: Ref | None = None) -
     if side.hp[slot] <= 0 or side.status[slot] is not None:
         return False
 
+    # The source gets to say which types are immune, because Corrosion is a
+    # property of the poisoner, not of the poisoned.
     immune_types = STATUS_TYPE_IMMUNITY.get(status, ())
+    if source is not None:
+        immune_types = fx.modify(ctx, "status_immunity", immune_types, source,
+                                 scope="self", status=status, target=ref)
+
     if set(ctx.state.types(side_index, slot)) & set(immune_types):
         ctx.emit(Event("status_immune", side=side_index, slot=slot, detail=status))
         return False
@@ -215,8 +237,13 @@ def set_status(ctx: Context, ref: Ref, status: str, source: Ref | None = None) -
     side.status[slot] = status
     side.status_data[slot] = {}
     if status == "slp":
-        # 1-3 turns of sleep, decremented on each attempt to move.
-        side.status_data[slot]["turns"] = ctx.cursor.between(1, 3)
+        from pkcm.engine.conditions import SLEEP_DURATIONS
+
+        side.status_data[slot]["turns"] = ctx.cursor.choice(SLEEP_DURATIONS)
+    elif status == "frz":
+        from pkcm.engine.conditions import FREEZE_DURATION
+
+        side.status_data[slot]["turns"] = FREEZE_DURATION
     elif status == "tox":
         side.status_data[slot]["stage"] = 0
 

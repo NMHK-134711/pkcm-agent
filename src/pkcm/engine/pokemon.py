@@ -19,12 +19,13 @@ from typing import Sequence
 from pkcm.data.dex import Dex, Move, Species, Stat
 from pkcm.engine.stats import NEUTRAL_NATURE, Nature, StatTuple, compute_stats, get_nature
 
-#: Competitive sets are assumed fully PP-upped, as in every prior title. Champions
-#: sells customization for Victory Points and its PP rules are not documented in
-#: the sources we have; with 20-minute games PP almost never binds, so this is a
-#: safe default rather than a load-bearing guess.
-PP_UP_NUMERATOR = 8
-PP_UP_DENOMINATOR = 5
+#: Champions computes fully-boosted PP as ``(pp / 5 + 1) * 4``, not the series'
+#: ``pp * 8/5`` (mods/champions/scripts.ts, calculatePP). Combined with the base
+#: PP cap of 20 the dex applies, Thunderbolt has 16 PP here where the mainline
+#: games give it 24.
+PP_STEP = 5
+PP_BONUS = 1
+PP_SCALE = 4
 
 MAX_MOVES = 4
 
@@ -32,10 +33,10 @@ NO_SP: StatTuple = (0, 0, 0, 0, 0, 0)
 
 
 def max_pp(base_pp: int) -> int:
-    """Fully PP-upped PP. Moves with 1 base PP do not increase."""
+    """Fully boosted PP, by Champions' formula."""
     if base_pp <= 1:
         return base_pp
-    return base_pp * PP_UP_NUMERATOR // PP_UP_DENOMINATOR
+    return (base_pp // PP_STEP + PP_BONUS) * PP_SCALE
 
 
 @dataclass(frozen=True, slots=True)

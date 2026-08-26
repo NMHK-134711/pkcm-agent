@@ -215,3 +215,22 @@ def play_out(state: BattleState, policies: Sequence[Policy],
         choices = tuple(policies[player].act(state, player) for player in (0, 1))
         state, _ = step(state, choices[0], choices[1])
     return state
+
+
+def prior_over(state: BattleState, player: int,
+               options: Sequence[tuple[Action, ...]]) -> list[float]:
+    """A normalised guess at which of these are worth looking at first.
+
+    The search uses it as PUCT's prior. Without one, both sides explore
+    uniformly and the budget goes on learning that a resisted move is bad --
+    and worse, the *opponent* in the tree plays near-randomly for its first
+    visits, so the search plans against someone weaker than it will meet.
+
+    ``_promise`` is standing in for a policy network. When there is one, it
+    replaces this function and nothing else changes.
+    """
+    scores = [max(0.01, _promise(state, player, choice)) for choice in options]
+    total = sum(scores)
+    if total <= 0:
+        return [1.0 / max(1, len(options))] * len(options)
+    return [score / total for score in scores]

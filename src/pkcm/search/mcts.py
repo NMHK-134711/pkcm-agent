@@ -35,9 +35,19 @@ from pkcm.engine.rng import Rng, RngCursor
 from pkcm.engine.state import BattleState, Phase
 from pkcm.envs.observation import Observation, determinize
 from pkcm.search.evaluate import heuristic, terminal_value
-from pkcm.search.policy import RandomPolicy, decisions_wanted, joint_actions
+from pkcm.search.policy import (
+    RandomPolicy,
+    decisions_wanted,
+    joint_actions,
+    prior_over,
+)
 
 Choice = tuple[Action, ...]
+
+#: Added to an unvisited option's score so it outranks every visited one. The
+#: value only has to exceed the range of ``mean + bias + exploration``, which is
+#: bounded well below this.
+UNVISITED_BONUS = 1e6
 
 
 @dataclass(frozen=True, slots=True)
@@ -57,8 +67,19 @@ class SearchConfig:
     #: on the same position, because the heuristic alone cannot see far enough
     #: to tell the lines apart. It also costs about five times as much.
     rollout_turns: int = 0
-    #: UCB1's exploration constant, against a value range of [-1, 1].
+    #: The exploration constant, against a value range of [-1, 1].
     exploration: float = 0.7
+    #: How hard the prior pulls early visits toward plausible moves.
+    #:
+    #: Without one, both sides explore uniformly and the tree spends its budget
+    #: learning that a resisted move is bad. Worse, the *opponent* in the tree
+    #: plays near-randomly for its first visits, so the search plans against a
+    #: much weaker player than it will meet -- the standard weakness of DUCT,
+    #: and the reason a search can tie a one-turn calculator.
+    #:
+    #: This is the slot a policy network fills. ``policy._promise`` stands in
+    #: until there is one, and the shape is PUCT either way.
+    prior_weight: float = 1.5
     #: Deepest the tree grows. Beyond this a node is evaluated, not expanded.
     #:
     #: Twelve rather than six, and the reason is the heuristic: six turns into a
@@ -76,6 +97,8 @@ class Node:
     """One position. Two players' statistics, one shared visit count."""
 
     options: tuple[list[Choice], list[Choice]]
+    #: Normalised prior over each side's options. Sums to one per side.
+    priors: tuple[list[float], list[float]] = field(default=None)  # type: ignore[assignment]
     visits: int = 0
     counts: tuple[list[int], list[int]] = field(default=None)  # type: ignore[assignment]
     totals: tuple[list[float], list[float]] = field(default=None)  # type: ignore[assignment]
@@ -86,6 +109,10 @@ class Node:
             self.counts = ([0] * len(self.options[0]), [0] * len(self.options[1]))
         if self.totals is None:
             self.totals = ([0.0] * len(self.options[0]), [0.0] * len(self.options[1]))
+        if self.priors is None:
+            self.priors = tuple(  # type: ignore[assignment]
+                [1.0 / max(1, len(side))] * len(side) for side in self.options
+            )
 
     @property
     def expanded(self) -> bool:
@@ -187,17 +214,33 @@ class MCTS:
         return value
 
     def _select(self, node: Node, side: int) -> int:
-        """UCB1 over this side's own marginals. Unvisited options come first."""
+        """PUCT over this side's own marginals.
+
+        Unvisited options are no longer taken in list order -- with a hundred
+        joint actions in doubles that alone would eat the budget. The prior
+        decides which are worth a first look, which is the same thing it does
+        for every visit after.
+        """
         counts = node.counts[side]
-        for index, count in enumerate(counts):
-            if count == 0:
-                return index
-        parent = max(1, node.visits)
-        logarithm = math.log(parent)
+        totals = node.totals[side]
+        priors = node.priors[side]
+        parent = math.sqrt(max(1, node.visits))
+
         best_index, best_score = 0, -math.inf
         for index, count in enumerate(counts):
-            score = (node.totals[side][index] / count
-                     + self.config.exploration * math.sqrt(logarithm / count))
+            mean = totals[index] / count if count else 0.0
+            # AlphaZero's exploration term: the prior decides where the early
+            # visits go, and its pull decays as the statistics arrive.
+            bias = self.config.prior_weight * priors[index] * parent / (1 + count)
+            score = mean + bias
+            if count:
+                score += self.config.exploration * math.sqrt(
+                    math.log(max(2, node.visits)) / count)
+            else:
+                # Nothing to average yet, so the prior is the whole answer --
+                # plus enough to outrank anything already visited, so every
+                # option gets one look before any gets a second.
+                score += UNVISITED_BONUS
             if score > best_score:
                 best_index, best_score = index, score
         return best_index
@@ -219,7 +262,11 @@ class MCTS:
 
     def _node(self, state: BattleState, player: int) -> Node:
         """Options with ``player`` first, so index 0 is always the searcher."""
-        mine = joint_actions(state, player, self.config.max_branching)
-        theirs = joint_actions(state, 1 - player, self.config.max_branching)
-        fallback = ((Action.PASS,) * max(1, decisions_wanted(state, player)),)
-        return Node((mine or list(fallback), theirs or list(fallback)))
+        fallback = [(Action.PASS,) * max(1, decisions_wanted(state, player))]
+        mine = joint_actions(state, player, self.config.max_branching) or fallback
+        theirs = joint_actions(state, 1 - player, self.config.max_branching) or fallback
+        return Node(
+            (mine, theirs),
+            priors=(prior_over(state, player, mine),
+                    prior_over(state, 1 - player, theirs)),
+        )

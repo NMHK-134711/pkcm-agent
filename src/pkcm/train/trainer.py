@@ -48,6 +48,20 @@ class TrainConfig:
     #: and a constant zero would have scored 1.0. The training curve looked
     #: excellent throughout.
     validation_fraction: float = 0.1
+    #: How much of the value target comes from the search's root value rather
+    #: than from who eventually won. Zero is AlphaZero's target unchanged.
+    #:
+    #: AlphaZero can afford the pure outcome because it plays millions of games
+    #: from one starting position, so the noise averages out over inputs that
+    #: recur. Here the teams are random and no position ever recurs, and at team
+    #: preview the observation identifies the battle outright -- which is how
+    #: the value head came to emit +-0.99 before anyone had moved. See
+    #: ``Sample.search_value``.
+    #:
+    #: **Off until it is measured.** A target the network partly produced itself
+    #: can collapse into predicting its own output, which is exactly the kind of
+    #: change that looks like progress in every number except the arena.
+    search_value_weight: float = 0.0
 
 
 @dataclass
@@ -113,7 +127,17 @@ def fit(net: ChampionsNet, samples: list[Sample], device: torch.device,
 
     policies = torch.as_tensor(
         np.stack([sample.policy for sample in samples]), dtype=torch.float32)
-    values = torch.as_tensor(
+    outcomes = np.array([sample.value for sample in samples], dtype=np.float32)
+    blend = settings.search_value_weight
+    if blend > 0:
+        rooted = np.array([sample.search_value for sample in samples],
+                          dtype=np.float32)
+        outcomes = (1 - blend) * outcomes + blend * rooted
+    values = torch.as_tensor(outcomes, dtype=torch.float32)
+    #: Validation always scores against the real outcome, whatever the training
+    #: target was blended from. Scoring against a target the network helped
+    #: write would make a collapse into self-prediction look like success.
+    truth = torch.as_tensor(
         np.array([sample.value for sample in samples]), dtype=torch.float32)
     training, validation = split_by_battle(samples, settings.validation_fraction)
 
@@ -148,7 +172,7 @@ def fit(net: ChampionsNet, samples: list[Sample], device: torch.device,
                         float((value - target_value).abs().mean()))
 
     result = metrics.mean()
-    result.update(_validate(net, samples, validation, policies, values,
+    result.update(_validate(net, samples, validation, policies, truth,
                             device, settings))
     return result
 

@@ -55,6 +55,20 @@ class Sample:
     #: and differ by a turn or two; splitting them at random puts near-copies on
     #: both sides and the validation score measures memorisation as skill.
     battle: int = 0
+    #: What the search thought the position was worth, from this player's side.
+    #:
+    #: A second opinion on the value target, and a much steadier one. The final
+    #: outcome is the truth but it is one sample of a noisy variable, and at
+    #: team preview it is worse than noisy: both registered sixes are in the
+    #: observation, teams are generated at random so no pair ever repeats, and
+    #: the network can therefore identify *which battle this is* and recall who
+    #: won it. More data cannot fix that -- the inputs never recur. Measured on
+    #: the first run, the value head emitted +-0.99 on preview positions where
+    #: the honest answer is that nobody has moved yet.
+    #:
+    #: The root value depends on the tactics in front of it rather than on which
+    #: battle it belongs to, so it is the part of the target that can generalise.
+    search_value: float = 0.0
 
 
 @dataclass(frozen=True, slots=True)
@@ -98,7 +112,7 @@ def play_one(dex: Dex, config: SelfPlayConfig, seed: int) -> list[Sample]:
     cursor = Rng.from_seed(seed ^ 0x5EED).cursor()
     width = action_space_size(battle_config.registered, battle_config.brought)
 
-    pending: list[tuple[dict, np.ndarray, int, int]] = []
+    pending: list[tuple[dict, np.ndarray, int, int, float]] = []
     while not state.finished and state.turn <= config.max_turns:
         chosen = []
         for player in (0, 1):
@@ -112,13 +126,15 @@ def play_one(dex: Dex, config: SelfPlayConfig, seed: int) -> list[Sample]:
                 _policy_target(result, width, battle_config),
                 player,
                 state.turn,
+                result.value,
             ))
         state, _ = step(state, chosen[0], chosen[1])
 
     return [
         Sample(observation=observation, policy=policy,
-               value=_outcome(state, player), player=player, turn=turn, battle=seed)
-        for observation, policy, player, turn in pending
+               value=_outcome(state, player), player=player, turn=turn, battle=seed,
+               search_value=rooted)
+        for observation, policy, player, turn, rooted in pending
     ]
 
 

@@ -75,6 +75,10 @@ def main() -> int:
     parser.add_argument("--format", default="singles", choices=("singles", "doubles"))
     parser.add_argument("--workers", type=int, default=None)
     parser.add_argument("--epochs", type=int, default=2)
+    parser.add_argument("--search-value-weight", type=float, default=0.0,
+                        help="how much of the value target is the search's "
+                             "root value rather than who won. Off by default "
+                             "until an arena run says it helps")
     parser.add_argument("--hidden", type=int, default=256)
     parser.add_argument("--blocks", type=int, default=2)
     parser.add_argument("--buffer", type=int, default=40000,
@@ -100,7 +104,8 @@ def main() -> int:
     device = pick_device()
     net = build(vocabulary, sheet, action_space, SCALAR_SIZE,
                 NetConfig(hidden=args.hidden, blocks=args.blocks)).to(device)
-    settings = TrainConfig(epochs=args.epochs)
+    settings = TrainConfig(epochs=args.epochs,
+                           search_value_weight=args.search_value_weight)
     optimiser = torch.optim.AdamW(net.parameters(), lr=settings.learning_rate,
                                   weight_decay=settings.weight_decay)
 

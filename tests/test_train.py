@@ -407,3 +407,44 @@ def test_trust_governs_the_leaf_value_and_not_only_the_prior(pieces, samples):
         assert (min(ignored.value(state, 0), believed.value(state, 0))
                 <= half.value(state, 0)
                 <= max(ignored.value(state, 0), believed.value(state, 0)))
+
+
+def test_blending_the_value_target_still_scores_against_the_truth(pieces, samples):
+    """A target the network helped write cannot also be the exam.
+
+    ``search_value_weight`` mixes the search's root value into what the value
+    head is fitted to. If validation scored that same blend, a network that
+    collapsed into predicting its own output would post an excellent number
+    while having learned nothing about who wins.
+    """
+    from dataclasses import replace
+
+    vocabulary, sheet, action_space = pieces
+    spread = [replace(sample, battle=index % 6, search_value=0.0)
+              for index, sample in enumerate(samples)]
+
+    scores = {}
+    for weight in (0.0, 1.0):
+        net = build(vocabulary, sheet, action_space, SCALAR_SIZE,
+                    NetConfig(hidden=64, blocks=1))
+        result = fit(net, spread, torch.device("cpu"),
+                     TrainConfig(epochs=1, batch_size=16, validation_fraction=0.25,
+                                 search_value_weight=weight))
+        scores[weight] = result
+
+    # Fitted to a constant zero, the training error collapses; the held-out
+    # score against the real +-1 outcome cannot follow it down.
+    assert scores[1.0]["value_mae"] < scores[0.0]["value_mae"]
+    assert scores[1.0]["val_value_mae"] > 0.5, (
+        "validation is scoring the blended target, not the outcome")
+
+
+def test_the_root_value_is_recorded_per_sample():
+    """It has to come from the search, not be back-filled from the outcome --
+    the whole point is that it does not know who won."""
+    from pkcm.train.samples import Sample
+
+    made = Sample(observation={}, policy=np.zeros(4), value=1.0, player=0,
+                  turn=3, battle=7, search_value=-0.25)
+    assert made.search_value == -0.25
+    assert made.value == 1.0

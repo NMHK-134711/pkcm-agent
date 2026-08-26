@@ -376,3 +376,34 @@ def test_the_value_head_is_scored_against_a_baseline(pieces, samples):
     values = np.array([sample.value for sample in samples])
     assert np.abs(0.0 - values).mean() == pytest.approx(1.0, abs=0.2), (
         "if this is not about 1.0 the baseline claim in the docs is wrong")
+
+
+def test_trust_governs_the_leaf_value_and_not_only_the_prior(pieces, samples):
+    """``trust`` promised to hold back a network the loop does not believe yet,
+    and only did it for the prior. The leaf value is the half that matters:
+    a saturated value head does not fail to rank the lines, it ranks them
+    backwards with conviction."""
+    from pkcm.data.dex import load_dex
+    from pkcm.engine.legality import random_team
+    from pkcm.engine.rng import Rng
+    from pkcm.engine.state import BattleConfig, new_battle
+    from pkcm.search.evaluate import heuristic
+    from pkcm.train.evaluator import Evaluator
+
+    vocabulary, sheet, action_space = pieces
+    net = build(vocabulary, sheet, action_space, SCALAR_SIZE,
+                NetConfig(hidden=64, blocks=1))
+    dex = load_dex()
+    config = BattleConfig(dex=dex, regulation=dex.regulation("m_b"))
+    teams = tuple(random_team(dex, config.regulation, Rng.from_seed(o).cursor())
+                  for o in (1, 2))
+    state = new_battle(config, teams, seed=3)
+
+    ignored = Evaluator(net=net, dex=dex, trust=0.0)
+    believed = Evaluator(net=net, dex=dex, trust=1.0)
+    assert ignored.value(state, 0) == pytest.approx(heuristic(state, 0))
+    if believed.value(state, 0) != pytest.approx(heuristic(state, 0)):
+        half = Evaluator(net=net, dex=dex, trust=0.5)
+        assert (min(ignored.value(state, 0), believed.value(state, 0))
+                <= half.value(state, 0)
+                <= max(ignored.value(state, 0), believed.value(state, 0)))

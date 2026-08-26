@@ -42,10 +42,17 @@ class Evaluator:
     net: ChampionsNet
     dex: Dex
     device: torch.device | str = "cpu"
-    #: Blend with the handcrafted prior. One is all network; zero is all
-    #: heuristic. Early in training the network is worse than the heuristic --
-    #: it starts at random -- and a fresh network given full authority makes the
-    #: search worse than no search at all.
+    #: Blend with the handcrafted prior **and the handcrafted leaf value**.
+    #: One is all network; zero is all heuristic.
+    #:
+    #: The docstring here used to promise exactly that and only deliver half of
+    #: it: ``prior`` blended, ``value`` returned the network's number whatever
+    #: ``trust`` said. So a network the loop had explicitly decided to half
+    #: believe still had complete authority over every leaf in the tree -- and
+    #: the leaf value is the half that was broken. Measured at iteration 1, the
+    #: value head was emitting +-0.99 on team preview positions, where the
+    #: honest answer is "nobody has moved yet", and the search it drove lost to
+    #: the handcrafted one 16.2% [9.8, 25.8].
     trust: float = 1.0
     _vocabulary: Vocabulary | None = field(default=None, repr=False)
     _sheet: object | None = field(default=None, repr=False)
@@ -90,9 +97,21 @@ class Evaluator:
                 for a, b in zip(network, handcrafted)]
 
     def value(self, state: BattleState, player: int) -> float:
-        """How good this position looks, in ``[-1, 1]``, from the value head."""
+        """How good this position looks, in ``[-1, 1]``.
+
+        Blended with ``evaluate.heuristic`` on the same terms as the prior. The
+        heuristic is blunt and it is compressed, but it is never confidently
+        wrong, and a saturated value head is worse than a blunt one: it does not
+        merely fail to rank the lines, it ranks them backwards with conviction.
+        """
         _, value = self._look(state, player)
-        return float(value)
+        if self.trust >= 1.0:
+            return float(value)
+
+        from pkcm.search.evaluate import heuristic
+
+        return (self.trust * float(value)
+                + (1 - self.trust) * heuristic(state, player))
 
     # -- one forward pass, reused ------------------------------------------ #
 

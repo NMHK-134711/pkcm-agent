@@ -41,17 +41,30 @@ from pkcm.train.samples import SelfPlayConfig  # noqa: E402
 from pkcm.train.trainer import TrainConfig, fit, save  # noqa: E402
 
 
-def trust_for(iteration: int) -> float:
+def trust_for(iteration: int, value_mae: float | None = None) -> float:
     """How far the search should believe the network this round.
 
     Zero on the first pass: there is no trained network yet, and a randomly
-    initialised one given authority over the prior makes the search worse than
-    no search. After that it climbs, because the handcrafted prior is a floor
-    to get off, not a target.
+    initialised one given authority makes the search worse than no search.
+    After that it climbs, because the handcrafted prior is a floor to get off,
+    not a target.
+
+    **Capped by what the network is measured to be worth.** The ramp alone
+    handed it complete authority by the second iteration; at that point its
+    held-out value error was 0.51 on a scale where predicting a constant zero
+    scores 1.0, and the search it drove lost to the handcrafted one 16.2%
+    [9.8, 25.8]. A value head that is wrong by half the range does not get to
+    decide half the tree on a schedule -- it earns its say by scoring better.
+
+    Held-out error rather than training error, because the training number for
+    that same network was 0.12 and it meant nothing.
     """
     if iteration == 0:
         return 0.0
-    return min(1.0, 0.4 + 0.3 * iteration)
+    ramp = min(1.0, 0.4 + 0.3 * iteration)
+    if value_mae is None:
+        return ramp
+    return max(0.0, min(ramp, 1.0 - value_mae))
 
 
 def main() -> int:
@@ -122,8 +135,11 @@ def main() -> int:
 
     buffer: list = []
     history: list[dict] = []
+    #: Last round's held-out value error, which is what this round's trust is
+    #: capped by. ``None`` before there is one -- the ramp alone decides then.
+    earned: float | None = None
     for iteration in range(args.iterations):
-        trust = trust_for(iteration)
+        trust = trust_for(iteration, earned)
         selfplay = SelfPlayConfig(
             battle_format=args.format,
             search=SearchConfig(
@@ -147,6 +163,7 @@ def main() -> int:
         losses = fit(net, buffer, device, settings, optimizer=optimiser)
         learned = time.perf_counter() - started
         save(net, checkpoint, {"iteration": iteration, "samples": len(buffer)})
+        earned = losses.get("val_value_mae")
 
         row = {
             "iteration": iteration,

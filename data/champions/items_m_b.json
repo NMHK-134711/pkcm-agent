@@ -1,22 +1,9 @@
 {
  "source": "op.gg Pokemon Champions item list, scraped by hk",
- "inferred_mega_stones": [
-  "absolite",
-  "alakazite",
-  "blastoisinite",
-  "chimechite",
-  "dragoninite",
-  "froslassite",
-  "gardevoirite",
-  "gyaradosite",
-  "hawluchanite",
-  "houndoominite",
-  "medichamite",
-  "tyranitarite"
- ],
+ "inferred_mega_stones": [],
  "inferred_note": "Not in the op.gg scrape, but their Mega formes are legal in Regulation M-B, so the stones exist. Showdown's Champions mod enables all 12 as well.",
  "note": "The item roster as it stands in the live game. More current than Showdown's Champions mod, which is a community port. Korean names were matched to Showdown ids through PokeAPI's multilingual names.",
- "count": 135,
+ "count": 147,
  "items": [
   {
    "korean": "큰뿌리",
@@ -373,10 +360,18 @@
   {
    "korean": "눈설왕나이트",
    "new_in_champions": false,
-   "description_ko": "눈설왕이 메가진화할 수 있게 되는 도구. Mega Evolution Tutorial - 앱솔나이트 앱솔나이트 앱솔이 메가진화할 수 있게 되는 도구. (메가앱솔)",
+   "description_ko": "눈설왕이 메가진화할 수 있게 되는 도구.",
+   "source": "Mega Evolution Tutorial",
+   "price": "-",
+   "id": "abomasite"
+  },
+  {
+   "korean": "앱솔나이트",
+   "new_in_champions": false,
+   "description_ko": "앱솔이 메가진화할 수 있게 되는 도구. (메가앱솔)",
    "source": "Shop",
    "price": "2,000",
-   "id": "abomasite"
+   "id": "absolite"
   },
   {
    "korean": "프테라나이트",
@@ -389,10 +384,18 @@
   {
    "korean": "보스로라나이트",
    "new_in_champions": false,
-   "description_ko": "보스로라가 메가진화할 수 있게 되는 도구. Mega Evolution Tutorial - 후디나이트 후디나이트 후딘이 메가진화할 수 있게 되는 도구.",
+   "description_ko": "보스로라가 메가진화할 수 있게 되는 도구.",
+   "source": "Mega Evolution Tutorial",
+   "price": "-",
+   "id": "aggronite"
+  },
+  {
+   "korean": "후디나이트",
+   "new_in_champions": false,
+   "description_ko": "후딘이 메가진화할 수 있게 되는 도구.",
    "source": "Shop",
    "price": "2,000",
-   "id": "aggronite"
+   "id": "alakazite"
   },
   {
    "korean": "파비코리나이트",
@@ -429,10 +432,18 @@
   {
    "korean": "독침붕나이트",
    "new_in_champions": false,
-   "description_ko": "독침붕이 메가진화할 수 있게 되는 도구. Mega Evolution Tutorial - 거북왕나이트 거북왕나이트 거북왕이 메가진화할 수 있게 되는 도구.",
+   "description_ko": "독침붕이 메가진화할 수 있게 되는 도구.",
+   "source": "Mega Evolution Tutorial",
+   "price": "-",
+   "id": "beedrillite"
+  },
+  {
+   "korean": "거북왕나이트",
+   "new_in_champions": false,
+   "description_ko": "거북왕이 메가진화할 수 있게 되는 도구.",
    "source": "Shop",
    "price": "2,000",
-   "id": "beedrillite"
+   "id": "blastoisinite"
   },
   {
    "korean": "폭타나이트",
@@ -469,10 +480,18 @@
   {
    "korean": "브리가론나이트",
    "new_in_champions": false,
-   "description_ko": "브리가론이 메가진화할 수 있게 되는 도구. Deposit Chesnaught from Pokemon Legends: Z-A - 치렁나이트 치렁나이트 치렁이 메가진화할 수 있게 되는 도구.",
+   "description_ko": "브리가론이 메가진화할 수 있게 되는 도구.",
+   "source": "Deposit Chesnaught from Pokemon Legends: Z-A",
+   "price": "-",
+   "id": "chesnaughtite"
+  },
+  {
+   "korean": "치렁나이트",
+   "new_in_champions": false,
+   "description_ko": "치렁이 메가진화할 수 있게 되는 도구.",
    "source": "Shop",
    "price": "2,000",
-   "id": "chesnaughtite"
+   "id": "chimechite"
   },
   {
    "korean": "픽시나이트",
@@ -493,10 +512,18 @@
   {
    "korean": "마폭시나이트",
    "new_in_champions": false,
-   "description_ko": "마폭시가 메가진화할 수 있게 되는 도구. Deposit Delphox from Pokemon Legends: Z-A - 망나뇽나이트 망나뇽나이트 망나뇽이 메가진화할 수 있게 되는 도구.",
+   "description_ko": "마폭시가 메가진화할 수 있게 되는 도구.",
+   "source": "Deposit Delphox from Pokemon Legends: Z-A",
+   "price": "-",
+   "id": "delphoxite"
+  },
+  {
+   "korean": "망나뇽나이트",
+   "new_in_champions": false,
+   "description_ko": "망나뇽이 메가진화할 수 있게 되는 도구.",
    "source": "Shop",
    "price": "2,000",
-   "id": "delphoxite"
+   "id": "dragoninite"
   },
   {
    "korean": "할비롱나이트",
@@ -533,10 +560,18 @@
   {
    "korean": "플라엣테나이트",
    "new_in_champions": false,
-   "description_ko": "플라엣테(영원의 꽃)가 메가진화할 수 있게 되는 도구. Deposit Floette Eternal Flower from Pokemon Legends: Z-A - 눈여아나이트 눈여아나이트 눈여아가 메가진화할 수 있게 되는 도구.",
+   "description_ko": "플라엣테(영원의 꽃)가 메가진화할 수 있게 되는 도구.",
+   "source": "Deposit Floette Eternal Flower from Pokemon Legends: Z-A",
+   "price": "-",
+   "id": "floettite"
+  },
+  {
+   "korean": "눈여아나이트",
+   "new_in_champions": false,
+   "description_ko": "눈여아가 메가진화할 수 있게 되는 도구.",
    "source": "Shop",
    "price": "2,000",
-   "id": "floettite"
+   "id": "froslassite"
   },
   {
    "korean": "엘레이드나이트",
@@ -549,10 +584,18 @@
   {
    "korean": "한카리아스나이트",
    "new_in_champions": false,
-   "description_ko": "한카리아스가 메가진화할 수 있게 되는 도구. (메가한카리아스) Mega Evolution Tutorial - 가디안나이트 가디안나이트 가디안이 메가진화할 수 있게 되는 도구.",
+   "description_ko": "한카리아스가 메가진화할 수 있게 되는 도구. (메가한카리아스)",
+   "source": "Mega Evolution Tutorial",
+   "price": "-",
+   "id": "garchompite"
+  },
+  {
+   "korean": "가디안나이트",
+   "new_in_champions": false,
+   "description_ko": "가디안이 메가진화할 수 있게 되는 도구.",
    "source": "Shop",
    "price": "2,000",
-   "id": "garchompite"
+   "id": "gardevoirite"
   },
   {
    "korean": "팬텀나이트",
@@ -589,18 +632,42 @@
   {
    "korean": "개굴닌자나이트",
    "new_in_champions": false,
-   "description_ko": "개굴닌자가 메가진화할 수 있게 되는 도구. Deposit Greninja from Pokemon Legends: Z-A - 갸라도스나이트 갸라도스나이트 갸라도스가 메가진화할 수 있게 되는 도구. Mega Evolution Tutorial - 루차불나이트 루차불나이트 루차불이 메가진화할 수 있게 되는 도구.",
+   "description_ko": "개굴닌자가 메가진화할 수 있게 되는 도구.",
+   "source": "Deposit Greninja from Pokemon Legends: Z-A",
+   "price": "-",
+   "id": "greninjite"
+  },
+  {
+   "korean": "갸라도스나이트",
+   "new_in_champions": false,
+   "description_ko": "갸라도스가 메가진화할 수 있게 되는 도구.",
+   "source": "Mega Evolution Tutorial",
+   "price": "-",
+   "id": "gyaradosite"
+  },
+  {
+   "korean": "루차불나이트",
+   "new_in_champions": false,
+   "description_ko": "루차불이 메가진화할 수 있게 되는 도구.",
    "source": "Shop",
    "price": "2,000",
-   "id": "greninjite"
+   "id": "hawluchanite"
   },
   {
    "korean": "헤라크로스나이트",
    "new_in_champions": false,
-   "description_ko": "헤라크로스가 메가진화할 수 있게 되는 도구. Mega Evolution Tutorial - 헬가나이트 헬가나이트 헬가가 메가진화할 수 있게 되는 도구.",
+   "description_ko": "헤라크로스가 메가진화할 수 있게 되는 도구.",
+   "source": "Mega Evolution Tutorial",
+   "price": "-",
+   "id": "heracronite"
+  },
+  {
+   "korean": "헬가나이트",
+   "new_in_champions": false,
+   "description_ko": "헬가가 메가진화할 수 있게 되는 도구.",
    "source": "Shop",
    "price": "2,000",
-   "id": "heracronite"
+   "id": "houndoominite"
   },
   {
    "korean": "캥카나이트",
@@ -629,10 +696,18 @@
   {
    "korean": "썬더볼트나이트",
    "new_in_champions": false,
-   "description_ko": "썬더볼트가 메가진화할 수 있게 되는 도구. Mega Evolution Tutorial - 요가램나이트 요가램나이트 요가램이 메가진화할 수 있게 되는 도구.",
+   "description_ko": "썬더볼트가 메가진화할 수 있게 되는 도구.",
+   "source": "Mega Evolution Tutorial",
+   "price": "-",
+   "id": "manectite"
+  },
+  {
+   "korean": "요가램나이트",
+   "new_in_champions": false,
+   "description_ko": "요가램이 메가진화할 수 있게 되는 도구.",
    "source": "Shop",
    "price": "2,000",
-   "id": "manectite"
+   "id": "medichamite"
   },
   {
    "korean": "메가니움나이트",
@@ -725,10 +800,18 @@
   {
    "korean": "강철톤나이트",
    "new_in_champions": false,
-   "description_ko": "강철톤이 메가진화할 수 있게 되는 도구. Mega Evolution Tutorial - 마기라스나이트 마기라스나이트 마기라스가 메가진화할 수 있게 되는 도구.",
+   "description_ko": "강철톤이 메가진화할 수 있게 되는 도구.",
+   "source": "Mega Evolution Tutorial",
+   "price": "-",
+   "id": "steelixite"
+  },
+  {
+   "korean": "마기라스나이트",
+   "new_in_champions": false,
+   "description_ko": "마기라스가 메가진화할 수 있게 되는 도구.",
    "source": "Shop",
    "price": "2,000",
-   "id": "steelixite"
+   "id": "tyranitarite"
   },
   {
    "korean": "이상해꽃나이트",

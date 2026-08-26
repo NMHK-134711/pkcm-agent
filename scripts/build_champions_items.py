@@ -50,6 +50,8 @@ MANUAL_IDS = {
     # Meowstic's Mega is one option in game but two formes in Showdown
     # (meowsticmmega / meowsticfmega), so the species-side lookup misses it.
     "냐오닉스나이트": "meowsticite",
+    # The game drops the final consonant: 후딘 -> 후디나이트, not 후딘나이트.
+    "후디나이트": "alakazite",
 }
 
 
@@ -114,8 +116,18 @@ def korean_to_showdown() -> dict[str, str]:
     return mapping
 
 
+PRICE_RE = re.compile(r"^(-|[\d,]+)$")
+
+
 def parse_scrape(text: str) -> list[dict]:
-    """Blocks of: name, name again, optional NEW, description, source, price."""
+    """Blocks of: name, name again, optional NEW, description, source, price.
+
+    The source is *not* matched against a fixed list. An earlier version
+    accepted only Shop/Beginning/Event and silently swallowed the eleven items
+    whose source is "Mega Evolution Tutorial" or "Deposit <x> from Pokemon
+    Legends: Z-A" -- the block boundary was missed and two entries merged into
+    one. The last line before a price is the source, whatever it says.
+    """
     lines = [line.strip() for line in text.splitlines() if line.strip()]
     entries: list[dict] = []
     index = 0
@@ -131,15 +143,16 @@ def parse_scrape(text: str) -> list[dict]:
         if is_new:
             index += 1
 
-        description_parts = []
-        while index < len(lines) and lines[index] not in ("Shop", "Beginning", "Event"):
-            description_parts.append(lines[index])
+        body = []
+        while index + 1 < len(lines) and not PRICE_RE.match(lines[index + 1]):
+            body.append(lines[index])
             index += 1
 
         source = lines[index] if index < len(lines) else "?"
         index += 1
         price = lines[index] if index < len(lines) else "-"
         index += 1
+        description_parts = body
 
         entries.append({
             "korean": name,

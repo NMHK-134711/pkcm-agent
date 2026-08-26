@@ -7,8 +7,8 @@ Rocky Helmet, Air Balloon, Flame Orb, Toxic Orb, Heavy-Duty Boots and Weakness
 Policy outright. Showdown's Champions mod agrees on every one of those, which is
 about as much corroboration as two independent sources can give.
 
-So 72 battle items and 63 Mega Stones, and a third of the battle items are
-berries. Behaviour is ported from ``data/reference/items.ts``.
+So 147 items: 72 battle items and 75 Mega Stones, and a third of the battle
+items are berries. Behaviour is ported from ``data/reference/items.ts``.
 
 Consumption is permanent: a used item is gone for the battle, not just until the
 holder switches, so it writes through ``set_override(..., permanent=True)``.

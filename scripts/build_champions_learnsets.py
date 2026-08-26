@@ -14,7 +14,15 @@ the table itself rather than an approximation of it. Every id in it maps onto a
 move we already have, which is the check worth trusting: a table full of ids we
 could not resolve would mean we had misread the format.
 
-Output: ``data/champions/learnsets.json``, committed, keyed by our species id.
+The same entries carry ``abilities``, and those disagree with ours in exactly
+one place across 316 species: Greninja has no Battle Bond in Champions. One
+disagreement out of 316 is what says their list includes hidden abilities and
+is therefore worth believing -- so this writes that table too, and team
+generation stops handing out an ability the game does not.
+
+Output, both committed and keyed by our species id:
+    ``data/champions/learnsets.json``
+    ``data/champions/species_abilities.json``
 
 Usage:
     python scripts/fetch_pokechams.py && python scripts/build_champions_learnsets.py
@@ -35,6 +43,7 @@ from pkcm.data.dex import load_dex  # noqa: E402
 
 RAW_DIR = ROOT / "data" / "raw" / "pokechams"
 OUT_PATH = ROOT / "data" / "champions" / "learnsets.json"
+ABILITIES_PATH = ROOT / "data" / "champions" / "species_abilities.json"
 
 
 def normalise(name: str) -> str:
@@ -86,9 +95,15 @@ def main() -> int:
     move_by_name = {normalise(move.name): move.id for move in dex.moves.values()}
 
     their_moves = {record["id"]: record for record in load("moves.json")}
+    their_abilities = {record["id"]: record["nameEn"] for record in load("abilities.json")}
+    ability_by_name = {normalise(entry.name): key
+                       for key, entry in dex.abilities.items()}
+
     table: dict[str, list[str]] = {}
+    ability_table: dict[str, list[str]] = {}
     unmapped_species: list[str] = []
     unmapped_moves: set[str] = set()
+    unmapped_abilities: set[str] = set()
 
     for entry in load("champions_pokemon.json"):
         if not entry.get("allowedInChampions"):
@@ -111,19 +126,41 @@ def main() -> int:
             learnable.add(ours)
         table[species_id] = sorted(learnable)
 
+        # Order matters here in a way it does not for moves: slot 0 is the one a
+        # Pokemon gets by default, so the list is kept as they give it.
+        abilities: list[str] = []
+        for ability_id in entry.get("abilities", []):
+            name = their_abilities.get(ability_id)
+            ours = ability_by_name.get(normalise(name)) if name else None
+            if ours is None:
+                unmapped_abilities.add(name or f"id:{ability_id}")
+                continue
+            if ours not in abilities:
+                abilities.append(ours)
+        if abilities:
+            ability_table[species_id] = abilities
+
     if unmapped_moves:
         print(f"WARNING: {len(unmapped_moves)} moves did not map: "
               f"{sorted(unmapped_moves)[:10]}", file=sys.stderr)
 
+    if unmapped_abilities:
+        print(f"WARNING: {len(unmapped_abilities)} abilities did not map: "
+              f"{sorted(unmapped_abilities)[:10]}", file=sys.stderr)
+
     OUT_PATH.parent.mkdir(parents=True, exist_ok=True)
     OUT_PATH.write_text(json.dumps(table, indent=0, sort_keys=True), encoding="utf-8")
+    ABILITIES_PATH.write_text(
+        json.dumps(ability_table, indent=0, sort_keys=True), encoding="utf-8")
 
     if not args.quiet:
         total = sum(len(moves) for moves in table.values())
         print(f"  species        {len(table):>6}")
         print(f"  move entries   {total:>6}")
         print(f"  average        {total / max(1, len(table)):>6.1f} per species")
+        print(f"  ability rows   {len(ability_table):>6}")
         print(f"\nwrote {OUT_PATH.relative_to(ROOT)}")
+        print(f"wrote {ABILITIES_PATH.relative_to(ROOT)}")
 
     if unmapped_species:
         # Not a warning. A species we fail to map keeps the all-generations

@@ -326,3 +326,27 @@ def test_random_teams_hold_legal_distinct_items(dex, regulation, seed):
             assert dex.mega_evolution(pokemon.species, pokemon.item) is not None, (
                 f"{pokemon.species} cannot use {pokemon.item}"
             )
+
+
+def test_zoom_lens_only_helps_when_moving_second(dex, config):
+    """The op.gg item scrape does not list it, so it was never implemented.
+
+    The pokechams dex does list it, which is the whole argument for keeping two
+    sources: one of them being short an item is invisible until something else
+    counts them.
+    """
+    from pkcm.engine.moves import _both_sides
+
+    state = build(config, a_set("pikachu", "static", ("thunder",), item="zoomlens"),
+                  a_set("snorlax", "thickfat"))
+    move = dex.moves["thunder"]
+
+    early = make_context(state)
+    plain = _both_sides(early, "modify_accuracy", float(move.accuracy), RED, BLUE, move)
+
+    late = make_context(state)
+    late.acted.add(BLUE)          # the target has already taken its turn
+    boosted = _both_sides(late, "modify_accuracy", float(move.accuracy), RED, BLUE, move)
+
+    assert boosted > plain
+    assert plain == float(move.accuracy), "no bonus while the target still has its turn"

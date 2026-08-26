@@ -258,6 +258,24 @@ register("item", "scopelens", name="Scope Lens",
              value + 1 if ref == attacker else None)
 
 
+def _zoom_lens(ctx, ref, value, attacker, defender, move, **_):
+    """+20% accuracy, but only when the holder is moving *after* its target.
+
+    Showdown asks ``!this.queue.willMove(target)`` -- has the target already
+    gone? We keep the same question on the context: ``ctx.acted`` is the set of
+    Pokemon that have taken their action this turn, which exists because
+    Analytic needed exactly this and nothing else can reconstruct it.
+    """
+    if ref != attacker or defender not in ctx.acted:
+        return None
+    return chain_modify(int(value), X1_2)
+
+
+# Missing until the pokechams dex turned it up: the op.gg item scrape we built
+# the item list from does not have it, so it was never on the list to implement.
+register("item", "zoomlens", name="Zoom Lens", modify_accuracy=_zoom_lens)
+
+
 def _kings_rock(ctx, ref, attacker, defender, move, damage, **_):
     if damage > 0 and move.category != "Status" and ctx.cursor.chance(1, 10):
         used(ctx, ref, "kingsrock")

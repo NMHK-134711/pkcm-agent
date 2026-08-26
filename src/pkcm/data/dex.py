@@ -237,8 +237,10 @@ class Dex:
         overrides = _load_overrides()
 
         pokedex = _load_raw("pokedex")
+        champions_abilities = _load_champions_abilities()
         self.species: dict[str, Species] = {
-            key: _build_species(key, value, pokedex) for key, value in pokedex.items()
+            key: _build_species(key, value, pokedex, champions_abilities)
+            for key, value in pokedex.items()
         }
 
         raw_moves = _load_raw("moves")
@@ -331,7 +333,23 @@ class Dex:
 _INHERITED_FIELDS = ("num", "baseStats", "types", "abilities", "weightkg", "heightm")
 
 
-def _build_species(key: str, raw: dict[str, Any], pokedex: dict[str, Any]) -> Species:
+def _load_champions_abilities() -> dict[str, tuple[str, ...]]:
+    """Which abilities each species may actually have in Champions.
+
+    Built by ``scripts/build_champions_learnsets.py`` from the 포케챔스 dex.
+    Showdown's pokedex is the main series', and it hands Greninja Battle Bond --
+    an ability Champions does not offer, which team generation was duly handing
+    out. Empty if the file is absent, which leaves the main-series list in place.
+    """
+    path = CHAMPIONS_DIR / "species_abilities.json"
+    if not path.exists():
+        return {}
+    raw = json.loads(path.read_text(encoding="utf-8"))
+    return {species: tuple(abilities) for species, abilities in raw.items()}
+
+
+def _build_species(key: str, raw: dict[str, Any], pokedex: dict[str, Any],
+                   champions_abilities: dict[str, tuple[str, ...]] | None = None) -> Species:
     if "baseStats" not in raw:
         base = pokedex.get(to_id(raw.get("baseSpecies", "")), {})
         raw = {**raw, **{f: base[f] for f in _INHERITED_FIELDS if f in base}}
@@ -342,6 +360,12 @@ def _build_species(key: str, raw: dict[str, Any], pokedex: dict[str, Any]) -> Sp
         for slot in ("0", "1", "H", "S")
         if slot in raw["abilities"]
     )
+    if champions_abilities:
+        # A cosmetic forme shares its base species' row, the way learnsets do.
+        override = (champions_abilities.get(key)
+                    or champions_abilities.get(to_id(raw.get("baseSpecies", ""))))
+        if override:
+            abilities = override
     required_item = raw.get("requiredItem")
     changes_from = raw.get("changesFrom")
     gender = raw.get("gender")

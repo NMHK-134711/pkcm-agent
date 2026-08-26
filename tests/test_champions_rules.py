@@ -9,6 +9,8 @@ from __future__ import annotations
 
 import pytest
 
+ROOT = __import__('pathlib').Path(__file__).resolve().parents[1]
+
 from pkcm.data.dex import CHAMPIONS_MAX_BASE_PP, load_dex
 from pkcm.engine.actions import Action
 from pkcm.engine.battle import make_context, step
@@ -249,3 +251,40 @@ def test_no_species_learns_nothing(dex):
     regulation = dex.regulation("m_b")
     empty = [s for s in regulation.legal_species if not learnable_moves(dex, s)]
     assert not empty, empty
+
+
+def test_greninja_has_no_battle_bond(dex):
+    """Champions does not offer it, and team generation was handing it out.
+
+    The pokechams dex disagreed with ours on exactly one species' abilities out
+    of 316 -- which is what says their list includes hidden abilities and is
+    worth believing over Showdown's main-series pokedex here.
+    """
+    assert dex.species["greninja"].abilities == ("torrent", "protean")
+
+
+def test_no_random_team_carries_an_ability_the_game_lacks(dex):
+    from pkcm.engine.legality import random_team, set_errors
+    from pkcm.engine.rng import Rng
+
+    regulation = dex.regulation("m_b")
+    for seed in range(60):
+        for pokemon in random_team(dex, regulation, Rng.from_seed(seed).cursor()):
+            assert pokemon.ability in dex.species[pokemon.species].abilities, pokemon
+            assert not set_errors(dex, regulation, pokemon), pokemon
+
+
+def test_the_two_slug_alias_tables_agree():
+    """The builder and the report each carry one; they have to say the same."""
+    import importlib.util
+
+    def load(name):
+        path = ROOT / "scripts" / f"{name}.py"
+        spec = importlib.util.spec_from_file_location(name, path)
+        module = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(module)
+        return module
+
+    builder = load("build_champions_learnsets")
+    report = load("compare_pokechams")
+    assert builder.SLUG_ALIASES == report.SLUG_ALIASES

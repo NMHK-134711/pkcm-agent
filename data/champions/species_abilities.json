@@ -1,0 +1,1284 @@
+{
+"abomasnow": [
+"snowwarning",
+"soundproof"
+],
+"abomasnowmega": [
+"snowwarning"
+],
+"absol": [
+"pressure",
+"superluck",
+"justified"
+],
+"absolmega": [
+"magicbounce"
+],
+"aegislash": [
+"stancechange"
+],
+"aegislashblade": [
+"stancechange"
+],
+"aerodactyl": [
+"rockhead",
+"pressure",
+"unnerve"
+],
+"aerodactylmega": [
+"toughclaws"
+],
+"aggron": [
+"sturdy",
+"rockhead",
+"heavymetal"
+],
+"aggronmega": [
+"filter"
+],
+"alakazam": [
+"synchronize",
+"innerfocus",
+"magicguard"
+],
+"alakazammega": [
+"trace"
+],
+"alcremie": [
+"sweetveil",
+"aromaveil"
+],
+"altaria": [
+"naturalcure",
+"cloudnine"
+],
+"altariamega": [
+"pixilate"
+],
+"ampharos": [
+"static",
+"plus"
+],
+"ampharosmega": [
+"moldbreaker"
+],
+"annihilape": [
+"vitalspirit",
+"innerfocus",
+"defiant"
+],
+"appletun": [
+"ripen",
+"gluttony",
+"thickfat"
+],
+"araquanid": [
+"waterbubble",
+"waterabsorb"
+],
+"arbok": [
+"intimidate",
+"shedskin",
+"unnerve"
+],
+"arcanine": [
+"intimidate",
+"flashfire",
+"justified"
+],
+"arcaninehisui": [
+"intimidate",
+"flashfire",
+"rockhead"
+],
+"archaludon": [
+"stamina",
+"sturdy",
+"stalwart"
+],
+"ariados": [
+"swarm",
+"insomnia",
+"sniper"
+],
+"armarouge": [
+"flashfire",
+"weakarmor"
+],
+"aromatisse": [
+"healer",
+"aromaveil"
+],
+"audino": [
+"healer",
+"regenerator",
+"klutz"
+],
+"audinomega": [
+"healer"
+],
+"aurorus": [
+"refrigerate",
+"snowwarning"
+],
+"avalugg": [
+"owntempo",
+"icebody",
+"sturdy"
+],
+"avalugghisui": [
+"strongjaw",
+"icebody",
+"sturdy"
+],
+"azumarill": [
+"thickfat",
+"hugepower",
+"sapsipper"
+],
+"banette": [
+"insomnia",
+"frisk",
+"cursedbody"
+],
+"banettemega": [
+"prankster"
+],
+"barbaracle": [
+"toughclaws",
+"sniper",
+"pickpocket"
+],
+"barbaraclemega": [
+"toughclaws"
+],
+"basculegion": [
+"swiftswim",
+"adaptability",
+"moldbreaker"
+],
+"basculegionf": [
+"swiftswim",
+"adaptability",
+"moldbreaker"
+],
+"bastiodon": [
+"sturdy",
+"soundproof"
+],
+"beartic": [
+"snowcloak",
+"slushrush",
+"swiftswim"
+],
+"beedrill": [
+"swarm",
+"sniper"
+],
+"beedrillmega": [
+"adaptability"
+],
+"bellibolt": [
+"electromorphosis",
+"static",
+"damp"
+],
+"blastoise": [
+"torrent",
+"raindish"
+],
+"blastoisemega": [
+"megalauncher"
+],
+"blaziken": [
+"blaze",
+"speedboost"
+],
+"blazikenmega": [
+"speedboost"
+],
+"camerupt": [
+"magmaarmor",
+"solidrock",
+"angerpoint"
+],
+"cameruptmega": [
+"sheerforce"
+],
+"castform": [
+"forecast"
+],
+"castformrainy": [
+"forecast"
+],
+"castformsnowy": [
+"forecast"
+],
+"castformsunny": [
+"forecast"
+],
+"ceruledge": [
+"flashfire",
+"weakarmor"
+],
+"chandelure": [
+"flashfire",
+"flamebody",
+"infiltrator"
+],
+"chandeluremega": [
+"infiltrator"
+],
+"charizard": [
+"blaze",
+"solarpower"
+],
+"charizardmegax": [
+"toughclaws"
+],
+"charizardmegay": [
+"drought"
+],
+"chesnaught": [
+"overgrow",
+"bulletproof"
+],
+"chesnaughtmega": [
+"bulletproof"
+],
+"chimecho": [
+"levitate"
+],
+"chimechomega": [
+"levitate"
+],
+"clawitzer": [
+"megalauncher"
+],
+"clefable": [
+"cutecharm",
+"magicguard",
+"unaware"
+],
+"clefablemega": [
+"magicbounce"
+],
+"cofagrigus": [
+"mummy"
+],
+"conkeldurr": [
+"guts",
+"sheerforce",
+"ironfist"
+],
+"corviknight": [
+"pressure",
+"unnerve",
+"mirrorarmor"
+],
+"crabominable": [
+"hypercutter",
+"ironfist",
+"angerpoint"
+],
+"crabominablemega": [
+"ironfist"
+],
+"decidueye": [
+"overgrow",
+"longreach"
+],
+"decidueyehisui": [
+"overgrow",
+"scrappy"
+],
+"dedenne": [
+"cheekpouch",
+"pickup",
+"plus"
+],
+"delphox": [
+"blaze",
+"magician"
+],
+"delphoxmega": [
+"levitate"
+],
+"diggersby": [
+"pickup",
+"cheekpouch",
+"hugepower"
+],
+"ditto": [
+"limber",
+"imposter"
+],
+"dragalge": [
+"poisonpoint",
+"poisontouch",
+"adaptability"
+],
+"dragalgemega": [
+"regenerator"
+],
+"dragapult": [
+"clearbody",
+"infiltrator",
+"cursedbody"
+],
+"dragonite": [
+"innerfocus",
+"multiscale"
+],
+"dragonitemega": [
+"multiscale"
+],
+"drampa": [
+"berserk",
+"sapsipper",
+"cloudnine"
+],
+"drampamega": [
+"berserk"
+],
+"eelektross": [
+"levitate"
+],
+"eelektrossmega": [
+"eelevate"
+],
+"emboar": [
+"blaze",
+"reckless"
+],
+"emboarmega": [
+"moldbreaker"
+],
+"emolga": [
+"static",
+"motordrive"
+],
+"empoleon": [
+"torrent",
+"competitive"
+],
+"espathra": [
+"opportunist",
+"frisk",
+"speedboost"
+],
+"espeon": [
+"synchronize",
+"magicbounce"
+],
+"excadrill": [
+"sandrush",
+"sandforce",
+"moldbreaker"
+],
+"excadrillmega": [
+"piercingdrill"
+],
+"falinks": [
+"battlearmor",
+"defiant"
+],
+"falinksmega": [
+"defiant"
+],
+"farigiraf": [
+"cudchew",
+"armortail",
+"sapsipper"
+],
+"feraligatr": [
+"torrent",
+"sheerforce"
+],
+"feraligatrmega": [
+"dragonize"
+],
+"flapple": [
+"ripen",
+"gluttony",
+"hustle"
+],
+"flareon": [
+"flashfire",
+"guts"
+],
+"floetteeternal": [
+"flowerveil",
+"symbiosis"
+],
+"floettemega": [
+"fairyaura"
+],
+"florges": [
+"flowerveil",
+"symbiosis"
+],
+"forretress": [
+"sturdy",
+"overcoat"
+],
+"froslass": [
+"snowcloak",
+"cursedbody"
+],
+"froslassmega": [
+"snowwarning"
+],
+"furfrou": [
+"furcoat"
+],
+"gallade": [
+"steadfast",
+"sharpness",
+"justified"
+],
+"gallademega": [
+"innerfocus"
+],
+"garbodor": [
+"stench",
+"weakarmor",
+"aftermath"
+],
+"garchomp": [
+"sandveil",
+"roughskin"
+],
+"garchompmega": [
+"sandforce"
+],
+"gardevoir": [
+"synchronize",
+"trace",
+"telepathy"
+],
+"gardevoirmega": [
+"pixilate"
+],
+"garganacl": [
+"purifyingsalt",
+"sturdy",
+"clearbody"
+],
+"gengar": [
+"cursedbody"
+],
+"gengarmega": [
+"shadowtag"
+],
+"gholdengo": [
+"goodasgold"
+],
+"glaceon": [
+"snowcloak",
+"icebody"
+],
+"glalie": [
+"innerfocus",
+"icebody",
+"moody"
+],
+"glaliemega": [
+"refrigerate"
+],
+"glimmora": [
+"toxicdebris",
+"corrosion"
+],
+"glimmoramega": [
+"adaptability"
+],
+"gliscor": [
+"hypercutter",
+"sandveil",
+"poisonheal"
+],
+"golurk": [
+"ironfist",
+"klutz",
+"noguard"
+],
+"golurkmega": [
+"unseenfist"
+],
+"goodra": [
+"sapsipper",
+"hydration",
+"gooey"
+],
+"goodrahisui": [
+"sapsipper",
+"shellarmor",
+"gooey"
+],
+"gourgeist": [
+"pickup",
+"frisk",
+"insomnia"
+],
+"gourgeistlarge": [
+"pickup",
+"frisk",
+"insomnia"
+],
+"gourgeistsmall": [
+"pickup",
+"frisk",
+"insomnia"
+],
+"gourgeistsuper": [
+"pickup",
+"frisk",
+"insomnia"
+],
+"greninja": [
+"torrent",
+"protean"
+],
+"greninjamega": [
+"protean"
+],
+"grimmsnarl": [
+"prankster",
+"frisk",
+"pickpocket"
+],
+"gyarados": [
+"intimidate",
+"moxie"
+],
+"gyaradosmega": [
+"moldbreaker"
+],
+"hatterene": [
+"healer",
+"anticipation",
+"magicbounce"
+],
+"hawlucha": [
+"limber",
+"unburden",
+"moldbreaker"
+],
+"hawluchamega": [
+"noguard"
+],
+"heliolisk": [
+"dryskin",
+"sandveil",
+"solarpower"
+],
+"heracross": [
+"swarm",
+"guts",
+"moxie"
+],
+"heracrossmega": [
+"skilllink"
+],
+"hippowdon": [
+"sandstream",
+"sandforce"
+],
+"houndoom": [
+"earlybird",
+"flashfire",
+"unnerve"
+],
+"houndoommega": [
+"solarpower"
+],
+"houndstone": [
+"sandrush",
+"fluffy"
+],
+"hydrapple": [
+"supersweetsyrup",
+"regenerator",
+"stickyhold"
+],
+"hydreigon": [
+"levitate"
+],
+"incineroar": [
+"blaze",
+"intimidate"
+],
+"infernape": [
+"blaze",
+"ironfist"
+],
+"jolteon": [
+"voltabsorb",
+"quickfeet"
+],
+"kangaskhan": [
+"earlybird",
+"scrappy",
+"innerfocus"
+],
+"kangaskhanmega": [
+"parentalbond"
+],
+"kingambit": [
+"defiant",
+"supremeoverlord",
+"pressure"
+],
+"kleavor": [
+"swarm",
+"sheerforce",
+"sharpness"
+],
+"klefki": [
+"prankster",
+"magician"
+],
+"kommoo": [
+"bulletproof",
+"soundproof",
+"overcoat"
+],
+"krookodile": [
+"intimidate",
+"moxie",
+"angerpoint"
+],
+"leafeon": [
+"leafguard",
+"chlorophyll"
+],
+"liepard": [
+"limber",
+"unburden",
+"prankster"
+],
+"lopunny": [
+"cutecharm",
+"klutz",
+"limber"
+],
+"lopunnymega": [
+"scrappy"
+],
+"lucario": [
+"steadfast",
+"innerfocus",
+"justified"
+],
+"lucariomega": [
+"adaptability"
+],
+"luxray": [
+"rivalry",
+"intimidate",
+"guts"
+],
+"lycanroc": [
+"keeneye",
+"sandrush",
+"steadfast"
+],
+"lycanrocdusk": [
+"toughclaws"
+],
+"lycanrocmidnight": [
+"keeneye",
+"vitalspirit",
+"noguard"
+],
+"machamp": [
+"guts",
+"noguard",
+"steadfast"
+],
+"malamar": [
+"contrary",
+"suctioncups",
+"infiltrator"
+],
+"malamarmega": [
+"contrary"
+],
+"mamoswine": [
+"oblivious",
+"snowcloak",
+"thickfat"
+],
+"manectric": [
+"static",
+"lightningrod",
+"minus"
+],
+"manectricmega": [
+"intimidate"
+],
+"maushold": [
+"friendguard",
+"cheekpouch",
+"technician"
+],
+"mawile": [
+"hypercutter",
+"intimidate",
+"sheerforce"
+],
+"mawilemega": [
+"hugepower"
+],
+"medicham": [
+"purepower",
+"telepathy"
+],
+"medichammega": [
+"purepower"
+],
+"meganium": [
+"overgrow",
+"leafguard"
+],
+"meganiummega": [
+"megasol"
+],
+"meowscarada": [
+"overgrow",
+"protean"
+],
+"meowstic": [
+"keeneye",
+"infiltrator",
+"prankster"
+],
+"meowsticf": [
+"keeneye",
+"infiltrator",
+"competitive"
+],
+"meowsticmmega": [
+"trace"
+],
+"metagross": [
+"clearbody",
+"lightmetal"
+],
+"metagrossmega": [
+"toughclaws"
+],
+"milotic": [
+"marvelscale",
+"competitive",
+"cutecharm"
+],
+"mimikyu": [
+"disguise"
+],
+"morpeko": [
+"hungerswitch"
+],
+"morpekohangry": [
+"hungerswitch"
+],
+"mrrime": [
+"tangledfeet",
+"screencleaner",
+"icebody"
+],
+"mudsdale": [
+"owntempo",
+"stamina",
+"innerfocus"
+],
+"musharna": [
+"forewarn",
+"synchronize",
+"telepathy"
+],
+"ninetales": [
+"flashfire",
+"drought"
+],
+"ninetalesalola": [
+"snowcloak",
+"snowwarning"
+],
+"noivern": [
+"frisk",
+"infiltrator",
+"telepathy"
+],
+"oranguru": [
+"innerfocus",
+"telepathy",
+"symbiosis"
+],
+"orthworm": [
+"eartheater",
+"sandveil"
+],
+"overqwil": [
+"poisonpoint",
+"swiftswim",
+"intimidate"
+],
+"palafin": [
+"zerotohero"
+],
+"palafinhero": [
+"zerotohero"
+],
+"pangoro": [
+"ironfist",
+"moldbreaker",
+"scrappy"
+],
+"passimian": [
+"receiver",
+"defiant"
+],
+"pelipper": [
+"keeneye",
+"drizzle",
+"raindish"
+],
+"pidgeot": [
+"keeneye",
+"tangledfeet",
+"bigpecks"
+],
+"pidgeotmega": [
+"noguard"
+],
+"pikachu": [
+"static",
+"lightningrod"
+],
+"pinsir": [
+"hypercutter",
+"moldbreaker",
+"moxie"
+],
+"pinsirmega": [
+"aerilate"
+],
+"politoed": [
+"waterabsorb",
+"damp",
+"drizzle"
+],
+"polteageist": [
+"weakarmor",
+"cursedbody"
+],
+"primarina": [
+"torrent",
+"liquidvoice"
+],
+"pyroar": [
+"rivalry",
+"unnerve",
+"moxie"
+],
+"pyroarmega": [
+"firemane"
+],
+"quaquaval": [
+"torrent",
+"moxie"
+],
+"qwilfish": [
+"poisonpoint",
+"swiftswim",
+"intimidate"
+],
+"raichu": [
+"static",
+"lightningrod"
+],
+"raichualola": [
+"surgesurfer"
+],
+"raichumegax": [
+"electricsurge"
+],
+"raichumegay": [
+"noguard"
+],
+"rampardos": [
+"moldbreaker",
+"sheerforce"
+],
+"reuniclus": [
+"overcoat",
+"magicguard",
+"regenerator"
+],
+"rhyperior": [
+"lightningrod",
+"solidrock",
+"reckless"
+],
+"roserade": [
+"naturalcure",
+"poisonpoint",
+"technician"
+],
+"rotom": [
+"levitate"
+],
+"rotomfan": [
+"levitate"
+],
+"rotomfrost": [
+"levitate"
+],
+"rotomheat": [
+"levitate"
+],
+"rotommow": [
+"levitate"
+],
+"rotomwash": [
+"levitate"
+],
+"runerigus": [
+"wanderingspirit"
+],
+"sableye": [
+"keeneye",
+"stall",
+"prankster"
+],
+"sableyemega": [
+"magicbounce"
+],
+"salazzle": [
+"corrosion",
+"oblivious"
+],
+"samurott": [
+"torrent",
+"shellarmor"
+],
+"samurotthisui": [
+"torrent",
+"sharpness"
+],
+"sandaconda": [
+"sandspit",
+"shedskin",
+"sandveil"
+],
+"sceptile": [
+"overgrow",
+"unburden"
+],
+"sceptilemega": [
+"lightningrod"
+],
+"scizor": [
+"swarm",
+"technician",
+"lightmetal"
+],
+"scizormega": [
+"technician"
+],
+"scolipede": [
+"poisonpoint",
+"swarm",
+"speedboost"
+],
+"scolipedemega": [
+"shellarmor"
+],
+"scovillain": [
+"chlorophyll",
+"insomnia",
+"moody"
+],
+"scovillainmega": [
+"spicyspray"
+],
+"scrafty": [
+"shedskin",
+"moxie",
+"intimidate"
+],
+"scraftymega": [
+"intimidate"
+],
+"serperior": [
+"overgrow",
+"contrary"
+],
+"sharpedo": [
+"roughskin",
+"speedboost"
+],
+"sharpedomega": [
+"strongjaw"
+],
+"simipour": [
+"gluttony",
+"torrent"
+],
+"simisage": [
+"gluttony",
+"overgrow"
+],
+"simisear": [
+"gluttony",
+"blaze"
+],
+"sinistcha": [
+"hospitality",
+"heatproof"
+],
+"skarmory": [
+"keeneye",
+"sturdy",
+"weakarmor"
+],
+"skarmorymega": [
+"stalwart"
+],
+"skeledirge": [
+"blaze",
+"unaware"
+],
+"slowbro": [
+"oblivious",
+"owntempo",
+"regenerator"
+],
+"slowbrogalar": [
+"quickdraw",
+"owntempo",
+"regenerator"
+],
+"slowbromega": [
+"shellarmor"
+],
+"slowking": [
+"oblivious",
+"owntempo",
+"regenerator"
+],
+"slowkinggalar": [
+"curiousmedicine",
+"owntempo",
+"regenerator"
+],
+"slurpuff": [
+"sweetveil",
+"unburden"
+],
+"sneasler": [
+"pressure",
+"unburden",
+"poisontouch"
+],
+"snorlax": [
+"immunity",
+"thickfat",
+"gluttony"
+],
+"spiritomb": [
+"pressure",
+"infiltrator"
+],
+"staraptor": [
+"intimidate",
+"reckless"
+],
+"staraptormega": [
+"contrary"
+],
+"starmie": [
+"illuminate",
+"naturalcure",
+"analytic"
+],
+"starmiemega": [
+"hugepower"
+],
+"steelix": [
+"rockhead",
+"sturdy",
+"sheerforce"
+],
+"steelixmega": [
+"sandforce"
+],
+"stunfisk": [
+"static",
+"limber",
+"sandveil"
+],
+"stunfiskgalar": [
+"mimicry"
+],
+"swampert": [
+"torrent",
+"damp"
+],
+"swampertmega": [
+"swiftswim"
+],
+"sylveon": [
+"cutecharm",
+"pixilate"
+],
+"talonflame": [
+"flamebody",
+"galewings"
+],
+"tauros": [
+"intimidate",
+"angerpoint",
+"sheerforce"
+],
+"taurospaldeaaqua": [
+"intimidate",
+"angerpoint",
+"cudchew"
+],
+"taurospaldeablaze": [
+"intimidate",
+"angerpoint",
+"cudchew"
+],
+"taurospaldeacombat": [
+"intimidate",
+"angerpoint",
+"cudchew"
+],
+"tinkaton": [
+"moldbreaker",
+"owntempo",
+"pickpocket"
+],
+"torkoal": [
+"whitesmoke",
+"drought",
+"shellarmor"
+],
+"torterra": [
+"overgrow",
+"shellarmor"
+],
+"toucannon": [
+"keeneye",
+"skilllink",
+"sheerforce"
+],
+"toxapex": [
+"merciless",
+"limber",
+"regenerator"
+],
+"toxicroak": [
+"anticipation",
+"dryskin",
+"poisontouch"
+],
+"trevenant": [
+"naturalcure",
+"frisk",
+"harvest"
+],
+"tsareena": [
+"leafguard",
+"queenlymajesty",
+"sweetveil"
+],
+"typhlosion": [
+"blaze",
+"flashfire"
+],
+"typhlosionhisui": [
+"blaze",
+"frisk"
+],
+"tyranitar": [
+"sandstream",
+"unnerve"
+],
+"tyranitarmega": [
+"sandstream"
+],
+"tyrantrum": [
+"strongjaw",
+"rockhead"
+],
+"umbreon": [
+"synchronize",
+"innerfocus"
+],
+"vanilluxe": [
+"icebody",
+"snowwarning",
+"weakarmor"
+],
+"vaporeon": [
+"waterabsorb",
+"hydration"
+],
+"venusaur": [
+"overgrow",
+"chlorophyll"
+],
+"venusaurmega": [
+"thickfat"
+],
+"victreebel": [
+"chlorophyll",
+"gluttony"
+],
+"victreebelmega": [
+"innardsout"
+],
+"vileplume": [
+"chlorophyll",
+"effectspore"
+],
+"vivillon": [
+"shielddust",
+"compoundeyes",
+"friendguard"
+],
+"volcarona": [
+"flamebody",
+"swarm"
+],
+"watchog": [
+"illuminate",
+"keeneye",
+"analytic"
+],
+"weavile": [
+"pressure",
+"pickpocket"
+],
+"whimsicott": [
+"prankster",
+"infiltrator",
+"chlorophyll"
+],
+"wyrdeer": [
+"intimidate",
+"frisk",
+"sapsipper"
+],
+"zoroark": [
+"illusion"
+],
+"zoroarkhisui": [
+"illusion"
+]
+}

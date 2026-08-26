@@ -4,14 +4,15 @@ Two independent readings of the same game: ours is built from Showdown's
 champions mod, theirs from the game's own dex. Neither is the answer key --
 the game is -- so this prints the disagreements rather than resolving them.
 
-Matching is by **English name**, not by id. The two sources number things
-differently and Champions renumbered about thirty moves on top of that, so an
-id match would be a coincidence and a name match is a fact.
+Species match on their ``slug``, which is our id with hyphens. Moves, abilities
+and items match on **English name**: the two sources number things differently
+and Champions renumbered about thirty moves on top of that, so an id match
+would be a coincidence while a name match is a fact.
 
 Usage:
-    python scripts/compare_pokechams.py            # summary
-    python scripts/compare_pokechams.py --learnsets  # per-species move diffs
-    python scripts/compare_pokechams.py --moves      # per-move field diffs
+    python scripts/compare_pokechams.py              # every section, summarised
+    python scripts/compare_pokechams.py --full       # every row, not just a sample
+    python scripts/compare_pokechams.py --only stats # one section
 """
 
 from __future__ import annotations
@@ -22,15 +23,18 @@ import re
 import sys
 from pathlib import Path
 
-sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
+ROOT = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(ROOT / "src"))
 
-from pkcm.data.dex import load_dex  # noqa: E402
+from pkcm.data.dex import Stat, load_dex  # noqa: E402
 
-RAW_DIR = Path(__file__).resolve().parents[1] / "data" / "raw" / "pokechams"
+RAW_DIR = ROOT / "data" / "raw" / "pokechams"
+
+#: How many rows a section prints before it starts counting instead.
+SAMPLE = 15
 
 
 def normalise(name: str) -> str:
-    """Both sources spell names for humans; ids are what we compare on."""
     return re.sub(r"[^a-z0-9]", "", name.lower())
 
 
@@ -41,159 +45,249 @@ def load(filename: str) -> list[dict]:
     return json.loads(path.read_text(encoding="utf-8"))
 
 
-def champions_max_pp(base_pp: int) -> int:
-    from pkcm.engine.pokemon import max_pp
-
-    return max_pp(base_pp)
-
-
-def build_move_index(their_moves: list[dict]) -> dict[str, dict]:
-    """Their numeric move id -> the move record."""
-    return {move["id"]: move for move in their_moves}
-
-
 def section(title: str) -> None:
     print()
+    print("=" * 78)
     print(title)
-    print("-" * len(title))
+    print("=" * 78)
 
 
-def their_species_id(entry: dict) -> str:
-    """Their ``slug`` is our species id with hyphens: ``arcanine-hisui``."""
-    return entry["slug"].replace("-", "")
+def rows(label: str, items: list[str], full: bool) -> None:
+    print(f"\n  {label} ({len(items)})")
+    if not items:
+        print("    none")
+        return
+    shown = items if full else items[:SAMPLE]
+    for item in shown:
+        print(f"    {item}")
+    if len(items) > len(shown):
+        print(f"    ... and {len(items) - len(shown)} more  (--full to see them)")
 
 
-def compare_roster(dex, theirs, regulation) -> None:
-    section("Roster")
-    their_in = {their_species_id(p): p for p in theirs if p.get("allowedInChampions")}
-    ours = {s: s for s in regulation.legal_species | regulation.legal_megas}
+# --------------------------------------------------------------------------- #
+# Matching
+# --------------------------------------------------------------------------- #
 
-    print(f"  theirs: {len(their_in):>4} allowed   ours: {len(ours):>4} legal species")
-    only_theirs = sorted(set(their_in) - set(ours))
-    only_ours = sorted(set(ours) - set(their_in))
-    if only_theirs:
-        print(f"  only in pokechams ({len(only_theirs)}): "
-              f"{[their_in[k]['nameEn'] for k in only_theirs[:14]]}")
-    if only_ours:
-        print(f"  only in ours      ({len(only_ours)}): "
-              f"{[dex.species[k].name for k in only_ours[:14]]}")
-    if not only_theirs and not only_ours:
-        print("  identical")
+#: Kept in step with ``scripts/build_champions_learnsets.py``. Duplicated rather
+#: than imported because that script is a build step and this one is a report;
+#: a test asserts the two agree.
+SLUG_ALIASES = {
+    "meowstic-female": "meowsticf",
+    "meowstic-mega": "meowsticmmega",
+    "lycanroc-midday": "lycanroc",
+    "basculegion-female": "basculegionf",
+}
 
 
-def compare_moves(dex, their_moves, verbose: bool) -> None:
-    section("Moves")
-    their_in = {normalise(m["nameEn"]): m for m in their_moves
-                if m.get("allowedInChampions")}
-    ours = {normalise(m.name): m for m in dex.moves.values()
-            if dex.exists_in_champions(m)}
-
-    print(f"  theirs: {len(their_in):>4} allowed   ours: {len(ours):>4} in Champions")
-    only_theirs = sorted(set(their_in) - set(ours))
-    only_ours = sorted(set(ours) - set(their_in))
-    if only_theirs:
-        print(f"  only in pokechams: {[their_in[k]['nameEn'] for k in only_theirs]}")
-    if only_ours:
-        print(f"  only in ours    : {[ours[k].name for k in only_ours]}")
-
-    shared = sorted(set(their_in) & set(ours))
-    mismatched = {"pp": [], "power": [], "accuracy": [], "priority": [], "spread": []}
-    for key in shared:
-        mine, yours = ours[key], their_in[key]
-        # Their ``pp`` is the number the game shows, which is the Champions
-        # max -- not the base PP our data carries. Compare like with like.
-        if champions_max_pp(mine.pp) != yours["pp"]:
-            mismatched["pp"].append((mine.name, champions_max_pp(mine.pp), yours["pp"]))
-        if mine.category != "Status" and mine.base_power and mine.base_power != yours["power"]:
-            mismatched["power"].append((mine.name, mine.base_power, yours["power"]))
-        their_acc = yours["accuracy"]
-        mine_acc = 100 if mine.accuracy is None else mine.accuracy
-        if their_acc and mine_acc != their_acc:
-            mismatched["accuracy"].append((mine.name, mine_acc, their_acc))
-        if mine.priority != yours["priority"]:
-            mismatched["priority"].append((mine.name, mine.priority, yours["priority"]))
-        from pkcm.engine.moves import SPREAD_TARGETS
-
-        mine_spread = mine.target in SPREAD_TARGETS
-        if mine_spread != bool(yours["isSpread"]):
-            mismatched["spread"].append((mine.name, mine_spread, yours["isSpread"]))
-
-    for field, rows in mismatched.items():
-        print(f"  {field:9} {len(rows):>4} disagree" + (" " if rows else "  (clean)"))
-        if rows and verbose:
-            for name, mine, yours in rows[:40]:
-                print(f"      {name:22} ours={mine!s:>6}  theirs={yours!s:>6}")
-            if len(rows) > 40:
-                print(f"      ... and {len(rows) - 40} more")
+def our_species_id(slug: str, known: set[str]) -> str | None:
+    if slug in SLUG_ALIASES:
+        return SLUG_ALIASES[slug]
+    candidates = [slug.replace("-", "")]
+    if "-mega-" in slug:
+        candidates.append(slug.split("-mega-")[0].replace("-", "") + "mega")
+    if slug.endswith("-breed"):
+        candidates.append(slug[: -len("-breed")].replace("-", ""))
+    return next((c for c in candidates if c in known), None)
 
 
-def compare_learnsets(dex, theirs, their_moves, regulation, verbose: bool) -> None:
-    section("Learnsets  (the reason this source exists)")
-    by_id = build_move_index(their_moves)
-    ours_by_id = {s.id: s.id for s in dex.species.values()}
+# --------------------------------------------------------------------------- #
+# Sections
+# --------------------------------------------------------------------------- #
 
-    from pkcm.engine.legality import learnable_moves
+def compare_roster(dex, theirs, regulation, full: bool) -> dict[str, str]:
+    """Returns their-slug -> our-id for everything that matched."""
+    section("ROSTER  -- which Pokemon are in Champions at all")
 
-    total_theirs = total_ours = total_extra = 0
-    worst: list[tuple[int, str, list[str]]] = []
-    missing_species = []
+    known = set(dex.species)
+    matched: dict[str, str] = {}
+    unmatched_slugs: list[str] = []
 
     for entry in theirs:
         if not entry.get("allowedInChampions"):
             continue
-        species_id = ours_by_id.get(their_species_id(entry))
-        if species_id is None or species_id not in regulation.legal_species:
-            missing_species.append(entry["nameEn"])
-            continue
+        ours = our_species_id(entry["slug"], known)
+        if ours is None:
+            unmatched_slugs.append(f"{entry['slug']:34} {entry['nameEn']}")
+        else:
+            matched[entry["slug"]] = ours
 
+    ours_legal = regulation.legal_species | regulation.legal_megas
+    print(f"\n  theirs: {len(matched) + len(unmatched_slugs):>4} allowed"
+          f"   ours: {len(ours_legal):>4} legal")
+
+    rows("their slugs we cannot resolve to a species we know", unmatched_slugs, full)
+
+    theirs_as_ours = set(matched.values())
+    rows("they allow, we do not list as legal",
+         [f"{s:24} {dex.species[s].name}" for s in sorted(theirs_as_ours - ours_legal)], full)
+    rows("we list as legal, they do not allow",
+         [f"{s:24} {dex.species[s].name}" for s in sorted(ours_legal - theirs_as_ours)], full)
+    return matched
+
+
+def compare_species_fields(dex, theirs, matched, full: bool) -> None:
+    section("SPECIES DATA  -- base stats, types, abilities, weight")
+
+    by_slug = {entry["slug"]: entry for entry in theirs}
+    stat_rows: list[str] = []
+    type_rows: list[str] = []
+    ability_rows: list[str] = []
+    weight_rows: list[str] = []
+
+    order = ("hp", "atk", "def", "spa", "spd", "spe")
+    for slug, species_id in sorted(matched.items(), key=lambda kv: kv[1]):
+        theirs_entry = by_slug[slug]
+        ours = dex.species[species_id]
+
+        mine = tuple(ours.base_stats[getattr(Stat, name.upper())] for name in order)
+        yours = tuple(theirs_entry["baseStats"][name] for name in order)
+        if mine != yours:
+            stat_rows.append(f"{ours.name:24} ours={mine}  theirs={yours}")
+
+        mine_types = tuple(sorted(t.lower() for t in ours.types))
+        their_types = tuple(sorted(t.lower() for t in theirs_entry["types"]))
+        if mine_types != their_types:
+            type_rows.append(f"{ours.name:24} ours={mine_types}  theirs={their_types}")
+
+        if abs(float(ours.weight_kg) - float(theirs_entry["weightKg"])) > 0.05:
+            weight_rows.append(
+                f"{ours.name:24} ours={ours.weight_kg}kg  theirs={theirs_entry['weightKg']}kg")
+
+    rows("base stat disagreements", stat_rows, full)
+    rows("type disagreements", type_rows, full)
+    rows("weight disagreements", weight_rows, full)
+    _compare_abilities_per_species(dex, theirs, matched, full)
+
+
+def _compare_abilities_per_species(dex, theirs, matched, full: bool) -> None:
+    their_abilities = {record["id"]: record["nameEn"] for record in load("abilities.json")}
+    ours_by_name = {normalise(a["name"]): key for key, a in _our_ability_names(dex).items()}
+
+    by_slug = {entry["slug"]: entry for entry in theirs}
+    diff_rows: list[str] = []
+    unmapped: set[str] = set()
+
+    for slug, species_id in sorted(matched.items(), key=lambda kv: kv[1]):
+        entry = by_slug[slug]
         their_set = set()
-        for move_id in entry.get("learnableMoveIds", []):
-            record = by_id.get(move_id)
-            if record is not None:
-                their_set.add(normalise(record["nameEn"]))
+        for ability_id in entry.get("abilities", []):
+            name = their_abilities.get(ability_id)
+            if name is None:
+                unmapped.add(f"id:{ability_id}")
+                continue
+            ours = ours_by_name.get(normalise(name))
+            if ours is None:
+                unmapped.add(name)
+                continue
+            their_set.add(ours)
+        our_set = set(dex.species[species_id].abilities)
+        if their_set and their_set != our_set:
+            diff_rows.append(
+                f"{dex.species[species_id].name:24} ours={sorted(our_set)}  "
+                f"theirs={sorted(their_set)}")
 
-        our_set = {normalise(dex.moves[m].name) for m in learnable_moves(dex, species_id)}
-        total_theirs += len(their_set)
-        total_ours += len(our_set)
-        extra = our_set - their_set
-        total_extra += len(extra)
-        if extra:
-            worst.append((len(extra), entry["nameEn"],
-                          sorted(dex.moves[m].name for m in learnable_moves(dex, species_id)
-                                 if normalise(dex.moves[m].name) in extra)))
+    rows("ability-slot disagreements", diff_rows, full)
+    if unmapped:
+        rows("their abilities we could not map", sorted(unmapped), full)
 
-    print(f"  species compared      : {len([e for e in theirs if e.get('allowedInChampions')]) - len(missing_species)}")
-    print(f"  moves they list       : {total_theirs:,}")
-    print(f"  moves we allow        : {total_ours:,}")
-    print(f"  we allow but they do not: {total_extra:,}"
-          f"  ({total_extra / max(1, total_ours):.0%} of ours)")
-    if missing_species:
-        print(f"  unmatched species     : {len(missing_species)} {missing_species[:8]}")
 
-    worst.sort(reverse=True)
-    print("\n  most over-permissive species:")
-    for count, name, moves in worst[:15]:
-        shown = ", ".join(moves[:8]) + (" ..." if len(moves) > 8 else "")
-        print(f"    {name:18} +{count:<4} {shown}")
-    if verbose:
-        print("\n  full list:")
-        for count, name, moves in worst:
-            print(f"    {name}: {', '.join(moves)}")
+def _our_ability_names(dex) -> dict[str, dict]:
+    """ability id -> {'name': display name}, from whatever the dex exposes."""
+    table = {}
+    for ability_id, entry in dex.abilities.items():
+        name = entry.name if hasattr(entry, "name") else entry.get("name", ability_id)
+        table[ability_id] = {"name": name}
+    return table
+
+
+def compare_moves(dex, their_moves, full: bool) -> None:
+    section("MOVES  -- existence, PP, power, accuracy, priority")
+
+    their_in = {normalise(m["nameEn"]): m for m in their_moves if m.get("allowedInChampions")}
+    ours = {normalise(m.name): m for m in dex.moves.values() if dex.exists_in_champions(m)}
+
+    print(f"\n  theirs: {len(their_in):>4} allowed   ours: {len(ours):>4} in Champions")
+    rows("only in pokechams", [their_in[k]["nameEn"] for k in sorted(set(their_in) - set(ours))], full)
+    rows("only in ours", [ours[k].name for k in sorted(set(ours) - set(their_in))], full)
+
+    from pkcm.engine.pokemon import max_pp
+
+    buckets = {"pp": [], "power": [], "accuracy": [], "priority": []}
+    for key in sorted(set(their_in) & set(ours)):
+        mine, yours = ours[key], their_in[key]
+        if max_pp(mine.pp) != yours["pp"]:
+            buckets["pp"].append(f"{mine.name:22} ours={max_pp(mine.pp)}  theirs={yours['pp']}")
+        if mine.category != "Status" and mine.base_power and mine.base_power != yours["power"]:
+            buckets["power"].append(
+                f"{mine.name:22} ours={mine.base_power}  theirs={yours['power']}")
+        # Their 101 is our None: "never misses", spelled differently.
+        mine_acc = 101 if mine.accuracy is None else mine.accuracy
+        if yours["accuracy"] and mine_acc != yours["accuracy"]:
+            buckets["accuracy"].append(
+                f"{mine.name:22} ours={mine_acc}  theirs={yours['accuracy']}")
+        if mine.priority != yours["priority"]:
+            buckets["priority"].append(
+                f"{mine.name:22} ours={mine.priority}  theirs={yours['priority']}")
+
+    for field, found in buckets.items():
+        rows(f"{field} disagreements", found, full)
+
+
+def compare_catalogue(dex, regulation, full: bool) -> None:
+    section("ABILITIES AND ITEMS  -- existence only")
+
+    # Importing the engine is what fills the effect registry. Reading it without
+    # that gives an empty answer that reads as "nothing is implemented".
+    from pkcm.engine import abilities as _abilities  # noqa: F401
+    from pkcm.engine import conditions as _conditions  # noqa: F401
+    from pkcm.engine import items as _items  # noqa: F401
+    from pkcm.engine import moveeffects as _moveeffects  # noqa: F401
+    from pkcm.engine.effects import registered
+
+    names = _our_ability_names(dex)
+    their_abilities = {normalise(a["nameEn"]): a["nameEn"] for a in load("abilities.json")}
+    # Ours knows every ability Showdown does; only the roster's are comparable.
+    roster = {ability
+              for species_id in regulation.legal_species | regulation.legal_megas
+              for ability in dex.species[species_id].abilities}
+    ours_abilities = {normalise(names[a]["name"]): names[a]["name"]
+                      for a in roster if a in names}
+    print(f"\n  abilities  theirs: {len(their_abilities):>4}"
+          f"   ours (roster only): {len(ours_abilities):>4}")
+    rows("abilities on our roster that they do not list",
+         sorted(ours_abilities[k] for k in set(ours_abilities) - set(their_abilities)), full)
+    rows("abilities they list that no roster Pokemon of ours carries",
+         sorted(their_abilities[k] for k in set(their_abilities) - set(ours_abilities)), full)
+
+    their_items = {normalise(i["nameEn"]): i["nameEn"] for i in load("items.json")}
+    ours_items = {normalise(dex.items[i].name): dex.items[i].name
+                  for i in registered("item") if i in dex.items}
+    print(f"\n  items      theirs: {len(their_items):>4}"
+          f"   ours: {len(ours_items):>4} implemented")
+    rows("items they list and we do not implement",
+         sorted(their_items[k] for k in set(their_items) - set(ours_items)), full)
+    rows("items we implement and they do not list",
+         sorted(ours_items[k] for k in set(ours_items) - set(their_items)), full)
 
 
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--learnsets", action="store_true", help="every species' diff")
-    parser.add_argument("--moves", action="store_true", help="every disagreeing field")
+    parser.add_argument("--full", action="store_true", help="print every row")
+    parser.add_argument("--only", choices=("roster", "stats", "moves", "catalogue"),
+                        help="just one section")
     args = parser.parse_args()
 
     dex = load_dex()
     regulation = dex.regulation("m_b")
+    species = load("champions_pokemon.json")
 
-    compare_roster(dex, load("champions_pokemon.json"), regulation)
-    compare_moves(dex, load("moves.json"), args.moves)
-    compare_learnsets(dex, load("champions_pokemon.json"), load("moves.json"),
-                      regulation, args.learnsets)
+    matched = compare_roster(dex, species, regulation, args.full)
+    if args.only in (None, "stats"):
+        compare_species_fields(dex, species, matched, args.full)
+    if args.only in (None, "moves"):
+        compare_moves(dex, load("moves.json"), args.full)
+    if args.only in (None, "catalogue"):
+        compare_catalogue(dex, regulation, args.full)
     return 0
 
 

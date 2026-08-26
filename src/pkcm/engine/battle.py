@@ -443,7 +443,13 @@ def _priority(ctx: Context, actor: Actor, action: Action) -> int:
     if slot < 0:
         return 0
     move = _chosen_move(ctx.state, actor, action)
-    return fx.modify(ctx, "modify_priority", move.priority, (player, slot),
+    priority = move.priority
+    # Moves whose own priority reads the field -- Grassy Glide. Asked before the
+    # ability and item hooks, because Prankster adds to whatever this returns.
+    field_rule = mv.MOVE_PRIORITY.get(move.id)
+    if field_rule is not None:
+        priority = field_rule(ctx, (player, slot), priority)
+    return fx.modify(ctx, "modify_priority", priority, (player, slot),
                      scope="self", move=move)
 
 

@@ -67,7 +67,7 @@ FOE_SIDE_TARGETS = frozenset({"foeSide"})
 #: Moves that hit more than one Pokemon at once. Each one takes a quarter off
 #: its damage in doubles -- and only when it actually lands on more than one,
 #: which is why the count is taken at resolution rather than read off the data.
-SPREAD_TARGETS = frozenset({"allAdjacentFoes", "allAdjacent", "allies", "foeSide"})
+SPREAD_TARGETS = frozenset({"allAdjacentFoes", "allAdjacent"})
 #: 0.75 in 4096ths, applied once for a spread move with two or more targets.
 SPREAD_MODIFIER = X0_75
 
@@ -130,8 +130,107 @@ def _target_hp_scaling(ctx: Context, attacker: Ref, defender: Ref, move: Move) -
     return max(1, int(120 * ratio))
 
 
+# --------------------------------------------------------------------------- #
+# Moves that read the terrain
+#
+# All six are damaging moves, so ``move_support`` waved them through -- it only
+# catches *status* moves with no declarative payload. They landed their damage
+# and skipped everything that makes them worth using. A damaging move whose
+# conditional effect lives in handler code is a blind spot that check cannot
+# see, which is why they sat here working-but-wrong.
+#
+# Each also requires its user to be *grounded*: terrain does not reach a Flying
+# type or a Levitate holder, and neither do these.
+# --------------------------------------------------------------------------- #
+
+
+def _stands_on(ctx: Context, ref: Ref, terrain: str) -> bool:
+    from pkcm.engine.conditions import is_grounded
+
+    return ctx.state.field.terrain == terrain and is_grounded(ctx.state, ref, ctx)
+
+
+def _boosted_on(terrain: str, modifier: int):
+    """Expanding Force and Misty Explosion: half again on the right ground."""
+    def compute(ctx: Context, attacker: Ref, defender: Ref, move: Move) -> int:
+        power = move.base_power
+        return chain_modify(power, modifier) if _stands_on(ctx, attacker, terrain) else power
+
+    return compute
+
+
+def _rising_voltage(ctx: Context, attacker: Ref, defender: Ref, move: Move) -> int:
+    """Double -- and it is the *target* that has to be on the ground."""
+    from pkcm.engine.conditions import is_grounded
+
+    if ctx.state.field.terrain == "electricterrain" and is_grounded(ctx.state, defender, ctx):
+        return move.base_power * 2
+    return move.base_power
+
+
+def _terrain_pulse_power(ctx: Context, attacker: Ref, defender: Ref, move: Move) -> int:
+    from pkcm.engine.conditions import is_grounded
+
+    if ctx.state.field.terrain and is_grounded(ctx.state, attacker, ctx):
+        return move.base_power * 2
+    return move.base_power
+
+
+#: Terrain -> the type Terrain Pulse takes while it is up.
+TERRAIN_PULSE_TYPES = {
+    "electricterrain": "electric",
+    "grassyterrain": "grass",
+    "mistyterrain": "fairy",
+    "psychicterrain": "psychic",
+}
+
+
+def _rewrite_for_terrain(ctx: Context, active, attacker: Ref) -> None:
+    """The two rewrites that must happen before the move resolves.
+
+    Expanding Force stops being single-target on Psychic Terrain, which changes
+    who it hits *and* costs it the spread quarter. Terrain Pulse changes type,
+    which changes STAB and the type chart. Neither is about power, so neither
+    belongs in the table above.
+    """
+    if active.id == "expandingforce" and _stands_on(ctx, attacker, "psychicterrain"):
+        active.target = "allAdjacentFoes"
+    elif active.id == "terrainpulse":
+        from pkcm.engine.conditions import is_grounded
+
+        terrain = ctx.state.field.terrain
+        if terrain in TERRAIN_PULSE_TYPES and is_grounded(ctx.state, attacker, ctx):
+            active.type = TERRAIN_PULSE_TYPES[terrain]
+
+
+def _grassy_glide(ctx: Context, ref: Ref, priority: int) -> int:
+    return priority + 1 if _stands_on(ctx, ref, "grassyterrain") else priority
+
+
+#: Moves whose priority depends on the field. Consulted by ``battle._priority``
+#: alongside the ability and item hooks.
+MOVE_PRIORITY: dict[str, Callable[[Context, Ref, int], int]] = {
+    "grassyglide": _grassy_glide,
+}
+
+
+def _needs_terrain(ctx: Context, ref: Ref, move: Move) -> str | None:
+    return "no terrain" if ctx.state.field.terrain is None else None
+
+
+#: Moves that refuse to run under some condition, checked before PP is spent.
+#: The string is the reason, and it reaches the log.
+MOVE_PRECONDITIONS: dict[str, Callable[[Context, Ref, Move], str | None]] = {
+    "steelroller": _needs_terrain,
+}
+
+
 #: Moves whose base power depends on the battle rather than on a constant.
 VARIABLE_POWER: dict[str, Callable[[Context, Ref, Ref, Move], int]] = {
+    "expandingforce": _boosted_on("psychicterrain", X1_5),
+    "mistyexplosion": _boosted_on("mistyterrain", X1_5),
+    "risingvoltage": _rising_voltage,
+    "terrainpulse": _terrain_pulse_power,
     "lowkick": _weight_based(((10, 20), (25, 40), (50, 60), (100, 80), (200, 100), (float("inf"), 120))),
     "grassknot": _weight_based(((10, 20), (25, 40), (50, 60), (100, 80), (200, 100), (float("inf"), 120))),
     "heavyslam": _relative_weight,
@@ -379,6 +478,7 @@ def activate(ctx: Context, attacker: Ref, defender: Ref, move: Move) -> ActiveMo
         multihit=move.raw.get("multihit"),
         has_bounced=getattr(move, "has_bounced", False),
     )
+    _rewrite_for_terrain(ctx, active, attacker)
     fx.notify(ctx, "modify_move", attacker, scope="self",
               active=active, attacker=attacker, defender=defender)
     return active
@@ -498,6 +598,13 @@ def use_move(
         ctx.emit(Event("cant_move", side=attacker[0], slot=attacker[1], detail="imprison"))
         _clear_flinch(ctx, attacker)
         return
+
+    refusal = MOVE_PRECONDITIONS.get(move.id)
+    if refusal is not None:
+        reason = refusal(ctx, attacker, move)
+        if reason is not None:
+            ctx.emit(Event("move_failed", side=attacker[0], move=move.id, detail=reason))
+            return
 
     if move_index is not None:
         side.pp[attacker[1]][move_index] -= 1

@@ -785,6 +785,19 @@ def _room(name: str):
     return handler
 
 
+@special("steelroller")
+def _steel_roller(ctx, user, target, move) -> bool:
+    """Tears up the terrain. Refusing to run without one is a precondition,
+    checked in ``moves.MOVE_PRECONDITIONS`` before any PP is spent."""
+    terrain = ctx.state.field.terrain
+    if terrain is None:
+        return False
+    ctx.state.field.terrain = None
+    ctx.state.field.terrain_turns = 0
+    ctx.emit(Event("terrain_end", detail=terrain))
+    return True
+
+
 SPECIAL_MOVES["gravity"] = _room("gravity")
 SPECIAL_MOVES["magicroom"] = _room("magicroom")
 SPECIAL_MOVES["wonderroom"] = _room("wonderroom")

@@ -672,3 +672,121 @@ def test_no_orphaned_handler_functions():
         f"{path.name}:{name}" for name, path in defined.items() if name not in used
     )
     assert not orphans, f"defined and never referenced -- dead handlers?: {orphans}"
+
+
+# --------------------------------------------------------------------------- #
+# Moves that read the terrain
+#
+# All six landed their damage and skipped their terrain clause. They are
+# damaging moves, so the status-move coverage check never looked at them --
+# a different shape of the same "quietly does nothing" failure.
+# --------------------------------------------------------------------------- #
+
+
+def _with_terrain(config, terrain, red, blue=None):
+    """A battle standing on exactly the terrain named, and no other.
+
+    Set explicitly in both directions: the natural users of these moves carry
+    the surge ability that lays their own terrain down on entry, so "no
+    terrain" has to be arranged rather than assumed.
+    """
+    state = build(config, red, blue or a_set("snorlax", "thickfat"))
+    state.field.terrain = terrain
+    state.field.terrain_turns = 5 if terrain else 0
+    return state
+
+
+def _power(dex, state, move_id, attacker=RED, defender=BLUE):
+    from pkcm.engine.moves import base_power
+
+    return base_power(make_context(state), attacker, defender, dex.moves[move_id])
+
+
+def test_expanding_force_is_stronger_on_psychic_terrain(dex, config):
+    plain = _power(dex, _with_terrain(config, None,
+                                      a_set("indeedee", "psychicsurge", ("expandingforce",))),
+                   "expandingforce")
+    boosted = _power(dex, _with_terrain(config, "psychicterrain",
+                                        a_set("indeedee", "psychicsurge", ("expandingforce",))),
+                     "expandingforce")
+    assert boosted > plain
+
+
+def test_expanding_force_becomes_a_spread_move(dex, config):
+    from pkcm.engine.moves import activate
+
+    state = _with_terrain(config, "psychicterrain",
+                          a_set("indeedee", "psychicsurge", ("expandingforce",)))
+    active = activate(make_context(state), RED, BLUE, dex.moves["expandingforce"])
+    assert active.target == "allAdjacentFoes"
+
+
+def test_a_floating_user_gets_nothing_from_the_terrain(dex, config):
+    """Terrain does not reach a Flying type, and neither does the clause."""
+    grounded = _power(dex, _with_terrain(config, "psychicterrain",
+                                         a_set("indeedee", "psychicsurge", ("expandingforce",))),
+                      "expandingforce")
+    floating = _power(dex, _with_terrain(config, "psychicterrain",
+                                         a_set("sigilyph", "levitate", ("expandingforce",))),
+                      "expandingforce")
+    assert floating < grounded
+
+
+def test_rising_voltage_doubles_on_a_grounded_target(dex, config):
+    user = a_set("pikachu", "static", ("risingvoltage",))
+    plain = _power(dex, _with_terrain(config, None, user), "risingvoltage")
+    doubled = _power(dex, _with_terrain(config, "electricterrain", user), "risingvoltage")
+    assert doubled == plain * 2
+
+    # A Flying target is not standing on the terrain, so it takes the base hit.
+    floating = _with_terrain(config, "electricterrain", user, a_set("skarmory", "sturdy"))
+    assert _power(dex, floating, "risingvoltage") == plain
+
+
+def test_grassy_glide_moves_first_on_grass(dex, config):
+    from pkcm.engine.battle import _priority
+    from pkcm.engine.actions import Action
+
+    def priority(terrain):
+        state = _with_terrain(config, terrain,
+                              a_set("rillaboom", "grassysurge", ("grassyglide",)))
+        return _priority(make_context(state), (0, 0), Action.move(0))
+
+    assert priority(None) == 0
+    assert priority("grassyterrain") == 1
+
+
+def test_terrain_pulse_changes_type_and_doubles(dex, config):
+    from pkcm.engine.moves import activate
+
+    user = a_set("pikachu", "static", ("terrainpulse",))
+    plain = _power(dex, _with_terrain(config, None, user), "terrainpulse")
+    for terrain, expected in (("electricterrain", "electric"), ("grassyterrain", "grass"),
+                              ("mistyterrain", "fairy"), ("psychicterrain", "psychic")):
+        state = _with_terrain(config, terrain, user)
+        assert _power(dex, state, "terrainpulse") == plain * 2, terrain
+        active = activate(make_context(state), RED, BLUE, dex.moves["terrainpulse"])
+        assert active.type == expected, terrain
+
+
+def test_misty_explosion_is_stronger_on_misty_terrain(dex, config):
+    user = a_set("mudsdale", "stamina", ("mistyexplosion",))
+    plain = _power(dex, _with_terrain(config, None, user), "mistyexplosion")
+    boosted = _power(dex, _with_terrain(config, "mistyterrain", user), "mistyexplosion")
+    assert boosted > plain
+
+
+def test_steel_roller_needs_a_terrain_and_then_removes_it(dex, config):
+    user = a_set("falinks", "defiant", ("steelroller",))
+
+    barren = _with_terrain(config, None, user)
+    ctx = make_context(barren)
+    cast(ctx, dex, "steelroller")
+    assert any(e.kind == "move_failed" and e.detail == "no terrain" for e in ctx.log)
+    assert barren.sides[1].hp[0] == barren.pokemon(1, 0).max_hp, "and deals no damage"
+
+    grassy = _with_terrain(config, "grassyterrain", user)
+    ctx = make_context(grassy)
+    cast(ctx, dex, "steelroller")
+    assert grassy.sides[1].hp[0] < grassy.pokemon(1, 0).max_hp
+    assert grassy.field.terrain is None, "torn up"

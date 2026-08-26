@@ -13,6 +13,13 @@ and only the volatile part is copied:
 ``clone()`` therefore copies a handful of small lists and dicts, never a dex
 entry and never a move table.
 
+A side holds one *field position* per active Pokemon: one in singles, two in
+doubles. ``SideState.active`` maps position -> party slot, so a ``Ref`` still
+names a Pokemon by the slot it was brought in, not by where it happens to be
+standing. That is what lets HP, PP, status, boosts and volatiles stay indexed
+by party slot in both formats, and it is why doubles needed no second copy of
+any of them.
+
 Two lifetimes live inside ``SideState`` and the difference matters:
 
 * **Slot-persistent** -- HP, PP, major status. Survives switching out.
@@ -28,7 +35,13 @@ from enum import IntEnum
 from typing import Any
 
 from pkcm.data.dex import Dex, Regulation, Stat
-from pkcm.engine.actions import Action, ActionKind, team_selections
+from pkcm.engine.actions import (
+    TARGET_ALLY,
+    TARGET_SELF,
+    Action,
+    ActionKind,
+    team_selections,
+)
 from pkcm.engine.pokemon import BattlePokemon, Team, compile_team
 from pkcm.engine.rng import Rng
 
@@ -49,6 +62,10 @@ MAJOR_STATUSES = ("brn", "par", "psn", "tox", "slp", "frz")
 
 #: Key inside an override entry naming the fields that survive switching out.
 PERMANENT = "__permanent__"
+
+#: (side, party slot). Identifies one Pokemon for the whole battle, wherever it
+#: happens to be standing. ``pkcm.engine.effects`` re-exports this name.
+Ref = tuple[int, int]
 
 
 class Phase(IntEnum):
@@ -76,6 +93,15 @@ class BattleConfig:
     @property
     def brought(self) -> int:
         return self.regulation.bring_select(self.battle_format)[1]
+
+    @property
+    def active_count(self) -> int:
+        """Field positions per side: 1 in singles, 2 in doubles."""
+        return 2 if self.battle_format == "doubles" else 1
+
+    @property
+    def is_doubles(self) -> bool:
+        return self.active_count > 1
 
 
 @dataclass(slots=True)
@@ -107,10 +133,11 @@ class SideState:
     selection: tuple[int, ...] = ()
     hp: list[int] = field(default_factory=list)
     pp: list[list[int]] = field(default_factory=list)
-    #: Index into ``selection``; -1 before the first switch-in.
-    active: int = -1
-    #: Set when this side's active fainted and owes a replacement.
-    must_switch: bool = False
+    #: Field position -> index into ``selection``; -1 while a position is empty.
+    #: One entry in singles, two in doubles.
+    active: list[int] = field(default_factory=list)
+    #: Per position: this one's occupant fainted and owes a replacement.
+    must_switch: list[bool] = field(default_factory=list)
 
     # -- slot-persistent, survives switching --------------------------------- #
     status: list[str | None] = field(default_factory=list)
@@ -130,8 +157,8 @@ class SideState:
             selection=self.selection,
             hp=self.hp.copy(),
             pp=[slot.copy() for slot in self.pp],
-            active=self.active,
-            must_switch=self.must_switch,
+            active=self.active.copy(),
+            must_switch=self.must_switch.copy(),
             status=self.status.copy(),
             status_data=[data.copy() for data in self.status_data],
             boosts=[slot.copy() for slot in self.boosts],
@@ -149,6 +176,25 @@ class SideState:
 
     def has_lost(self) -> bool:
         return bool(self.hp) and not self.living_slots()
+
+    def active_slots(self) -> list[int]:
+        """Party slots standing on the field right now, fainted ones dropped.
+
+        A fainted Pokemon stays in its position until a replacement is sent,
+        so that ``must_switch`` knows which position it owes. Everything that
+        asks "who is out there" wants it gone, which is what this is for.
+        """
+        return [slot for slot in self.active if slot >= 0 and self.hp[slot] > 0]
+
+    def position_of(self, slot: int) -> int | None:
+        """Where a party slot is standing, or ``None`` if it is on the bench."""
+        for position, occupant in enumerate(self.active):
+            if occupant == slot:
+                return position
+        return None
+
+    def owes_switch(self) -> bool:
+        return any(self.must_switch)
 
     def boost(self, slot: int, stat: str) -> int:
         return self.boosts[slot][BOOST_INDEX[stat]]
@@ -220,8 +266,41 @@ class BattleState:
         """The Pokemon in a brought-party slot, as registered."""
         return self.parties[side][self.sides[side].selection[slot]]
 
-    def active_pokemon(self, side: int) -> BattlePokemon:
-        return self.pokemon(side, self.sides[side].active)
+    def active_pokemon(self, side: int, position: int = 0) -> BattlePokemon:
+        return self.pokemon(side, self.sides[side].active[position])
+
+    # -- who is on the field ------------------------------------------------ #
+
+    def active_refs(self, side: int) -> list[Ref]:
+        """Every Pokemon this side has standing, in field-position order."""
+        return [(side, slot) for slot in self.sides[side].active_slots()]
+
+    def ref_at(self, side: int, position: int) -> Ref | None:
+        """Whoever occupies one field position, or ``None`` if it is empty."""
+        occupants = self.sides[side].active
+        if position >= len(occupants):
+            return None
+        slot = occupants[position]
+        if slot < 0 or self.sides[side].hp[slot] <= 0:
+            return None
+        return (side, slot)
+
+    def foes(self, ref: Ref) -> list[Ref]:
+        """The opposing Pokemon on the field. Both of them, in doubles."""
+        return self.active_refs(1 - ref[0])
+
+    def ally(self, ref: Ref) -> Ref | None:
+        """The partner standing beside this one. Always ``None`` in singles."""
+        for other in self.active_refs(ref[0]):
+            if other != ref:
+                return other
+        return None
+
+    def allies_and_self(self, ref: Ref) -> list[Ref]:
+        return self.active_refs(ref[0])
+
+    def everyone(self) -> list[Ref]:
+        return self.active_refs(0) + self.active_refs(1)
 
     def override(self, side: int, slot: int) -> dict[str, Any]:
         return self.overrides[side][slot] if self.overrides[side] else {}
@@ -303,13 +382,13 @@ class BattleState:
             return tuple(self.config.dex.moves[m] for m in override["moves"])
         return self.pokemon(side, slot).moves
 
-    def active_hp(self, side: int) -> int:
-        return self.sides[side].hp[self.sides[side].active]
+    def active_hp(self, side: int, position: int = 0) -> int:
+        return self.sides[side].hp[self.sides[side].active[position]]
 
-    def speed(self, side: int) -> int:
+    def speed(self, side: int, position: int = 0) -> int:
         """Raw Speed. Stage multipliers and Speed-modifying effects live in
         ``pkcm.engine.effects``; this is the unmodified number."""
-        return self.stats(side, self.sides[side].active)[Stat.SPE]
+        return self.stats(side, self.sides[side].active[position])[Stat.SPE]
 
     @property
     def finished(self) -> bool:
@@ -336,91 +415,180 @@ def imprisoned_moves(state: BattleState, player: int) -> frozenset[str]:
 
     Imprison sits on the *opponent*, so no hook gathered on the mover can see
     it -- same shape as Mold Breaker, and answered the same way: engine-side.
+    In doubles either opponent can be the one imprisoning, and the seals stack.
     """
-    foe = state.sides[1 - player]
-    if not foe.hp or foe.active < 0 or foe.is_fainted(foe.active):
-        return frozenset()
-    if not foe.has_volatile(foe.active, "imprison"):
-        return frozenset()
-    return frozenset(move.id for move in state.moves(1 - player, foe.active))
+    sealed: set[str] = set()
+    for foe in state.active_refs(1 - player):
+        if state.sides[foe[0]].has_volatile(foe[1], "imprison"):
+            sealed.update(move.id for move in state.moves(*foe))
+    return frozenset(sealed)
 
 
 def uproar_in_progress(state: BattleState) -> bool:
-    """Nobody sleeps while an Uproar is going, on either side of the field."""
-    for player in (0, 1):
-        side = state.sides[player]
-        if side.hp and side.active >= 0 and not side.is_fainted(side.active)                 and side.has_volatile(side.active, "uproar"):
-            return True
-    return False
+    """Nobody sleeps while an Uproar is going, anywhere on the field."""
+    return any(
+        state.sides[ref[0]].has_volatile(ref[1], "uproar")
+        for ref in state.everyone()
+    )
 
 
-def legal_actions(state: BattleState, player: int) -> tuple[Action, ...]:
-    """Everything ``player`` may legally submit right now.
+#: Move targets the player picks from. Everything else -- spread moves, field
+#: moves, ``self``, ``randomNormal`` -- has exactly one answer, so it produces
+#: one action and the ``target`` field is ignored.
+CHOOSES_A_TARGET = frozenset({"normal", "any", "adjacentFoe",
+                              "adjacentAlly", "adjacentAllyOrSelf"})
+
+
+def move_targets(state: BattleState, ref: Ref, move) -> list[int]:
+    """The target codes this move may legally be aimed at, from ``ref``.
+
+    Returns a single ``[0]`` whenever there is nothing to choose, which keeps
+    the singles action space exactly what it was.
+    """
+    kind = move.target
+    if kind not in CHOOSES_A_TARGET or not state.config.is_doubles:
+        return [0]
+
+    codes: list[int] = []
+    if kind in ("normal", "any", "adjacentFoe"):
+        codes.extend(position for position, _ in enumerate(state.sides[1 - ref[0]].active)
+                     if state.ref_at(1 - ref[0], position) is not None)
+    # A "normal" move may be aimed at your own partner. Rarely what you want,
+    # and occasionally exactly what you want -- setting off its Weakness Policy,
+    # or breaking its Substitute. Champions allows it, so the mask does.
+    if kind in ("normal", "any", "adjacentAlly", "adjacentAllyOrSelf"):
+        if state.ally(ref) is not None:
+            codes.append(TARGET_ALLY)
+    if kind == "adjacentAllyOrSelf":
+        codes.append(TARGET_SELF)
+    return codes or [0]
+
+
+def resolve_target_code(state: BattleState, ref: Ref, code: int) -> Ref | None:
+    """Turn a target code back into whoever is standing there."""
+    if code == TARGET_SELF:
+        return ref
+    if code == TARGET_ALLY:
+        return state.ally(ref)
+    return state.ref_at(1 - ref[0], code)
+
+
+def legal_actions(state: BattleState, player: int, position: int = 0) -> tuple[Action, ...]:
+    """Everything ``player`` may legally submit for one field position.
 
     The engine validates against this and the PettingZoo adapter builds its
-    action mask from it, so the two cannot drift apart.
+    action mask from it, so the two cannot drift apart. In singles there is one
+    position and this reads exactly as it always did.
     """
     if state.phase is Phase.FINISHED:
         return (Action.PASS,)
 
     if state.phase is Phase.TEAM_PREVIEW:
+        if position > 0:
+            return (Action.PASS,)  # one selection per player, not per position
         return team_selections(state.config.registered, state.config.brought)
 
     side = state.sides[player]
+    if position >= len(side.active):
+        return (Action.PASS,)
+    slot = side.active[position]
 
     if state.phase in (Phase.FORCED_SWITCH, Phase.MID_TURN_SWITCH):
-        if not side.must_switch:
+        if not side.must_switch[position]:
             return (Action.PASS,)
-        return tuple(
-            Action.switch(slot) for slot in side.living_slots() if slot != side.active
-        )
+        replacements = _bench(state, player)
+        # The bench can empty out between the mark and the choice, when the
+        # other position took the last one.
+        return tuple(Action.switch(bench) for bench in replacements) or (Action.PASS,)
 
-    if side.has_volatile(side.active, "mustrecharge"):
+    # An empty position owes a replacement, not a move. Reached when the rest of
+    # the side is still choosing this turn.
+    if slot < 0 or side.is_fainted(slot):
         return (Action.PASS,)
 
-    locked = side.volatiles[side.active].get("twoturn") or side.volatiles[side.active].get("lockedmove")
-    if locked and "move" in locked:
-        index = locked["move"]
-        if index < len(side.pp[side.active]):
-            return (Action.move(index),)
+    ref: Ref = (player, slot)
+
+    if side.has_volatile(slot, "mustrecharge"):
+        return (Action.PASS,)
+
+    locked = side.volatiles[slot].get("twoturn") or side.volatiles[slot].get("lockedmove")
+    if locked:
+        # A lock started by a *called* move -- Sleep Talk into Fly, Dancer into
+        # Petal Dance -- has no index of its own, because the Pokemon never
+        # chose the move from its own list. Fall back to the id, and if that is
+        # not in the list either, the lock cannot be honoured and the turn is
+        # free.
+        index = locked.get("move")
+        if index is None and locked.get("id"):
+            index = next((i for i, move in enumerate(state.moves(player, slot))
+                          if move.id == locked["id"]), None)
+        if index is not None and index < len(side.pp[slot]):
+            return _aimed(state, ref, index, locked.get("target", 0))
 
     # Uproar keeps going by itself for three turns (Showdown's onLockMove).
     # Matched by move id rather than by a stored index, because the volatile is
     # created from the move's own ``self`` payload, which never sees the index.
-    if side.has_volatile(side.active, "uproar"):
-        for index, move in enumerate(state.moves(player, side.active)):
-            if move.id == "uproar" and side.pp[side.active][index] > 0:
-                return (Action.move(index),)
+    if side.has_volatile(slot, "uproar"):
+        for index, move in enumerate(state.moves(player, slot)):
+            if move.id == "uproar" and side.pp[slot][index] > 0:
+                return _aimed(state, ref, index)
 
     # Normal turn: any move with PP left, plus any living benched Pokemon.
-    volatiles = side.volatiles[side.active]
+    volatiles = side.volatiles[slot]
     disabled = volatiles.get("disabled", {}).get("move")
     # A Choice item locks the holder into the first move it picks, until it
     # leaves the field. Enforced here so the search and the environment mask
     # see the same thing the engine does.
-    locked = volatiles.get("choicelock", {}).get("move")
-
+    choice_locked = volatiles.get("choicelock", {}).get("move")
     sealed = imprisoned_moves(state, player)
-    known = state.moves(player, side.active)
+    known = state.moves(player, slot)
 
     usable = [
         index
-        for index, pp in enumerate(side.pp[side.active])
-        if pp > 0 and index != disabled and (locked is None or index == locked)
+        for index, pp in enumerate(side.pp[slot])
+        if pp > 0 and index != disabled and (choice_locked is None or index == choice_locked)
         and not (index < len(known) and known[index].id in sealed)
     ]
-    actions = [Action.move(index) for index in usable]
-    if state.can_mega_evolve(player, side.active):
-        actions.extend(Action.move(index, mega=True) for index in usable)
+
+    actions: list[Action] = []
+    for index in usable:
+        actions.extend(_aimed(state, ref, index))
+    if state.can_mega_evolve(player, slot):
+        for index in usable:
+            actions.extend(_aimed(state, ref, index, mega=True))
     if not actions:
         actions.append(Action.struggle())
-    trapped = (side.has_volatile(side.active, "trapped")
-               and state.item_id(player, side.active) != "shedshell")
+
+    trapped = side.has_volatile(slot, "trapped") and state.item_id(player, slot) != "shedshell"
     if not trapped:
-        actions.extend(
-            Action.switch(slot) for slot in side.living_slots() if slot != side.active
-        )
+        actions.extend(Action.switch(bench) for bench in _bench(state, player))
     return tuple(actions)
+
+
+def _bench(state: BattleState, player: int) -> list[int]:
+    """Living Pokemon not currently standing anywhere.
+
+    In doubles both positions see the same bench, so two positions switching at
+    once can pick the same Pokemon. ``battle.step`` refuses that pair; a mask
+    per position cannot express a constraint that spans positions.
+    """
+    side = state.sides[player]
+    standing = set(side.active)
+    return [slot for slot in side.living_slots() if slot not in standing]
+
+
+def _aimed(state: BattleState, ref: Ref, index: int, forced_target: int | None = None,
+           mega: bool = False) -> tuple[Action, ...]:
+    """One action per legal target for this move."""
+    moves = state.moves(*ref)
+    if index >= len(moves):
+        return (Action.move(index, mega=mega),)
+    if forced_target is not None:
+        return (Action.move(index, mega=mega, target=forced_target),)
+    return tuple(
+        Action.move(index, mega=mega, target=code)
+        for code in move_targets(state, ref, moves[index])
+    )
 
 
 def is_legal(state: BattleState, player: int, action: Action) -> bool:

@@ -239,7 +239,7 @@ def boost(ctx: Context, ref: Ref, changes: dict[str, int], source: Ref | None = 
             Event("boost", side=side_index, slot=slot, detail=name,
                   amount=after - before, hp=after)
         )
-        for watcher in (ref, (1 - side_index, ctx.state.sides[1 - side_index].active)):
+        for watcher in [ref, *ctx.state.foes(ref)]:
             if ctx.state.sides[watcher[0]].hp[watcher[1]] > 0:
                 fx.notify(ctx, "after_boost", watcher, scope="self", boosted=ref,
                           stat=name, stages=after - before, source=source)

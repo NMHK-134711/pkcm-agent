@@ -43,7 +43,7 @@ def build(config, red, blue, red_bench=None, blue_bench=None):
 
 
 def cast(ctx, dex, move_id, attacker=RED, defender=BLUE):
-    use_move(ctx, attacker, defender, dex.moves[move_id])
+    use_move(ctx, attacker, dex.moves[move_id], defender=defender)
 
 
 # --------------------------------------------------------------------------- #
@@ -53,7 +53,7 @@ def cast(ctx, dex, move_id, attacker=RED, defender=BLUE):
 
 def test_roar_drags_in_someone_else(dex, config):
     state = build(config, a_set("skarmory", "sturdy", ("roar",)), a_set("snorlax"))
-    before = state.sides[1].active
+    before = list(state.sides[1].active)
     state, log = step(state, Action.move(0), Action.move(0))
     assert state.sides[1].active != before
     assert any(e.kind == "dragged_out" for e in log), log
@@ -78,7 +78,7 @@ def test_dragon_tail_hurts_before_it_drags(dex, config):
         if any(e.kind == "missed" for e in log):
             continue
         assert state.sides[1].hp[0] < full, "damage lands"
-        assert state.sides[1].active != 0, "and then it is dragged out"
+        assert state.sides[1].active != [0], "and then it is dragged out"
         return
     pytest.fail("Dragon Tail never connected in 20 tries")
 
@@ -105,7 +105,7 @@ def test_u_turn_suspends_the_turn(dex, config):
 
     state, log = step(state, Action.move(0), Action.move(0))
     assert state.phase is Phase.MID_TURN_SWITCH, "the turn stopped to ask"
-    assert state.sides[0].must_switch
+    assert state.sides[0].owes_switch()
     assert not any(e.kind == "move_used" and e.side == 1 for e in log), \
         "Snorlax has not moved yet"
 
@@ -115,7 +115,7 @@ def test_u_turn_suspends_the_turn(dex, config):
 
     state, log = step(state, Action.switch(1), Action.PASS)
     assert state.phase is Phase.BATTLE
-    assert state.sides[0].active == 1, "the replacement is in"
+    assert state.sides[0].active == [1], "the replacement is in"
     assert any(e.kind == "move_used" and e.side == 1 for e in log), \
         "and only now does the opponent move"
 
@@ -329,7 +329,7 @@ def test_a_slow_u_turn_takes_the_hit_before_leaving(dex, config):
     assert state.phase is Phase.MID_TURN_SWITCH
 
     state, log = step(state, Action.switch(1), Action.PASS)
-    assert state.sides[0].active == 1
+    assert state.sides[0].active == [1]
     assert not [e for e in log if e.kind == "damage"], "nobody is left to act"
 
 

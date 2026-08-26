@@ -44,7 +44,7 @@ def build(config, red, blue):
 
 
 def cast(ctx, dex, move_id, attacker=RED, defender=BLUE):
-    use_move(ctx, attacker, defender, dex.moves[move_id])
+    use_move(ctx, attacker, dex.moves[move_id], defender=defender)
 
 
 # --------------------------------------------------------------------------- #
@@ -385,7 +385,7 @@ def test_imposter_transforms_on_entry(dex, config):
     ditto_hp -= 50  # Night Shade
 
     assert state.species_id(0, 1) == "gengar", "copied the forme"
-    assert state.sides[0].active == 1
+    assert state.sides[0].active == [1]
     assert state.ability_id(0, 1) == "cursedbody", "copied the ability"
     assert state.types(0, 1) == ("ghost", "poison"), "copied the types"
     assert state.sides[0].boost(1, "spa") == 2, "copied the stat stages"

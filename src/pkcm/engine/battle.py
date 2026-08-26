@@ -12,6 +12,8 @@ returned state, so purity holds exactly where search needs it -- at the boundary
 
 from __future__ import annotations
 
+from collections.abc import Sequence
+
 from pkcm.data.dex import Move, Stat
 from pkcm.engine import abilities  # noqa: F401  -- registers its effects on import
 from pkcm.engine import conditions  # noqa: F401  -- registers its effects on import
@@ -30,6 +32,7 @@ from pkcm.engine.state import (
     BOOST_STATS,
     BattleState,
     Phase,
+    _bench,
     legal_actions,
 )
 
@@ -48,35 +51,63 @@ def make_context(state: BattleState, log: list[Event] | None = None) -> Context:
     return Context(state=state, cursor=state.rng.cursor(), log=log if log is not None else [])
 
 
+#: One player's decisions for a step: one action per field position.
+Choice = Action | Sequence[Action]
+
+
+def _as_choices(choice: Choice) -> tuple[Action, ...]:
+    return (choice,) if isinstance(choice, Action) else tuple(choice)
+
+
 def step(
     state: BattleState,
-    action_p0: Action,
-    action_p1: Action,
+    choice_p0: Choice,
+    choice_p1: Choice,
 ) -> tuple[BattleState, list[Event]]:
-    """Advance the battle by one decision point. Never mutates ``state``."""
-    actions = (action_p0, action_p1)
-    for player, action in enumerate(actions):
-        if action not in legal_actions(state, player):
-            raise IllegalActionError(
-                f"player {player} submitted {action} in {state.phase.name}; "
-                f"legal: {[str(a) for a in legal_actions(state, player)]}"
-            )
+    """Advance the battle by one decision point. Never mutates ``state``.
+
+    Each player submits one action per field position. Singles has one, so a
+    bare ``Action`` is accepted and means what it always did.
+    """
+    choices = (_as_choices(choice_p0), _as_choices(choice_p1))
+    _validate(state, choices)
 
     next_state = state.clone()
     log: list[Event] = []
     ctx = Context(state=next_state, cursor=next_state.rng.cursor(), log=log)
 
     if state.phase is Phase.TEAM_PREVIEW:
-        _resolve_team_preview(ctx, actions)
+        _resolve_team_preview(ctx, choices)
     elif state.phase is Phase.FORCED_SWITCH:
-        _resolve_forced_switch(ctx, actions)
+        _resolve_forced_switch(ctx, choices)
     elif state.phase is Phase.MID_TURN_SWITCH:
-        _resume_turn(ctx, actions)
+        _resume_turn(ctx, choices)
     elif state.phase is Phase.BATTLE:
-        _resolve_turn(ctx, actions)
+        _resolve_turn(ctx, choices)
 
     next_state.rng = ctx.cursor.seal()
     return next_state, log
+
+
+Choices = tuple[tuple[Action, ...], ...]
+
+
+def _validate(state: BattleState, choices: Choices) -> None:
+    for player, actions in enumerate(choices):
+        for position, action in enumerate(actions):
+            allowed = legal_actions(state, player, position)
+            if action not in allowed:
+                raise IllegalActionError(
+                    f"player {player} position {position} submitted {action} in "
+                    f"{state.phase.name}; legal: {[str(a) for a in allowed]}"
+                )
+        # Two positions cannot send in the same Pokemon. No per-position mask
+        # can say so, because the conflict exists only between them.
+        switching = [a.index for a in actions if a.kind is ActionKind.SWITCH]
+        if len(switching) != len(set(switching)):
+            raise IllegalActionError(
+                f"player {player} sent the same Pokemon to two positions: {switching}"
+            )
 
 
 # --------------------------------------------------------------------------- #
@@ -84,11 +115,12 @@ def step(
 # --------------------------------------------------------------------------- #
 
 
-def _resolve_team_preview(ctx: Context, actions: tuple[Action, ...]) -> None:
+def _resolve_team_preview(ctx: Context, choices: Choices) -> None:
     state = ctx.state
-    for player, action in enumerate(actions):
+    positions = state.config.active_count
+    for player, actions in enumerate(choices):
         side = state.sides[player]
-        brought = action.selection
+        brought = actions[0].selection
         side.selection = brought
         side.hp = [state.parties[player][i].stats[Stat.HP] for i in brought]
         side.pp = [list(state.parties[player][i].max_pp) for i in brought]
@@ -96,64 +128,109 @@ def _resolve_team_preview(ctx: Context, actions: tuple[Action, ...]) -> None:
         side.status_data = [{} for _ in brought]
         side.boosts = [[0] * len(BOOST_STATS) for _ in brought]
         side.volatiles = [{} for _ in brought]
-        side.active = 0
+        # Lead order is selection order: slot 0 to position 0, and in doubles
+        # slot 1 to position 1.
+        side.active = list(range(positions))
+        side.must_switch = [False] * positions
         state.overrides[player].extend({} for _ in brought)
         ctx.emit(ev.team_preview(player, brought))
 
-    for player in (0, 1):
-        _enter_field(ctx, player)
+    # Everyone is standing there before anyone's switch-in ability fires, and
+    # the order among them is Speed order: the faster lead's Intimidate lands
+    # first, and in doubles that decides which Attack drop the other one sees.
+    arrivals = [(player, position) for player in (0, 1) for position in range(positions)]
+    for player, position in arrivals:
+        _announce_arrival(ctx, player, position)
+    for player, position in _by_speed(ctx, arrivals):
+        _greet_field(ctx, player, position)
 
     state.phase = Phase.BATTLE
 
 
-def _resolve_forced_switch(ctx: Context, actions: tuple[Action, ...]) -> None:
-    for player, action in enumerate(actions):
-        if action.kind is not ActionKind.SWITCH:
-            continue
-        _switch(ctx, player, action.index)
-        ctx.state.sides[player].must_switch = False
-
+def _resolve_forced_switch(ctx: Context, choices: Choices) -> None:
+    _take_replacements(ctx, choices)
     if not ctx.state.finished:
         ctx.state.phase = Phase.BATTLE
 
 
-def _resolve_turn(ctx: Context, actions: tuple[Action, ...]) -> None:
+def _take_replacements(ctx: Context, choices: Choices) -> None:
+    """Send in everyone who owes a replacement, then let them all arrive.
+
+    Split in two on purpose: a side can owe two at once in doubles, and both
+    are on the field before either one's switch-in ability goes off.
+    """
+    arrived: list[tuple[int, int]] = []
+    for player, actions in enumerate(choices):
+        for position, action in enumerate(actions):
+            if action.kind is not ActionKind.SWITCH:
+                continue
+            _leave_field(ctx, player, position)
+            ctx.state.sides[player].active[position] = action.index
+            ctx.state.sides[player].must_switch[position] = False
+            _announce_arrival(ctx, player, position)
+            arrived.append((player, position))
+
+    for player, position in _by_speed(ctx, arrived):
+        _greet_field(ctx, player, position)
+
+
+def _resolve_turn(ctx: Context, choices: Choices) -> None:
     state = ctx.state
     state.turn += 1
     ctx.emit(ev.turn_start(state.turn))
 
+    actors = _actors(state)
+
     # Recharging is spent by doing nothing, and a PASS never reaches the queue,
     # so it is settled before the queue is built.
-    for player in (0, 1):
-        side = state.sides[player]
-        if actions[player].kind is ActionKind.PASS and side.hp \
-                and side.has_volatile(side.active, "mustrecharge"):
-            ctx.emit(Event("recharging", side=player, slot=side.active))
-            mutate.remove_volatile(ctx, (player, side.active), "mustrecharge", quiet=True)
+    for player, position in actors:
+        slot = state.sides[player].active[position]
+        action = _action_for(choices, player, position)
+        if action.kind is ActionKind.PASS and slot >= 0 \
+                and state.sides[player].has_volatile(slot, "mustrecharge"):
+            ctx.emit(Event("recharging", side=player, slot=slot))
+            mutate.remove_volatile(ctx, (player, slot), "mustrecharge", quiet=True)
 
-    switchers = [p for p in (0, 1) if actions[p].kind is ActionKind.SWITCH]
-    attackers = [p for p in (0, 1) if actions[p].kind in (ActionKind.MOVE, ActionKind.STRUGGLE)]
+    switchers = [a for a in actors if _action_for(choices, *a).kind is ActionKind.SWITCH]
+    attackers = [a for a in actors
+                 if _action_for(choices, *a).kind in (ActionKind.MOVE, ActionKind.STRUGGLE)]
 
     # Switches always resolve before any move, fastest first.
-    for player in _by_speed(ctx, switchers):
-        _switch(ctx, player, actions[player].index)
+    arrived: list[tuple[int, int]] = []
+    for player, position in _by_speed(ctx, switchers):
+        _leave_field(ctx, player, position)
+        state.sides[player].active[position] = _action_for(choices, player, position).index
+        _announce_arrival(ctx, player, position)
+        arrived.append((player, position))
+    for player, position in _by_speed(ctx, arrived):
+        _greet_field(ctx, player, position)
 
     # Then Mega Evolution, before move order is worked out -- the new forme's
     # Speed is what decides who goes first.
-    for player in _by_speed(ctx, [p for p in (0, 1) if actions[p].mega]):
-        _mega_evolve(ctx, player)
+    megas = [a for a in actors if _action_for(choices, *a).mega]
+    for player, position in _by_speed(ctx, megas):
+        _mega_evolve(ctx, player, position)
 
-    state.turn_actions = actions
-    state.turn_queue = _move_order(ctx, actions, attackers)
+    state.turn_actions = choices
+    state.turn_queue = _move_order(ctx, choices, attackers)
     _run_queue(ctx)
 
 
-def _resume_turn(ctx: Context, actions: tuple[Action, ...]) -> None:
+def _actors(state: BattleState) -> list[tuple[int, int]]:
+    """Every field position, whether or not anyone is standing in it."""
+    return [(player, position)
+            for player in (0, 1)
+            for position in range(len(state.sides[player].active))]
+
+
+def _action_for(choices: Choices, player: int, position: int) -> Action:
+    actions = choices[player]
+    return actions[position] if position < len(actions) else Action.PASS
+
+
+def _resume_turn(ctx: Context, choices: Choices) -> None:
     """Pick a turn back up after a mid-turn switch has been chosen."""
-    for player, action in enumerate(actions):
-        if action.kind is ActionKind.SWITCH:
-            _switch(ctx, player, action.index)
-            ctx.state.sides[player].must_switch = False
+    _take_replacements(ctx, choices)
     if not ctx.state.finished:
         ctx.state.phase = Phase.BATTLE
         _run_queue(ctx)
@@ -165,22 +242,21 @@ def _run_queue(ctx: Context) -> None:
     while state.turn_queue:
         if state.finished:
             return
-        player = state.turn_queue.pop(0)
+        player, position = state.turn_queue.pop(0)
         side = state.sides[player]
-        if side.is_fainted(side.active):
+        slot = side.active[position]
+        if slot < 0 or side.is_fainted(slot):
             continue  # knocked out before it could act
 
-        _use(ctx, player, state.turn_actions[player])
-        ctx.acted.add((player, side.active))
-        for who in (0, 1):
-            other = state.sides[who]
-            if other.hp and not other.is_fainted(other.active):
-                mutate.check_item_triggers(ctx, (who, other.active))
+        _use(ctx, player, position, _action_for(state.turn_actions, player, position))
+        ctx.acted.add((player, slot))
+        for ref in state.everyone():
+            mutate.check_item_triggers(ctx, ref)
         if _check_loss(ctx):
             return
 
         # A self-switch stops the turn here: the replacement has to be chosen
-        # and has to be on the field before anyone else moves.
+        # and standing before anyone else moves.
         if _owes_mid_turn_switch(ctx):
             state.phase = Phase.MID_TURN_SWITCH
             return
@@ -189,27 +265,75 @@ def _run_queue(ctx: Context) -> None:
 
 
 def _owes_mid_turn_switch(ctx: Context) -> bool:
-    return any(side.must_switch for side in ctx.state.sides)
+    return any(side.owes_switch() for side in ctx.state.sides)
 
 
 # --------------------------------------------------------------------------- #
 # Switching
+#
+# Split into three because doubles needs the seam: everyone who is coming in
+# leaves and arrives first, and only then does anyone's switch-in ability fire.
+# Running them one Pokemon at a time would let the first arrival's Intimidate
+# hit a partner that has not been sent out yet.
 # --------------------------------------------------------------------------- #
 
 
-def _switch(ctx: Context, player: int, slot: int) -> None:
+def _leave_field(ctx: Context, player: int, position: int) -> None:
+    """Take whoever is standing here off the field, keeping what survives."""
     side = ctx.state.sides[player]
-    if side.active >= 0:
-        # Natural Cure and Regenerator fire here, before the state is wiped.
-        if not side.is_fainted(side.active):
-            fx.notify(ctx, "switch_out", (player, side.active), scope="self")
-        side.clear_on_switch_out(side.active)
-        ctx.state.clear_temporary_overrides(player, side.active)
-    side.active = slot
-    _enter_field(ctx, player)
+    slot = side.active[position]
+    if slot < 0:
+        return
+    # Natural Cure and Regenerator fire here, before the state is wiped.
+    if not side.is_fainted(slot):
+        fx.notify(ctx, "switch_out", (player, slot), scope="self")
+    side.clear_on_switch_out(slot)
+    ctx.state.clear_temporary_overrides(player, slot)
 
 
-def _mega_evolve(ctx: Context, player: int) -> None:
+def _announce_arrival(ctx: Context, player: int, position: int) -> None:
+    """The Pokemon is on the field and hazards have had their say."""
+    side = ctx.state.sides[player]
+    slot = side.active[position]
+    if slot < 0:
+        return
+    ref: Ref = (player, slot)
+    pokemon = ctx.state.pokemon(*ref)
+    ctx.emit(
+        ev.switch_in(player, slot, ctx.state.species_id(*ref), side.hp[slot], pokemon.max_hp)
+    )
+    apply_entry_hazards(ctx, ref)
+
+
+def _greet_field(ctx: Context, player: int, position: int) -> None:
+    """Switch-in abilities, once everyone arriving this turn has arrived."""
+    side = ctx.state.sides[player]
+    slot = side.active[position]
+    if slot < 0 or side.hp[slot] <= 0:
+        return
+    ref: Ref = (player, slot)
+
+    from pkcm.engine.tactics import _healing_wish_on_entry
+
+    _healing_wish_on_entry(ctx, ref)
+    fx.notify(ctx, "switch_in", ref)
+
+
+def switch_into(ctx: Context, player: int, position: int, slot: int) -> None:
+    """Replace one field position, start to finish.
+
+    The three steps run back to back here because there is only one Pokemon
+    involved. Anything sending in several at once -- team preview, a double
+    knockout -- has to use the steps directly, so that all of them are standing
+    before any of their switch-in abilities fire.
+    """
+    _leave_field(ctx, player, position)
+    ctx.state.sides[player].active[position] = slot
+    _announce_arrival(ctx, player, position)
+    _greet_field(ctx, player, position)
+
+
+def _mega_evolve(ctx: Context, player: int, position: int) -> None:
     """Spend the battle's one Mega Evolution.
 
     Permanent: Champions does not revert it even on fainting
@@ -217,7 +341,10 @@ def _mega_evolve(ctx: Context, player: int) -> None:
     surviving a switch-out.
     """
     side = ctx.state.sides[player]
-    ref: Ref = (player, side.active)
+    slot = side.active[position]
+    if slot < 0:
+        return
+    ref: Ref = (player, slot)
     target = ctx.state.mega_target(*ref)
     if target is None:
         return
@@ -226,91 +353,114 @@ def _mega_evolve(ctx: Context, player: int) -> None:
 
     ctx.state.mega_used[player] = True
     _become(ctx, ref, target, permanent=True)
-    ctx.state.set_override(player, side.active, "ability",
+    ctx.state.set_override(player, slot, "ability",
                            ctx.state.config.dex.species[target].abilities[0],
                            permanent=True)
     ctx.emit(
-        Event("mega_evolve", side=player, slot=side.active,
+        Event("mega_evolve", side=player, slot=slot,
               species=ctx.state.species_id(*ref), detail=target)
     )
     # The new forme's ability starts now: Mega Mawile's Intimidate fires here.
     fx.notify(ctx, "switch_in", ref)
 
 
-def _enter_field(ctx: Context, player: int) -> None:
-    side = ctx.state.sides[player]
-    ref: Ref = (player, side.active)
-    pokemon = ctx.state.pokemon(*ref)
-    ctx.emit(
-        ev.switch_in(player, side.active, ctx.state.species_id(*ref),
-                     side.hp[side.active], pokemon.max_hp)
-    )
-    apply_entry_hazards(ctx, ref)
-    if side.hp[side.active] > 0:
-        from pkcm.engine.tactics import _healing_wish_on_entry
-
-        _healing_wish_on_entry(ctx, ref)
-        fx.notify(ctx, "switch_in", ref)
-
-
 # --------------------------------------------------------------------------- #
 # Ordering
+#
+# Four Pokemon can act in doubles, so ordering is a sort rather than the
+# two-way comparison singles got away with. The random tie-break is drawn only
+# for positions that are actually tied, which keeps a singles turn consuming
+# exactly the RNG it used to.
 # --------------------------------------------------------------------------- #
 
-
-def _speed(ctx: Context, player: int) -> int:
-    side = ctx.state.sides[player]
-    return mutate.effective_stat(ctx, (player, side.active), Stat.SPE)
+Actor = tuple[int, int]
 
 
-def _by_speed(ctx: Context, players: list[int]) -> list[int]:
+def _speed(ctx: Context, actor: Actor) -> int:
+    player, position = actor
+    slot = ctx.state.sides[player].active[position]
+    if slot < 0:
+        return 0
+    return mutate.effective_stat(ctx, (player, slot), Stat.SPE)
+
+
+def _shuffle(ctx: Context, group: list[Actor]) -> list[Actor]:
+    """Fisher-Yates over a speed tie. One draw for a pair, as before."""
+    if len(group) < 2:
+        return group
+    if len(group) == 2:
+        return group if ctx.cursor.chance(1, 2) else [group[1], group[0]]
+    shuffled = list(group)
+    for index in range(len(shuffled) - 1, 0, -1):
+        pick = ctx.cursor.between(0, index)
+        shuffled[index], shuffled[pick] = shuffled[pick], shuffled[index]
+    return shuffled
+
+
+def _order_by(ctx: Context, actors: list[Actor], key) -> list[Actor]:
+    """Sort by ``key`` descending, breaking exact ties at random.
+
+    Trick Room reverses Speed, so it is applied to the Speed component of the
+    key rather than to the sort -- priority keeps pointing the same way.
+    """
+    if len(actors) < 2:
+        return list(actors)
+    graded = sorted(((key(actor), actor) for actor in actors),
+                    key=lambda pair: pair[0], reverse=True)
+    ordered: list[Actor] = []
+    index = 0
+    while index < len(graded):
+        end = index + 1
+        while end < len(graded) and graded[end][0] == graded[index][0]:
+            end += 1
+        ordered.extend(_shuffle(ctx, [actor for _, actor in graded[index:end]]))
+        index = end
+    return ordered
+
+
+def _speed_key(ctx: Context, actor: Actor) -> int:
+    speed = _speed(ctx, actor)
+    return -speed if "trickroom" in ctx.state.field.rooms else speed
+
+
+def _by_speed(ctx: Context, actors: list[Actor]) -> list[Actor]:
     """Fastest first -- or slowest first under Trick Room."""
-    if len(players) < 2:
-        return players
-    a, b = players
-    speed_a, speed_b = _speed(ctx, a), _speed(ctx, b)
-    if speed_a == speed_b:
-        return [a, b] if ctx.cursor.chance(1, 2) else [b, a]
-
-    faster_first = speed_a > speed_b
-    if "trickroom" in ctx.state.field.rooms:
-        faster_first = not faster_first
-    return [a, b] if faster_first else [b, a]
+    return _order_by(ctx, actors, lambda actor: _speed_key(ctx, actor))
 
 
-def _move_order(ctx: Context, actions: tuple[Action, ...], players: list[int]) -> list[int]:
+def _move_order(ctx: Context, choices: Choices, actors: list[Actor]) -> list[Actor]:
     """Priority first, then Speed. Trick Room reverses Speed but not priority."""
-    if len(players) < 2:
-        return players
-    a, b = players
-    priority_a = _priority(ctx, a, actions[a])
-    priority_b = _priority(ctx, b, actions[b])
-    if priority_a != priority_b:
-        return [a, b] if priority_a > priority_b else [b, a]
-    return _by_speed(ctx, players)
+    def key(actor: Actor) -> tuple[int, int]:
+        priority = _priority(ctx, actor, _action_for(choices, *actor))
+        return (priority, _speed_key(ctx, actor))
+
+    return _order_by(ctx, actors, key)
 
 
-def _priority(ctx: Context, player: int, action: Action) -> int:
-    move = _chosen_move(ctx.state, player, action)
-    ref: Ref = (player, ctx.state.sides[player].active)
-    return fx.modify(ctx, "modify_priority", move.priority, ref, scope="self", move=move)
+def _priority(ctx: Context, actor: Actor, action: Action) -> int:
+    player, position = actor
+    slot = ctx.state.sides[player].active[position]
+    if slot < 0:
+        return 0
+    move = _chosen_move(ctx.state, actor, action)
+    return fx.modify(ctx, "modify_priority", move.priority, (player, slot),
+                     scope="self", move=move)
 
 
-def _chosen_move(state: BattleState, player: int, action: Action) -> Move:
+def _chosen_move(state: BattleState, actor: Actor, action: Action) -> Move:
     if action.kind is ActionKind.STRUGGLE:
         return state.config.dex.moves[STRUGGLE_ID]
-    side = state.sides[player]
-    return state.moves(player, side.active)[action.index]
+    player, position = actor
+    slot = state.sides[player].active[position]
+    return state.moves(player, slot)[action.index]
 
 
-def _use(ctx: Context, player: int, action: Action) -> None:
-    side = ctx.state.sides[player]
-    attacker: Ref = (player, side.active)
-    opponent = 1 - player
-    defender: Ref = (opponent, ctx.state.sides[opponent].active)
-    move = _chosen_move(ctx.state, player, action)
+def _use(ctx: Context, player: int, position: int, action: Action) -> None:
+    slot = ctx.state.sides[player].active[position]
+    attacker: Ref = (player, slot)
+    move = _chosen_move(ctx.state, (player, position), action)
     index = action.index if action.kind is ActionKind.MOVE else None
-    mv.use_move(ctx, attacker, defender, move, index)
+    mv.use_move(ctx, attacker, move, index, target_code=action.target)
 
 
 # --------------------------------------------------------------------------- #
@@ -323,12 +473,15 @@ def _end_of_turn(ctx: Context) -> None:
     if state.finished:
         return
 
-    for player in _by_speed(ctx, [0, 1]):
-        side = state.sides[player]
-        if side.is_fainted(side.active):
+    # Everyone on the field, in Speed order across both sides -- a doubles
+    # residual pass interleaves the two teams rather than doing one then the
+    # other, which is what decides who a Leftovers tick outlives.
+    for player, position in _by_speed(ctx, _actors(state)):
+        slot = state.sides[player].active[position]
+        if slot < 0 or state.sides[player].is_fainted(slot):
             continue
-        fx.notify(ctx, "residual", (player, side.active))
-        mutate.check_item_triggers(ctx, (player, side.active))
+        fx.notify(ctx, "residual", (player, slot))
+        mutate.check_item_triggers(ctx, (player, slot))
         if _check_loss(ctx):
             return
 
@@ -347,9 +500,21 @@ def _end_of_turn(ctx: Context) -> None:
     needs_switch = False
     for player in (0, 1):
         side = state.sides[player]
-        if side.is_fainted(side.active):
-            side.must_switch = True
-            needs_switch = True
+        # A side can lose both its Pokemon in one turn and have only one left
+        # to send. The first position gets it; the second is emptied for good,
+        # and doubles carries on with three on the field. Handing out more
+        # replacements than exist would deadlock the turn.
+        available = len(_bench(state, player))
+        for position, slot in enumerate(side.active):
+            if slot < 0 or not side.is_fainted(slot):
+                continue
+            if available > 0:
+                side.must_switch[position] = True
+                available -= 1
+                needs_switch = True
+            else:
+                side.active[position] = -1
+                ctx.emit(Event("position_empty", side=player, slot=position))
 
     if needs_switch:
         state.phase = Phase.FORCED_SWITCH
@@ -408,7 +573,8 @@ def _clear_turn_volatiles(ctx: Context) -> None:
                 volatiles.pop(shield, None)
             # Counter and Mirror Coat only answer damage from this turn.
             volatiles.pop("hurtthisturn", None)
-            volatiles.pop("lastmove", None) if slot != side.active else None
+            if slot not in side.active:
+                volatiles.pop("lastmove", None)
 
 
 # --------------------------------------------------------------------------- #

@@ -180,7 +180,7 @@ def test_fainting_forces_a_replacement(dex, config):
     after, log = step(state, Action.move(0), Action.move(0))
     assert any(e.kind == "faint" and e.side == 1 for e in log)
     assert after.phase is Phase.FORCED_SWITCH
-    assert after.sides[1].must_switch and not after.sides[0].must_switch
+    assert after.sides[1].owes_switch() and not after.sides[0].owes_switch()
     assert legal_actions(after, 0) == (Action.PASS,)
     assert all(a.kind is ActionKind.SWITCH for a in legal_actions(after, 1))
 

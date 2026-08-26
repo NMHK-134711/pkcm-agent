@@ -121,8 +121,8 @@ def resolve_wish(ctx: Context, player: int) -> None:
     if amount is None:
         return
     side = ctx.state.sides[player]
-    if not side.is_fainted(side.active):
-        heal(ctx, (player, side.active), amount, reason="wish")
+    for slot in side.active_slots():
+        heal(ctx, (player, slot), amount, reason="wish")
 
 
 register("side", "wish", name="Wish")
@@ -472,11 +472,12 @@ def _perish_song(ctx, user, target, move) -> bool:
     applied = False
     for player in (0, 1):
         side = ctx.state.sides[player]
-        ref = (player, side.active)
-        if side.is_fainted(side.active) or "perishsong" in _volatiles(ctx, ref):
-            continue
-        mutate.add_volatile(ctx, ref, "perishsong", turns=4)
-        applied = True
+        for slot in side.active_slots():
+            ref = (player, slot)
+            if "perishsong" in _volatiles(ctx, ref):
+                continue
+            mutate.add_volatile(ctx, ref, "perishsong", turns=4)
+            applied = True
     return applied or _fail(ctx, user, "everyone is already counting")
 
 
@@ -881,7 +882,7 @@ def _sparkling_aria(ctx, user, target, move) -> bool:
 @special("copycat")
 def _copycat(ctx, user, target, move) -> bool:
     last = ctx.state.sides[1 - user[0]].volatiles[
-        ctx.state.sides[1 - user[0]].active].get("lastmove")
+        ctx.state.sides[1 - user[0]].active[0]].get("lastmove")
     if last is None:
         return _fail(ctx, user, "nothing to copy")
     return _call_move(ctx, user, target, last)
@@ -905,7 +906,7 @@ def _call_move(ctx: Context, user: Ref, target: Ref, move_id: str) -> bool:
     if called is None:
         return False
     ctx.emit(Event("called_move", side=user[0], slot=user[1], move=move_id))
-    use_move(ctx, user, target, called)
+    use_move(ctx, user, called, defender=target)
     return True
 
 
@@ -1032,10 +1033,9 @@ def _uproar(ctx: Context, user: Ref, target: Ref, move) -> bool:
     """
     for player in (0, 1):
         side = ctx.state.sides[player]
-        if not side.hp or side.active < 0 or side.is_fainted(side.active):
-            continue
-        if side.status[side.active] == "slp":
-            mutate.cure_status(ctx, (player, side.active))
+        for slot in side.active_slots():
+            if side.status[slot] == "slp":
+                mutate.cure_status(ctx, (player, slot))
 
     volatiles = _volatiles(ctx, user)
     if "uproar" in volatiles:

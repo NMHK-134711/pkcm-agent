@@ -59,6 +59,17 @@ SELF_TARGETS = frozenset({"self", "adjacentAlly", "adjacentAllyOrSelf", "allies"
 FIELD_TARGETS = frozenset({"all"})
 FOE_SIDE_TARGETS = frozenset({"foeSide"})
 
+#: Moves that hit more than one Pokemon at once. Each one takes a quarter off
+#: its damage in doubles -- and only when it actually lands on more than one,
+#: which is why the count is taken at resolution rather than read off the data.
+SPREAD_TARGETS = frozenset({"allAdjacentFoes", "allAdjacent", "allies", "foeSide"})
+#: 0.75 in 4096ths, applied once for a spread move with two or more targets.
+SPREAD_MODIFIER = X0_75
+
+#: Targets that mean "one Pokemon on the other side". These are the ones a
+#: caller can name outright with ``use_move(defender=...)``.
+SINGLE_FOE_TARGETS = frozenset({"normal", "any", "adjacentFoe", "randomNormal", "scripted"})
+
 
 # --------------------------------------------------------------------------- #
 # Base power
@@ -220,6 +231,12 @@ def compute_damage(
 
     damage = ((2 * LEVEL // 5 + 2) * power * attack // defense) // 50 + 2
 
+    # Showdown applies the spread penalty here -- before the crit multiplier and
+    # before the roll, not at the end (``Battle#modifyDamage``). The order is
+    # visible in the result, because each step truncates.
+    if getattr(move, "spread", False):
+        damage = chain_modify(damage, SPREAD_MODIFIER)
+
     if crit:
         damage = damage * CRIT_MULTIPLIER_NUM // CRIT_MULTIPLIER_DEN
 
@@ -313,6 +330,10 @@ class ActiveMove:
     parental_bond: bool = False
     #: Which hit of a multi-hit move is being resolved. Beat Up reads it.
     hit_index: int = 0
+    #: This use landed on more than one Pokemon, so each takes a quarter less.
+    #: Set at resolution, not read off the data: a spread move that finds only
+    #: one target left standing does full damage.
+    spread: bool = False
 
     @property
     def id(self) -> str:
@@ -359,18 +380,85 @@ def _respects_type_immunity(move) -> bool:
     return move.category != "Status"
 
 
-def resolve_target(move, attacker: Ref, defender: Ref) -> Ref:
-    return attacker if move.target in SELF_TARGETS else defender
+def resolve_targets(ctx: Context, attacker: Ref, move, target_code: int = 0) -> list[Ref]:
+    """Everyone this use of the move lands on, in field-position order.
+
+    Singles collapses to one entry every time; the list only ever has two in it
+    because doubles put a second Pokemon on each side. Empty means the move has
+    nobody to hit, which is a failure rather than a miss.
+    """
+    from pkcm.engine.state import resolve_target_code
+
+    state = ctx.state
+    kind = move.target
+
+    if kind in ("self", "allySide", "allyTeam"):
+        return [attacker]
+    if kind == "allies":
+        return state.allies_and_self(attacker)
+    if kind == "allAdjacentFoes" or kind == "foeSide":
+        return state.foes(attacker)
+    if kind == "allAdjacent":
+        return state.foes(attacker) + [ref for ref in state.allies_and_self(attacker)
+                                       if ref != attacker]
+    if kind == "all":
+        return [attacker]  # weather and rooms belong to the field, not a Pokemon
+    if kind == "randomNormal":
+        # Thrash and friends pick for themselves; nobody chose a target.
+        foes = state.foes(attacker)
+        if not foes:
+            return []
+        return [foes[ctx.cursor.between(0, len(foes) - 1)]]
+
+    chosen = resolve_target_code(state, attacker, target_code)
+    if chosen is None:
+        # The chosen target left the field between selection and resolution.
+        # Champions redirects a single-target move to whoever is left rather
+        # than fizzling it, which is what makes double-target prediction work.
+        remaining = state.foes(attacker)
+        if kind in ("adjacentAlly", "adjacentAllyOrSelf"):
+            remaining = [ref for ref in state.allies_and_self(attacker) if ref != attacker]
+        if not remaining:
+            return []
+        chosen = remaining[0]
+    return [chosen]
+
+
+def redirect(ctx: Context, attacker: Ref, target: Ref, move) -> Ref:
+    """Follow Me, Rage Powder, Lightning Rod, Storm Drain.
+
+    Only single-target moves from the other side can be pulled, and only onto a
+    Pokemon that is still standing. Asked as a ``modify`` hook over everyone on
+    the field, because the Pokemon doing the pulling is neither the attacker
+    nor the current target.
+    """
+    if move.target not in ("normal", "any", "adjacentFoe") or target[0] == attacker[0]:
+        return target
+    pulled = target
+    for candidate in ctx.state.foes(attacker):
+        if candidate == target:
+            continue
+        pulled = fx.modify(ctx, "redirect_target", pulled, candidate,
+                           scope="self", attacker=attacker, move=move)
+    return pulled
 
 
 def use_move(
     ctx: Context,
     attacker: Ref,
-    defender: Ref,
     move: Move,
     move_index: int | None = None,
+    target_code: int = 0,
+    defender: Ref | None = None,
 ) -> None:
-    """Run one move from start to finish."""
+    """Run one move from start to finish.
+
+    ``target_code`` is what the player picked (see ``pkcm.engine.actions``).
+    ``defender`` names the foe instead, for callers that already know who is
+    across from them -- tests, Magic Bounce, Instruct. It stands in for the
+    chosen opponent only: a move that targets its own user still targets its
+    own user.
+    """
     side = ctx.state.sides[attacker[0]]
 
     if not fx.allows(ctx, "try_move", attacker, move=move):
@@ -424,8 +512,33 @@ def use_move(
     if move.raw.get("multihit") is None and _locks_in(move):
         tactics.start_locked_move(ctx, attacker, move, move_index)
 
-    active = activate(ctx, attacker, defender, move)
-    target = resolve_target(active, attacker, defender)
+    first_guess = defender or (ctx.state.foes(attacker) or [attacker])[0]
+    active = activate(ctx, attacker, first_guess, move)
+
+    if defender is not None and active.target in SINGLE_FOE_TARGETS:
+        targets = [defender]
+    else:
+        targets = resolve_targets(ctx, attacker, active, target_code)
+        targets = [redirect(ctx, attacker, ref, active) for ref in targets]
+
+    if not targets:
+        ctx.emit(Event("move_failed", side=attacker[0], move=move.id, detail="no target"))
+        return
+
+    # A spread move that finds only one target does full damage. The count is
+    # taken here, after fainting and redirection have had their say.
+    active.spread = active.target in SPREAD_TARGETS and len(targets) > 1
+
+    for target in targets:
+        if ctx.state.sides[target[0]].hp[target[1]] <= 0 and target != attacker:
+            continue  # the first hit of a spread move knocked this one out
+        _resolve_one(ctx, attacker, target, active)
+
+    fx.notify(ctx, "after_move", attacker, move=active)
+
+
+def _resolve_one(ctx: Context, attacker: Ref, target: Ref, active) -> None:
+    """One move against one target, with the defender's ability suppression."""
     targets_opponent = target != attacker
 
     # Mold Breaker and friends blind the defender's ability for the *whole*
@@ -434,14 +547,14 @@ def use_move(
     # cannot be quietly incomplete.
     suppressing = targets_opponent and ignores_target_ability(ctx, attacker, active)
     if suppressing:
-        ctx.suppressed_abilities.add(defender)
-        ctx.emit(Event("ability_suppressed", side=defender[0], slot=defender[1],
-                       detail=ctx.state.ability_id(*defender)))
+        ctx.suppressed_abilities.add(target)
+        ctx.emit(Event("ability_suppressed", side=target[0], slot=target[1],
+                       detail=ctx.state.ability_id(*target)))
     try:
-        _resolve(ctx, attacker, defender, target, targets_opponent, active)
+        _resolve(ctx, attacker, target, target, targets_opponent, active)
     finally:
         if suppressing:
-            ctx.suppressed_abilities.discard(defender)
+            ctx.suppressed_abilities.discard(target)
 
 
 #: Abilities that ignore the target's ability while their holder attacks.
@@ -491,7 +604,6 @@ def _resolve(
 
     if landed:
         _apply_self_effects(ctx, attacker, move)
-    fx.notify(ctx, "after_move", attacker, move=move)
 
 
 def _clear_flinch(ctx: Context, ref: Ref) -> None:

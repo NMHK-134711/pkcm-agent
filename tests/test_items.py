@@ -50,7 +50,7 @@ def build(config, red, blue):
 
 
 def cast(ctx, dex, move_id, attacker=RED, defender=BLUE):
-    use_move(ctx, attacker, defender, dex.moves[move_id])
+    use_move(ctx, attacker, dex.moves[move_id], defender=defender)
 
 
 # --------------------------------------------------------------------------- #

@@ -225,7 +225,7 @@ register("volatile", "substitute", name="Substitute")
 
 
 def _leech_seed_residual(ctx, ref, **_):
-    opponent = (1 - ref[0], ctx.state.sides[1 - ref[0]].active)
+    opponent = ctx.state.foes(ref)[0] if ctx.state.foes(ref) else ref
     if ctx.state.sides[opponent[0]].hp[opponent[1]] <= 0:
         return
     drained = apply_damage(

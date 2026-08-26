@@ -70,17 +70,20 @@ def endeavor_damage(ctx: Context, attacker: Ref, defender: Ref) -> int | None:
 def force_switch(ctx: Context, target: Ref) -> bool:
     """Drag in a random party member. Fails when there is nobody to drag in."""
     side = ctx.state.sides[target[0]]
-    candidates = [slot for slot in side.living_slots() if slot != side.active]
+    candidates = [slot for slot in side.living_slots() if slot not in side.active]
     if not candidates:
         return False
-    if side.has_volatile(side.active, "ingrain"):
+    if side.has_volatile(target[1], "ingrain"):
+        return False
+    position = side.position_of(target[1])
+    if position is None:
         return False
 
-    from pkcm.engine.battle import _switch
+    from pkcm.engine.battle import switch_into
 
     chosen = ctx.cursor.choice(candidates)
-    ctx.emit(Event("dragged_out", side=target[0], slot=side.active))
-    _switch(ctx, target[0], chosen)
+    ctx.emit(Event("dragged_out", side=target[0], slot=target[1]))
+    switch_into(ctx, target[0], position, chosen)
     return True
 
 
@@ -92,10 +95,13 @@ def self_switch(ctx: Context, user: Ref) -> bool:
     whole point of the move.
     """
     side = ctx.state.sides[user[0]]
-    if not [slot for slot in side.living_slots() if slot != side.active]:
+    if not [slot for slot in side.living_slots() if slot not in side.active]:
         return False
-    side.must_switch = True
-    ctx.emit(Event("self_switch", side=user[0], slot=side.active))
+    position = side.position_of(user[1])
+    if position is None:
+        return False
+    side.must_switch[position] = True
+    ctx.emit(Event("self_switch", side=user[0], slot=user[1]))
     return True
 
 

@@ -30,9 +30,11 @@ from typing import Any, Callable, Iterator
 from pkcm.engine.events import Event
 from pkcm.engine.rng import RngCursor
 from pkcm.engine.state import BattleState
+from pkcm.engine.state import Ref as StateRef
 
-#: (side, slot). Identifies one Pokemon in the battle.
-Ref = tuple[int, int]
+#: (side, slot). Identifies one Pokemon in the battle, wherever it stands.
+#: Defined in ``state`` and re-exported here, where most handlers import it.
+Ref = StateRef
 
 Handler = Callable[..., Any]
 
@@ -75,6 +77,12 @@ EVENTS: dict[str, str] = {
         "Unaware answers no, and it has to be asked from the other side."
     ),
     "modify_weight": "ref -- the Pokemon's weight in kg (Light Metal, Heavy Metal)",
+    "redirect_target": (
+        "ref (the one pulling), attacker, move -- return this Pokemon's own ref "
+        "to take a single-target move aimed at its partner. Follow Me and Rage "
+        "Powder claim everything; Lightning Rod and Storm Drain claim a type. "
+        "Doubles only: in singles there is nothing to redirect away from."
+    ),
     "modify_field_duration": (
         "ref (whoever set it), field, kind -- how long a weather, terrain or "
         "screen lasts. The weather rocks and Light Clay live here."

@@ -171,18 +171,19 @@ def _apply_setup(state: BattleState, operations: tuple[dict, ...]) -> None:
             # God-mode entry: puts a Pokemon on the field and runs everything
             # that greets it. Needed when the position being described cannot be
             # reached by a legal switch -- Shadow Tag, for one.
-            from pkcm.engine.battle import _enter_field, make_context
+            from pkcm.engine.battle import make_context, switch_into
 
             ctx = make_context(state)
-            state.sides[operation["side"]].active = operation["slot"]
-            _enter_field(ctx, operation["side"])
+            switch_into(ctx, operation["side"], operation.get("position", 0),
+                        operation["slot"])
             state.rng = ctx.cursor.seal()
         elif what == "mega":
             from pkcm.engine.battle import make_context, _mega_evolve
 
             ctx = make_context(state)
-            state.sides[operation["side"]].active = operation["slot"]
-            _mega_evolve(ctx, operation["side"])
+            position = operation.get("position", 0)
+            state.sides[operation["side"]].active[position] = operation["slot"]
+            _mega_evolve(ctx, operation["side"], position)
             state.rng = ctx.cursor.seal()
         elif what == "boost":
             from pkcm.engine.state import BOOST_INDEX
@@ -232,7 +233,14 @@ def run(scenario: Scenario, dex: Dex | None = None) -> ScenarioRun:
 
 
 def _active_slot(state: BattleState, check: dict) -> int:
-    return check.get("slot", state.sides[check["side"]].active)
+    """Which party slot a check is about.
+
+    ``slot`` names it outright. Otherwise it is whoever is standing in field
+    ``position``, which defaults to 0 -- the only one singles has.
+    """
+    if "slot" in check:
+        return check["slot"]
+    return state.sides[check["side"]].active[check.get("position", 0)]
 
 
 def verify(scenario: Scenario, result: ScenarioRun) -> list[str]:
@@ -258,7 +266,7 @@ def verify(scenario: Scenario, result: ScenarioRun) -> list[str]:
         elif kind == "fainted":
             actual = state.sides[check["side"]].is_fainted(_active_slot(state, check))
         elif kind == "active":
-            actual = state.sides[check["side"]].active
+            actual = state.sides[check["side"]].active[check.get("position", 0)]
         elif kind == "stat":
             slot = _active_slot(state, check)
             actual = state.stats(check["side"], slot)[Stat[check["stat"].upper()]]

@@ -734,7 +734,7 @@ register("ability", "competitive", name="Competitive", try_boost=_retaliate("spa
 
 def _opponent_of(ctx: Context, ref: Ref) -> Ref:
     other = 1 - ref[0]
-    return (other, ctx.state.sides[other].active)
+    return (other, ctx.state.sides[other].active[0])
 
 
 def _intimidate(ctx, ref, **_):
@@ -1219,7 +1219,7 @@ def _magic_bounce(ctx, ref, attacker, defender, move, **_):
     _blocked(ctx, defender, "magicbounce", move)
     from pkcm.engine.moves import use_move
 
-    use_move(ctx, defender, attacker, move.base if hasattr(move, "base") else move)
+    use_move(ctx, defender, move.base if hasattr(move, "base") else move, defender=attacker)
     return False
 
 

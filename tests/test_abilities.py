@@ -16,7 +16,7 @@ from pkcm.engine.effects import registered
 from pkcm.engine.moves import chain_modify, compute_damage, use_move, X1_5
 from pkcm.engine.mutate import effective_stat
 from pkcm.engine.pokemon import PokemonSet
-from pkcm.engine.state import BattleConfig, new_battle
+from pkcm.engine.state import BattleConfig, legal_actions, new_battle
 
 RED, BLUE = (0, 0), (1, 0)
 
@@ -610,3 +610,105 @@ def test_a_busted_disguise_stays_busted(dex, config):
     state, _ = step(state, Action.switch(1), Action.move(0))
     state, _ = step(state, Action.switch(0), Action.move(0))
     assert "busted" in state.species_id(0, 0), "the disguise does not come back"
+
+
+# --------------------------------------------------------------------------- #
+# Mega Evolution
+# --------------------------------------------------------------------------- #
+
+
+def _mega_team(config, holder="gengar", stone="gengarite"):
+    lead = a_set(holder, "cursedbody", ("shadowball", "sludgebomb"))
+    lead = lead.replace(item=stone)
+    bench = [a_set(s, "__none__", ("bodyslam",)) for s in
+             ("snorlax", "pikachu", "starmie", "alakazam", "skarmory")]
+    walls = tuple(a_set(s, "sturdy", ("protect",)) for s in
+                  ("aggron", "steelix", "forretress", "bastiodon", "registeel", "probopass"))
+    state = new_battle(config, (tuple([lead] + bench), walls), seed=1)
+    return step(state, Action.select(0, 1, 2), Action.select(0, 1, 2))[0]
+
+
+def test_mega_evolution_is_offered_only_when_it_is_possible(dex, config):
+    ready = _mega_team(config)
+    assert any(a.mega for a in legal_actions(ready, 0)), "stone held, not yet used"
+
+    bare = build(config, a_set("gengar", "cursedbody", ("shadowball",)),
+                 a_set("snorlax", "thickfat"))
+    assert not any(a.mega for a in legal_actions(bare, 0)), "no stone, no offer"
+
+    wrong = build(config,
+                  a_set("snorlax", "thickfat", ("bodyslam",)).replace(item="gengarite"),
+                  a_set("pikachu", "static"))
+    assert not any(a.mega for a in legal_actions(wrong, 0)), "wrong holder"
+
+
+def test_mega_evolution_changes_forme_ability_and_stats(dex, config):
+    state = _mega_team(config)
+    before = state.stats(0, 0)
+
+    state, log = step(state, Action.move(0, mega=True), Action.move(0))
+
+    assert state.species_id(0, 0) == "gengarmega"
+    assert state.ability_id(0, 0) == "shadowtag", "the Mega forme's ability"
+    assert state.stats(0, 0)[Stat.SPA] > before[Stat.SPA]
+    assert state.stats(0, 0)[Stat.SPE] > before[Stat.SPE]
+    assert any(e.kind == "mega_evolve" for e in log), log
+
+
+def test_the_new_ability_activates_immediately(dex, config):
+    """Mega Gengar's Shadow Tag traps the moment it appears."""
+    state = _mega_team(config)
+    assert not state.sides[1].has_volatile(0, "trapped")
+    state, _ = step(state, Action.move(0, mega=True), Action.move(0))
+    assert state.sides[1].has_volatile(0, "trapped")
+
+
+def test_only_one_mega_per_battle(dex, config):
+    state = _mega_team(config)
+    assert state.mega_used == [False, False]
+
+    state, _ = step(state, Action.move(0, mega=True), Action.move(0))
+    assert state.mega_used == [True, False]
+    assert not any(a.mega for a in legal_actions(state, 0)), "spent"
+    assert state.mega_target(0, 0) is None, "and it cannot Mega again"
+
+
+def test_mega_evolution_survives_switching_and_fainting(dex, config):
+    """Champions does not revert it, unlike the mainline games."""
+    state = _mega_team(config)
+    state, _ = step(state, Action.move(0, mega=True), Action.move(0))
+    assert state.species_id(0, 0) == "gengarmega"
+
+    # Shadow Tag traps the opponent, not us; we can still leave.
+    state, _ = step(state, Action.switch(1), Action.move(0))
+    assert state.species_id(0, 0) == "gengarmega", "still Mega on the bench"
+
+    state, _ = step(state, Action.switch(0), Action.move(0))
+    assert state.species_id(0, 0) == "gengarmega"
+
+
+def test_mega_speed_decides_the_turn_order(dex, config):
+    """The Mega resolves before move order is worked out, so its Speed counts."""
+    # Gengar sits at 130 Speed and Mega Gengar at 150; Weavile is 145, so it
+    # outruns the one and not the other.
+    slower = a_set("gengar", "cursedbody", ("shadowball",)).replace(item="gengarite")
+    faster = a_set("weavile", "pressure", ("nightslash",))  # not Ice Shard: priority would decide it instead
+    bench = [a_set(s, "__none__", ("bodyslam",)) for s in
+             ("snorlax", "pikachu", "starmie", "alakazam", "skarmory")]
+    state = new_battle(config, (tuple([slower] + bench), tuple([faster] + bench)), seed=4)
+    state, _ = step(state, Action.select(0, 1, 2), Action.select(0, 1, 2))
+
+    assert state.stats(0, 0)[Stat.SPE] < state.stats(1, 0)[Stat.SPE], "slower to begin with"
+    _, log = step(state, Action.move(0, mega=True), Action.move(0))
+    movers = [e.side for e in log if e.kind == "move_used"]
+    assert movers[0] == 0, "Mega Gengar outspeeds Weavile once it has evolved"
+
+
+def test_parental_bond_hits_twice_with_the_second_at_quarter_power(dex, config):
+    state = build(config, a_set("kangaskhan", "parentalbond", ("bodyslam",)),
+                  a_set("snorlax", "thickfat"))
+    ctx = make_context(state)
+    cast(ctx, dex, "bodyslam")
+    hits = [e for e in ctx.log if e.kind == "damage"]
+    assert len(hits) == 2
+    assert hits[1].amount < hits[0].amount // 2, "the second hit is a quarter"

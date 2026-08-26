@@ -295,6 +295,8 @@ class ActiveMove:
     always_max_hits: bool = False
     #: Unseen Fist / Piercing Drill: contact moves go through Protect.
     breaks_protect: bool = False
+    #: Parental Bond: the extra hit lands at a quarter power (gen 7+).
+    parental_bond: bool = False
 
     @property
     def id(self) -> str:
@@ -459,12 +461,14 @@ def _apply_damaging_move(ctx: Context, attacker: Ref, defender: Ref, move: Move)
     hits = _hit_count(ctx, move)
     total = 0
     any_crit = False
-    for _ in range(hits):
+    for hit_number in range(hits):
         if ctx.state.sides[defender[0]].hp[defender[1]] <= 0:
             break
         crit = rolls_crit(ctx, attacker, defender, move)
         any_crit = any_crit or crit
         damage, effectiveness = compute_damage(ctx, attacker, defender, move, crit)
+        if getattr(move, "parental_bond", False) and hit_number > 0:
+            damage = max(1, chain_modify(damage, X0_25))
         if effectiveness == 0.0:
             ctx.emit(ev.immune(defender[0], defender[1], move.name))
             return False

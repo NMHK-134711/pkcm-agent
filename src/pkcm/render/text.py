@@ -158,6 +158,30 @@ def render(event: Event, names: tuple[str, str] | None = None) -> list[str]:
     if kind in ("weather_end", "terrain_end", "room_end"):
         return [f"  The {event.detail} ended."]
 
+    if kind == "mega_evolve":
+        return [f"  {event.species}! It Mega Evolved!"]
+
+    if kind == "forme_change":
+        return []  # the mechanic that caused it says something more useful
+
+    if kind == "transform":
+        return [f"  It transformed into {event.detail}!"]
+
+    if kind == "type_change":
+        return [f"  Its type changed to {event.detail}!"]
+
+    if kind == "item_used":
+        return [f"  Its {event.detail} was used up."]
+
+    if kind == "item":
+        return [f"  [{event.detail}]"]
+
+    if kind == "boost_restored":
+        return ["  Its lowered stats were restored!"]
+
+    if kind == "ability_change":
+        return [f"  Its ability became {event.detail}!"]
+
     if kind == "ability":
         return [f"  [{event.detail}]"]
 

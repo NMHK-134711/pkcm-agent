@@ -125,6 +125,11 @@ def _resolve_turn(ctx: Context, actions: tuple[Action, ...]) -> None:
     for player in _by_speed(ctx, switchers):
         _switch(ctx, player, actions[player].index)
 
+    # Then Mega Evolution, before move order is worked out -- the new forme's
+    # Speed is what decides who goes first.
+    for player in _by_speed(ctx, [p for p in (0, 1) if actions[p].mega]):
+        _mega_evolve(ctx, player)
+
     for player in _move_order(ctx, actions, attackers):
         if state.finished:
             return
@@ -158,6 +163,34 @@ def _switch(ctx: Context, player: int, slot: int) -> None:
         ctx.state.clear_temporary_overrides(player, side.active)
     side.active = slot
     _enter_field(ctx, player)
+
+
+def _mega_evolve(ctx: Context, player: int) -> None:
+    """Spend the battle's one Mega Evolution.
+
+    Permanent: Champions does not revert it even on fainting
+    (mods/champions/scripts.ts, formeChange), so the override is marked as
+    surviving a switch-out.
+    """
+    side = ctx.state.sides[player]
+    ref: Ref = (player, side.active)
+    target = ctx.state.mega_target(*ref)
+    if target is None:
+        return
+
+    from pkcm.engine.abilities import _become
+
+    ctx.state.mega_used[player] = True
+    _become(ctx, ref, target, permanent=True)
+    ctx.state.set_override(player, side.active, "ability",
+                           ctx.state.config.dex.species[target].abilities[0],
+                           permanent=True)
+    ctx.emit(
+        Event("mega_evolve", side=player, slot=side.active,
+              species=ctx.state.species_name(*ref), detail=target)
+    )
+    # The new forme's ability starts now: Mega Mawile's Intimidate fires here.
+    fx.notify(ctx, "switch_in", ref)
 
 
 def _enter_field(ctx: Context, player: int) -> None:

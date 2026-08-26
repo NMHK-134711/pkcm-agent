@@ -243,10 +243,12 @@ def is_legal_team(dex: Dex, regulation: Regulation, team: Team, battle_format: s
 
 @dataclass(frozen=True, slots=True)
 class RandomTeamOptions:
-    #: Held items are implemented now, so random teams use them. Mega Stones
-    #: are left out until Mega Evolution exists -- a stone that cannot be
-    #: activated is a wasted slot, not a decision.
+    #: Held items are implemented, so random teams use them.
     with_items: bool = True
+    #: How often a Pokemon that *could* hold its Mega Stone actually does.
+    #: Not always: one Mega per battle means a second stone is a wasted slot,
+    #: and a policy should see both kinds of team.
+    mega_stone_chance: int = 40
     #: Without a damaging move a Pokemon cannot win, and battles never end.
     require_damaging_move: bool = True
     moves_per_pokemon: int = MAX_MOVES
@@ -356,17 +358,44 @@ def random_team(
     ]
 
     if options.with_items:
-        # Item Clause: one each, so deal from a shuffled pool.
-        pool = cursor.sample(sorted(holdable_items(dex)), len(team))
-        team = [pokemon.replace(item=item) for pokemon, item in zip(team, pool)]
+        team = _deal_items(dex, regulation, team, cursor, options)
 
     return tuple(team)
+
+
+def _deal_items(dex, regulation, team, cursor: RngCursor, options) -> list[PokemonSet]:
+    """One item each, Item Clause respected, Mega Stones only where usable."""
+    pool = [item for item in sorted(holdable_items(dex))]
+    taken: set[str] = set()
+    dealt: list[PokemonSet] = []
+
+    for pokemon in team:
+        stone = mega_stone_for(dex, regulation, pokemon.species)
+        if (stone is not None and stone not in taken
+                and cursor.chance(options.mega_stone_chance, 100)):
+            taken.add(stone)
+            dealt.append(pokemon.replace(item=stone))
+            continue
+        choices = [item for item in pool if item not in taken]
+        chosen = cursor.choice(choices)
+        taken.add(chosen)
+        dealt.append(pokemon.replace(item=chosen))
+    return dealt
+
+
+def mega_stone_for(dex: Dex, regulation: Regulation, species_id: str) -> str | None:
+    """The legal Mega Stone this species can actually use, if there is one."""
+    for item_id, mega_ids in regulation.legal_mega_stones.items():
+        if dex.mega_evolution(species_id, item_id) in mega_ids:
+            return item_id
+    return None
 
 
 def holdable_items(dex: Dex) -> frozenset[str]:
     """Champions items worth giving a random team: everything but Mega Stones."""
     global _HOLDABLE
     if _HOLDABLE is None:
+        # Stones are dealt separately -- they are only useful to their species.
         _HOLDABLE = frozenset(
             item_id for item_id in champions_items()
             if not dex.items[item_id].mega_stone

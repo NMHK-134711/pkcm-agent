@@ -1659,7 +1659,7 @@ def _parental_bond(ctx, ref, active, attacker, defender, **_):
     if active.target not in ("normal", "any", "randomNormal"):
         return
     active.multihit = 2
-    active.parental = True
+    active.parental_bond = True
 
 
 register("ability", "parentalbond", name="Parental Bond", modify_move=_parental_bond)

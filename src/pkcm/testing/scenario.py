@@ -72,6 +72,8 @@ IMPLEMENTED: frozenset[str] = frozenset(
         "transform",
         "multi-hit",
         "secondary-effects",
+        "mega-evolution",
+        "items",
     }
 )
 
@@ -154,6 +156,7 @@ def _build_set(entry: dict) -> PokemonSet:
         nature=entry.get("nature", "serious"),
         sp=tuple(entry.get("sp", (0, 0, 0, 0, 0, 0))),  # type: ignore[arg-type]
         item=entry.get("item"),
+        gender=entry.get("gender"),
     )
 
 
@@ -164,6 +167,23 @@ def _apply_setup(state: BattleState, operations: tuple[dict, ...]) -> None:
             state.sides[operation["side"]].hp[operation["slot"]] = operation["value"]
         elif what == "set_pp":
             state.sides[operation["side"]].pp[operation["slot"]][operation["move"]] = operation["value"]
+        elif what == "send_out":
+            # God-mode entry: puts a Pokemon on the field and runs everything
+            # that greets it. Needed when the position being described cannot be
+            # reached by a legal switch -- Shadow Tag, for one.
+            from pkcm.engine.battle import _enter_field, make_context
+
+            ctx = make_context(state)
+            state.sides[operation["side"]].active = operation["slot"]
+            _enter_field(ctx, operation["side"])
+            state.rng = ctx.cursor.seal()
+        elif what == "mega":
+            from pkcm.engine.battle import make_context, _mega_evolve
+
+            ctx = make_context(state)
+            state.sides[operation["side"]].active = operation["slot"]
+            _mega_evolve(ctx, operation["side"])
+            state.rng = ctx.cursor.seal()
         elif what == "boost":
             from pkcm.engine.state import BOOST_INDEX
 
@@ -224,12 +244,15 @@ def verify(scenario: Scenario, result: ScenarioRun) -> list[str]:
         kind = check["check"]
         expected = check.get("value")
 
+        # Everything below reads through the state's accessors, not the
+        # registered set: after a Mega Evolution or a Transform those disagree,
+        # and the accessors are the ones telling the truth.
         if kind == "species":
             slot = _active_slot(state, check)
-            actual = state.pokemon(check["side"], slot).species.id
+            actual = state.species_id(check["side"], slot)
         elif kind == "ability":
             slot = _active_slot(state, check)
-            actual = state.pokemon(check["side"], slot).ability
+            actual = state.ability_id(check["side"], slot)
         elif kind == "hp":
             actual = state.sides[check["side"]].hp[_active_slot(state, check)]
         elif kind == "fainted":
@@ -238,14 +261,18 @@ def verify(scenario: Scenario, result: ScenarioRun) -> list[str]:
             actual = state.sides[check["side"]].active
         elif kind == "stat":
             slot = _active_slot(state, check)
-            actual = state.pokemon(check["side"], slot).stats[Stat[check["stat"].upper()]]
+            actual = state.stats(check["side"], slot)[Stat[check["stat"].upper()]]
         elif kind == "boost":
             side = state.sides[check["side"]]
             boosts = getattr(side, "boosts", None)
             if boosts is None:
                 failures.append(f"{scenario.name}: 'boost' needs stat stages, not implemented yet")
                 continue
-            actual = boosts[_active_slot(state, check)][Stat[check["stat"].upper()]]
+            # Stat stages have no HP entry, so this is BOOST_INDEX, not Stat --
+            # using the enum reads one stat to the right.
+            from pkcm.engine.state import BOOST_INDEX
+
+            actual = boosts[_active_slot(state, check)][BOOST_INDEX[check["stat"]]]
         elif kind == "winner":
             actual = state.winner
         elif kind == "phase":

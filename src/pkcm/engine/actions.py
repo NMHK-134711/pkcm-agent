@@ -34,10 +34,14 @@ class Action:
     kind: ActionKind
     index: int = 0
     selection: tuple[int, ...] = ()
+    #: Mega Evolve first, then use the move. Champions allows it once a battle,
+    #: so it is a property of the action rather than a separate decision -- the
+    #: player commits to spending it on this turn's move.
+    mega: bool = False
 
     @staticmethod
-    def move(index: int) -> "Action":
-        return Action(ActionKind.MOVE, index)
+    def move(index: int, mega: bool = False) -> "Action":
+        return Action(ActionKind.MOVE, index, mega=mega)
 
     @staticmethod
     def switch(slot: int) -> "Action":
@@ -60,7 +64,8 @@ class Action:
             return f"select({','.join(map(str, self.selection))})"
         if self.kind in (ActionKind.PASS, ActionKind.STRUGGLE):
             return self.kind.name.lower()
-        return f"{self.kind.name.lower()}({self.index})"
+        prefix = "mega+" if self.mega else ""
+        return f"{prefix}{self.kind.name.lower()}({self.index})"
 
 
 Action.PASS = Action(ActionKind.PASS)

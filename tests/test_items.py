@@ -319,4 +319,10 @@ def test_random_teams_hold_legal_distinct_items(dex, regulation, seed):
     assert all(item is not None for item in items), "every slot holds something"
     assert len(set(items)) == len(items), "item clause"
     assert all(item in champions_items() for item in items)
-    assert not any(dex.items[item].mega_stone for item in items), "no stones until Megas exist"
+
+    # A Mega Stone is only ever handed to a Pokemon that can actually use it.
+    for pokemon in team:
+        if dex.items[pokemon.item].mega_stone:
+            assert dex.mega_evolution(pokemon.species, pokemon.item) is not None, (
+                f"{pokemon.species} cannot use {pokemon.item}"
+            )

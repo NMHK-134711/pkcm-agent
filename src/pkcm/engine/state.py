@@ -165,6 +165,10 @@ class BattleState:
     parties: tuple[tuple[BattlePokemon, ...], tuple[BattlePokemon, ...]]
     sides: tuple[SideState, SideState]
     rng: Rng
+    #: Champions allows one Mega Evolution per player per battle. Declared
+    #: before ``field`` because that attribute shadows ``dataclasses.field``
+    #: for everything after it.
+    mega_used: list[bool] = field(default_factory=lambda: [False, False])
     field: FieldState = field(default_factory=FieldState)
     phase: Phase = Phase.TEAM_PREVIEW
     turn: int = 0
@@ -192,6 +196,7 @@ class BattleState:
             phase=self.phase,
             turn=self.turn,
             winner=self.winner,
+            mega_used=list(self.mega_used),
             overrides=(
                 [dict(slot) for slot in self.overrides[0]],
                 [dict(slot) for slot in self.overrides[1]],
@@ -242,6 +247,23 @@ class BattleState:
         if "item" in override:
             return override["item"]
         return self.pokemon(side, slot).item
+
+    def mega_target(self, side: int, slot: int) -> str | None:
+        """The Mega forme this Pokemon could become right now, if any.
+
+        Showdown's ``canMegaEvo`` is one lookup: does the held stone list this
+        Pokemon's base species? Everything else -- already Mega, already spent,
+        wrong holder -- falls out of that.
+        """
+        if self.mega_used[side]:
+            return None
+        species = self.config.dex.species[self.species_id(side, slot)]
+        if species.is_mega:
+            return None
+        return self.config.dex.mega_evolution(species.id, self.item_id(side, slot))
+
+    def can_mega_evolve(self, side: int, slot: int) -> bool:
+        return self.mega_target(side, slot) is not None
 
     def gender(self, side: int, slot: int) -> str | None:
         return self.pokemon(side, slot).gender
@@ -322,11 +344,14 @@ def legal_actions(state: BattleState, player: int) -> tuple[Action, ...]:
     # see the same thing the engine does.
     locked = volatiles.get("choicelock", {}).get("move")
 
-    actions = [
-        Action.move(index)
+    usable = [
+        index
         for index, pp in enumerate(side.pp[side.active])
         if pp > 0 and index != disabled and (locked is None or index == locked)
     ]
+    actions = [Action.move(index) for index in usable]
+    if state.can_mega_evolve(player, side.active):
+        actions.extend(Action.move(index, mega=True) for index in usable)
     if not actions:
         actions.append(Action.struggle())
     trapped = (side.has_volatile(side.active, "trapped")

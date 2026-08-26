@@ -112,6 +112,11 @@ def main() -> int:
                         help="network to use for the 'net' policy")
     parser.add_argument("--exploration", type=float, default=None,
                         help="UCB1 term for --a, on top of PUCT's prior term")
+    parser.add_argument("--prior-b", type=float, default=None,
+                        help="prior_weight for --b. AlphaZero's c_puct assumes "
+                             "Q over [-1, 1]; min-max normalisation puts ours "
+                             "over [0, 1], so the same number pulls twice as "
+                             "hard here")
     parser.add_argument("--exploration-b", type=float, default=None,
                         help="the same for --b, so the two can be matched "
                              "directly. Two win rates against a third party "
@@ -149,7 +154,7 @@ def main() -> int:
                       args.determinizations, args.rollout, args.prior, evaluator,
                       ablate=ablated, exploration=args.exploration)
             b = build(args.b, args.seed + match + 5000, args.iterations,
-                      args.determinizations, args.rollout, args.prior, evaluator,
+                      args.determinizations, args.rollout, args.prior_b, evaluator,
                       exploration=args.exploration_b)
             policies = (b, a) if swap else (a, b)
             state = new_battle(config, teams, seed=args.seed + match)

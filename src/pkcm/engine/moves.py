@@ -24,6 +24,21 @@ from pkcm.engine.mutate import apply_damage, effective_stat, heal, stage_multipl
 
 LEVEL = 50
 
+#: Showdown accumulates every damage multiplier in 4096ths and rounds half up
+#: (``Battle#modify``). Using floats instead is off by a point often enough to
+#: change how many hits a KO takes, so the magic numbers below are the ones the
+#: source actually uses: 1.3 is 5325/4096, not 1.3.
+MODIFIER_SCALE = 4096
+X0_25, X0_5, X0_75 = 1024, 2048, 3072
+X1_2, X1_25, X1_3, X1_5 = 4915, 5120, 5325, 6144
+X2 = 8192
+
+
+def chain_modify(value: int, modifier: int) -> int:
+    """``Battle#modify``: apply a 4096ths modifier with Showdown's rounding."""
+    return (value * modifier + MODIFIER_SCALE // 2 - 1) // MODIFIER_SCALE
+
+
 STAB_NUM, STAB_DEN = 3, 2
 DAMAGE_ROLL_LOW, DAMAGE_ROLL_HIGH = 85, 100
 CRIT_MULTIPLIER_NUM, CRIT_MULTIPLIER_DEN = 3, 2
@@ -131,6 +146,16 @@ def base_power(ctx: Context, attacker: Ref, defender: Ref, move: Move) -> int:
 def type_effectiveness(ctx: Context, attacker: Ref, defender: Ref, move: Move) -> float:
     if move.id == STRUGGLE_ID:
         return 1.0
+
+    # Ground moves cannot reach anything airborne. Showdown does this in
+    # Pokemon#isGrounded rather than as a Levitate handler, which is why
+    # Levitate's entry in abilities.ts has no handlers at all.
+    if move.type == "ground" and move.category != "Status":
+        from pkcm.engine.conditions import is_grounded
+
+        if not is_grounded(ctx.state, defender, ctx=ctx):
+            return 0.0
+
     value = ctx.state.config.dex.type_chart.multiplier(move.type, ctx.state.types(*defender))
     return _both_sides(ctx, "modify_effectiveness", value, attacker, defender, move)
 
@@ -162,21 +187,24 @@ def compute_damage(
     power = base_power(ctx, attacker, defender, move)
     if power <= 0:
         return 0, effectiveness
+    # A distinct pass from modify_damage, and it has to be: Technician's test is
+    # on the power *after* the other base-power modifiers have run.
+    power = max(1, _both_sides(ctx, "modify_base_power", power, attacker, defender, move))
 
     if move.category == "Physical":
         attack_stat, defense_stat = Stat.ATK, Stat.DEF
     else:
         attack_stat, defense_stat = Stat.SPA, Stat.SPD
 
-    attack = effective_stat(ctx, attacker, attack_stat)
-    defense = effective_stat(ctx, defender, defense_stat)
+    attack = effective_stat(ctx, attacker, attack_stat, move=move, opponent=defender)
+    defense = effective_stat(ctx, defender, defense_stat, move=move, opponent=attacker)
 
     # A critical hit ignores the defender's positive stages and the attacker's
     # negative ones -- it recomputes without the stages that would have helped
     # the defender or hurt the attacker.
     if crit:
-        attack = max(attack, _unstaged(ctx, attacker, attack_stat, keep_positive=True))
-        defense = min(defense, _unstaged(ctx, defender, defense_stat, keep_positive=False))
+        attack = max(attack, _unstaged(ctx, attacker, attack_stat, move, defender, True))
+        defense = min(defense, _unstaged(ctx, defender, defense_stat, move, attacker, False))
 
     damage = ((2 * LEVEL // 5 + 2) * power * attack // defense) // 50 + 2
 
@@ -193,13 +221,15 @@ def compute_damage(
     return max(1, int(damage)), effectiveness
 
 
-def _unstaged(ctx: Context, ref: Ref, stat: Stat, keep_positive: bool) -> int:
+def _unstaged(ctx: Context, ref: Ref, stat: Stat, move, opponent: Ref, keep_positive: bool) -> int:
     """The stat with unhelpful stages ignored, as criticals do."""
     stage = ctx.state.sides[ref[0]].boost(ref[1], mutate.STAT_TO_BOOST[stat])
     if (stage > 0) == keep_positive:
-        return effective_stat(ctx, ref, stat)
-    raw = fx.modify(ctx, "modify_stat", mutate.raw_stat(ctx.state, ref, stat), ref, stat=stat)
-    return max(1, int(fx.modify(ctx, "modify_boosted_stat", raw, ref, stat=stat)))
+        return effective_stat(ctx, ref, stat, move=move, opponent=opponent)
+    extra = {"move": move, "opponent": opponent}
+    raw = fx.modify(ctx, "modify_stat", mutate.raw_stat(ctx.state, ref, stat), ref,
+                    stat=stat, **extra)
+    return max(1, int(fx.modify(ctx, "modify_boosted_stat", raw, ref, stat=stat, **extra)))
 
 
 def rolls_crit(ctx: Context, attacker: Ref, defender: Ref, move: Move) -> bool:
@@ -353,10 +383,12 @@ def _apply_damaging_move(ctx: Context, attacker: Ref, defender: Ref, move: Move)
 
     hits = _hit_count(ctx, move)
     total = 0
+    any_crit = False
     for _ in range(hits):
         if ctx.state.sides[defender[0]].hp[defender[1]] <= 0:
             break
         crit = rolls_crit(ctx, attacker, defender, move)
+        any_crit = any_crit or crit
         damage, effectiveness = compute_damage(ctx, attacker, defender, move, crit)
         if effectiveness == 0.0:
             ctx.emit(ev.immune(defender[0], defender[1], move.name))
@@ -369,9 +401,9 @@ def _apply_damaging_move(ctx: Context, attacker: Ref, defender: Ref, move: Move)
 
     if total:
         fx.notify(ctx, "after_damage", defender, attacker=attacker, defender=defender,
-                  move=move, damage=total)
+                  move=move, damage=total, crit=any_crit)
         fx.notify(ctx, "after_damage", attacker, scope="self", attacker=attacker,
-                  defender=defender, move=move, damage=total)
+                  defender=defender, move=move, damage=total, crit=any_crit)
 
     _apply_drain(ctx, attacker, move, total)
     _apply_recoil(ctx, attacker, move, total)
@@ -395,7 +427,8 @@ def _deal_or_break_substitute(
         return 0
 
     return apply_damage(ctx, defender, damage, "damage", move=move.name,
-                        effectiveness=effectiveness, crit=crit)
+                        effectiveness=effectiveness, crit=crit,
+                        __source__=attacker, __move__=move)
 
 
 def _apply_ohko(ctx: Context, attacker: Ref, defender: Ref, move: Move) -> bool:
@@ -515,10 +548,23 @@ def _apply_field_effects(ctx: Context, attacker: Ref, target: Ref, move: Move) -
 
     condition = raw.get("sideCondition")
     if condition:
+        from pkcm.engine.conditions import SIDE_CONDITION_DURATION, SIDE_CONDITION_LAYERS
+
         name = _to_id(condition)
-        side_index = attacker[0] if move.target in SELF_TARGETS or move.target == "allySide" else 1 - attacker[0]
+        side_index = (attacker[0] if move.target in SELF_TARGETS or move.target == "allySide"
+                      else 1 - attacker[0])
         conditions = ctx.state.sides[side_index].conditions
-        conditions[name] = conditions.get(name, 0) + 1
+
+        if name in SIDE_CONDITION_DURATION:
+            if name in conditions:
+                return changed  # a screen already up cannot be re-set
+            conditions[name] = SIDE_CONDITION_DURATION[name]
+        else:
+            cap = SIDE_CONDITION_LAYERS.get(name, 1)
+            if conditions.get(name, 0) >= cap:
+                return changed
+            conditions[name] = conditions.get(name, 0) + 1
+
         ctx.emit(Event("side_condition", side=side_index, detail=name,
                        amount=conditions[name]))
         changed = True
@@ -546,6 +592,10 @@ def _apply_secondaries(ctx: Context, attacker: Ref, defender: Ref, move: Move) -
     if secondaries is None:
         single = move.raw.get("secondary")
         secondaries = [single] if single else []
+
+    if secondaries and not fx.allows(ctx, "try_secondary", defender,
+                                     attacker=attacker, move=move):
+        return
 
     for secondary in secondaries:
         if not secondary:

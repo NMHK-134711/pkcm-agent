@@ -158,6 +158,21 @@ def render(event: Event, names: tuple[str, str] | None = None) -> list[str]:
     if kind in ("weather_end", "terrain_end", "room_end"):
         return [f"  The {event.detail} ended."]
 
+    if kind == "ability":
+        return [f"  [{event.detail}]"]
+
+    if kind == "ability_block":
+        return [f"  {event.detail} blocked {event.move}!"]
+
+    if kind == "ability_suppressed":
+        return [f"  ({event.detail} is ignored)"]
+
+    if kind == "status_immune":
+        return ["  It can't be affected by that."]
+
+    if kind == "side_condition_end":
+        return [f"  {_who(event, names)}'s {event.detail} wore off."]
+
     if kind == "side_condition":
         return [f"  {_who(event, names)}'s side: {event.detail} (x{event.amount})"]
 

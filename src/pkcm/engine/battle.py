@@ -13,6 +13,7 @@ returned state, so purity holds exactly where search needs it -- at the boundary
 from __future__ import annotations
 
 from pkcm.data.dex import Move, Stat
+from pkcm.engine import abilities  # noqa: F401  -- registers its effects on import
 from pkcm.engine import conditions  # noqa: F401  -- registers its effects on import
 from pkcm.engine import effects as fx
 from pkcm.engine import events as ev
@@ -130,6 +131,7 @@ def _resolve_turn(ctx: Context, actions: tuple[Action, ...]) -> None:
         if side.is_fainted(side.active):
             continue  # knocked out before it could act
         _use(ctx, player, actions[player])
+        ctx.acted.add((player, side.active))
         if _check_loss(ctx):
             return
 
@@ -144,6 +146,9 @@ def _resolve_turn(ctx: Context, actions: tuple[Action, ...]) -> None:
 def _switch(ctx: Context, player: int, slot: int) -> None:
     side = ctx.state.sides[player]
     if side.active >= 0:
+        # Natural Cure and Regenerator fire here, before the state is wiped.
+        if not side.is_fainted(side.active):
+            fx.notify(ctx, "switch_out", (player, side.active), scope="self")
         side.clear_on_switch_out(side.active)
     side.active = slot
     _enter_field(ctx, player)
@@ -276,12 +281,17 @@ def _tick_field(ctx: Context) -> None:
             ctx.emit(Event("room_end", detail=name))
             del field.rooms[name]
 
+    from pkcm.engine.conditions import SIDE_CONDITION_DURATION
+
     for player in (0, 1):
         conditions = ctx.state.sides[player].conditions
-        if "tailwind" in conditions:
-            conditions["tailwind"] -= 1
-            if conditions["tailwind"] <= 0:
-                del conditions["tailwind"]
+        for name in list(conditions):
+            if name not in SIDE_CONDITION_DURATION:
+                continue  # hazards are layers, not turns
+            conditions[name] -= 1
+            if conditions[name] <= 0:
+                del conditions[name]
+                ctx.emit(Event("side_condition_end", side=player, detail=name))
 
 
 def _clear_turn_volatiles(ctx: Context) -> None:

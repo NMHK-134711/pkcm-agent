@@ -36,12 +36,17 @@ WEATHER_BOOST, WEATHER_DAMP = 1.5, 0.5
 TERRAIN_BOOST = 1.3
 
 
-def is_grounded(state, ref: Ref) -> bool:
-    """Flying types and Levitate float; hazards and terrain skip them."""
+def is_grounded(state, ref: Ref, ctx: Context | None = None) -> bool:
+    """Flying types and Levitate float; hazards, terrain and Ground moves skip them.
+
+    Pass ``ctx`` when a move is resolving, so a suppressed Levitate (Mold
+    Breaker) correctly stops floating.
+    """
     side_index, slot = ref
     if "flying" in state.types(side_index, slot):
         return False
-    if state.ability_id(side_index, slot) == "levitate":
+    ability = ctx.ability_of(ref) if ctx is not None else state.ability_id(side_index, slot)
+    if ability == "levitate":
         return False
     if state.item_id(side_index, slot) == "airballoon":
         return False
@@ -314,6 +319,12 @@ for hazard in ("spikes", "toxicspikes", "stealthrock", "stickyweb"):
 
 
 SPIKES_FRACTION = {1: 8, 2: 6, 3: 4}
+
+#: Screens and Tailwind last a set number of turns and do not stack; hazards
+#: stack up to a cap and never expire. Getting this wrong is invisible in tests
+#: and obvious in a battle log -- Light Screen was reaching "x2".
+SIDE_CONDITION_DURATION = {"reflect": 5, "lightscreen": 5, "auroraveil": 5, "tailwind": 4}
+SIDE_CONDITION_LAYERS = {"spikes": 3, "toxicspikes": 2, "stealthrock": 1, "stickyweb": 1}
 
 
 def apply_entry_hazards(ctx: Context, ref: Ref) -> None:

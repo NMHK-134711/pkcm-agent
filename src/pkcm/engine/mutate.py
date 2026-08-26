@@ -62,17 +62,30 @@ def raw_stat(state, ref: Ref, stat: Stat) -> int:
     return state.stats(ref[0], ref[1])[stat]
 
 
-def effective_stat(ctx: Context, ref: Ref, stat: Stat) -> int:
-    """A stat as the damage formula should see it: stages, then hooks."""
+def effective_stat(
+    ctx: Context,
+    ref: Ref,
+    stat: Stat,
+    move=None,
+    opponent: Ref | None = None,
+) -> int:
+    """A stat as the damage formula should see it: stages, then hooks.
+
+    ``move`` matters more than it looks: Blaze, Torrent and Flash Fire are all
+    Attack modifiers that only apply to moves of a particular type, so a stat
+    hook that cannot see the move cannot express them.
+    """
     side_index, slot = ref
-    value = fx.modify(ctx, "modify_stat", raw_stat(ctx.state, ref, stat), ref, stat=stat)
+    extra = {"move": move, "opponent": opponent}
+    value = fx.modify(ctx, "modify_stat", raw_stat(ctx.state, ref, stat), ref,
+                      stat=stat, **extra)
 
     boost_name = STAT_TO_BOOST.get(stat)
     if boost_name is not None:
         stage = ctx.state.sides[side_index].boost(slot, boost_name)
         value = int(value * stage_multiplier(stage))
 
-    value = fx.modify(ctx, "modify_boosted_stat", value, ref, stat=stat)
+    value = fx.modify(ctx, "modify_boosted_stat", value, ref, stat=stat, **extra)
     return max(1, int(value))
 
 
@@ -102,6 +115,8 @@ def apply_damage(
     if side.hp[slot] <= 0 or amount <= 0:
         return 0
 
+    source: Ref | None = event_fields.pop("__source__", None)
+    culprit_move = event_fields.pop("__move__", None)
     cause = event_fields.get("detail")
     if kind in INDIRECT_DAMAGE_KINDS or cause == "confusion":
         amount = fx.modify(ctx, "modify_indirect_damage", amount, ref,
@@ -123,7 +138,7 @@ def apply_damage(
             **event_fields,
         )
     )
-    check_faint(ctx, ref)
+    check_faint(ctx, ref, source=source, move=culprit_move)
     return dealt
 
 
@@ -150,7 +165,7 @@ def fraction_of_max(state, ref: Ref, denominator: int) -> int:
     return max(1, max_hp(state, ref) // denominator)
 
 
-def check_faint(ctx: Context, ref: Ref) -> bool:
+def check_faint(ctx: Context, ref: Ref, source: Ref | None = None, move=None) -> bool:
     side_index, slot = ref
     side = ctx.state.sides[side_index]
     if side.hp[slot] > 0:
@@ -159,7 +174,10 @@ def check_faint(ctx: Context, ref: Ref) -> bool:
         return True
     side.volatiles[slot]["__fainted__"] = True
     ctx.emit(ev.faint(side_index, slot, ctx.state.species_name(side_index, slot)))
-    fx.notify(ctx, "faint", ref)
+    fx.notify(ctx, "faint", ref, source=source)
+    # Moxie and friends hang off the *killer*, not the victim.
+    if source is not None and source != ref:
+        fx.notify(ctx, "kill", source, scope="self", victim=ref, move=move)
     return True
 
 
@@ -267,10 +285,12 @@ def cure_status(ctx: Context, ref: Ref) -> bool:
 # --------------------------------------------------------------------------- #
 
 
-def add_volatile(ctx: Context, ref: Ref, name: str, **data) -> bool:
+def add_volatile(ctx: Context, ref: Ref, name: str, source: Ref | None = None, **data) -> bool:
     side_index, slot = ref
     side = ctx.state.sides[side_index]
     if side.hp[slot] <= 0 or name in side.volatiles[slot]:
+        return False
+    if not fx.allows(ctx, "try_volatile", ref, volatile=name, source=source):
         return False
     side.volatiles[slot][name] = dict(data)
     ctx.emit(Event("volatile_start", side=side_index, slot=slot, detail=name))

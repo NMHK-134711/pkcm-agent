@@ -41,15 +41,23 @@ Handler = Callable[..., Any]
 EVENTS: dict[str, str] = {
     # notify
     "switch_in": "ref -- a Pokemon has just come onto the field",
+    "switch_out": "ref -- a Pokemon is leaving the field, before its state is wiped",
     "after_damage": "ref, target, move, damage -- a damaging move connected",
     "after_move": "ref, move -- the move finished resolving",
     "residual": "ref -- end of turn, in Speed order",
-    "faint": "ref -- this Pokemon just fainted",
+    "faint": "ref, source -- this Pokemon fainted; source is who caused it",
+    "kill": "ref, victim, move -- this Pokemon knocked something out (Moxie)",
     # modify
     "modify_stat": "ref, stat -- raw stat before stat stages",
     "modify_boosted_stat": "ref, stat -- stat after stat stages",
     "modify_priority": "ref, move -- move priority",
     "modify_accuracy": "ref, target, move -- percentage chance to hit",
+    "modify_base_power": (
+        "attacker, defender, move -- the move's power before the damage formula. "
+        "Showdown's onBasePower, and a distinct step from modify_damage: "
+        "Technician's <=60 test reads the power *after* other base-power "
+        "modifiers, which only works if this is its own pass."
+    ),
     "modify_damage": "ref, target, move -- final damage",
     "modify_effectiveness": "ref, target, move -- type multiplier",
     "modify_crit_ratio": "ref, target, move -- denominator of the crit chance",
@@ -67,6 +75,8 @@ EVENTS: dict[str, str] = {
     "try_status": "ref, status, source -- may this status be applied",
     "try_boost": "ref, stat, stages -- stat stage change, return new stages",
     "try_hit": "ref, attacker, defender, move -- may this move hit at all",
+    "try_volatile": "ref, volatile, source -- may this volatile condition be added",
+    "try_secondary": "ref, attacker, move -- may a move's secondary effects land",
 }
 
 
@@ -113,6 +123,9 @@ class Context:
     #: defender's ability has to be invisible to *every* hook the move runs,
     #: not just the one place someone remembered to check.
     suppressed_abilities: set[Ref] = field(default_factory=set)
+    #: Who has already taken their action this turn. Analytic needs it, and
+    #: nothing else can reconstruct it after the fact.
+    acted: set[Ref] = field(default_factory=set)
 
     def emit(self, event: Event) -> None:
         self.log.append(event)

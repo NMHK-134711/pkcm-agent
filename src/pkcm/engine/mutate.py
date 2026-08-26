@@ -15,7 +15,13 @@ from pkcm.engine import effects as fx
 from pkcm.engine import events as ev
 from pkcm.engine.effects import Context, Ref
 from pkcm.engine.events import Event
-from pkcm.engine.state import BOOST_INDEX, BOOST_STATS, MAX_BOOST, MIN_BOOST
+from pkcm.engine.state import (
+    BOOST_INDEX,
+    BOOST_STATS,
+    MAX_BOOST,
+    MIN_BOOST,
+    uproar_in_progress,
+)
 
 #: Damage that did not come from a move connecting. Magic Guard ignores all of
 #: it; Poison Heal turns its own share of it into healing. Routing every such
@@ -255,6 +261,13 @@ def set_status(ctx: Context, ref: Ref, status: str, source: Ref | None = None) -
     side_index, slot = ref
     side = ctx.state.sides[side_index]
     if side.hp[slot] <= 0 or side.status[slot] is not None:
+        return False
+
+    # An Uproar anywhere on the field refuses sleep to everyone, which is why
+    # this is asked here and not through ``try_status``: the volatile is on the
+    # Pokemon making the noise, not on the one being put to sleep.
+    if status == "slp" and uproar_in_progress(ctx.state):
+        ctx.emit(Event("status_immune", side=side_index, slot=slot, detail="uproar"))
         return False
 
     # The source gets to say which types are immune, because Corrosion is a

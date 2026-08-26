@@ -331,6 +331,29 @@ def new_battle(
     )
 
 
+def imprisoned_moves(state: BattleState, player: int) -> frozenset[str]:
+    """Move ids the opposing Imprison has sealed away.
+
+    Imprison sits on the *opponent*, so no hook gathered on the mover can see
+    it -- same shape as Mold Breaker, and answered the same way: engine-side.
+    """
+    foe = state.sides[1 - player]
+    if not foe.hp or foe.active < 0 or foe.is_fainted(foe.active):
+        return frozenset()
+    if not foe.has_volatile(foe.active, "imprison"):
+        return frozenset()
+    return frozenset(move.id for move in state.moves(1 - player, foe.active))
+
+
+def uproar_in_progress(state: BattleState) -> bool:
+    """Nobody sleeps while an Uproar is going, on either side of the field."""
+    for player in (0, 1):
+        side = state.sides[player]
+        if side.hp and side.active >= 0 and not side.is_fainted(side.active)                 and side.has_volatile(side.active, "uproar"):
+            return True
+    return False
+
+
 def legal_actions(state: BattleState, player: int) -> tuple[Action, ...]:
     """Everything ``player`` may legally submit right now.
 
@@ -361,6 +384,14 @@ def legal_actions(state: BattleState, player: int) -> tuple[Action, ...]:
         if index < len(side.pp[side.active]):
             return (Action.move(index),)
 
+    # Uproar keeps going by itself for three turns (Showdown's onLockMove).
+    # Matched by move id rather than by a stored index, because the volatile is
+    # created from the move's own ``self`` payload, which never sees the index.
+    if side.has_volatile(side.active, "uproar"):
+        for index, move in enumerate(state.moves(player, side.active)):
+            if move.id == "uproar" and side.pp[side.active][index] > 0:
+                return (Action.move(index),)
+
     # Normal turn: any move with PP left, plus any living benched Pokemon.
     volatiles = side.volatiles[side.active]
     disabled = volatiles.get("disabled", {}).get("move")
@@ -369,10 +400,14 @@ def legal_actions(state: BattleState, player: int) -> tuple[Action, ...]:
     # see the same thing the engine does.
     locked = volatiles.get("choicelock", {}).get("move")
 
+    sealed = imprisoned_moves(state, player)
+    known = state.moves(player, side.active)
+
     usable = [
         index
         for index, pp in enumerate(side.pp[side.active])
         if pp > 0 and index != disabled and (locked is None or index == locked)
+        and not (index < len(known) and known[index].id in sealed)
     ]
     actions = [Action.move(index) for index in usable]
     if state.can_mega_evolve(player, side.active):

@@ -22,6 +22,7 @@ from pkcm.engine import mutate
 from pkcm.engine.effects import Context, Ref
 from pkcm.engine.events import Event
 from pkcm.engine.mutate import apply_damage, effective_stat, heal, stage_multiplier
+from pkcm.engine.state import imprisoned_moves
 
 LEVEL = 50
 
@@ -373,6 +374,13 @@ def use_move(
     side = ctx.state.sides[attacker[0]]
 
     if not fx.allows(ctx, "try_move", attacker, move=move):
+        _clear_flinch(ctx, attacker)
+        return
+
+    # Asked here rather than through ``try_move`` because the Imprison volatile
+    # is on the opponent, where the mover's own effects cannot reach it.
+    if move.id != STRUGGLE_ID and move.id in imprisoned_moves(ctx.state, attacker[0]):
+        ctx.emit(Event("cant_move", side=attacker[0], slot=attacker[1], detail="imprison"))
         _clear_flinch(ctx, attacker)
         return
 

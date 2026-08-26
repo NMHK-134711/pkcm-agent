@@ -416,3 +416,237 @@ def test_ally_only_moves_fail_in_singles(dex, config):
     cast(ctx, dex, "helpinghand")
     assert any(e.kind == "move_failed" for e in ctx.log)
     assert not any(e.kind == "unimplemented" for e in ctx.log)
+
+
+# --------------------------------------------------------------------------- #
+# The volatiles that need a reader
+#
+# Applying a volatile is half a move. These are the moves where the other half
+# lives somewhere non-obvious -- Imprison and Uproar read a volatile that sits
+# on the *other* Pokemon, so they are answered engine-side rather than through
+# the effect registry, and a test is the only thing that notices if that wiring
+# comes undone.
+# --------------------------------------------------------------------------- #
+
+
+def _power_against_minimized(dex, config, move_id, minimized):
+    """Base power after the hooks, which is where Minimize does its work.
+
+    Read through ``_both_sides`` rather than through damage: the damage roll
+    would make the comparison noisy, and the roll is not what is under test.
+    """
+    from pkcm.engine.moves import _both_sides
+
+    state = build(config, a_set("snorlax", "thickfat", (move_id,)),
+                  a_set("clefable", "unaware", ("minimize",)))
+    ctx = make_context(state)
+    if minimized:
+        cast(ctx, dex, "minimize", attacker=BLUE, defender=RED)
+    move = dex.moves[move_id]
+    return _both_sides(ctx, "modify_base_power", move.base_power, RED, BLUE, move)
+
+
+def test_minimize_doubles_body_slam(dex, config):
+    plain = _power_against_minimized(dex, config, "bodyslam", minimized=False)
+    flattened = _power_against_minimized(dex, config, "bodyslam", minimized=True)
+    assert flattened == plain * 2, (plain, flattened)
+
+
+def test_minimize_leaves_other_moves_alone(dex, config):
+    plain = _power_against_minimized(dex, config, "hyperbeam", minimized=False)
+    same = _power_against_minimized(dex, config, "hyperbeam", minimized=True)
+    assert same == plain, "only the stomping moves get the bonus"
+
+
+def test_lock_on_makes_the_next_move_certain(dex, config):
+    from pkcm.engine.moves import _both_sides
+
+    state = build(config, a_set("magnezone", "sturdy", ("lockon", "zapcannon")),
+                  a_set("snorlax", "thickfat"))
+    ctx = make_context(state)
+    zap = dex.moves["zapcannon"]
+    assert _both_sides(ctx, "modify_accuracy", float(zap.accuracy), RED, BLUE, zap) == 50.0
+    cast(ctx, dex, "lockon")
+    assert _both_sides(ctx, "modify_accuracy", float(zap.accuracy), RED, BLUE, zap) == 100.0
+
+
+def test_imprison_seals_a_move_the_user_also_knows(dex, config):
+    """The seal is on the opponent, so no hook the mover runs could find it."""
+    state = build(config, a_set("gengar", "cursedbody", ("imprison", "shadowball")),
+                  a_set("alakazam", "synchronize", ("shadowball", "psychic")))
+    ctx = make_context(state)
+    cast(ctx, dex, "imprison")
+    before = state.sides[0].hp[0]
+    cast(ctx, dex, "shadowball", attacker=BLUE, defender=RED)
+    assert state.sides[0].hp[0] == before, "Shadow Ball is sealed"
+    assert any(e.kind == "cant_move" and e.detail == "imprison" for e in ctx.log)
+
+
+def test_imprison_leaves_the_foes_other_moves(dex, config):
+    state = build(config, a_set("gengar", "cursedbody", ("imprison", "shadowball")),
+                  a_set("alakazam", "synchronize", ("shadowball", "psychic")))
+    ctx = make_context(state)
+    cast(ctx, dex, "imprison")
+    before = state.sides[0].hp[0]
+    cast(ctx, dex, "psychic", attacker=BLUE, defender=RED)
+    assert state.sides[0].hp[0] < before, "Psychic is not sealed"
+
+
+def test_imprison_removes_the_move_from_the_action_mask(dex, config):
+    """A sealed move must not be offered, or a policy learns it is free."""
+    state = build(config, a_set("gengar", "cursedbody", ("imprison", "shadowball")),
+                  a_set("alakazam", "synchronize", ("shadowball", "psychic")))
+    ctx = make_context(state)
+    cast(ctx, dex, "imprison")
+    state.rng = ctx.cursor.seal()
+    moves = [a.index for a in legal_actions(state, 1) if a.kind is ActionKind.MOVE]
+    assert 0 not in moves, "Shadow Ball is sealed"
+    assert 1 in moves, "Psychic is not"
+
+
+def test_uproar_refuses_sleep_to_the_whole_field(dex, config):
+    state = build(config, a_set("exploud", "soundproof", ("uproar",)),
+                  a_set("venusaur", "overgrow", ("spore",)))
+    ctx = make_context(state)
+    cast(ctx, dex, "uproar")
+    cast(ctx, dex, "spore", attacker=BLUE, defender=RED)
+    assert state.sides[0].status[0] is None
+    assert any(e.kind == "status_immune" and e.detail == "uproar" for e in ctx.log)
+
+
+def test_uproar_wakes_whoever_is_already_asleep(dex, config):
+    state = build(config, a_set("exploud", "soundproof", ("uproar",)),
+                  a_set("snorlax", "thickfat"))
+    state.sides[1].status[0] = "slp"
+    state.sides[1].status_data[0] = {"turns": 3}
+    ctx = make_context(state)
+    cast(ctx, dex, "uproar")
+    assert state.sides[1].status[0] is None
+
+
+def test_uproar_locks_the_user_in(dex, config):
+    state = build(config, a_set("exploud", "soundproof", ("uproar", "bodyslam")),
+                  a_set("snorlax", "thickfat"))
+    ctx = make_context(state)
+    cast(ctx, dex, "uproar")
+    state.rng = ctx.cursor.seal()
+    assert state.sides[0].volatiles[0]["uproar"]["turns"] == 3
+    moves = [a.index for a in legal_actions(state, 0) if a.kind is ActionKind.MOVE]
+    assert moves == [0], "nothing but Uproar until it runs out"
+
+
+def test_uproar_does_not_report_failure_on_its_second_turn(dex, config):
+    """It refreshes rather than re-applying, or every upkeep turn looks failed."""
+    state = build(config, a_set("exploud", "soundproof", ("uproar",)),
+                  a_set("snorlax", "thickfat"))
+    ctx = make_context(state)
+    cast(ctx, dex, "uproar")
+    ctx.log.clear()
+    cast(ctx, dex, "uproar")
+    assert not any(e.kind == "move_failed" for e in ctx.log), ctx.log
+
+
+def test_psychic_noise_stops_the_target_healing(dex, config):
+    """Champions has no standalone Heal Block; Psychic Noise is how it arrives."""
+    assert not dex.exists_in_champions(dex.moves["healblock"])
+    state = build(config, a_set("indeedee", "psychicsurge", ("psychicnoise",)),
+                  a_set("snorlax", "thickfat", ("recover",)))
+    ctx = make_context(state)
+    cast(ctx, dex, "psychicnoise")
+    assert state.sides[1].has_volatile(0, "healblock")
+    state.sides[1].hp[0] //= 2
+    before = state.sides[1].hp[0]
+    cast(ctx, dex, "recover", attacker=BLUE, defender=RED)
+    assert state.sides[1].hp[0] == before
+    assert any(e.kind == "heal_blocked" for e in ctx.log)
+
+
+# --------------------------------------------------------------------------- #
+# Honesty
+# --------------------------------------------------------------------------- #
+
+#: Volatiles with no handlers of their own. Every one of them is read
+#: *somewhere* -- this table says where, and the test below refuses to let a new
+#: one be added without an answer. Most are here because the state they carry is
+#: consulted from a different Pokemon than a hook would run for (Imprison sits
+#: on the opponent, Uproar on whoever is making the noise), or because they are
+#: plain markers that the code reading them owns outright.
+ENGINE_SIDE_VOLATILES = {
+    "imprison": "state.imprisoned_moves, called from moves.use_move",
+    "uproar": "state.uproar_in_progress, called from mutate.set_status",
+    "smackdown": "conditions.is_grounded",
+    "ingrain": "conditions.is_grounded and tactics, which refuses the switch",
+    "abilitysuppressed": "effects.Context.ability_of",
+    "trapped": "state.legal_actions",
+    "choicelock": "state.legal_actions",
+    "lockedmove": "state.legal_actions and tactics.start_locked_move",
+    "twoturn": "state.legal_actions and tactics.finish_charging",
+    "noretreat": "moveeffects._no_retreat, which will not let it be used twice",
+    "roost": "state.types, which sheds Flying for the turn",
+    "stall": "moves._apply_protect, which counts it for the failure rate",
+    "substitute": "moves._deal_or_break_substitute, which spends its HP",
+    "stockpile": "moveeffects._stockpile / _swallow / _spit_up, which count layers",
+    "lastmove": "moveeffects._torment_blocks_repeats and _encore",
+    "metronome": "items, where the Metronome counts consecutive uses",
+    "powertrick": "moveeffects._swap_own_stats, which toggles it back off",
+    "powershift": "moveeffects._swap_own_stats, which toggles it back off",
+    "transformed": "abilities._imposter and moveeffects._transform, which refuse a second one",
+    "typechanged": "abilities, where Protean spends its one use per entry",
+}
+
+
+def test_volatiles_with_no_handlers_are_deliberate():
+    """A volatile nobody reads is a move that quietly does nothing."""
+    from pkcm.engine.effects import REGISTRY
+
+    for (kind, volatile_id), effect in REGISTRY.items():
+        if kind != "volatile" or effect.handlers:
+            continue
+        assert volatile_id in ENGINE_SIDE_VOLATILES, (
+            f"volatile {volatile_id!r} is registered with no handlers and no "
+            f"reason given. Either give it a reader, or record here where its "
+            f"reader lives."
+        )
+
+
+def test_no_orphaned_handler_functions():
+    """A handler written but never passed to ``register`` is dead code.
+
+    This is exactly how Imprison and Uproar came to do nothing: the readers
+    were written, reviewed, and never wired in. Nothing failed, because a move
+    that does nothing looks the same as a move that is merely weak.
+
+    Decorated functions are exempt -- ``@special`` registers them by side
+    effect, so their name never appears again by design.
+    """
+    import ast
+    import pathlib
+
+    root = pathlib.Path(__file__).resolve().parents[1] / "src" / "pkcm"
+    sources = {path: path.read_text(encoding="utf-8") for path in root.rglob("*.py")}
+
+    defined: dict[str, pathlib.Path] = {}
+    used: set[str] = set()
+    for path, source in sources.items():
+        tree = ast.parse(source)
+        for node in tree.body:
+            if isinstance(node, ast.FunctionDef) and node.name.startswith("_")                     and not node.decorator_list:
+                defined[node.name] = path
+        for node in ast.walk(tree):
+            if isinstance(node, ast.Name) and isinstance(node.ctx, ast.Load):
+                used.add(node.id)
+            elif isinstance(node, ast.Attribute):
+                used.add(node.attr)
+            elif isinstance(node, ast.alias):
+                used.add(node.name.rsplit(".", 1)[-1])
+            elif isinstance(node, ast.FunctionDef):
+                # ``def f(): ...`` binds the name; a self-recursive call is not
+                # a use by anyone else, but every decorator reference is.
+                for decorator in node.decorator_list:
+                    if isinstance(decorator, ast.Name):
+                        used.add(decorator.id)
+
+    orphans = sorted(
+        f"{path.name}:{name}" for name, path in defined.items() if name not in used
+    )
+    assert not orphans, f"defined and never referenced -- dead handlers?: {orphans}"

@@ -45,11 +45,6 @@ def _fail(ctx: Context, user: Ref, reason: str) -> bool:
     return False
 
 
-def _opponent(ctx: Context, ref: Ref) -> Ref:
-    other = 1 - ref[0]
-    return (other, ctx.state.sides[other].active)
-
-
 def _volatiles(ctx: Context, ref: Ref) -> dict:
     return ctx.state.sides[ref[0]].volatiles[ref[1]]
 
@@ -139,10 +134,6 @@ def _roost(ctx, user, target, move) -> bool:
     if "flying" in ctx.state.types(*user):
         mutate.add_volatile(ctx, user, "roost")
     return True
-
-
-def _roost_types(ctx, ref, value, **_):
-    return tuple(t for t in value if t != "flying") or ("normal",)
 
 
 register("volatile", "roost", name="Roosting")
@@ -354,7 +345,6 @@ SPECIAL_MOVES["saltcure"] = _apply_volatile("saltcure")
 SPECIAL_MOVES["syrupbomb"] = _apply_volatile("syrupbomb", turns=4)
 SPECIAL_MOVES["gastroacid"] = _apply_volatile("abilitysuppressed")
 SPECIAL_MOVES["psychicnoise"] = _apply_volatile("healblock", turns=3)
-SPECIAL_MOVES["uproar"] = _apply_volatile("uproar", to_target=False, turns=3)
 SPECIAL_MOVES["block"] = _apply_volatile("trapped")
 SPECIAL_MOVES["meanlook"] = _apply_volatile("trapped")
 SPECIAL_MOVES["fairylock"] = _apply_volatile("trapped")
@@ -988,17 +978,12 @@ register("volatile", "destinybond", name="Destiny Bond",
          faint=_destiny_bond_takes_you_with_it)
 
 
-def _imprison_blocks_shared_moves(ctx, ref, move, **_):
-    """Cannot use a move the imprisoning Pokemon also knows."""
-    opponent = _opponent(ctx, ref)
-    if "imprison" not in _volatiles(ctx, opponent):
-        return None
-    if move.id in {m.id for m in ctx.state.moves(*opponent)}:
-        ctx.emit(Event("cant_move", side=ref[0], slot=ref[1], detail="imprison"))
-        return False
-    return None
-
-
+# Imprison and Uproar are read engine-side, not here. Both ask about a volatile
+# that sits on the *other* Pokemon -- Imprison on the opponent, Uproar on
+# whoever is making the noise -- and effect gathering only ever reaches the
+# Pokemon the hook is running for. ``state.imprisoned_moves`` and
+# ``state.uproar_in_progress`` answer them, called from ``use_move`` and
+# ``set_status`` respectively. Registered here so the volatile still has a name.
 register("volatile", "imprison", name="Imprison")
 
 
@@ -1028,23 +1013,34 @@ register("volatile", "minimize", name="Minimize",
          modify_base_power=_minimize_doubles_stomping_moves)
 
 
-def _heal_block_stops_healing(ctx, ref, value, **_):
-    return 0
-
-
+# Heal Block's refusal lives in ``mutate.heal``, for the same reason: the
+# healing it has to stop can come from anywhere, not just from a hook it sees.
 register("volatile", "healblock", name="Heal Block",
          residual=_tick_down("healblock"))
 
 
-def _uproar_prevents_sleep(ctx, ref, status, source, **_):
-    """Nobody sleeps while an Uproar is going on -- either side."""
+UPROAR_TURNS = 3
+
+
+@special("uproar")
+def _uproar(ctx: Context, user: Ref, target: Ref, move) -> bool:
+    """Three turns of noise. Wakes the field and keeps it awake.
+
+    Refreshing rather than failing on the second turn is the point -- the user
+    is locked into the move (``state.legal_actions``), so a plain
+    ``_apply_volatile`` would report a failure every turn after the first.
+    """
     for player in (0, 1):
         side = ctx.state.sides[player]
-        if side.hp and "uproar" in side.volatiles[side.active]:
-            if status == "slp":
-                ctx.emit(Event("status_immune", side=ref[0], slot=ref[1], detail="uproar"))
-                return False
-    return None
+        if not side.hp or side.active < 0 or side.is_fainted(side.active):
+            continue
+        if side.status[side.active] == "slp":
+            mutate.cure_status(ctx, (player, side.active))
+
+    volatiles = _volatiles(ctx, user)
+    if "uproar" in volatiles:
+        return True  # already going; the residual tick owns the countdown
+    return mutate.add_volatile(ctx, user, "uproar", source=user, turns=UPROAR_TURNS)
 
 
 register("volatile", "uproar", name="Uproar", residual=_tick_down("uproar"))

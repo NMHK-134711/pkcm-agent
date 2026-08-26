@@ -156,9 +156,12 @@ def main() -> int:
             "battles_per_second": round(args.battles / max(played, 1e-9), 3),
             "selfplay_seconds": round(played, 1),
             "train_seconds": round(learned, 1),
-            # Diagnostics. They fall because the network is fitting what it was
-            # handed, which is not the same as playing better.
-            **{f"loss/{key}": round(value, 4) for key, value in losses.items()},
+            # Training losses are diagnostics -- they fall because the network
+            # is fitting what it was handed. The val/ rows are on battles it
+            # has never seen, and a val_value_mae near 1.0 means it has learned
+            # nothing, because predicting a constant zero scores exactly that.
+            **{(f"val/{key[4:]}" if key.startswith("val_") else f"loss/{key}"):
+               round(value, 4) for key, value in losses.items()},
         }
 
         if args.evaluate_every and (iteration + 1) % args.evaluate_every == 0:
@@ -176,9 +179,14 @@ def main() -> int:
         log.log(row, step=iteration)
 
         print(f"  [{iteration}] trust {trust:.1f}  {len(fresh):5} new  "
-              f"buffer {len(buffer):6}  play {played:6.1f}s  train {learned:5.1f}s  "
-              f"policy {losses['policy_loss']:.3f}  "
-              f"value {losses['value_loss']:.3f}  mae {losses['value_mae']:.3f}")
+              f"buffer {len(buffer):6}  play {played:6.1f}s  train {learned:5.1f}s")
+        print(f"        train  policy {losses['policy_loss']:.3f}  "
+              f"mae {losses['value_mae']:.3f}")
+        if "val_value_mae" in losses:
+            gap = losses["val_value_mae"] - losses["value_mae"]
+            print(f"        held out  policy {losses['val_policy_loss']:.3f}  "
+                  f"mae {losses['val_value_mae']:.3f}  "
+                  f"(gap {gap:+.3f}; 1.0 = learned nothing)")
 
     log.artifact(checkpoint)
     last = history[-1] if history else {}

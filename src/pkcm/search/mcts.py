@@ -90,6 +90,21 @@ class SearchConfig:
     #: Cap on how many joint actions a node considers. Doubles can offer a few
     #: hundred and a node that expands all of them learns nothing about any.
     max_branching: int = 24
+    #: Index children by our action alone, sampling the opponent's from its own
+    #: marginal, instead of by the pair.
+    #:
+    #: Both sides still keep their own statistics -- that part is unchanged, and
+    #: it is what makes this a simultaneous-move search rather than a
+    #: turn-taking one. What changes is the *tree*: keying children by the pair
+    #: makes branching |A|x|B|, so eight hundred simulations over eight options
+    #: a side is thirteen visits per pair and the visit counts are mostly noise.
+    #: Keying by our action alone makes it |A|, which is a hundred visits each.
+    #:
+    #: That noise is not an abstract worry. It made 73% of self-play policy
+    #: targets indistinguishable from uniform, and the policy head sat exactly
+    #: at the entropy of its own targets -- having learned everything there was,
+    #: which was nothing.
+    sample_opponent: bool = True
 
 
 @dataclass
@@ -217,10 +232,13 @@ class MCTS:
                 value = self._evaluate(state, player, cursor)
                 break
 
-            picked = tuple(self._select(current, side) for side in (0, 1))
+            mine = self._select(current, 0)
+            theirs = (self._sample(current, 1, cursor) if self.config.sample_opponent
+                      else self._select(current, 1))
+            picked = (mine, theirs)
             path.append((current, picked))
 
-            choices = (current.options[0][picked[0]], current.options[1][picked[1]])
+            choices = (current.options[0][mine], current.options[1][theirs])
             # ``player`` is index 0 of every node's option lists by
             # construction, so the pair goes back the other way for the engine.
             ordered = choices if player == 0 else (choices[1], choices[0])
@@ -233,11 +251,16 @@ class MCTS:
                 value = self._evaluate(state, player, cursor)
                 break
 
-            child = current.children.get(picked)
+            # The child key is what decides how wide the tree is. Our action
+            # alone means the opponent's choice is folded into the node's value
+            # as noise -- which is exactly what it is from where we sit, since
+            # we do not get to see it before committing.
+            key = (mine, 0) if self.config.sample_opponent else picked
+            child = current.children.get(key)
             if child is None:
                 # The one new node this simulation is allowed. Evaluate it and
                 # stop: it has no statistics to descend on yet.
-                child = current.children[picked] = self._node(state, player)
+                child = current.children[key] = self._node(state, player)
                 value = self._evaluate(state, player, cursor)
                 break
             current = child
@@ -253,6 +276,26 @@ class MCTS:
                 # well rather than randomly.
                 visited.totals[side][index] += value if side == 0 else -value
         return value
+
+    def _sample(self, node: Node, side: int, cursor: RngCursor) -> int:
+        """Draw one of this side's actions from what the search believes it plays.
+
+        Its own visit counts, which are a policy: an action the search has found
+        good for that side has been visited more, so it comes up more. Falling
+        back to the prior while there are no counts is what stops the first
+        visits all going to option zero.
+        """
+        counts = node.counts[side]
+        total = sum(counts)
+        weights = ([count / total for count in counts] if total
+                   else node.priors[side])
+        roll = cursor.between(0, 999) / 1000.0
+        cumulative = 0.0
+        for index, weight in enumerate(weights):
+            cumulative += weight
+            if roll < cumulative:
+                return index
+        return len(weights) - 1
 
     def _select(self, node: Node, side: int) -> int:
         """PUCT over this side's own marginals.

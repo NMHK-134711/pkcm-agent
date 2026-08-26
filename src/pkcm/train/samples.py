@@ -50,6 +50,11 @@ class Sample:
     #: batch can be traced back to the battle that produced it.
     player: int
     turn: int
+    #: The battle's seed. **A validation split has to be by battle, not by
+    #: sample.** One battle produces about thirty samples that share an outcome
+    #: and differ by a turn or two; splitting them at random puts near-copies on
+    #: both sides and the validation score measures memorisation as skill.
+    battle: int = 0
 
 
 @dataclass(frozen=True, slots=True)
@@ -112,7 +117,7 @@ def play_one(dex: Dex, config: SelfPlayConfig, seed: int) -> list[Sample]:
 
     return [
         Sample(observation=observation, policy=policy,
-               value=_outcome(state, player), player=player, turn=turn)
+               value=_outcome(state, player), player=player, turn=turn, battle=seed)
         for observation, policy, player, turn in pending
     ]
 

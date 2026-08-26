@@ -41,6 +41,13 @@ class TrainConfig:
     #: or loss thirty turns away is about as noisy as they come.
     value_weight: float = 0.5
     grad_clip: float = 1.0
+    #: Share of *battles* held out. Not samples -- see ``Sample.battle``.
+    #:
+    #: This is not optional bookkeeping. Without it the first run here reported
+    #: a value error of 0.032 while scoring 0.771 on battles it had not seen,
+    #: and a constant zero would have scored 1.0. The training curve looked
+    #: excellent throughout.
+    validation_fraction: float = 0.1
 
 
 @dataclass
@@ -65,10 +72,36 @@ class Metrics:
         }
 
 
+def split_by_battle(samples: list[Sample], fraction: float,
+                    seed: int = 0) -> tuple[list[int], list[int]]:
+    """Row indices for training and validation, divided by battle.
+
+    Whole battles go to one side or the other. Splitting samples at random
+    would put turn 11 in training and turn 12 in validation, and those two are
+    nearly the same position with the same label.
+    """
+    battles = sorted({sample.battle for sample in samples})
+    if fraction <= 0 or len(battles) < 4:
+        return list(range(len(samples))), []
+    rng = np.random.default_rng(seed)
+    shuffled = list(battles)
+    rng.shuffle(shuffled)
+    held = set(shuffled[:max(1, int(len(shuffled) * fraction))])
+    training, validation = [], []
+    for index, sample in enumerate(samples):
+        (validation if sample.battle in held else training).append(index)
+    return training, validation
+
+
 def fit(net: ChampionsNet, samples: list[Sample], device: torch.device,
         config: TrainConfig | None = None,
         optimizer: torch.optim.Optimizer | None = None) -> dict[str, float]:
-    """One pass (or ``epochs`` passes) over the samples. Returns the losses."""
+    """Train, and report both what it fitted and what that is worth.
+
+    The gap between the two is the number that matters. Training loss falls
+    whenever the network has capacity; only the held-out score says whether
+    anything was learned that applies to a battle it has not seen.
+    """
     settings = config or TrainConfig()
     if not samples:
         return Metrics().mean()
@@ -82,9 +115,10 @@ def fit(net: ChampionsNet, samples: list[Sample], device: torch.device,
         np.stack([sample.policy for sample in samples]), dtype=torch.float32)
     values = torch.as_tensor(
         np.array([sample.value for sample in samples]), dtype=torch.float32)
+    training, validation = split_by_battle(samples, settings.validation_fraction)
 
     metrics = Metrics()
-    order = np.arange(len(samples))
+    order = np.array(training)
     for _ in range(settings.epochs):
         np.random.shuffle(order)
         for start in range(0, len(order), settings.batch_size):
@@ -112,7 +146,48 @@ def fit(net: ChampionsNet, samples: list[Sample], device: torch.device,
 
             metrics.add(float(policy_loss), float(value_loss),
                         float((value - target_value).abs().mean()))
-    return metrics.mean()
+
+    result = metrics.mean()
+    result.update(_validate(net, samples, validation, policies, values,
+                            device, settings))
+    return result
+
+
+def _validate(net: ChampionsNet, samples: list[Sample], rows: list[int],
+              policies: torch.Tensor, values: torch.Tensor,
+              device: torch.device, settings: TrainConfig) -> dict[str, float]:
+    """Score battles the network was not trained on.
+
+    ``value_mae`` against a baseline: predicting a constant zero scores 1.0 on
+    a target of plus or minus one, so anything near 1.0 has learned nothing at
+    all, whatever the training curve is doing.
+    """
+    if not rows:
+        return {}
+    net.eval()
+    total_policy = total_value = 0.0
+    batches = 0
+    with torch.no_grad():
+        for start in range(0, len(rows), settings.batch_size):
+            chunk = rows[start:start + settings.batch_size]
+            batch = collate([samples[index].observation for index in chunk], device)
+            target_policy = policies[chunk].to(device)
+            target_value = values[chunk].to(device)
+            logits, value = net(batch)
+            support = target_policy > 0
+            log_probabilities = torch.log_softmax(
+                logits.masked_fill(~support, float("-inf")), dim=1)
+            total_policy += float(
+                -(target_policy * log_probabilities.nan_to_num(0.0)).sum(1).mean())
+            total_value += float((value - target_value).abs().mean())
+            batches += 1
+    net.train()
+    count = max(1, batches)
+    return {
+        "val_policy_loss": total_policy / count,
+        "val_value_mae": total_value / count,
+        "val_battles": float(len({samples[index].battle for index in rows})),
+    }
 
 
 def save(net: ChampionsNet, path: Path, extra: dict | None = None) -> None:

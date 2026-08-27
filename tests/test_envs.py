@@ -1099,3 +1099,72 @@ def test_wandering_spirit_swaps_on_contact_only(dex):
 
     assert after("dragonclaw") == ("wanderingspirit", "roughskin"), "contact swaps"
     assert after("earthpower") == ("roughskin", "wanderingspirit"), "and nothing else does"
+
+
+# --------------------------------------------------------------------------- #
+# What the opponent is probably running
+# --------------------------------------------------------------------------- #
+
+
+def test_belief_draws_sets_people_actually_bring(dex):
+    """Field-by-field sampling is consistent with the observation and nothing
+    like a real set: an item from all 147 the format allows, a move from the
+    sixty that species can learn. Rankers use 29 items, four of them for half
+    the slots."""
+    from pkcm.engine.legality import make_team, ranker_slots
+    from pkcm.engine.rng import Rng
+    from pkcm.engine.state import BattleConfig, new_battle
+    from pkcm.envs.observation import Observation, determinize
+
+    config = BattleConfig(dex=dex, regulation=dex.regulation("m_b"),
+                          battle_format="singles")
+    teams = tuple(make_team(dex, config.regulation,
+                            Rng.from_seed(21 + offset).cursor(), "singles", "ranker")
+                  for offset in (1, 2))
+    state = new_battle(config, teams, seed=21)
+    state, _ = step(state, Action.select(0, 1, 2), Action.select(0, 1, 2))
+    observation = Observation.of(state, 0)
+
+    pool_items = {pokemon.item for pokemon in ranker_slots() if pokemon.item}
+    drawn = 0
+    for seed in range(40):
+        guess = determinize(observation, state, Rng.from_seed(seed).cursor(), True)
+        for slot in range(len(guess.sides[1].selection)):
+            pokemon = guess.pokemon(1, slot)
+            if pokemon.item:
+                drawn += pokemon.item in pool_items
+    assert drawn > 0, "nothing came from the pool at all"
+
+
+def test_belief_narrows_on_what_has_been_seen(dex):
+    """The point of drawing whole sets: a move we have watched rules out every
+    set without it. Under per-field sampling it ruled out nothing -- the other
+    three were redrawn from the whole learnable list regardless."""
+    from pkcm.engine.pokemon import PokemonSet
+    from pkcm.envs.belief import candidates, sets_by_species
+
+    populated = [species for species, sets in sets_by_species().items()
+                 if len(sets) > 1]
+    assert populated, "the ranker pool has no species with two sets"
+
+    class Watched:
+        """The observation's view of one Pokemon, as far as this needs it."""
+        def __init__(self, species_id, moves):
+            self.species_id = species_id
+            self.moves = moves
+            self.item = None
+            self.item_known = False
+            self.ability = None
+            self.ability_known = False
+
+    for species in populated:
+        sets = sets_by_species()[species]
+        move = sets[0].moves[0]
+        if all(move in other.moves for other in sets):
+            continue  # every set has it; nothing to narrow
+        before = candidates(species, Watched(species, ()))
+        after = candidates(species, Watched(species, (move,)))
+        assert len(after) < len(before)
+        assert all(move in one.moves for one in after)
+        return
+    pytest.skip("no move in the pool separates two sets of one species")

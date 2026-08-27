@@ -162,6 +162,36 @@ class SearchConfig:
     #: Cap on how many joint actions a node considers. Doubles can offer a few
     #: hundred and a node that expands all of them learns nothing about any.
     max_branching: int = 24
+    #: How much a switch's matchup against what is standing there moves its
+    #: prior. **Off, because it was measured and it does nothing.**
+    #:
+    #: The argument was good. ``_promise`` scores every switch at a flat
+    #: ``SWITCH_PROMISE``, so the prior cannot rank them: decisions where it
+    #: wanted a switch came back at +0.000 excess nats and 46% top-1 agreement
+    #: against the pre-trained network -- a perfect copy of a uniform
+    #: distribution, argmax settled by tie-break. Ranking them with the same
+    #: matchup arithmetic the pick phase uses cost one function call and left
+    #: the move-versus-switch balance alone.
+    #:
+    #: Head to head, 200 matches on ranker teams, both seatings:
+    #: **51.0% [46.1, 55.9]**. Four hundred games could not tell it from the
+    #: flat version. Kept because it is measured and cheap to re-test, not
+    #: because it helps.
+    switch_matchup: float = 0.0
+    #: Draw the opponent's hidden fields from the ranker pool instead of
+    #: uniformly, and narrow them by what they have already shown.
+    #:
+    #: Head to head against the uniform version, 200 matches on ranker teams,
+    #: both seatings: **68.6% [63.9, 73.0]** over 395 games. That is the largest
+    #: separable gain this project has measured since the handcrafted prior
+    #: itself, and it needed no network.
+    #:
+    #: What it fixes is that the search was planning against opponents nobody
+    #: brings -- an item from all 147 the format allows, a move from the sixty
+    #: that species can learn -- and that **watching a move go off narrowed
+    #: nothing**, because the other three were redrawn regardless.
+    #: See ``pkcm.envs.belief``.
+    belief: bool = True
     #: Index children by our action alone, sampling the opponent's from its own
     #: marginal, instead of by the pair.
     #:
@@ -267,7 +297,8 @@ class MCTS:
         draw = cursor if cursor is not None else Rng.from_seed(0).cursor()
         observation = Observation.of(state, player)
 
-        options = joint_actions(state, player, self.config.max_branching)
+        options = joint_actions(state, player, self.config.max_branching,
+                                self.config.switch_matchup)
         if len(options) <= 1:
             only = options[0] if options else (Action.PASS,) * decisions_wanted(state, player)
             return SearchResult(only, ((only, 1.0),), 0.0, 0)
@@ -279,7 +310,8 @@ class MCTS:
         per_draw = max(1, self.config.iterations // max(1, self.config.determinizations))
         done = 0
         while done < self.config.iterations:
-            sampled = determinize(observation, state, draw)
+            sampled = determinize(observation, state, draw,
+                                  self.config.belief)
             for _ in range(min(per_draw, self.config.iterations - done)):
                 self._simulate(sampled.clone(), root, player, draw, bounds)
                 done += 1
@@ -448,8 +480,10 @@ class MCTS:
     def _node(self, state: BattleState, player: int) -> Node:
         """Options with ``player`` first, so index 0 is always the searcher."""
         fallback = [(Action.PASS,) * max(1, decisions_wanted(state, player))]
-        mine = joint_actions(state, player, self.config.max_branching) or fallback
-        theirs = joint_actions(state, 1 - player, self.config.max_branching) or fallback
+        mine = joint_actions(state, player, self.config.max_branching,
+                             self.config.switch_matchup) or fallback
+        theirs = joint_actions(state, 1 - player, self.config.max_branching,
+                               self.config.switch_matchup) or fallback
         return Node((mine, theirs),
                     priors=(self._prior(state, player, mine),
                             self._prior(state, 1 - player, theirs)))
@@ -457,4 +491,5 @@ class MCTS:
     def _prior(self, state: BattleState, player: int, options: list) -> list[float]:
         if self.evaluator is not None:
             return self.evaluator.prior(state, player, options)
-        return prior_over(state, player, options)
+        return prior_over(state, player, options,
+                          self.config.switch_matchup)

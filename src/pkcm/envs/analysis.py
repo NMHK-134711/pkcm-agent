@@ -742,3 +742,97 @@ def could_survive_a_kill(known: KnownPokemon, dex: Dex) -> bool:
         if any(ability in SURVIVES_FROM_FULL for ability in possible):
             return True
     return not known.item_known
+
+
+# --------------------------------------------------------------------------- #
+# Team preview: who beats whom, before anyone has moved
+#
+# One copy, shared by ``search.policy`` (which scores picks) and
+# ``envs.encoding`` (which shows the same grid to the network). Two copies of a
+# formula do not stay equal, and here the drift would be silent: the policy
+# would be trained to imitate a function slightly different from the one it is
+# later measured against.
+# --------------------------------------------------------------------------- #
+
+#: What a Pokemon's own STAB attack is worth when we have not seen it move.
+#: Real sets vary either side of this; the point is that everything gets the
+#: same guess, so the comparison between them is about the Pokemon.
+NOMINAL_POWER = 90.0
+
+#: Below this the matchup is close enough that moving first decides it.
+CLOSE_ENOUGH = 0.2
+SPEED_EDGE = 0.1
+
+
+def damage_share(power: float, offence: float, defence: float, health: float,
+                 stab: float, effectiveness: float) -> float:
+    """The damage formula's shape at level 50, as a share of ``health``.
+
+    None of the modifiers that need a live field -- weather, screens, items,
+    abilities. This is not trying to be the full estimator above; it is trying
+    to be cheap enough to run over three hundred and sixty team picks and right
+    about which of them deserve the search's budget.
+    """
+    damage = (22 * power * offence / max(1.0, defence)) / 50 + 2
+    return min(1.0, damage * stab * effectiveness / max(1.0, health))
+
+
+def our_threat(dex: Dex, moves, stats, types, foe_id: str) -> float:
+    """What one of ours does to one of theirs. Our set is ours to read."""
+    foe_types = dex.species[foe_id].types
+    best = 0.0
+    for move in moves:
+        if not move.base_power:
+            continue
+        effectiveness = dex.type_chart.multiplier(move.type, foe_types)
+        if not effectiveness:
+            continue
+        physical = move.category == "Physical"
+        best = max(best, damage_share(
+            move.base_power,
+            stats[1] if physical else stats[3],
+            midpoint(dex, foe_id, 2 if physical else 4),
+            midpoint(dex, foe_id, 0),
+            1.5 if move.type in types else 1.0,
+            effectiveness))
+    return best
+
+
+def their_threat(dex: Dex, foe_id: str, stats, types) -> float:
+    """What one of theirs does to ours, from **what preview actually shows**.
+
+    Their species and nothing else. Their moves are hidden until we watch them
+    used and their SP spread is hidden for good, so this reads base stats
+    through the same public bracket the estimator uses, and assumes the one
+    thing every Pokemon has: a STAB attack off its better attacking stat.
+
+    Being wrong about their set is fine and expected. Being *told* their set
+    would make the pick phase look brilliant in self-play and transfer nothing.
+    """
+    attack, special = midpoint(dex, foe_id, 1), midpoint(dex, foe_id, 3)
+    physical = attack >= special
+    offence, defence = (attack, stats[2]) if physical else (special, stats[4])
+    best = 0.0
+    for foe_type in dex.species[foe_id].types:
+        effectiveness = dex.type_chart.multiplier(foe_type, types)
+        if not effectiveness:
+            continue
+        best = max(best, damage_share(NOMINAL_POWER, offence, defence,
+                                      stats[0], 1.5, effectiveness))
+    return best
+
+
+def matchup(dex: Dex, moves, stats, types, foe_id: str) -> float:
+    """One of ours against one of theirs. Positive means we are ahead.
+
+    Who threatens whom, and -- when the threats are close -- who moves first,
+    because between two Pokemon that each take the other out in two hits, the
+    faster one takes one hit fewer.
+    """
+    edge = (our_threat(dex, moves, stats, types, foe_id)
+            - their_threat(dex, foe_id, stats, types))
+    if abs(edge) < CLOSE_ENOUGH:
+        theirs = midpoint(dex, foe_id, 5)
+        if stats[5] != theirs:
+            edge += SPEED_EDGE if stats[5] > theirs else -SPEED_EDGE
+    return edge

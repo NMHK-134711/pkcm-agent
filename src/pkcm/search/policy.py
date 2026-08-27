@@ -34,7 +34,8 @@ def decisions_wanted(state: BattleState, player: int) -> int:
 
 
 def joint_actions(state: BattleState, player: int,
-                  limit: int | None = None) -> list[tuple[Action, ...]]:
+                  limit: int | None = None,
+                  switch_matchup: float = 0.0) -> list[tuple[Action, ...]]:
     """Every combination of per-position actions this side may submit.
 
     The one rule a per-position mask cannot carry is enforced here: the same
@@ -67,7 +68,8 @@ def joint_actions(state: BattleState, player: int,
         if not combinations:
             return []
     if limit is not None and len(combinations) > limit:
-        combinations.sort(key=lambda choice: -_promise(state, player, choice))
+        combinations.sort(
+            key=lambda choice: -_promise(state, player, choice, switch_matchup))
         return combinations[:limit]
     return combinations
 
@@ -82,92 +84,17 @@ SWITCH_PROMISE = 0.6
 LEAD_WEIGHT = 1.6
 
 
-#: What a Pokemon's own STAB attack is worth when we have not seen it move.
-#: Real sets vary either side of this; the point is that everything gets the
-#: same guess, so the comparison between them is about the Pokemon.
-NOMINAL_POWER = 90.0
-
-
-def _damage_share(power: float, offence: float, defence: float, health: float,
-                  stab: float, effectiveness: float) -> float:
-    """The damage formula's shape at level 50, as a share of ``health``.
-
-    None of the modifiers that need a live field -- weather, screens, items,
-    abilities. This is not trying to be ``envs.analysis``; it is trying to be
-    cheap enough to run over three hundred and sixty team picks and right about
-    which of them deserve the search's budget.
-    """
-    damage = (22 * power * offence / max(1.0, defence)) / 50 + 2
-    return min(1.0, damage * stab * effectiveness / max(1.0, health))
-
-
-def _our_threat(state: BattleState, mine, foe_id: str) -> float:
-    """What our Pokemon does to one of theirs. Our set is ours to read."""
-    from pkcm.envs.analysis import midpoint
-
-    dex = state.config.dex
-    foe_types = dex.species[foe_id].types
-    best = 0.0
-    for move in mine.moves:
-        if not move.base_power:
-            continue
-        effectiveness = dex.type_chart.multiplier(move.type, foe_types)
-        if not effectiveness:
-            continue
-        physical = move.category == "Physical"
-        best = max(best, _damage_share(
-            move.base_power,
-            mine.stats[1] if physical else mine.stats[3],
-            midpoint(dex, foe_id, 2 if physical else 4),
-            midpoint(dex, foe_id, 0),
-            1.5 if move.type in mine.species.types else 1.0,
-            effectiveness))
-    return best
-
-
-def _their_threat(state: BattleState, foe_id: str, mine) -> float:
-    """What one of theirs does to ours, from **what preview actually shows**.
-
-    Their species and nothing else. Their moves are hidden until we watch them
-    used and their SP spread is hidden for good, so this reads base stats
-    through the same public bracket ``envs.analysis`` uses, and assumes the one
-    thing every Pokemon has: a STAB attack off its better attacking stat.
-
-    Being wrong about their set is fine and expected. Being *told* their set
-    would make the pick phase look brilliant in self-play and transfer nothing,
-    which is the failure this whole file is arranged to avoid.
-    """
-    from pkcm.envs.analysis import midpoint
-
-    dex = state.config.dex
-    attack, special = midpoint(dex, foe_id, 1), midpoint(dex, foe_id, 3)
-    physical = attack >= special
-    offence, defence = (attack, mine.stats[2]) if physical else (special, mine.stats[4])
-    best = 0.0
-    for foe_type in dex.species[foe_id].types:
-        effectiveness = dex.type_chart.multiplier(foe_type, mine.species.types)
-        if not effectiveness:
-            continue
-        best = max(best, _damage_share(NOMINAL_POWER, offence, defence,
-                                       mine.max_hp, 1.5, effectiveness))
-    return best
-
-
 def _matchup(state: BattleState, mine, foe_id: str) -> float:
-    """One of ours against one of theirs. Positive means we are ahead.
+    """One of ours against one of theirs, from ``envs.analysis``.
 
-    Who threatens whom, and -- when the threats are close -- who moves first,
-    because between two Pokemon that each take the other out in two hits, the
-    faster one takes one hit fewer.
+    The arithmetic used to live here. It moved because the encoder shows the
+    same grid to the network at team preview, and a policy trained to imitate
+    one copy while the search runs the other would drift apart silently.
     """
-    from pkcm.envs.analysis import midpoint
+    from pkcm.envs.analysis import matchup
 
-    edge = _our_threat(state, mine, foe_id) - _their_threat(state, foe_id, mine)
-    if abs(edge) < 0.2:
-        theirs = midpoint(state.config.dex, foe_id, 5)
-        if mine.stats[5] != theirs:
-            edge += 0.1 if mine.stats[5] > theirs else -0.1
-    return edge
+    return matchup(state.config.dex, mine.moves, mine.stats,
+                   mine.species.types, foe_id)
 
 
 def _pick_promise(state: BattleState, player: int,
@@ -202,7 +129,33 @@ def _pick_promise(state: BattleState, player: int,
     return total
 
 
-def _promise(state: BattleState, player: int, choice: tuple[Action, ...]) -> float:
+def _switch_promise(state: BattleState, player: int, slot: int,
+                    weight: float) -> float:
+    """What sending this one in is worth against what is standing there.
+
+    ``SWITCH_PROMISE`` alone gave every switch the same number, which is not a
+    ranking -- it is a refusal to rank. The same arithmetic the pick phase uses
+    answers it: how this Pokemon trades with each foe on the field.
+
+    Shifted around ``SWITCH_PROMISE`` rather than added to it, so the average
+    switch is worth exactly what it was and only the order among them changes.
+    Move-versus-switch balance was measured at the old ratio and is not what
+    this is about.
+    """
+    from pkcm.envs.analysis import matchup
+
+    dex = state.config.dex
+    mine = state.pokemon(player, slot)
+    foes = [state.pokemon(*ref) for ref in state.active_refs(1 - player)]
+    if not foes:
+        return SWITCH_PROMISE
+    edge = sum(matchup(dex, mine.moves, mine.stats, mine.species.types,
+                       foe.species.id) for foe in foes) / len(foes)
+    return max(0.05, SWITCH_PROMISE + weight * edge)
+
+
+def _promise(state: BattleState, player: int, choice: tuple[Action, ...],
+             switch_matchup: float = 0.0) -> float:
     """A cheap guess at how good a choice is, for ordering only.
 
     Reads the state directly, which is legitimate here and nowhere else: inside
@@ -216,7 +169,8 @@ def _promise(state: BattleState, player: int, choice: tuple[Action, ...]) -> flo
     total = 0.0
     for position, action in enumerate(choice):
         if action.kind is ActionKind.SWITCH:
-            total += SWITCH_PROMISE
+            total += (_switch_promise(state, player, action.index, switch_matchup)
+                      if switch_matchup else SWITCH_PROMISE)
             continue
         if action.kind is not ActionKind.MOVE:
             continue
@@ -346,7 +300,8 @@ def play_out(state: BattleState, policies: Sequence[Policy],
 
 
 def prior_over(state: BattleState, player: int,
-               options: Sequence[tuple[Action, ...]]) -> list[float]:
+               options: Sequence[tuple[Action, ...]],
+               switch_matchup: float = 0.0) -> list[float]:
     """A normalised guess at which of these are worth looking at first.
 
     The search uses it as PUCT's prior. Without one, both sides explore
@@ -365,7 +320,8 @@ def prior_over(state: BattleState, player: int,
     """
     if not options:
         return []
-    raw = [_promise(state, player, choice) for choice in options]
+    raw = [_promise(state, player, choice, switch_matchup)
+           for choice in options]
     span = max(raw) - min(raw)
     if span <= 0:
         return [1.0 / len(options)] * len(options)

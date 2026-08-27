@@ -95,6 +95,17 @@ class KnownPokemon:
 
 
 @dataclass(frozen=True, slots=True)
+class RegisteredSet:
+    """One of *our* registered six, as we know it -- which is completely."""
+
+    species_id: str
+    moves: tuple[str, ...]
+    item: str | None
+    ability: str
+    stats: tuple[int, ...]
+
+
+@dataclass(frozen=True, slots=True)
 class Observation:
     """Everything ``player`` may condition on, and nothing else."""
 
@@ -117,6 +128,17 @@ class Observation:
     #: Mega Evolution already spent, per side. Public -- it is announced.
     mega_used: tuple[bool, bool]
     winner: int | None
+    #: **Our own** registered six, in full: moves, item, ability and stats.
+    #:
+    #: Ours to read at any time, and at team preview it is the only thing that
+    #: separates two teams of the same six species. Without it, a physical
+    #: Garchomp carrying Earthquake and a special one carrying Water Gun encode
+    #: to byte-identical observations while the pick they justify is different
+    #: -- so a policy asked to pick could not do better than chance, and
+    #: measured, it did not: 5% top-1 agreement on a 24-way choice.
+    #:
+    #: The opponent's six stay species-only above. That is what preview shows.
+    own_sets: tuple["RegisteredSet", ...] = ()
 
     @staticmethod
     def of(state: BattleState, player: int) -> "Observation":
@@ -129,6 +151,16 @@ class Observation:
             registered=(
                 tuple(p.species.id for p in state.parties[player]),
                 tuple(p.species.id for p in state.parties[foe]),
+            ),
+            own_sets=tuple(
+                RegisteredSet(
+                    species_id=pokemon.species.id,
+                    moves=tuple(move.id for move in pokemon.moves),
+                    item=pokemon.item,
+                    ability=pokemon.ability,
+                    stats=tuple(pokemon.stats),
+                )
+                for pokemon in state.parties[player]
             ),
             own=tuple(_own_view(state, player, slot)
                       for slot in range(len(state.sides[player].hp))),
@@ -234,7 +266,7 @@ def _elapsed(state: BattleState, side: int, slot: int) -> int | None:
 
 
 def determinize(observation: Observation, truth: BattleState,
-                cursor: "RngCursor") -> BattleState:
+                cursor: "RngCursor", belief: bool = False) -> BattleState:
     """One full state consistent with what the observer knows.
 
     Search needs a concrete state to roll out from, and an observation is not
@@ -260,6 +292,12 @@ def determinize(observation: Observation, truth: BattleState,
     * **SP spread and nature** -- a legal random spread. The bracket in
       ``pkcm.envs.analysis`` is the honest summary of this uncertainty; here it
       has to be resolved into one concrete answer.
+
+    With ``belief``, a whole set is drawn from the ranker pool first and the
+    per-field sampling below is only the fallback -- see ``pkcm.envs.belief``.
+    Every field above stays *consistent* under either path; what changes is
+    whether it is also *plausible*, and whether watching a move go off narrows
+    anything.
     """
     from pkcm.engine.legality import (
         champions_items,
@@ -294,6 +332,18 @@ def determinize(observation: Observation, truth: BattleState,
             species_id = unseen.pop(cursor.between(0, len(unseen) - 1))
         else:
             continue  # nothing left to draw from; leave the slot as it was
+
+        if belief:
+            from pkcm.envs.belief import sample as sample_set
+
+            drawn = sample_set(species_id, known, cursor)
+            if drawn is not None and (drawn.item is None
+                                      or drawn.item not in taken_items
+                                      or known.item_known):
+                sampled[party_index] = compile_team(dex, (drawn,))[0]
+                if drawn.item:
+                    taken_items.add(drawn.item)
+                continue
 
         moves = list(known.moves)
         for candidate in _shuffled(sorted(learnable_moves(dex, species_id)), cursor):

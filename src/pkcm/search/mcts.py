@@ -127,17 +127,31 @@ class SearchConfig:
     #: runs leaned that way and neither one separated, and a lean is what this
     #: project has twice mistaken for a result.
     exploration: float = 0.1
-    #: How hard the prior pulls early visits toward plausible moves.
+    #: How hard the prior pulls on PUCT selection.
     #:
-    #: Without one, both sides explore uniformly and the tree spends its budget
-    #: learning that a resisted move is bad. Worse, the *opponent* in the tree
-    #: plays near-randomly for its first visits, so the search plans against a
-    #: much weaker player than it will meet -- the standard weakness of DUCT,
-    #: and the reason a search can tie a one-turn calculator.
+    #: AlphaZero's c_puct assumes Q over [-1, 1]; min-max normalisation puts
+    #: ours over [0, 1], so the old 1.5 pulled about as hard as 3.0 would there
+    #: -- hard enough that the search reproduced its prior instead of improving
+    #: on it. Measured at 1.5: visit counts 0.037 nats sharper than the prior
+    #: and the prior's own favourite kept 65% of the time. That is PUCT
+    #: converging to N(a) proportional to P(a), and it leaves the learner
+    #: nothing to learn.
     #:
-    #: This is the slot a policy network fills. ``policy._promise`` stands in
-    #: until there is one, and the shape is PUCT either way.
-    prior_weight: float = 1.5
+    #: Against 1.5 over 200 games apiece: 0.75 scored 53.5% [46.6, 60.3], 0.35
+    #: scored 52.0% [45.1, 58.8], 0.15 scored 49.0% [42.2, 55.9], 0.0 scored
+    #: 44.5% [37.8, 51.4]. No single row separates. Four runs declining in
+    #: order is still a trend, and it puts the floor around here -- loosening
+    #: this far is free, loosening further starts to cost.
+    #:
+    #: Note what is *not* being loosened. The prior also orders the truncation
+    #: in ``joint_actions``, and that job -- deciding which two dozen of a
+    #: hundred and twenty options are worth looking at -- is where much of its
+    #: strength lives. This dial only governs the pull inside the tree.
+    #:
+    #: Zero is not an option whatever it measures, because the network's policy
+    #: head *is* the prior: at zero it would have no influence on the search and
+    #: there would be no reason to train it.
+    prior_weight: float = 0.35
     #: Deepest the tree grows. Beyond this a node is evaluated, not expanded.
     #:
     #: Twelve rather than six, and the reason is the heuristic: six turns into a

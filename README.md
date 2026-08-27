@@ -28,7 +28,7 @@ Regulation Set M-B 룰을 따르는 배틀 엔진을 직접 구현하고, 그 �
 | 더블 전용 | 타겟팅, 광범위 0.75배, 유인(따라하기·분노가루·피뢰침·저수), 동맹 특성·기술 |
 | 메가진화 | 배틀당 1회, 기절해도 유지 |
 | 표기 | 한국어(조사 처리 포함) / 영어 |
-| 테스트 | 571 |
+| 테스트 | 593 |
 | 처리량 | 엔진 싱글 2,900 / 더블 680 turns/s (단일 코어), 자가대전 ~2,000 battles/h (15코어) |
 
 미착수: 대규모 학습 실행의 **결과**, 파티 구성 학습.
@@ -154,6 +154,20 @@ GPU를 쓰려면 CUDA 빌드로 (드라이버에 맞는 인덱스 선택):
 ```bash
 .venv/Scripts/python.exe scripts/compare_pokechams.py
 ```
+
+랭커 파티 (pkmnchamps.com 아카이브 → `party_samples/pkmnchamps/`, 싱글 23 · 더블 90):
+
+```bash
+.venv/Scripts/python.exe scripts/fetch_pkmnchamps.py
+```
+
+```bash
+.venv/Scripts/python.exe scripts/export_party_samples.py
+```
+
+`party_samples/메가아쿠스타_비파티.txt`와 **바이트 단위로 같은** 형식으로 나온다.
+`--with-ability`로 특성 줄 추가, `--format single|double`로 포맷 한정.
+출처·레이트·랭크·원본 URL은 `party_samples/pkmnchamps/index.tsv`.
 
 ## 써보기
 

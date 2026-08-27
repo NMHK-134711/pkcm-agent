@@ -405,3 +405,73 @@ def test_time_over_ends_on_pp(config):
 
 def test_time_over_can_still_be_a_draw(config):
     assert _timed_out(config, [100, 100, 100], [100, 100, 100]) is None
+
+
+# --------------------------------------------------------------------------- #
+# The scripted family
+# --------------------------------------------------------------------------- #
+
+
+def test_temperament_changes_the_choice(dex):
+    """The whole idea: one calculator, read with different attitudes.
+
+    A certain 60% against a 60% chance to knock out is the case that separates
+    them, and ``GreedyPolicy``'s fixed ``ko_chance * 10`` always takes the roll.
+    """
+    from pkcm.search.scripted import BY_NAME
+
+    safe, gambler = BY_NAME["safe"], BY_NAME["gambler"]
+    assert gambler.ko_weight > safe.ko_weight * 5
+    # A certain 60% scores 0.6 for both; a 60% roll at a knockout scores
+    # ko_weight * 0.6, so only the low weight prefers the certain damage.
+    assert safe.ko_weight * 0.6 < 0.6 * 4
+    assert gambler.ko_weight * 0.6 > 0.6 * 4
+
+
+def test_the_family_plays_legally_and_differs(dex):
+    from pkcm.engine.legality import make_team
+    from pkcm.engine.rng import Rng
+    from pkcm.engine.state import BattleConfig, new_battle
+    from pkcm.search.policy import play_out
+    from pkcm.search.scripted import TACTICS, TacticPolicy
+
+    config = BattleConfig(dex=dex, regulation=dex.regulation("m_b"),
+                          battle_format="singles")
+    teams = tuple(make_team(dex, config.regulation,
+                            Rng.from_seed(300 + offset).cursor(), "singles", "ranker")
+                  for offset in (1, 2))
+
+    endings = set()
+    for tactic in TACTICS:
+        state = play_out(new_battle(config, teams, seed=9),
+                         (TacticPolicy.seeded(tactic.name, 9),
+                          TacticPolicy.seeded("greedy", 77)))
+        assert state.finished or state.turn > config.turn_limit
+        endings.add((state.winner, state.turn))
+    assert len(endings) > 1, "every temperament played the same battle"
+
+
+def test_the_oracle_is_not_something_to_imitate(dex):
+    """It reads the opponent exactly, which is why it is a sparring partner and
+    never a behaviour-cloning target: the actions are a function of information
+    a policy cannot see, so cloning them teaches the conditional mean."""
+    from pkcm.engine.legality import make_team
+    from pkcm.engine.rng import Rng
+    from pkcm.engine.state import BattleConfig, new_battle
+    from pkcm.search.scripted import _oracle
+    from pkcm.envs.observation import Observation
+
+    config = BattleConfig(dex=dex, regulation=dex.regulation("m_b"),
+                          battle_format="singles")
+    teams = tuple(make_team(dex, config.regulation,
+                            Rng.from_seed(310 + offset).cursor(), "singles", "ranker")
+                  for offset in (1, 2))
+    state = new_battle(config, teams, seed=11)
+    state, _ = step(state, Action.select(0, 1, 2), Action.select(0, 1, 2))
+
+    honest = Observation.of(state, 0)
+    cheating = _oracle(state, 0)
+    assert any(known.species_id is None for known in honest.foe), (
+        "this position was meant to have something unrevealed")
+    assert all(known.species_id is not None for known in cheating.foe)
+    assert all(known.item_known for known in cheating.foe)

@@ -60,7 +60,8 @@ def evaluator_for(checkpoint, dex, battle_format: str, trust: float):
 
 def build(name: str, seed: int, iterations: int, determinizations: int,
           rollout: int, prior: float | None = None, evaluator=None,
-          ablate: tuple[str, ...] = (), exploration: float | None = None):
+          ablate: tuple[str, ...] = (), exploration: float | None = None,
+          switch_matchup: float | None = None):
     """``ablate`` switches named ``SearchConfig`` flags off.
 
     An ablation is the only way to find out whether a change did anything. Two
@@ -76,6 +77,8 @@ def build(name: str, seed: int, iterations: int, determinizations: int,
         extra.update({flag: False for flag in ablate})
         if exploration is not None:
             extra["exploration"] = exploration
+        if switch_matchup is not None:
+            extra["switch_matchup"] = switch_matchup
         config = SearchConfig(iterations=iterations,
                               determinizations=determinizations,
                               rollout_turns=rollout, **extra)
@@ -117,6 +120,12 @@ def main() -> int:
                              "Q over [-1, 1]; min-max normalisation puts ours "
                              "over [0, 1], so the same number pulls twice as "
                              "hard here")
+    parser.add_argument("--switch-matchup", type=float, default=None,
+                        help="how much a switch's matchup moves its prior; "
+                             "0 is the old flat SWITCH_PROMISE for every switch")
+    parser.add_argument("--switch-matchup-b", type=float, default=None,
+                        help="the same for side B, to put the two against "
+                             "each other directly")
     parser.add_argument("--exploration-b", type=float, default=None,
                         help="the same for --b, so the two can be matched "
                              "directly. Two win rates against a third party "

@@ -26,6 +26,11 @@ from pkcm.engine.pokemon import MAX_MOVES
 from pkcm.engine.state import BOOST_STATS, MAX_BOOST
 from pkcm.envs.observation import Observation
 
+#: Divisor that puts a computed stat near 1.0. Matches
+#: ``pkcm.envs.reference.STAT_SCALE``; kept as its own constant because
+#: ``reference`` imports this module and the other way round is a cycle.
+STAT_SCALE = 180.0
+
 #: The most Pokemon either side can bring in any Champions format.
 MAX_BROUGHT = 4
 #: Field positions a move can be aimed at, in index order.
@@ -177,6 +182,20 @@ SPEED_FEATURES = 2
 RISK_ROWS = 2 * MAX_POSITIONS
 RISK_FEATURES = 5
 
+#: Our six against their six, before anyone has moved. One row per pair.
+#:
+#: The pick prior is a sum over pairs, and a flat MLP over a concatenation
+#: cannot represent that -- it memorises combinations instead. Measured: a
+#: network four times the size fitted the training picks better (+0.097 nats off
+#: perfect) and generalised *worse* (+0.280 against +0.210), which is what
+#: overfitting a compositional function looks like. This hands it the primitive
+#: instead, the same way ``matchup`` already does for Pokemon on the field.
+#:
+#: Public information plus our own sets: their half reads base-stat midpoints,
+#: never their moves or spread.
+PREVIEW_ROWS = 6 * 6
+PREVIEW_FEATURES = 3
+
 
 def encode_matchup(observation: Observation, sheet, dex) -> tuple:
     """What the calculator can work out, laid out for a policy to read.
@@ -321,6 +340,22 @@ def encode_observation(observation: Observation, vocabulary: Vocabulary,
         for slot, species_id in enumerate(team[:6]):
             registered[team_index * 6 + slot] = vocabulary.species.get(species_id, 0)
 
+    # Our own six in full. At team preview nothing has been brought, so every
+    # other per-Pokemon array above is zeros and the species ids alone cannot
+    # tell a physical set from a special one on the same species -- which is
+    # exactly what the pick turns on. Ours to read; theirs stays species-only.
+    own_moves = np.zeros(6 * MAX_MOVES, dtype=np.int64)
+    own_items = np.zeros(6, dtype=np.int64)
+    own_abilities = np.zeros(6, dtype=np.int64)
+    own_stats = np.zeros(6 * 6, dtype=np.float32)
+    for slot, entry in enumerate(observation.own_sets[:6]):
+        for index, move_id in enumerate(entry.moves[:MAX_MOVES]):
+            own_moves[slot * MAX_MOVES + index] = vocabulary.moves.get(move_id, 0)
+        own_items[slot] = vocabulary.items.get(entry.item, 0)
+        own_abilities[slot] = vocabulary.abilities.get(entry.ability, 0)
+        for index, value in enumerate(entry.stats[:6]):
+            own_stats[slot * 6 + index] = value / STAT_SCALE
+
     encoded = {
         "scalars": scalars,
         "species": species,
@@ -330,10 +365,36 @@ def encode_observation(observation: Observation, vocabulary: Vocabulary,
         "moves": moves,
         "pp": pp,
         "registered": registered,
+        "own_moves": own_moves,
+        "own_items": own_items,
+        "own_abilities": own_abilities,
+        "own_stats": own_stats,
     }
     if sheet is not None and dex is not None:
         matchup, speed, risk = encode_matchup(observation, sheet, dex)
         encoded["matchup"] = matchup
         encoded["speed"] = speed
         encoded["risk"] = risk
+        encoded["preview"] = encode_preview(observation, dex)
     return encoded
+
+
+def encode_preview(observation: Observation, dex) -> np.ndarray:
+    """Every one of ours against every one of theirs, as the pick sees them."""
+    from pkcm.envs.analysis import matchup, our_threat, their_threat
+
+    grid = np.zeros((PREVIEW_ROWS, PREVIEW_FEATURES), dtype=np.float32)
+    theirs = observation.registered[1][:6]
+    for ours_index, entry in enumerate(observation.own_sets[:6]):
+        moves = [dex.moves[move_id] for move_id in entry.moves if move_id in dex.moves]
+        types = dex.species[entry.species_id].types
+        for foe_index, foe_id in enumerate(theirs):
+            if foe_id not in dex.species:
+                continue
+            row = ours_index * 6 + foe_index
+            grid[row] = (
+                our_threat(dex, moves, entry.stats, types, foe_id),
+                their_threat(dex, foe_id, entry.stats, types),
+                matchup(dex, moves, entry.stats, types, foe_id),
+            )
+    return grid

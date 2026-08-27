@@ -90,8 +90,24 @@ class ChampionsNet(nn.Module):
             + slots * width * 3                        # item, ability, status
             + slots * MAX_MOVES * (width + move_facts)  # moves: learned + facts
             + slots * MAX_MOVES                        # pp
-            + 12 * width                               # the registered six, both sides
+            # The registered six get the facts too, not just the learned id.
+            # At team preview they are the *only* non-zero input -- nothing
+            # has been brought, so every other array is zeros -- and the
+            # handcrafted pick prior is computed from types and base stats.
+            # Shown ids alone, the policy agreed with it 5.0% of the time on
+            # a 24-way choice, which is exactly chance.
+            + 12 * (width + species_facts)             # the registered six
+            # Our own six in full. At team preview every other per-Pokemon
+            # array is zeros, so without this a physical set and a special
+            # set on the same species are the *same input* -- and the pick
+            # they justify is different. Measured before it was here, the
+            # policy agreed with the handcrafted pick 6.7% of the time on a
+            # 24-way choice, against 4.2% for guessing.
+            + 6 * MAX_MOVES * (width + move_facts)     # our six's moves
+            + 6 * width * 2                            # our six's item, ability
+            + 6 * 6                                    # our six's stats
             + 16 * 7 + 4 * 2 + 4 * 5                   # matchup, speed, risk
+            + 36 * 3                                   # our six vs their six
         )
         self.stem = nn.Sequential(
             nn.Linear(features, self.config.hidden),
@@ -117,6 +133,8 @@ class ChampionsNet(nn.Module):
 
         species = batch["species"]
         moves = batch["moves"]
+        registered = batch["registered"]
+        own_moves = batch["own_moves"]
         parts = [
             batch["scalars"],
             flat(self.species(species)),
@@ -127,10 +145,17 @@ class ChampionsNet(nn.Module):
             flat(self.moves(moves)),
             flat(self.move_facts[moves]),
             batch["pp"],
-            flat(self.species(batch["registered"])),
+            flat(self.species(registered)),
+            flat(self.species_facts[registered]),
+            flat(self.moves(own_moves)),
+            flat(self.move_facts[own_moves]),
+            flat(self.items(batch["own_items"])),
+            flat(self.abilities(batch["own_abilities"])),
+            batch["own_stats"],
             flat(batch["matchup"]),
             flat(batch["speed"]),
             flat(batch["risk"]),
+            flat(batch["preview"]),
         ]
         hidden = self.norm(self.body(self.stem(torch.cat(parts, dim=1))))
         return self.policy_head(hidden), self.value_head(hidden).squeeze(-1)
@@ -148,7 +173,8 @@ class ChampionsNet(nn.Module):
 
 
 #: Which observation fields are indices rather than numbers.
-CATEGORICAL = ("species", "moves", "items", "abilities", "status", "registered")
+CATEGORICAL = ("species", "moves", "items", "abilities", "status", "registered",
+               "own_moves", "own_items", "own_abilities")
 
 
 def collate(observations: list[dict[str, np.ndarray]],

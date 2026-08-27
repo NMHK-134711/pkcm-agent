@@ -25,7 +25,7 @@ import numpy as np
 
 from pkcm.data.dex import Dex
 from pkcm.engine.battle import step
-from pkcm.engine.legality import random_team
+from pkcm.engine.legality import make_team
 from pkcm.engine.rng import Rng, RngCursor
 from pkcm.engine.state import BattleConfig, Phase, new_battle
 from pkcm.envs.encoding import (
@@ -75,6 +75,11 @@ class Sample:
 class SelfPlayConfig:
     battle_format: str = "singles"
     regulation: str = "m_b"
+    #: Which distribution the teams come from -- ``random`` or
+    #: ``ranker``. Random teams are the null distribution and a long
+    #: way from the game: 37.5% of their Pokemon carry no same-type
+    #: attack at all, against 4.9% of the ranker pool's.
+    teams: str = "random"
     search: SearchConfig = field(default_factory=SearchConfig)
     #: Stop a battle that will not end. The engine's own limit is 200 turns and
     #: reaching it is decided on attrition, which is a real result -- this is
@@ -100,8 +105,9 @@ def play_one(dex: Dex, config: SelfPlayConfig, seed: int) -> list[Sample]:
     battle_config = BattleConfig(dex=dex, regulation=dex.regulation(config.regulation),
                                  battle_format=config.battle_format)
     teams = tuple(
-        random_team(dex, battle_config.regulation,
-                    Rng.from_seed(seed * 2 + offset).cursor(), config.battle_format)
+        make_team(dex, battle_config.regulation,
+                  Rng.from_seed(seed * 2 + offset).cursor(), config.battle_format,
+                  config.teams)
         for offset in (1, 2)
     )
     state = new_battle(battle_config, teams, seed=seed)
@@ -140,16 +146,20 @@ def play_one(dex: Dex, config: SelfPlayConfig, seed: int) -> list[Sample]:
 
 #: One evaluator per worker process, not one per battle. Loading a checkpoint
 #: and rebuilding the reference sheet costs more than a couple of battles do.
-_EVALUATOR: tuple[str | None, float, object] | None = None
+_EVALUATOR: tuple[str | None, float, int, object] | None = None
 
 
 def _evaluator(dex: Dex, config: SelfPlayConfig):
     global _EVALUATOR
     if config.checkpoint is None:
         return None
-    key = (config.checkpoint, config.trust)
-    if _EVALUATOR is not None and _EVALUATOR[:2] == key:
-        return _EVALUATOR[2]
+    # Keyed by the dex too. ``sheet_for`` and the vocabulary are built
+    # against one dex object, so an evaluator cached under a different
+    # one answers with the wrong tables -- invisible in a worker, which
+    # only ever has one, and wrong in-process.
+    key = (config.checkpoint, config.trust, id(dex))
+    if _EVALUATOR is not None and _EVALUATOR[:3] == key:
+        return _EVALUATOR[3]
 
     from pkcm.envs.encoding import SCALAR_SIZE
     from pkcm.train.evaluator import from_checkpoint
@@ -160,21 +170,30 @@ def _evaluator(dex: Dex, config: SelfPlayConfig):
         config.checkpoint, dex,
         action_space_size(battle_config.registered, battle_config.brought),
         SCALAR_SIZE, device="cpu", trust=config.trust)
-    _EVALUATOR = (config.checkpoint, config.trust, built)
+    _EVALUATOR = (config.checkpoint, config.trust, id(dex), built)
     return built
 
 
 def _policy_target(result, width: int, battle_config: BattleConfig) -> np.ndarray:
-    """The visit distribution, spread over the flat action space.
+    """The search's visit distribution, spread over the flat action space."""
+    return policy_target(result.distribution, width, battle_config)
 
-    A doubles choice is several actions at once, so its visit share is split
-    evenly across the positions it covers. That is lossy -- it cannot express
-    "this pair together" -- and it is what a per-position policy head can
-    consume. A head that predicts joint actions would not need the split, and
-    would have a few hundred outputs to predict instead.
+
+def policy_target(distribution, width: int, battle_config: BattleConfig) -> np.ndarray:
+    """A distribution over joint choices, spread over the flat action space.
+
+    A doubles choice is several actions at once, so its share is split evenly
+    across the positions it covers. That is lossy -- it cannot express "this
+    pair together" -- and it is what a per-position policy head can consume. A
+    head that predicts joint actions would not need the split, and would have a
+    few hundred outputs to predict instead.
+
+    Shared with ``pkcm.train.imitate``, which hands it the handcrafted prior
+    instead of visit counts: the two have to land in the same shape or the
+    network cannot be pre-trained on one and fine-tuned on the other.
     """
     target = np.zeros(width, dtype=np.float32)
-    for choice, share in result.distribution:
+    for choice, share in distribution:
         if not choice:
             continue
         each = share / len(choice)

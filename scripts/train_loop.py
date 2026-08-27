@@ -21,6 +21,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import sys
 import time
 from pathlib import Path
@@ -67,6 +68,65 @@ def trust_for(iteration: int, value_mae: float | None = None) -> float:
     return max(0.0, min(ramp, 1.0 - value_mae))
 
 
+#: How often self-play and the arena say they are still alive.
+#:
+#: One line per iteration is seven minutes of silence, and **a run that has hung
+#: prints exactly what a run that is merely slow prints**. One did, on
+#: 2026-08-27: two arena workers died and the loop waited seventy-eight minutes
+#: with no output, no error and no CPU. A heartbeat is the difference between
+#: noticing that in a minute and noticing it in an hour.
+HEARTBEAT_SECONDS = 30.0
+
+
+def _heartbeat(done: int, total: int, what: str, started: float,
+               last: float) -> float:
+    """Print progress at most every ``HEARTBEAT_SECONDS``. Returns the new clock."""
+    now = time.perf_counter()
+    if now - last < HEARTBEAT_SECONDS and done < total:
+        return last
+    rate = done / max(now - started, 1e-9)
+    remaining = (total - done) / rate if rate > 0 else 0.0
+    print(f"        {what} {done}/{total}  {rate:.2f}/s  ~{remaining:.0f}s left",
+          flush=True)
+    return now
+
+
+
+def save_state(path: Path, net, optimiser, buffer: list, history: list,
+               iteration: int, earned: float | None) -> None:
+    """Everything the next iteration needs, written so a power cut cannot eat it.
+
+    ``torch.save`` straight to the real path is a long window in which the file
+    is neither the old state nor the new one, and this runs on a machine whose
+    power goes off when its owner leaves the room. Written beside it and moved
+    into place instead: ``os.replace`` is atomic, so the file is always one
+    whole checkpoint or the other.
+
+    The replay buffer is the expensive part -- 40,000 samples is about 124 MB --
+    and it is also the part that cannot be rebuilt. Weights survive in
+    ``net.pt``; the buffer is seven iterations of self-play, and starting over
+    without it is most of the run.
+    """
+    scratch = path.with_suffix(".tmp")
+    torch.save({
+        "iteration": iteration,
+        "earned": earned,
+        "history": history,
+        "buffer": buffer,
+        "net": net.state_dict(),
+        "optimiser": optimiser.state_dict(),
+    }, scratch)
+    os.replace(scratch, path)
+
+
+def load_state(path: Path, net, optimiser, device):
+    """Pick a run back up, or say why it cannot be picked up."""
+    payload = torch.load(path, map_location=device, weights_only=False)
+    net.load_state_dict(payload["net"])
+    optimiser.load_state_dict(payload["optimiser"])
+    return payload
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--iterations", type=int, default=3)
@@ -75,6 +135,12 @@ def main() -> int:
     parser.add_argument("--format", default="singles", choices=("singles", "doubles"))
     parser.add_argument("--workers", type=int, default=None)
     parser.add_argument("--epochs", type=int, default=2)
+    parser.add_argument("--teams", default="random",
+                        choices=("random", "ranker"),
+                        help="which distribution teams come from. ``ranker`` "
+                             "recombines the imported pkmnchamps parties; "
+                             "37.5%% of random Pokemon carry no same-type "
+                             "attack at all, against 4.9%% of those")
     parser.add_argument("--search-value-weight", type=float, default=0.0,
                         help="how much of the value target is the search's "
                              "root value rather than who won. Off by default "
@@ -84,6 +150,17 @@ def main() -> int:
     parser.add_argument("--buffer", type=int, default=40000,
                         help="samples kept across iterations")
     parser.add_argument("--out", type=Path, default=Path("runs/latest"))
+    parser.add_argument("--resume", action="store_true",
+                        help="carry on from <out>/state.pt if it is there. The "
+                             "buffer and the optimiser moments are in it too, "
+                             "so the run continues rather than restarting with "
+                             "the same weights")
+    parser.add_argument("--init", type=Path, default=None,
+                        help="start from a saved network instead of a random "
+                             "one -- e.g. scripts/pretrain.py's output. A random "
+                             "network is a far worse prior than the handcrafted "
+                             "one, and the loop spends every iteration it has "
+                             "climbing back to par rather than past it")
     parser.add_argument("--seed", type=int, default=0)
     parser.add_argument("--project", default="pkcm-agent", help="wandb project")
     parser.add_argument("--name", default=None, help="wandb run name")
@@ -109,6 +186,13 @@ def main() -> int:
     optimiser = torch.optim.AdamW(net.parameters(), lr=settings.learning_rate,
                                   weight_decay=settings.weight_decay)
 
+    if args.init is not None:
+        from pkcm.train.trainer import load_into
+
+        payload = load_into(net, args.init, device)
+        print(f"  started from {args.init} "
+              f"({payload.get('pretrained', 'checkpoint')})")
+
     workers = args.workers if args.workers is not None else default_workers()
     args.out.mkdir(parents=True, exist_ok=True)
     checkpoint = args.out / "net.pt"
@@ -133,6 +217,7 @@ def main() -> int:
             "parameters": parameters,
             "device": str(device),
             "seed": args.seed,
+            "init": str(args.init) if args.init else None,
         },
     )
     if log.url:
@@ -143,8 +228,30 @@ def main() -> int:
     #: Last round's held-out value error, which is what this round's trust is
     #: capped by. ``None`` before there is one -- the ramp alone decides then.
     earned: float | None = None
-    for iteration in range(args.iterations):
-        trust = trust_for(iteration, earned)
+    state_path = args.out / "state.pt"
+    first = 0
+
+    if args.resume and state_path.exists():
+        payload = load_state(state_path, net, optimiser, device)
+        buffer = payload["buffer"]
+        history = payload["history"]
+        earned = payload["earned"]
+        first = payload["iteration"] + 1
+        print(f"  resumed at iteration {first} "
+              f"({len(buffer)} samples in the buffer, {len(history)} recorded)")
+        # The rows before the cut are already on the chart: the wandb run is
+        # keyed to the output directory, so this reconnects to it rather than
+        # starting a second one. Re-sending them would only argue with it about
+        # steps it has already recorded.
+    elif args.resume:
+        print(f"  (nothing to resume at {state_path} -- starting fresh)")
+
+    for iteration in range(first, args.iterations):
+        # A pre-trained network is not the random one the ramp was written for:
+        # it has already been measured against the handcrafted search, so it
+        # starts trusted and stays capped by its held-out error like any other.
+        trust = (trust_for(iteration, earned) if args.init is None
+                 else max(0.0, min(1.0, 1.0 - (earned if earned is not None else 0.0))))
         selfplay = SelfPlayConfig(
             battle_format=args.format,
             search=SearchConfig(
@@ -152,13 +259,17 @@ def main() -> int:
                 determinizations=max(4, args.search_iterations // 20)),
             checkpoint=None if iteration == 0 else str(checkpoint),
             trust=trust,
+            teams=args.teams,
         )
 
         started = time.perf_counter()
         fresh: list = []
-        for batch in generate(selfplay, args.battles,
-                              seed=args.seed + iteration * 10000, workers=workers):
+        beat = started
+        for done, batch in enumerate(generate(
+                selfplay, args.battles,
+                seed=args.seed + iteration * 10000, workers=workers), 1):
             fresh.extend(batch)
+            beat = _heartbeat(done, args.battles, "self-play", started, beat)
         played = time.perf_counter() - started
 
         buffer.extend(fresh)
@@ -187,7 +298,7 @@ def main() -> int:
         }
 
         if args.evaluate_every and (iteration + 1) % args.evaluate_every == 0:
-            rate, low, high = measure(args, dex, checkpoint, iteration)
+            rate, low, high = measure(args, checkpoint, workers)
             beats = low > 0.5
             row["arena/win_rate_vs_search"] = round(rate, 4)
             row["arena/ci_low"] = round(low, 4)
@@ -198,6 +309,7 @@ def main() -> int:
                   f"{'' if beats or high < 0.5 else '   (not separable)'}")
 
         history.append(row)
+        save_state(state_path, net, optimiser, buffer, history, iteration, earned)
         log.log(row, step=iteration)
 
         print(f"  [{iteration}] trust {trust:.1f}  {len(fresh):5} new  "
@@ -228,49 +340,33 @@ def main() -> int:
     return 0
 
 
-def measure(args, dex, checkpoint: Path,
-            iteration: int) -> tuple[float, float, float]:
+def measure(args, checkpoint: Path, workers: int) -> tuple[float, float, float]:
     """Put the network's search against the handcrafted one.
 
     Not against greedy: greedy is the floor, and beating it says only that the
     search works. The question training has to answer is whether the network is
     better than the power-times-effectiveness score it replaced.
+
+    Across the same pool self-play uses. Played one at a time this was the
+    slowest thing in the loop by a factor of four -- forty battles of search
+    against search on one core, while the other eighteen sat out.
     """
-    from pkcm.engine.legality import random_team
-    from pkcm.engine.rng import Rng
-    from pkcm.engine.state import BattleConfig, new_battle
-    from pkcm.search import MCTS, SearchConfig
-    from pkcm.search.policy import SearchPolicy, play_out
-    from pkcm.train.evaluator import from_checkpoint
+    from pkcm.train.matchup import MatchConfig, Record
+    from pkcm.train.matchup import stream as play
 
-    config = BattleConfig(dex=dex, regulation=dex.regulation("m_b"),
-                          battle_format=args.format)
-    registered, brought = config.regulation.bring_select(args.format)
-    evaluator = from_checkpoint(checkpoint, dex, action_space_size(registered, brought),
-                                SCALAR_SIZE, device="cpu", trust=1.0)
-    search = SearchConfig(iterations=args.search_iterations,
-                          determinizations=max(4, args.search_iterations // 20))
+    config = MatchConfig(
+        checkpoint=str(checkpoint), battle_format=args.format,
+        teams=args.teams,
+        search=SearchConfig(iterations=args.search_iterations,
+                            determinizations=max(4, args.search_iterations // 20)),
+        trust=1.0)
 
-    wins = losses = 0
-    for match in range(args.evaluate_battles):
-        teams = tuple(random_team(dex, config.regulation,
-                                  Rng.from_seed(90000 + match * 2 + offset).cursor(),
-                                  args.format) for offset in (1, 2))
-        # Both seatings, so a win rate cannot come from the draw.
-        for swap in (False, True):
-            netted = SearchPolicy(MCTS(search, evaluator=evaluator),
-                                  Rng.from_seed(match).cursor())
-            plain = SearchPolicy(MCTS(search), Rng.from_seed(match + 7777).cursor())
-            policies = (plain, netted) if swap else (netted, plain)
-            state = play_out(new_battle(config, teams, seed=match), policies)
-            net_side = 1 if swap else 0
-            if state.winner is None:
-                continue
-            wins += state.winner == net_side
-            losses += state.winner != net_side
-
-    rate, low, high = wilson(wins, wins + losses)
-    return rate, low, high
+    started = beat = time.perf_counter()
+    record = Record()
+    for done, one in enumerate(play(config, args.evaluate_battles, workers), 1):
+        record += one
+        beat = _heartbeat(done, args.evaluate_battles, "arena", started, beat)
+    return wilson(record.wins, record.decided)
 
 
 if __name__ == "__main__":

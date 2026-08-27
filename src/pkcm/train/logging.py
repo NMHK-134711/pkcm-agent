@@ -31,6 +31,11 @@ class RunLog:
     directory: Path
     project: str = "pkcm-agent"
     name: str | None = None
+    #: A stable id for this run, so a restart appends to the same wandb chart
+    #: instead of starting a second one beside it. Derived from the output
+    #: directory when nothing is passed: the directory is what ``--resume``
+    #: keys on, so two runs that resume each other necessarily share it.
+    run_id: str | None = None
     config: dict[str, Any] = field(default_factory=dict)
     #: Set false to skip wandb entirely, whatever the environment says.
     use_wandb: bool = True
@@ -42,7 +47,8 @@ class RunLog:
         self.directory.mkdir(parents=True, exist_ok=True)
         if not self.use_wandb:
             return
-        self._run = _start_wandb(self.project, self.name, self.config, self.directory)
+        self._run = _start_wandb(self.project, self.name, self.config,
+                                 self.directory, self.run_id or _id_for(self.directory))
 
     @property
     def online(self) -> bool:
@@ -84,7 +90,21 @@ class RunLog:
             self._run = None
 
 
-def _start_wandb(project: str, name: str | None, config: dict, directory: Path):
+def _id_for(directory: Path) -> str:
+    """A stable id from where the run writes.
+
+    ``runs/fifth`` always means the same wandb run. That is the property that
+    matters on a machine whose power goes off when its owner leaves the room:
+    the loop resumes from ``state.pt`` and the chart resumes with it, rather
+    than the dashboard filling up with fragments of one experiment.
+    """
+    import hashlib
+
+    return hashlib.sha1(str(directory.resolve()).encode("utf-8")).hexdigest()[:16]
+
+
+def _start_wandb(project: str, name: str | None, config: dict, directory: Path,
+                 run_id: str | None = None):
     """Start a run, or return ``None`` and say why.
 
     Never raises. A training run that dies because a logger could not reach the
@@ -104,7 +124,8 @@ def _start_wandb(project: str, name: str | None, config: dict, directory: Path):
 
     try:
         return wandb.init(project=project, name=name, config=config,
-                          dir=str(directory), reinit=True)
+                          dir=str(directory), reinit=True,
+                          id=run_id, resume="allow")
     except Exception as error:  # pragma: no cover - offline, quota, anything
         print(f"  (wandb unavailable: {error} -- logging to history.json only)")
         return None

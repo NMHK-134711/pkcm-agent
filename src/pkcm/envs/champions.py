@@ -47,6 +47,8 @@ from pkcm.envs.encoding import (
     MATCHUP_ROWS,
     MAX_BROUGHT,
     SCALAR_SIZE,
+    PREVIEW_FEATURES,
+    PREVIEW_ROWS,
     RISK_FEATURES,
     RISK_ROWS,
     SPEED_FEATURES,
@@ -136,6 +138,12 @@ class ChampionsEnv(ParallelEnv):
             "moves": spaces.MultiDiscrete([sizes["moves"]] * (slots * MAX_MOVES)),
             "pp": spaces.Box(0.0, 1.0, (slots * MAX_MOVES,), dtype=np.float32),
             "registered": spaces.MultiDiscrete([sizes["species"]] * 12),
+            # Our own six in full -- the only thing that separates two teams of
+            # the same species at team preview. Theirs stays species-only.
+            "own_moves": spaces.MultiDiscrete([sizes["moves"]] * (6 * MAX_MOVES)),
+            "own_items": spaces.MultiDiscrete([sizes["items"]] * 6),
+            "own_abilities": spaces.MultiDiscrete([sizes["abilities"]] * 6),
+            "own_stats": spaces.Box(0.0, 4.0, (6 * 6,), dtype=np.float32),
         }
         if self.with_analysis:
             # Effectiveness runs from x0 to x4, so log2 lands in [-2, 2].
@@ -144,6 +152,9 @@ class ChampionsEnv(ParallelEnv):
                                            dtype=np.float32)
             fields["speed"] = spaces.Box(0.0, 1.0, (SPEED_ROWS, SPEED_FEATURES),
                                          dtype=np.float32)
+            fields["preview"] = spaces.Box(-2.0, 2.0,
+                                           (PREVIEW_ROWS, PREVIEW_FEATURES),
+                                           dtype=np.float32)
             fields["risk"] = spaces.Box(0.0, 1.0, (RISK_ROWS, RISK_FEATURES),
                                         dtype=np.float32)
         return spaces.Dict(fields)

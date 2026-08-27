@@ -226,11 +226,19 @@ def _learnable_matrix(dex: Dex, vocabulary: Vocabulary) -> np.ndarray:
 
 #: One sheet per dex object. Building the learnable matrix walks every species,
 #: so it is worth not doing per environment.
-_CACHE: dict[int, ReferenceSheet] = {}
+#:
+#: Keyed by ``id(dex)`` **and holding the dex alive**. Without the second half
+#: the entry outlives the object it describes: CPython reuses an address once
+#: the old dex is collected, and the next dex to land there silently gets the
+#: previous one's sheet. That showed up as a test comparing a serial run against
+#: a pooled one and disagreeing about one battle in ten -- in a worker there is
+#: only ever one dex, so it could not happen there.
+_CACHE: dict[int, tuple[Dex, ReferenceSheet]] = {}
 
 
 def sheet_for(dex: Dex, vocabulary: Vocabulary) -> ReferenceSheet:
     key = id(dex)
-    if key not in _CACHE:
-        _CACHE[key] = ReferenceSheet.of(dex, vocabulary)
-    return _CACHE[key]
+    found = _CACHE.get(key)
+    if found is None or found[0] is not dex:
+        _CACHE[key] = (dex, ReferenceSheet.of(dex, vocabulary))
+    return _CACHE[key][1]

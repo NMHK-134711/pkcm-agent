@@ -114,10 +114,17 @@ class Evaluator:
     # -- one forward pass, reused ------------------------------------------ #
 
     def _look(self, state: BattleState, player: int) -> tuple[np.ndarray, float]:
+        # Keyed by ``id(state)`` **and holding the state alive**. A search
+        # creates and drops determinizations by the hundred inside one decision,
+        # CPython reuses an address the moment one is collected, and the next
+        # state to land there would be answered with its predecessor's
+        # evaluation. Nothing fails: the tree simply gets a wrong number
+        # sometimes, and *which* times depends on allocation order, so the same
+        # seed gave different battles in a worker than in the parent.
         key = (id(state), player, state.turn, state.phase)
         found = self._cache.get(key)
-        if found is not None:
-            return found
+        if found is not None and found[0] is state:
+            return found[1]
 
         observation = Observation.of(state, player)
         encoded = encode_observation(observation, self._vocabulary, self._sheet, self.dex)
@@ -128,7 +135,7 @@ class Evaluator:
         # and hold every state a self-play game ever visited.
         if len(self._cache) > 4096:
             self._cache.clear()
-        self._cache[key] = found
+        self._cache[key] = (state, found)
         return found
 
     def reset(self) -> None:

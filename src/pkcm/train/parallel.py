@@ -20,7 +20,7 @@ from __future__ import annotations
 import multiprocessing as mp
 import os
 from dataclasses import replace
-from typing import Iterator
+from typing import Any, Iterator
 
 from pkcm.data.dex import Dex, load_dex
 from pkcm.train.samples import Sample, SelfPlayConfig, play_one
@@ -51,6 +51,55 @@ def default_workers() -> int:
     return max(1, (os.cpu_count() or 2) - 1)
 
 
+def map_unordered(task, items, *, initializer, initargs, workers: int,
+                  attempts: int = 3, what: str = "task") -> Iterator[Any]:
+    """Map ``task`` over ``items``, surviving a worker that dies mid-task.
+
+    ``Pool.imap_unordered`` does not. When a worker segfaults -- and one did,
+    twice, ten minutes into an arena on 2026-08-27 (``0xc0000005`` in
+    python313.dll) -- the pool quietly starts a replacement, but the task the
+    dead worker was holding is never rescheduled and never returned. The
+    parent waits for it forever: no error, no CPU, no output. That run sat
+    idle for seventy-eight minutes before anyone looked.
+
+    ``ProcessPoolExecutor`` raises ``BrokenProcessPool`` instead, which is the
+    difference between a hang and a retry. Items are re-run in a fresh pool,
+    and whatever still will not survive is **dropped loudly** -- a silent cap
+    reads as "we measured everything" when we did not.
+    """
+    from concurrent.futures import ProcessPoolExecutor, as_completed
+    from concurrent.futures.process import BrokenProcessPool
+
+    context = mp.get_context("spawn")
+    remaining = list(items)
+    for attempt in range(attempts):
+        if not remaining:
+            return
+        done: set = set()
+        pool = ProcessPoolExecutor(max_workers=min(workers, len(remaining)),
+                                   mp_context=context,
+                                   initializer=initializer, initargs=initargs)
+        try:
+            futures = {pool.submit(task, item): item for item in remaining}
+            for future in as_completed(futures):
+                result = future.result()
+                done.add(futures[future])
+                yield result
+        except BrokenProcessPool:
+            pass
+        finally:
+            # A broken pool has already lost its workers; waiting on them can
+            # hang for the same reason we are here.
+            pool.shutdown(wait=False, cancel_futures=True)
+
+        remaining = [item for item in remaining if item not in done]
+        if remaining and attempt + 1 < attempts:
+            print(f"  ({len(remaining)} {what}(s) lost to a worker crash "
+                  f"-- retrying in a fresh pool)")
+    if remaining:
+        print(f"  (!! {len(remaining)} {what}(s) dropped after {attempts} attempts)")
+
+
 def generate(config: SelfPlayConfig, battles: int, seed: int = 0,
              workers: int | None = None) -> Iterator[list[Sample]]:
     """Play ``battles`` self-play games, yielding each one's samples as it lands.
@@ -67,11 +116,10 @@ def generate(config: SelfPlayConfig, battles: int, seed: int = 0,
             yield play_one(dex, config, one)
         return
 
-    context = mp.get_context("spawn")
-    with context.Pool(count, initializer=_start_worker, initargs=(config,)) as pool:
-        # Unordered: a battle that ends quickly should not wait behind a long
-        # one, and nothing downstream cares which order they arrive in.
-        yield from pool.imap_unordered(_play, seeds, chunksize=1)
+    # Unordered: a battle that ends quickly should not wait behind a long one,
+    # and nothing downstream cares which order they arrive in.
+    yield from map_unordered(_play, seeds, initializer=_start_worker,
+                             initargs=(config,), workers=count, what="battle")
 
 
 def quick(config: SelfPlayConfig, battles: int, **kwargs) -> list[Sample]:

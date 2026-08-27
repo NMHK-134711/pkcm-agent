@@ -1095,6 +1095,41 @@ register("volatile", "helpinghand", name="Helping Hand",
 
 
 # --------------------------------------------------------------------------- #
+# Damaging moves that also lay something down
+#
+# Showdown keeps these in ``secondary.onHit`` JavaScript, so what we import
+# carries an empty ``secondary: {}`` and the declarative path lays nothing. The
+# move still hits for its damage, which is why nothing ever failed: docs are
+# explicit that **a damaging move missing its conditional half just looks like a
+# weak move**. Found by playing one, not by a test.
+# --------------------------------------------------------------------------- #
+
+#: move id -> the hazard it leaves on the target's side.
+HAZARD_ON_HIT = {"ceaselessedge": "spikes", "stoneaxe": "stealthrock"}
+
+
+@special("ceaselessedge", "stoneaxe")
+def _hazard_on_hit(ctx, user, target, move) -> bool:
+    from pkcm.engine.conditions import add_side_condition
+
+    return add_side_condition(ctx, target[0], HAZARD_ON_HIT[move.id], user)
+
+
+@special("burnup")
+def _burn_up(ctx, user, target, move) -> bool:
+    """The user's Fire type burns away, leaving whatever else it had.
+
+    ``MOVE_PRECONDITIONS`` refuses the move outright unless the user is Fire, so
+    by the time this runs there is always a type to remove.
+    """
+    remaining = tuple(name for name in ctx.state.types(*user) if name != "Fire")
+    ctx.state.set_override(user[0], user[1], "types", remaining)
+    ctx.emit(Event("type_change", side=user[0], slot=user[1],
+                   detail="/".join(remaining) or "typeless"))
+    return True
+
+
+# --------------------------------------------------------------------------- #
 # Rearranging the turn
 #
 # After You and Quash reach into the queue the turn loop is working through.

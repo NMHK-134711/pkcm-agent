@@ -387,6 +387,34 @@ SIDE_CONDITION_DURATION = {"reflect": 5, "lightscreen": 5, "auroraveil": 5, "tai
 SIDE_CONDITION_LAYERS = {"spikes": 3, "toxicspikes": 2, "stealthrock": 1, "stickyweb": 1}
 
 
+def add_side_condition(ctx: Context, side_index: int, name: str,
+                       source: Ref) -> bool:
+    """Put up a screen or lay a layer of hazard. Says whether anything changed.
+
+    Shared with ``moves._apply_field_effects`` so the declarative path and the
+    hand-written ones cap layers, refuse to re-set a screen, and emit the same
+    event. Two copies of this drift, and the drift shows up as a fourth layer of
+    Spikes that nothing complains about.
+    """
+    from pkcm.engine import effects as fx
+
+    conditions = ctx.state.sides[side_index].conditions
+    if name in SIDE_CONDITION_DURATION:
+        if name in conditions:
+            return False  # a screen already up cannot be re-set
+        conditions[name] = fx.modify(
+            ctx, "modify_field_duration", SIDE_CONDITION_DURATION[name],
+            source, scope="self", field=name, kind="side")
+    else:
+        if conditions.get(name, 0) >= SIDE_CONDITION_LAYERS.get(name, 1):
+            return False
+        conditions[name] = conditions.get(name, 0) + 1
+
+    ctx.emit(Event("side_condition", side=side_index, detail=name,
+                   amount=conditions[name]))
+    return True
+
+
 def apply_entry_hazards(ctx: Context, ref: Ref) -> None:
     """Everything that greets a Pokemon as it lands on the field."""
     side_index, slot = ref

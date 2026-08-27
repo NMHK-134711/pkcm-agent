@@ -271,6 +271,12 @@ class BattleState:
     #: can be picked up again on the next ``step``.
     turn_actions: tuple = ()
     turn_queue: list[int] = field(default_factory=list)
+    #: Which party slot was standing in each queued position when the order was
+    #: fixed. **An action belongs to the Pokemon that chose it, not to the square
+    #: it was standing on.** Dragged out by Roar before it moved, its action is
+    #: cancelled -- and the replacement must not inherit it, which is what
+    #: happened while the queue was keyed by position alone.
+    turn_actors: dict = field(default_factory=dict)
     field: FieldState = field(default_factory=FieldState)
     phase: Phase = Phase.TEAM_PREVIEW
     turn: int = 0
@@ -301,6 +307,7 @@ class BattleState:
             mega_used=list(self.mega_used),
             turn_actions=self.turn_actions,
             turn_queue=list(self.turn_queue),
+            turn_actors=dict(self.turn_actors),
             revealed=(self.revealed[0].clone(), self.revealed[1].clone()),
             overrides=(
                 [dict(slot) for slot in self.overrides[0]],

@@ -12,11 +12,21 @@ dist/
 data/raw/
 
 # Training artifacts
-runs/
+runs/*
 checkpoints/
 wandb/
 *.pt
 *.ckpt
+
+# ...except the pre-trained network the AlphaZero loop starts from. 19 MB, and
+# it is the one artifact a second machine cannot cheaply reproduce: rebuilding
+# it is half an hour of generation plus its own arena run to confirm it still
+# lands at parity with the handcrafted search, and "statistically equivalent"
+# is not the same checkpoint to resume an experiment from.
+!runs/imitate8/
+runs/imitate8/*
+!runs/imitate8/net.pt
+!runs/imitate8/summary.json
 
 # Showdown TypeScript sources, used as the mechanics reference
 # (regenerate with: python scripts/fetch_showdown_source.py)

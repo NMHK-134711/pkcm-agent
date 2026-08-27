@@ -344,3 +344,96 @@ def test_declarative_moves_are_supported_now(dex):
     # is unsupported.
     for move_id in ("haze", "trick", "rest", "taunt", "encore", "defog"):
         assert move_support(dex.moves[move_id]) is None, move_id
+
+
+def _set(species, ability="__none__", moves=("bodyslam",), item=None, **kwargs):
+    from pkcm.engine.pokemon import PokemonSet
+
+    return PokemonSet(species=species, ability=ability, moves=tuple(moves), item=item,
+                      **{"nature": "serious", "sp": (0, 0, 0, 0, 0, 0), **kwargs})
+
+
+def _built(dex, config, red, blue, blue_second):
+    """A singles battle already past team preview, with a known blue bench."""
+    filler = [_set(s) for s in ("pikachu", "starmie", "gengar", "alakazam")]
+    teams = (tuple([red] + [_set("snorlax")] + filler),
+             tuple([blue, blue_second] + filler))
+    state = new_battle(config, teams, seed=7)
+    return step(state, Action.select(0, 1, 2), Action.select(0, 1, 2))[0]
+
+
+# --------------------------------------------------------------------------- #
+# An action belongs to the Pokemon that chose it
+# --------------------------------------------------------------------------- #
+
+
+def test_a_dragged_in_pokemon_does_not_inherit_the_turn(dex, config):
+    """Roar is priority -6, so it usually resolves last -- but not against Trick
+    Room at -7. Whoever it drags in arrives *after* the queue was built, and the
+    action queued for that square was chosen by the Pokemon that just left.
+
+    Found by playing a game: Roar dragged the opponent out and the replacement
+    immediately attacked on the turn it arrived.
+    """
+    state = _built(dex, config,
+                   red=_set("alakazam", moves=("roar", "bodyslam")),
+                   blue=_set("snorlax", moves=("trickroom", "bodyslam")),
+                   blue_second=_set("machamp", moves=("bodyslam",)))
+    state, log = step(state, Action.move(0), Action.move(0))
+    kinds = [event.kind for event in log]
+    assert "dragged_out" in kinds, kinds
+    movers = [event for event in log if event.kind == "move_used"]
+    assert [event.move for event in movers] == ["roar"], (
+        "the Pokemon dragged in used the move its predecessor had chosen")
+
+
+def test_ally_switch_still_lets_both_partners_move(dex):
+    """The cancellation above must key on *who left the field*, not on the
+    square changing hands: Ally Switch swaps two positions and both Pokemon
+    still act."""
+    from pkcm.engine.state import BattleConfig
+
+    doubles = BattleConfig(dex=dex, regulation=dex.regulation("m_b"),
+                           battle_format="doubles")
+    filler = [_set(s) for s in ("pikachu", "starmie", "gengar", "alakazam")]
+    teams = (tuple([_set("snorlax", moves=("allyswitch", "bodyslam")),
+                    _set("machamp", moves=("bodyslam",))] + filler),
+             tuple([_set("gengar", moves=("bodyslam",)),
+                    _set("starmie", moves=("bodyslam",))] + filler))
+    state = new_battle(doubles, teams, seed=5)
+    state, _ = step(state, Action.select(0, 1, 2, 3), Action.select(0, 1, 2, 3))
+    state, log = step(state,
+                      (Action.move(0), Action.move(0)),
+                      (Action.move(0), Action.move(0)))
+    used = [event for event in log if event.kind == "move_used" and event.side == 0]
+    assert len(used) == 2, (
+        "swapping places is not leaving the field; both partners still move")
+
+
+def test_ceaseless_edge_lays_a_layer_of_spikes(dex, config):
+    """Showdown keeps this in ``secondary.onHit`` JavaScript, so the imported
+    data carries an empty ``secondary`` and the declarative path lays nothing.
+    The damage still landed, which is why it never failed -- a damaging move
+    missing its conditional half just looks like a weak move."""
+    state = _built(dex, config,
+                   red=_set("samurotthisui", moves=("ceaselessedge",)),
+                   blue=_set("snorlax", moves=("splash",)),
+                   blue_second=_set("machamp", moves=("splash",)))
+    state, _ = step(state, Action.move(0), Action.move(0))
+    assert state.sides[1].conditions.get("spikes") == 1
+
+    # And it stacks to the same cap the declarative move does. The target is
+    # topped back up between hits so the battle does not end first.
+    for _ in range(3):
+        state.sides[1].hp[0] = state.pokemon(1, 0).stats[Stat.HP]
+        state, _ = step(state, Action.move(0), Action.move(0))
+    assert state.sides[1].conditions["spikes"] == 3
+
+
+def test_stone_axe_lays_stealth_rock(dex, config):
+    state = _built(dex, config,
+                   red=_set("kleavor", moves=("stoneaxe",)),
+                   blue=_set("snorlax", moves=("splash",)),
+                   blue_second=_set("machamp", moves=("splash",)))
+    state, _ = step(state, Action.move(0), Action.move(0))
+    assert state.sides[1].conditions.get("stealthrock") == 1

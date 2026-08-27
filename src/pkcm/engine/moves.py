@@ -221,10 +221,18 @@ def _needs_terrain(ctx: Context, ref: Ref, move: Move) -> str | None:
     return "no terrain" if ctx.state.field.terrain is None else None
 
 
+def _needs_own_type(type_name: str):
+    def refuse(ctx: Context, ref: Ref, move: Move) -> str | None:
+        return None if type_name in ctx.state.types(*ref) else f"not {type_name}"
+
+    return refuse
+
+
 #: Moves that refuse to run under some condition, checked before PP is spent.
 #: The string is the reason, and it reaches the log.
 MOVE_PRECONDITIONS: dict[str, Callable[[Context, Ref, Move], str | None]] = {
     "steelroller": _needs_terrain,
+    "burnup": _needs_own_type("Fire"),
 }
 
 
@@ -1113,28 +1121,11 @@ def _apply_field_effects(ctx: Context, attacker: Ref, target: Ref, move: Move) -
 
     condition = raw.get("sideCondition")
     if condition:
-        from pkcm.engine.conditions import SIDE_CONDITION_DURATION, SIDE_CONDITION_LAYERS
+        from pkcm.engine.conditions import add_side_condition
 
-        name = _to_id(condition)
         side_index = (attacker[0] if move.target in SELF_TARGETS or move.target == "allySide"
                       else 1 - attacker[0])
-        conditions = ctx.state.sides[side_index].conditions
-
-        if name in SIDE_CONDITION_DURATION:
-            if name in conditions:
-                return changed  # a screen already up cannot be re-set
-            conditions[name] = fx.modify(
-                ctx, "modify_field_duration", SIDE_CONDITION_DURATION[name],
-                attacker, scope="self", field=name, kind="side")
-        else:
-            cap = SIDE_CONDITION_LAYERS.get(name, 1)
-            if conditions.get(name, 0) >= cap:
-                return changed
-            conditions[name] = conditions.get(name, 0) + 1
-
-        ctx.emit(Event("side_condition", side=side_index, detail=name,
-                       amount=conditions[name]))
-        changed = True
+        changed |= add_side_condition(ctx, side_index, _to_id(condition), attacker)
 
     return changed
 

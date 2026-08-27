@@ -213,6 +213,8 @@ def _resolve_turn(ctx: Context, choices: Choices) -> None:
 
     state.turn_actions = choices
     state.turn_queue = _move_order(ctx, choices, attackers)
+    state.turn_actors = {actor: state.sides[actor[0]].active[actor[1]]
+                         for actor in state.turn_queue}
     _run_queue(ctx)
 
 
@@ -247,6 +249,16 @@ def _run_queue(ctx: Context) -> None:
         slot = side.active[position]
         if slot < 0 or side.is_fainted(slot):
             continue  # knocked out before it could act
+
+        # Roar, Whirlwind, Dragon Tail, Circle Throw, Eject Button: whoever
+        # chose this action may have been taken off the field before it got to
+        # act. Its action is cancelled -- the Pokemon standing there now did not
+        # choose it and does not get a free move. Position is not identity, and
+        # keying this by position alone let a dragged-in Pokemon attack on the
+        # turn it arrived.
+        chose = state.turn_actors.get((player, position))
+        if chose is not None and side.position_of(chose) is None:
+            continue
 
         _use(ctx, player, position, _action_for(state.turn_actions, player, position))
         ctx.acted.add((player, slot))

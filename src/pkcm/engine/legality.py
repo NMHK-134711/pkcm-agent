@@ -17,6 +17,7 @@ from __future__ import annotations
 
 import json
 from dataclasses import dataclass
+from functools import lru_cache
 from pathlib import Path
 
 
@@ -72,17 +73,26 @@ def registrable_abilities(species) -> tuple[str, ...]:
 
 
 def clause_violation(move) -> str | None:
-    """Champions' standard ruleset bans three whole categories of move.
+    """What the format refuses to let a team carry.
 
-    From ``mods/champions/rulesets.ts``: the ``standard`` ruleset adds Sleep
-    Moves Clause, OHKO Clause and Evasion Clause on top of Species and Item
-    Clause. Checking the move's data rather than a hand-written ban list means
-    new moves are covered automatically.
+    ``mods/champions/rulesets.ts`` lists Sleep Moves Clause, OHKO Clause and
+    Evasion Clause in its ``standard`` ruleset, and this used to enforce all
+    three. **Two of them are not in the game.**
+
+    hk confirmed Sleep Powder is usable, and the ladder archive agrees at a
+    scale that is hard to argue with: of 113 ranker parties from 2400-2800,
+    **eleven carry a sleep move** -- Sleep Powder ten times and Hypnosis once --
+    and three carry a one-hit-KO move (Fissure, Horn Drill, Guillotine). Those
+    are teams that were actually played.
+
+    So the Showdown mod is describing a ruleset the game does not run, and
+    docs/HANDOFF.md's note that "Hypnosis and Sing are in the table and cannot
+    go on a team" was our inference from it rather than an observation.
+
+    Evasion Clause stays: nothing in the archive uses an evasion move, which is
+    no evidence either way, and removing a ban on no evidence is how a format
+    quietly stops being the format.
     """
-    if move.raw.get("status") == "slp":
-        return "sleep moves clause"
-    if move.raw.get("ohko"):
-        return "OHKO clause"
     boosts = move.raw.get("boosts") or {}
     if boosts.get("evasion", 0) > 0:
         return "evasion clause"
@@ -489,3 +499,98 @@ def holdable_items(dex: Dex) -> frozenset[str]:
 
 
 _HOLDABLE: frozenset[str] | None = None
+
+
+# --------------------------------------------------------------------------- #
+# Teams built out of what people actually brought
+# --------------------------------------------------------------------------- #
+
+#: Where the imported ranker slots live. Written by ``scripts/import_parties.py``
+#: from the pkmnchamps archive; committed, because the archive itself is not.
+PARTIES_PATH = Path(__file__).resolve().parents[3] / "data" / "champions" / "parties_m_b.json"
+
+
+@lru_cache(maxsize=4)
+def ranker_slots(path: str | None = None) -> tuple[PokemonSet, ...]:
+    """Every Pokemon from every imported ranker party, as a flat pool.
+
+    Twenty parties is not enough to train on as twenty parties -- the same six
+    coming round again teaches the network which battle it is looking at, which
+    is the mistake ``search_value_weight`` is switched off for. A hundred and
+    twenty *slots* recombine into far more teams than that, and each slot is
+    still a set a person built: the item suits the spread, the moves suit the
+    attacking stat, and none of it is the 37.7%-no-STAB noise a random team is.
+
+    What recombining loses is the team's own idea -- a sand team's Tyranitar and
+    its sweepers arrive separately -- so this is a distribution of good Pokemon
+    rather than of good teams. That is the trade, and it is deliberate.
+    """
+    target = Path(path) if path else PARTIES_PATH
+    if not target.exists():
+        raise FileNotFoundError(
+            f"{target} is not there -- run scripts/import_parties.py")
+    payload = json.loads(target.read_text(encoding="utf-8"))
+    slots: list[PokemonSet] = []
+    for party in payload:
+        for entry in party["team"]:
+            slots.append(PokemonSet(
+                species=entry["species"], ability=entry["ability"],
+                moves=tuple(entry["moves"]), item=entry.get("item"),
+                nature=entry["nature"], sp=tuple(entry["sp"]),
+                gender=entry.get("gender")))
+    return tuple(slots)
+
+
+def ranker_team(
+    dex: Dex,
+    regulation: Regulation,
+    cursor: RngCursor,
+    battle_format: str = "singles",
+    path: str | None = None,
+) -> Team:
+    """Six slots drawn from the ranker pool, legal by construction.
+
+    Species Clause binds on the base species and Item Clause on the item, so
+    both are held as we draw rather than checked afterwards -- rejection
+    sampling over a pool this small would spend most of its time rejecting.
+    """
+    registered, _ = regulation.bring_select(battle_format)
+    pool = list(ranker_slots(path))
+    if len(pool) < registered:
+        raise ValueError(f"only {len(pool)} ranker slots, need {registered}")
+
+    team: list[PokemonSet] = []
+    bases: set[str] = set()
+    items: set[str] = set()
+    for index in cursor.shuffled(list(range(len(pool)))):
+        pokemon = pool[index]
+        base = base_species_of(dex, pokemon.species)
+        if base in bases or (pokemon.item and pokemon.item in items):
+            continue
+        team.append(pokemon)
+        bases.add(base)
+        if pokemon.item:
+            items.add(pokemon.item)
+        if len(team) == registered:
+            return tuple(team)
+    raise ValueError("the ranker pool cannot fill a legal team")
+
+
+#: How a caller says which distribution it wants.
+TEAM_SOURCES = ("random", "ranker")
+
+
+def make_team(
+    dex: Dex,
+    regulation: Regulation,
+    cursor: RngCursor,
+    battle_format: str = "singles",
+    source: str = "random",
+    options: RandomTeamOptions = RandomTeamOptions(),
+) -> Team:
+    """One team, from whichever distribution was asked for."""
+    if source == "ranker":
+        return ranker_team(dex, regulation, cursor, battle_format)
+    if source != "random":
+        raise ValueError(f"unknown team source {source!r}; expected {TEAM_SOURCES}")
+    return random_team(dex, regulation, cursor, battle_format, options)

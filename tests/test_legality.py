@@ -280,3 +280,57 @@ def test_species_with_nothing_playable_are_skipped(dex, regulation):
         for pokemon_set in random_team(dex, regulation, Rng.from_seed(seed).cursor())
     }
     assert "ditto" not in drawn
+
+
+# --------------------------------------------------------------------------- #
+# Teams built out of what people actually brought
+# --------------------------------------------------------------------------- #
+
+
+@pytest.mark.parametrize("seed", range(12))
+def test_ranker_teams_are_always_legal(dex, regulation, seed):
+    """Species and Item Clause are held while drawing, not checked after."""
+    from pkcm.engine.legality import make_team
+
+    team = make_team(dex, regulation, Rng.from_seed(seed).cursor(),
+                     "singles", "ranker")
+    assert team_errors(dex, regulation, team, "singles") == []
+
+
+def test_the_ranker_pool_is_a_different_distribution(dex, regulation):
+    """The point of the pool, in the measure that motivated it.
+
+    A randomly generated Pokemon carries no same-type attack 37.5% of the
+    time -- its moves were drawn without reference to its types, and its item
+    without reference to anything. These are sets people built. If this ever
+    stops being true the pool has been rebuilt from something else.
+    """
+    from pkcm.engine.legality import make_team
+
+    def without_stab(source: str) -> float:
+        total = missing = 0
+        for seed in range(40):
+            team = make_team(dex, regulation, Rng.from_seed(seed).cursor(),
+                             "singles", source)
+            for pokemon in team:
+                entry = dex.species[pokemon.species]
+                attacks = [dex.moves[m] for m in pokemon.moves
+                           if dex.moves[m].base_power > 0]
+                if not attacks:
+                    continue
+                total += 1
+                if not any(move.type in entry.types for move in attacks):
+                    missing += 1
+        return missing / max(total, 1)
+
+    assert without_stab("ranker") < 0.15
+    assert without_stab("random") > 0.25
+
+
+def test_an_unknown_team_source_is_refused(dex, regulation):
+    """Silently falling back to random would make a run's distribution a
+    typo away from being something else entirely."""
+    from pkcm.engine.legality import make_team
+
+    with pytest.raises(ValueError):
+        make_team(dex, regulation, Rng.from_seed(0).cursor(), "singles", "rankers")

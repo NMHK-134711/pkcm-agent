@@ -1,0 +1,2802 @@
+[
+ {
+  "id": "4e5bb4f1-04d9-419e-b230-f923e906ff25",
+  "title": "[2816] サックー Mega Lucario & Mega Floette Offense",
+  "rate": 2816,
+  "rank": 1,
+  "team": [
+   {
+    "species": "lucario",
+    "ability": "innerfocus",
+    "moves": [
+     "closecombat",
+     "meteormash",
+     "stoneedge",
+     "extremespeed"
+    ],
+    "nature": "jolly",
+    "sp": [
+     2,
+     27,
+     9,
+     0,
+     0,
+     28
+    ],
+    "item": "lucarionite",
+    "gender": null,
+    "nickname": null
+   },
+   {
+    "species": "floetteeternal",
+    "ability": "flowerveil",
+    "moves": [
+     "lightofruin",
+     "moonblast",
+     "drainingkiss",
+     "calmmind"
+    ],
+    "nature": "timid",
+    "sp": [
+     0,
+     0,
+     10,
+     24,
+     0,
+     32
+    ],
+    "item": "floettite",
+    "gender": null,
+    "nickname": null
+   },
+   {
+    "species": "rotomwash",
+    "ability": "levitate",
+    "moves": [
+     "hydropump",
+     "voltswitch",
+     "willowisp",
+     "painsplit"
+    ],
+    "nature": "calm",
+    "sp": [
+     32,
+     0,
+     10,
+     0,
+     24,
+     0
+    ],
+    "item": "leftovers",
+    "gender": null,
+    "nickname": null
+   },
+   {
+    "species": "volcarona",
+    "ability": "flamebody",
+    "moves": [
+     "fierydance",
+     "quiverdance",
+     "willowisp",
+     "morningsun"
+    ],
+    "nature": "modest",
+    "sp": [
+     31,
+     0,
+     31,
+     0,
+     0,
+     4
+    ],
+    "item": "lumberry",
+    "gender": null,
+    "nickname": null
+   },
+   {
+    "species": "meowscarada",
+    "ability": "protean",
+    "moves": [
+     "flowertrick",
+     "thunderpunch",
+     "tripleaxel",
+     "uturn"
+    ],
+    "nature": "adamant",
+    "sp": [
+     4,
+     30,
+     20,
+     0,
+     0,
+     12
+    ],
+    "item": "choicescarf",
+    "gender": null,
+    "nickname": null
+   },
+   {
+    "species": "garchomp",
+    "ability": "roughskin",
+    "moves": [
+     "dragontail",
+     "earthquake",
+     "stealthrock",
+     "spikes"
+    ],
+    "nature": "adamant",
+    "sp": [
+     32,
+     0,
+     32,
+     0,
+     0,
+     2
+    ],
+    "item": "sitrusberry",
+    "gender": null,
+    "nickname": null
+   }
+  ]
+ },
+ {
+  "id": "5786025f-8d50-4b48-8294-ebb2470088fe",
+  "title": "[2814] 攻め意識 Mega Starmie & Mega Glimmora Offense",
+  "rate": 2814,
+  "rank": 2,
+  "team": [
+   {
+    "species": "starmie",
+    "ability": "naturalcure",
+    "moves": [
+     "flipturn",
+     "aquajet",
+     "liquidation",
+     "icespinner"
+    ],
+    "nature": "adamant",
+    "sp": [
+     2,
+     32,
+     0,
+     0,
+     0,
+     32
+    ],
+    "item": "starminite",
+    "gender": null,
+    "nickname": null
+   },
+   {
+    "species": "corviknight",
+    "ability": "pressure",
+    "moves": [
+     "uturn",
+     "irondefense",
+     "bodypress",
+     "roost"
+    ],
+    "nature": "relaxed",
+    "sp": [
+     32,
+     0,
+     32,
+     0,
+     2,
+     0
+    ],
+    "item": "sitrusberry",
+    "gender": null,
+    "nickname": null
+   },
+   {
+    "species": "bellibolt",
+    "ability": "electromorphosis",
+    "moves": [
+     "toxic",
+     "voltswitch",
+     "paraboliccharge",
+     "slackoff"
+    ],
+    "nature": "sassy",
+    "sp": [
+     31,
+     0,
+     4,
+     0,
+     31,
+     0
+    ],
+    "item": "leftovers",
+    "gender": null,
+    "nickname": null
+   },
+   {
+    "species": "samurotthisui",
+    "ability": "sharpness",
+    "moves": [
+     "razorshell",
+     "ceaselessedge",
+     "suckerpunch",
+     "sacredsword"
+    ],
+    "nature": "adamant",
+    "sp": [
+     20,
+     32,
+     2,
+     0,
+     2,
+     10
+    ],
+    "item": "blackglasses",
+    "gender": null,
+    "nickname": null
+   },
+   {
+    "species": "glimmora",
+    "ability": "toxicdebris",
+    "moves": [
+     "sludgewave",
+     "rockpolish",
+     "powergem",
+     "earthpower"
+    ],
+    "nature": "modest",
+    "sp": [
+     1,
+     0,
+     1,
+     32,
+     0,
+     32
+    ],
+    "item": "glimmoranite",
+    "gender": null,
+    "nickname": null
+   },
+   {
+    "species": "whimsicott",
+    "ability": "prankster",
+    "moves": [
+     "moonblast",
+     "endeavor",
+     "encore",
+     "tailwind"
+    ],
+    "nature": "modest",
+    "sp": [
+     2,
+     0,
+     0,
+     32,
+     0,
+     32
+    ],
+    "item": "focussash",
+    "gender": null,
+    "nickname": null
+   }
+  ]
+ },
+ {
+  "id": "54fba8d2-be54-4bce-a9c5-bd385001de44",
+  "title": "[2787] くまおつ Mega Scizor & Gengar Offense",
+  "rate": 2787,
+  "rank": 3,
+  "team": [
+   {
+    "species": "basculegion",
+    "ability": "adaptability",
+    "moves": [
+     "lastrespects",
+     "wavecrash",
+     "flipturn",
+     "aquajet"
+    ],
+    "nature": "jolly",
+    "sp": [
+     2,
+     32,
+     0,
+     0,
+     0,
+     32
+    ],
+    "item": "choicescarf",
+    "gender": null,
+    "nickname": null
+   },
+   {
+    "species": "scizor",
+    "ability": "technician",
+    "moves": [
+     "bulletpunch",
+     "closecombat",
+     "knockoff",
+     "swordsdance"
+    ],
+    "nature": "adamant",
+    "sp": [
+     30,
+     32,
+     1,
+     0,
+     1,
+     2
+    ],
+    "item": "scizorite",
+    "gender": null,
+    "nickname": null
+   },
+   {
+    "species": "gengar",
+    "ability": "cursedbody",
+    "moves": [
+     "shadowball",
+     "sludgewave",
+     "icywind",
+     "taunt"
+    ],
+    "nature": "timid",
+    "sp": [
+     2,
+     0,
+     0,
+     32,
+     0,
+     32
+    ],
+    "item": "focussash",
+    "gender": null,
+    "nickname": null
+   },
+   {
+    "species": "archaludon",
+    "ability": "stamina",
+    "moves": [
+     "dragontail",
+     "roar",
+     "thunderbolt",
+     "stealthrock"
+    ],
+    "nature": "bold",
+    "sp": [
+     32,
+     0,
+     11,
+     0,
+     22,
+     1
+    ],
+    "item": "sitrusberry",
+    "gender": null,
+    "nickname": null
+   },
+   {
+    "species": "vivillonfancy",
+    "ability": "compoundeyes",
+    "moves": [
+     "hurricane",
+     "substitute",
+     "quiverdance",
+     "sleeppowder"
+    ],
+    "nature": "timid",
+    "sp": [
+     2,
+     0,
+     0,
+     32,
+     0,
+     32
+    ],
+    "item": "leftovers",
+    "gender": null,
+    "nickname": null
+   },
+   {
+    "species": "blastoise",
+    "ability": "torrent",
+    "moves": [
+     "waterpulse",
+     "darkpulse",
+     "aurasphere",
+     "shellsmash"
+    ],
+    "nature": "timid",
+    "sp": [
+     11,
+     0,
+     1,
+     32,
+     0,
+     22
+    ],
+    "item": "blastoisinite",
+    "gender": null,
+    "nickname": null
+   }
+  ]
+ },
+ {
+  "id": "a5a820ee-50c7-46b1-bc61-8fbc312abafc",
+  "title": "[2780] らいざ Mega Gyarados & Garchomp Offense",
+  "rate": 2780,
+  "rank": 5,
+  "team": [
+   {
+    "species": "mimikyu",
+    "ability": "disguise",
+    "moves": [
+     "shadowsneak",
+     "playrough",
+     "drainpunch",
+     "swordsdance"
+    ],
+    "nature": "adamant",
+    "sp": [
+     21,
+     26,
+     19,
+     0,
+     0,
+     0
+    ],
+    "item": "fairyfeather",
+    "gender": null,
+    "nickname": null
+   },
+   {
+    "species": "gyarados",
+    "ability": "intimidate",
+    "moves": [
+     "waterfall",
+     "icefang",
+     "earthquake",
+     "dragondance"
+    ],
+    "nature": "adamant",
+    "sp": [
+     5,
+     32,
+     0,
+     0,
+     0,
+     26
+    ],
+    "item": "gyaradosite",
+    "gender": null,
+    "nickname": null
+   },
+   {
+    "species": "aegislash",
+    "ability": "stancechange",
+    "moves": [
+     "kingsshield",
+     "shadowsneak",
+     "shadowball",
+     "ironhead"
+    ],
+    "nature": "brave",
+    "sp": [
+     32,
+     0,
+     3,
+     11,
+     20,
+     0
+    ],
+    "item": "leftovers",
+    "gender": null,
+    "nickname": null
+   },
+   {
+    "species": "garchomp",
+    "ability": "roughskin",
+    "moves": [
+     "outrage",
+     "earthquake",
+     "rockslide",
+     "stealthrock"
+    ],
+    "nature": "adamant",
+    "sp": [
+     2,
+     32,
+     0,
+     0,
+     0,
+     32
+    ],
+    "item": "choicescarf",
+    "gender": null,
+    "nickname": null
+   },
+   {
+    "species": "charizard",
+    "ability": "blaze",
+    "moves": [
+     "overheat",
+     "flamethrower",
+     "airslash",
+     "dragonpulse"
+    ],
+    "nature": "modest",
+    "sp": [
+     14,
+     0,
+     12,
+     21,
+     0,
+     19
+    ],
+    "item": "charizarditey",
+    "gender": null,
+    "nickname": null
+   },
+   {
+    "species": "milotic",
+    "ability": "cutecharm",
+    "moves": [
+     "scald",
+     "icebeam",
+     "haze",
+     "recover"
+    ],
+    "nature": "bold",
+    "sp": [
+     32,
+     0,
+     27,
+     0,
+     0,
+     7
+    ],
+    "item": "lumberry",
+    "gender": null,
+    "nickname": null
+   }
+  ]
+ },
+ {
+  "id": "26d7e50c-646d-4a85-9ac7-c121e833f683",
+  "title": "[2779] キョウタ Mega Sableye & Mega Lucario Offense",
+  "rate": 2779,
+  "rank": 6,
+  "team": [
+   {
+    "species": "hippowdon",
+    "ability": "sandstream",
+    "moves": [
+     "earthquake",
+     "stealthrock",
+     "yawn",
+     "whirlwind"
+    ],
+    "nature": "careful",
+    "sp": [
+     32,
+     0,
+     2,
+     0,
+     32,
+     0
+    ],
+    "item": "sitrusberry",
+    "gender": null,
+    "nickname": null
+   },
+   {
+    "species": "excadrill",
+    "ability": "sandrush",
+    "moves": [
+     "earthquake",
+     "ironhead",
+     "rockslide",
+     "swordsdance"
+    ],
+    "nature": "adamant",
+    "sp": [
+     6,
+     25,
+     3,
+     0,
+     0,
+     32
+    ],
+    "item": "softsand",
+    "gender": null,
+    "nickname": null
+   },
+   {
+    "species": "sableye",
+    "ability": "prankster",
+    "moves": [
+     "foulplay",
+     "willowisp",
+     "calmmind",
+     "recover"
+    ],
+    "nature": "bold",
+    "sp": [
+     32,
+     0,
+     25,
+     0,
+     9,
+     0
+    ],
+    "item": "sablenite",
+    "gender": null,
+    "nickname": null
+   },
+   {
+    "species": "lucario",
+    "ability": "innerfocus",
+    "moves": [
+     "closecombat",
+     "meteormash",
+     "bulletpunch",
+     "swordsdance"
+    ],
+    "nature": "jolly",
+    "sp": [
+     2,
+     32,
+     0,
+     0,
+     0,
+     32
+    ],
+    "item": "lucarionite",
+    "gender": null,
+    "nickname": null
+   },
+   {
+    "species": "greninja",
+    "ability": "protean",
+    "moves": [
+     "surf",
+     "icebeam",
+     "sludgewave",
+     "darkpulse"
+    ],
+    "nature": "modest",
+    "sp": [
+     4,
+     0,
+     4,
+     30,
+     0,
+     28
+    ],
+    "item": "choicescarf",
+    "gender": null,
+    "nickname": null
+   },
+   {
+    "species": "gyarados",
+    "ability": "intimidate",
+    "moves": [
+     "waterfall",
+     "powerwhip",
+     "taunt",
+     "dragondance"
+    ],
+    "nature": "jolly",
+    "sp": [
+     21,
+     11,
+     1,
+     0,
+     1,
+     32
+    ],
+    "item": "leftovers",
+    "gender": null,
+    "nickname": null
+   }
+  ]
+ },
+ {
+  "id": "2242f3cd-9f00-4118-8821-f82c42f6787c",
+  "title": "[2777] みるふぃ Gyarados & Mega Gengar Offense",
+  "rate": 2777,
+  "rank": 7,
+  "team": [
+   {
+    "species": "gyarados",
+    "ability": "intimidate",
+    "moves": [
+     "waterfall",
+     "powerwhip",
+     "avalanche",
+     "thunderwave"
+    ],
+    "nature": "impish",
+    "sp": [
+     31,
+     0,
+     32,
+     0,
+     0,
+     3
+    ],
+    "item": "leftovers",
+    "gender": null,
+    "nickname": null
+   },
+   {
+    "species": "hippowdon",
+    "ability": "sandstream",
+    "moves": [
+     "earthquake",
+     "yawn",
+     "slackoff",
+     "stealthrock"
+    ],
+    "nature": "impish",
+    "sp": [
+     32,
+     0,
+     22,
+     0,
+     12,
+     0
+    ],
+    "item": "sitrusberry",
+    "gender": null,
+    "nickname": null
+   },
+   {
+    "species": "gengar",
+    "ability": "cursedbody",
+    "moves": [
+     "shadowball",
+     "sludgewave",
+     "nastyplot",
+     "protect"
+    ],
+    "nature": "modest",
+    "sp": [
+     12,
+     0,
+     0,
+     23,
+     0,
+     31
+    ],
+    "item": "gengarite",
+    "gender": null,
+    "nickname": null
+   },
+   {
+    "species": "scizor",
+    "ability": "technician",
+    "moves": [
+     "bulletpunch",
+     "bugbite",
+     "roost",
+     "swordsdance"
+    ],
+    "nature": "adamant",
+    "sp": [
+     26,
+     32,
+     0,
+     0,
+     0,
+     8
+    ],
+    "item": "scizorite",
+    "gender": null,
+    "nickname": null
+   },
+   {
+    "species": "meowscarada",
+    "ability": "protean",
+    "moves": [
+     "flowertrick",
+     "knockoff",
+     "uturn",
+     "thunderpunch"
+    ],
+    "nature": "adamant",
+    "sp": [
+     2,
+     32,
+     0,
+     0,
+     0,
+     32
+    ],
+    "item": "choicescarf",
+    "gender": null,
+    "nickname": null
+   },
+   {
+    "species": "primarina",
+    "ability": "torrent",
+    "moves": [
+     "sparklingaria",
+     "moonblast",
+     "aquajet",
+     "calmmind"
+    ],
+    "nature": "modest",
+    "sp": [
+     32,
+     0,
+     0,
+     24,
+     0,
+     10
+    ],
+    "item": "fairyfeather",
+    "gender": null,
+    "nickname": null
+   }
+  ]
+ },
+ {
+  "id": "09e6c48f-eed2-4814-973a-81c487229482",
+  "title": "[2776] ピッツ Mega Starmie & Mega Floette Offense",
+  "rate": 2776,
+  "rank": 8,
+  "team": [
+   {
+    "species": "starmie",
+    "ability": "naturalcure",
+    "moves": [
+     "liquidation",
+     "psychocut",
+     "icespinner",
+     "aquajet"
+    ],
+    "nature": "adamant",
+    "sp": [
+     32,
+     14,
+     0,
+     0,
+     20,
+     0
+    ],
+    "item": "starminite",
+    "gender": null,
+    "nickname": null
+   },
+   {
+    "species": "pelipper",
+    "ability": "drizzle",
+    "moves": [
+     "surf",
+     "hurricane",
+     "icebeam",
+     "uturn"
+    ],
+    "nature": "relaxed",
+    "sp": [
+     32,
+     0,
+     30,
+     0,
+     4,
+     0
+    ],
+    "item": "sitrusberry",
+    "gender": null,
+    "nickname": null
+   },
+   {
+    "species": "basculegion",
+    "ability": "adaptability",
+    "moves": [
+     "wavecrash",
+     "lastrespects",
+     "flipturn",
+     "aquajet"
+    ],
+    "nature": "jolly",
+    "sp": [
+     0,
+     32,
+     1,
+     0,
+     1,
+     32
+    ],
+    "item": "choicescarf",
+    "gender": null,
+    "nickname": null
+   },
+   {
+    "species": "greninja",
+    "ability": "torrent",
+    "moves": [
+     "surf",
+     "darkpulse",
+     "icebeam",
+     "substitute"
+    ],
+    "nature": "modest",
+    "sp": [
+     2,
+     0,
+     0,
+     32,
+     0,
+     32
+    ],
+    "item": "blackglasses",
+    "gender": null,
+    "nickname": null
+   },
+   {
+    "species": "archaludon",
+    "ability": "stamina",
+    "moves": [
+     "dracometeor",
+     "flashcannon",
+     "electroshot",
+     "substitute"
+    ],
+    "nature": "modest",
+    "sp": [
+     32,
+     0,
+     0,
+     8,
+     0,
+     26
+    ],
+    "item": "leftovers",
+    "gender": null,
+    "nickname": null
+   },
+   {
+    "species": "floetteeternal",
+    "ability": "flowerveil",
+    "moves": [
+     "moonblast",
+     "drainingkiss",
+     "mistyterrain",
+     "calmmind"
+    ],
+    "nature": "modest",
+    "sp": [
+     26,
+     0,
+     6,
+     16,
+     0,
+     18
+    ],
+    "item": "floettite",
+    "gender": null,
+    "nickname": null
+   }
+  ]
+ },
+ {
+  "id": "886a135b-13da-41d4-9fc1-1bdd56432ddc",
+  "title": "[2769] ミルク Garchomp & Mega Dragonite Offense",
+  "rate": 2769,
+  "rank": 9,
+  "team": [
+   {
+    "species": "garchomp",
+    "ability": "roughskin",
+    "moves": [
+     "scaleshot",
+     "earthquake",
+     "rocktomb",
+     "stealthrock"
+    ],
+    "nature": "adamant",
+    "sp": [
+     2,
+     32,
+     0,
+     0,
+     0,
+     32
+    ],
+    "item": "focussash",
+    "gender": null,
+    "nickname": null
+   },
+   {
+    "species": "aegislash",
+    "ability": "stancechange",
+    "moves": [
+     "poltergeist",
+     "shadowsneak",
+     "kingsshield",
+     "swordsdance"
+    ],
+    "nature": "adamant",
+    "sp": [
+     32,
+     30,
+     1,
+     0,
+     1,
+     2
+    ],
+    "item": "leftovers",
+    "gender": null,
+    "nickname": null
+   },
+   {
+    "species": "dragonite",
+    "ability": "multiscale",
+    "moves": [
+     "airslash",
+     "flamethrower",
+     "substitute",
+     "roost"
+    ],
+    "nature": "modest",
+    "sp": [
+     31,
+     0,
+     1,
+     15,
+     1,
+     18
+    ],
+    "item": "dragoninite",
+    "gender": null,
+    "nickname": null
+   },
+   {
+    "species": "archaludon",
+    "ability": "stamina",
+    "moves": [
+     "dracometeor",
+     "flashcannon",
+     "thunderbolt",
+     "stealthrock"
+    ],
+    "nature": "bold",
+    "sp": [
+     32,
+     0,
+     20,
+     5,
+     9,
+     0
+    ],
+    "item": "sitrusberry",
+    "gender": null,
+    "nickname": null
+   },
+   {
+    "species": "meowscarada",
+    "ability": "protean",
+    "moves": [
+     "flowertrick",
+     "knockoff",
+     "playrough",
+     "uturn"
+    ],
+    "nature": "adamant",
+    "sp": [
+     0,
+     32,
+     2,
+     0,
+     0,
+     32
+    ],
+    "item": "choicescarf",
+    "gender": null,
+    "nickname": null
+   },
+   {
+    "species": "floetteeternal",
+    "ability": "flowerveil",
+    "moves": [
+     "moonblast",
+     "calmmind",
+     "charm",
+     "synthesis"
+    ],
+    "nature": "timid",
+    "sp": [
+     32,
+     0,
+     13,
+     0,
+     1,
+     20
+    ],
+    "item": "floettite",
+    "gender": null,
+    "nickname": null
+   }
+  ]
+ },
+ {
+  "id": "0bcfcfd6-db91-486b-80fa-31eed7814d5b",
+  "title": "[2763] シグマ Mega Glimmora & Mega Starmie Offense",
+  "rate": 2763,
+  "rank": 10,
+  "team": [
+   {
+    "species": "hippowdon",
+    "ability": "sandstream",
+    "moves": [
+     "earthquake",
+     "yawn",
+     "protect",
+     "slackoff"
+    ],
+    "nature": "relaxed",
+    "sp": [
+     32,
+     0,
+     15,
+     0,
+     19,
+     0
+    ],
+    "item": "leftovers",
+    "gender": null,
+    "nickname": null
+   },
+   {
+    "species": "glimmora",
+    "ability": "toxicdebris",
+    "moves": [
+     "powergem",
+     "sludgewave",
+     "earthpower",
+     "spikyshield"
+    ],
+    "nature": "modest",
+    "sp": [
+     1,
+     0,
+     1,
+     32,
+     0,
+     32
+    ],
+    "item": "glimmoranite",
+    "gender": null,
+    "nickname": null
+   },
+   {
+    "species": "meowscarada",
+    "ability": "protean",
+    "moves": [
+     "flowertrick",
+     "uturn",
+     "toxicspikes",
+     "trick"
+    ],
+    "nature": "jolly",
+    "sp": [
+     24,
+     12,
+     11,
+     0,
+     0,
+     19
+    ],
+    "item": "choicescarf",
+    "gender": null,
+    "nickname": null
+   },
+   {
+    "species": "archaludon",
+    "ability": "stamina",
+    "moves": [
+     "dracometeor",
+     "thunderbolt",
+     "stealthrock",
+     "roar"
+    ],
+    "nature": "bold",
+    "sp": [
+     32,
+     0,
+     3,
+     12,
+     16,
+     3
+    ],
+    "item": "sitrusberry",
+    "gender": null,
+    "nickname": null
+   },
+   {
+    "species": "starmie",
+    "ability": "naturalcure",
+    "moves": [
+     "liquidation",
+     "rapidspin",
+     "bulkup",
+     "recover"
+    ],
+    "nature": "adamant",
+    "sp": [
+     32,
+     17,
+     2,
+     0,
+     0,
+     15
+    ],
+    "item": "starminite",
+    "gender": null,
+    "nickname": null
+   },
+   {
+    "species": "conkeldurr",
+    "ability": "sheerforce",
+    "moves": [
+     "closecombat",
+     "icepunch",
+     "poisonjab",
+     "machpunch"
+    ],
+    "nature": "adamant",
+    "sp": [
+     2,
+     32,
+     0,
+     0,
+     0,
+     32
+    ],
+    "item": "focussash",
+    "gender": null,
+    "nickname": null
+   }
+  ]
+ },
+ {
+  "id": "2aa56d96-c5c3-4c0d-ae82-0a9ae7ff9de6",
+  "title": "[2748] よしこぽけ Mega Gengar & Garchomp Offense",
+  "rate": 2748,
+  "rank": 11,
+  "team": [
+   {
+    "species": "hippowdon",
+    "ability": "sandstream",
+    "moves": [
+     "earthquake",
+     "yawn",
+     "protect",
+     "slackoff"
+    ],
+    "nature": "impish",
+    "sp": [
+     32,
+     0,
+     32,
+     0,
+     2,
+     0
+    ],
+    "item": "leftovers",
+    "gender": null,
+    "nickname": null
+   },
+   {
+    "species": "gengar",
+    "ability": "cursedbody",
+    "moves": [
+     "hex",
+     "sludgewave",
+     "icywind",
+     "willowisp"
+    ],
+    "nature": "modest",
+    "sp": [
+     30,
+     0,
+     0,
+     12,
+     1,
+     23
+    ],
+    "item": "gengarite",
+    "gender": null,
+    "nickname": null
+   },
+   {
+    "species": "meowscarada",
+    "ability": "protean",
+    "moves": [
+     "foulplay",
+     "lowkick",
+     "thunderpunch",
+     "uturn"
+    ],
+    "nature": "jolly",
+    "sp": [
+     24,
+     0,
+     24,
+     0,
+     0,
+     18
+    ],
+    "item": "choicescarf",
+    "gender": null,
+    "nickname": null
+   },
+   {
+    "species": "primarina",
+    "ability": "torrent",
+    "moves": [
+     "moonblast",
+     "surf",
+     "flipturn",
+     "encore"
+    ],
+    "nature": "quiet",
+    "sp": [
+     32,
+     0,
+     10,
+     24,
+     0,
+     0
+    ],
+    "item": "mysticwater",
+    "gender": null,
+    "nickname": null
+   },
+   {
+    "species": "garchomp",
+    "ability": "roughskin",
+    "moves": [
+     "scaleshot",
+     "earthquake",
+     "firefang",
+     "swordsdance"
+    ],
+    "nature": "adamant",
+    "sp": [
+     0,
+     32,
+     2,
+     0,
+     0,
+     32
+    ],
+    "item": "focussash",
+    "gender": null,
+    "nickname": null
+   },
+   {
+    "species": "archaludon",
+    "ability": "stamina",
+    "moves": [
+     "dragontail",
+     "ironhead",
+     "mirrorcoat",
+     "stealthrock"
+    ],
+    "nature": "careful",
+    "sp": [
+     32,
+     0,
+     0,
+     0,
+     32,
+     2
+    ],
+    "item": "sitrusberry",
+    "gender": null,
+    "nickname": null
+   }
+  ]
+ },
+ {
+  "id": "6c43e8c9-0c0a-4b5f-9f5e-0ad46bee6029",
+  "title": "[2403] 엑자몽 중심 10일전 랭크 13위 달성 파티",
+  "rate": 2403,
+  "rank": 13,
+  "team": [
+   {
+    "species": "hippowdon",
+    "ability": "sandstream",
+    "moves": [
+     "earthquake",
+     "yawn",
+     "stealthrock",
+     "slackoff"
+    ],
+    "nature": "impish",
+    "sp": [
+     32,
+     0,
+     12,
+     0,
+     22,
+     0
+    ],
+    "item": "sitrusberry",
+    "gender": null,
+    "nickname": null
+   },
+   {
+    "species": "charizard",
+    "ability": "blaze",
+    "moves": [
+     "thunderpunch",
+     "flareblitz",
+     "dragonclaw",
+     "dragondance"
+    ],
+    "nature": "adamant",
+    "sp": [
+     0,
+     30,
+     2,
+     0,
+     2,
+     32
+    ],
+    "item": "charizarditex",
+    "gender": null,
+    "nickname": null
+   },
+   {
+    "species": "mimikyu",
+    "ability": "disguise",
+    "moves": [
+     "playrough",
+     "drainpunch",
+     "shadowsneak",
+     "swordsdance"
+    ],
+    "nature": "adamant",
+    "sp": [
+     28,
+     30,
+     7,
+     0,
+     1,
+     0
+    ],
+    "item": "lumberry",
+    "gender": null,
+    "nickname": null
+   },
+   {
+    "species": "aegislash",
+    "ability": "stancechange",
+    "moves": [
+     "poltergeist",
+     "kingsshield",
+     "shadowsneak",
+     "closecombat"
+    ],
+    "nature": "brave",
+    "sp": [
+     32,
+     32,
+     1,
+     0,
+     1,
+     0
+    ],
+    "item": "spelltag",
+    "gender": null,
+    "nickname": null
+   },
+   {
+    "species": "corviknight",
+    "ability": "pressure",
+    "moves": [
+     "drillpeck",
+     "irondefense",
+     "uturn",
+     "roost"
+    ],
+    "nature": "impish",
+    "sp": [
+     32,
+     2,
+     31,
+     0,
+     1,
+     0
+    ],
+    "item": "leftovers",
+    "gender": null,
+    "nickname": null
+   },
+   {
+    "species": "greninja",
+    "ability": "torrent",
+    "moves": [
+     "surf",
+     "darkpulse",
+     "watershuriken",
+     "taunt"
+    ],
+    "nature": "modest",
+    "sp": [
+     0,
+     0,
+     0,
+     32,
+     2,
+     32
+    ],
+    "item": "focussash",
+    "gender": null,
+    "nickname": null
+   }
+  ]
+ },
+ {
+  "id": "22c47e6d-1dc0-43d0-b9b2-5cb17ee70fcc",
+  "title": "[2339] 따라큐 Mega Charizard X & Lucario Offense",
+  "rate": null,
+  "rank": null,
+  "team": [
+   {
+    "species": "charizard",
+    "ability": "blaze",
+    "moves": [
+     "flareblitz",
+     "dragonclaw",
+     "thunderpunch",
+     "dragondance"
+    ],
+    "nature": "adamant",
+    "sp": [
+     10,
+     26,
+     3,
+     0,
+     0,
+     27
+    ],
+    "item": "charizarditex",
+    "gender": null,
+    "nickname": null
+   },
+   {
+    "species": "greninja",
+    "ability": "torrent",
+    "moves": [
+     "darkpulse",
+     "surf",
+     "taunt",
+     "watershuriken"
+    ],
+    "nature": "modest",
+    "sp": [
+     0,
+     0,
+     1,
+     32,
+     1,
+     32
+    ],
+    "item": "focussash",
+    "gender": null,
+    "nickname": null
+   },
+   {
+    "species": "hippowdon",
+    "ability": "sandstream",
+    "moves": [
+     "earthquake",
+     "yawn",
+     "stealthrock",
+     "slackoff"
+    ],
+    "nature": "impish",
+    "sp": [
+     32,
+     0,
+     12,
+     0,
+     22,
+     0
+    ],
+    "item": "sitrusberry",
+    "gender": null,
+    "nickname": null
+   },
+   {
+    "species": "mimikyu",
+    "ability": "disguise",
+    "moves": [
+     "playrough",
+     "shadowsneak",
+     "swordsdance",
+     "drainpunch"
+    ],
+    "nature": "adamant",
+    "sp": [
+     29,
+     30,
+     7,
+     0,
+     0,
+     0
+    ],
+    "item": "lumberry",
+    "gender": null,
+    "nickname": null
+   },
+   {
+    "species": "corviknight",
+    "ability": "pressure",
+    "moves": [
+     "bodypress",
+     "irondefense",
+     "uturn",
+     "roost"
+    ],
+    "nature": "impish",
+    "sp": [
+     32,
+     0,
+     30,
+     0,
+     1,
+     2
+    ],
+    "item": "leftovers",
+    "gender": null,
+    "nickname": null
+   },
+   {
+    "species": "lucario",
+    "ability": "justified",
+    "moves": [
+     "closecombat",
+     "bulletpunch",
+     "extremespeed",
+     "swordsdance"
+    ],
+    "nature": "adamant",
+    "sp": [
+     2,
+     32,
+     0,
+     0,
+     0,
+     32
+    ],
+    "item": "lucarionite",
+    "gender": null,
+    "nickname": null
+   }
+  ]
+ },
+ {
+  "id": "3469c203-0c7f-4bec-93b0-b01ccaf2a8f0",
+  "title": "[2432] Rank 3rd - Double Mega Balance with Aegislash",
+  "rate": null,
+  "rank": null,
+  "team": [
+   {
+    "species": "kangaskhan",
+    "ability": "scrappy",
+    "moves": [
+     "bodyslam",
+     "icepunch",
+     "earthquake",
+     "suckerpunch"
+    ],
+    "nature": "adamant",
+    "sp": [
+     27,
+     32,
+     0,
+     0,
+     0,
+     7
+    ],
+    "item": "kangaskhanite",
+    "gender": null,
+    "nickname": null
+   },
+   {
+    "species": "hippowdon",
+    "ability": "sandstream",
+    "moves": [
+     "earthquake",
+     "yawn",
+     "slackoff",
+     "stealthrock"
+    ],
+    "nature": "careful",
+    "sp": [
+     32,
+     0,
+     22,
+     0,
+     12,
+     0
+    ],
+    "item": "leftovers",
+    "gender": null,
+    "nickname": null
+   },
+   {
+    "species": "hydreigon",
+    "ability": "levitate",
+    "moves": [
+     "darkpulse",
+     "flashcannon",
+     "nastyplot",
+     "substitute"
+    ],
+    "nature": "modest",
+    "sp": [
+     6,
+     0,
+     2,
+     26,
+     0,
+     32
+    ],
+    "item": "lumberry",
+    "gender": null,
+    "nickname": null
+   },
+   {
+    "species": "aegislash",
+    "ability": "stancechange",
+    "moves": [
+     "poltergeist",
+     "shadowsneak",
+     "closecombat",
+     "ironhead"
+    ],
+    "nature": "adamant",
+    "sp": [
+     2,
+     32,
+     0,
+     0,
+     0,
+     32
+    ],
+    "item": "focussash",
+    "gender": null,
+    "nickname": null
+   },
+   {
+    "species": "dragonite",
+    "ability": "multiscale",
+    "moves": [
+     "dracometeor",
+     "airslash",
+     "thunderbolt",
+     "aquajet"
+    ],
+    "nature": "modest",
+    "sp": [
+     9,
+     0,
+     0,
+     25,
+     0,
+     32
+    ],
+    "item": "dragoninite",
+    "gender": null,
+    "nickname": null
+   },
+   {
+    "species": "sylveon",
+    "ability": "pixilate",
+    "moves": [
+     "hypervoice",
+     "mysticalfire",
+     "quickattack",
+     "yawn"
+    ],
+    "nature": "modest",
+    "sp": [
+     25,
+     0,
+     1,
+     30,
+     1,
+     9
+    ],
+    "item": "fairyfeather",
+    "gender": null,
+    "nickname": null
+   }
+  ]
+ },
+ {
+  "id": "5eac3254-dc2a-493f-89d6-86635ee022f0",
+  "title": "[2400] 싱글 2100에서 2400올린 파티",
+  "rate": null,
+  "rank": null,
+  "team": [
+   {
+    "species": "kangaskhan",
+    "ability": "earlybird",
+    "moves": [
+     "doubleedge",
+     "earthquake",
+     "suckerpunch",
+     "thunderpunch"
+    ],
+    "nature": "adamant",
+    "sp": [
+     1,
+     32,
+     1,
+     0,
+     0,
+     32
+    ],
+    "item": "kangaskhanite",
+    "gender": null,
+    "nickname": null
+   },
+   {
+    "species": "garchomp",
+    "ability": "roughskin",
+    "moves": [
+     "earthquake",
+     "outrage",
+     "poisonjab",
+     "rocktomb"
+    ],
+    "nature": "jolly",
+    "sp": [
+     2,
+     32,
+     0,
+     0,
+     0,
+     32
+    ],
+    "item": "choicescarf",
+    "gender": null,
+    "nickname": null
+   },
+   {
+    "species": "charizard",
+    "ability": "blaze",
+    "moves": [
+     "flamethrower",
+     "dragonpulse",
+     "solarbeam",
+     "substitute"
+    ],
+    "nature": "modest",
+    "sp": [
+     28,
+     0,
+     20,
+     1,
+     0,
+     17
+    ],
+    "item": "charizarditey",
+    "gender": null,
+    "nickname": null
+   },
+   {
+    "species": "primarina",
+    "ability": "torrent",
+    "moves": [
+     "sparklingaria",
+     "moonblast",
+     "psychic",
+     "calmmind"
+    ],
+    "nature": "modest",
+    "sp": [
+     32,
+     0,
+     9,
+     14,
+     0,
+     11
+    ],
+    "item": "lumberry",
+    "gender": null,
+    "nickname": null
+   },
+   {
+    "species": "sableye",
+    "ability": "prankster",
+    "moves": [
+     "focuspunch",
+     "disable",
+     "substitute",
+     "encore"
+    ],
+    "nature": "impish",
+    "sp": [
+     32,
+     2,
+     32,
+     0,
+     0,
+     0
+    ],
+    "item": "leftovers",
+    "gender": null,
+    "nickname": null
+   },
+   {
+    "species": "glimmora",
+    "ability": "toxicdebris",
+    "moves": [
+     "sludgebomb",
+     "dazzlinggleam",
+     "mudshot",
+     "mortalspin"
+    ],
+    "nature": "timid",
+    "sp": [
+     0,
+     0,
+     2,
+     32,
+     0,
+     32
+    ],
+    "item": "focussash",
+    "gender": null,
+    "nickname": null
+   }
+  ]
+ },
+ {
+  "id": "69820ad9-b39c-4f6b-92ba-26cbc6dbb25d",
+  "title": "[2200]가람 Mega Gengar and Kangaskhan Offense",
+  "rate": null,
+  "rank": null,
+  "team": [
+   {
+    "species": "gengar",
+    "ability": "cursedbody",
+    "moves": [
+     "shadowball",
+     "sludgewave",
+     "icywind",
+     "protect"
+    ],
+    "nature": "timid",
+    "sp": [
+     0,
+     0,
+     1,
+     32,
+     1,
+     32
+    ],
+    "item": "gengarite",
+    "gender": null,
+    "nickname": null
+   },
+   {
+    "species": "aegislash",
+    "ability": "stancechange",
+    "moves": [
+     "poltergeist",
+     "shadowsneak",
+     "closecombat",
+     "swordsdance"
+    ],
+    "nature": "naughty",
+    "sp": [
+     0,
+     32,
+     2,
+     0,
+     0,
+     32
+    ],
+    "item": "focussash",
+    "gender": null,
+    "nickname": null
+   },
+   {
+    "species": "kangaskhan",
+    "ability": "scrappy",
+    "moves": [
+     "doubleedge",
+     "earthquake",
+     "firepunch",
+     "icepunch"
+    ],
+    "nature": "adamant",
+    "sp": [
+     1,
+     32,
+     1,
+     0,
+     0,
+     32
+    ],
+    "item": "kangaskhanite",
+    "gender": null,
+    "nickname": null
+   },
+   {
+    "species": "corviknight",
+    "ability": "pressure",
+    "moves": [
+     "uturn",
+     "irondefense",
+     "roost",
+     "bodypress"
+    ],
+    "nature": "impish",
+    "sp": [
+     32,
+     0,
+     32,
+     0,
+     2,
+     0
+    ],
+    "item": "leftovers",
+    "gender": null,
+    "nickname": null
+   },
+   {
+    "species": "garchomp",
+    "ability": "roughskin",
+    "moves": [
+     "earthquake",
+     "outrage",
+     "firefang",
+     "stoneedge"
+    ],
+    "nature": "jolly",
+    "sp": [
+     2,
+     32,
+     0,
+     0,
+     0,
+     32
+    ],
+    "item": "choicescarf",
+    "gender": null,
+    "nickname": null
+   },
+   {
+    "species": "primarina",
+    "ability": "liquidvoice",
+    "moves": [
+     "sparklingaria",
+     "hypervoice",
+     "aquajet",
+     "moonblast"
+    ],
+    "nature": "modest",
+    "sp": [
+     32,
+     0,
+     15,
+     14,
+     5,
+     0
+    ],
+    "item": "sitrusberry",
+    "gender": null,
+    "nickname": null
+   }
+  ]
+ },
+ {
+  "id": "7a959eee-a564-42c7-94f1-bd409da412b1",
+  "title": "[2400] 픽시, 아쿠스타 밸런스 파티",
+  "rate": null,
+  "rank": null,
+  "team": [
+   {
+    "species": "clefable",
+    "ability": "unaware",
+    "moves": [
+     "moonblast",
+     "psyshock",
+     "calmmind",
+     "moonlight"
+    ],
+    "nature": "calm",
+    "sp": [
+     32,
+     0,
+     2,
+     0,
+     32,
+     0
+    ],
+    "item": "clefablite",
+    "gender": null,
+    "nickname": null
+   },
+   {
+    "species": "starmie",
+    "ability": "naturalcure",
+    "moves": [
+     "waterpulse",
+     "zenheadbutt",
+     "flipturn",
+     "aquajet"
+    ],
+    "nature": "adamant",
+    "sp": [
+     2,
+     32,
+     0,
+     0,
+     0,
+     32
+    ],
+    "item": "starminite",
+    "gender": null,
+    "nickname": null
+   },
+   {
+    "species": "garchomp",
+    "ability": "roughskin",
+    "moves": [
+     "outrage",
+     "earthquake",
+     "rockslide",
+     "stealthrock"
+    ],
+    "nature": "jolly",
+    "sp": [
+     2,
+     32,
+     0,
+     0,
+     0,
+     32
+    ],
+    "item": "choicescarf",
+    "gender": null,
+    "nickname": null
+   },
+   {
+    "species": "volcarona",
+    "ability": "flamebody",
+    "moves": [
+     "fierydance",
+     "willowisp",
+     "quiverdance",
+     "morningsun"
+    ],
+    "nature": "bold",
+    "sp": [
+     32,
+     0,
+     28,
+     0,
+     0,
+     6
+    ],
+    "item": "sitrusberry",
+    "gender": null,
+    "nickname": null
+   },
+   {
+    "species": "corviknight",
+    "ability": "pressure",
+    "moves": [
+     "bodypress",
+     "uturn",
+     "irondefense",
+     "roost"
+    ],
+    "nature": "impish",
+    "sp": [
+     32,
+     0,
+     32,
+     0,
+     2,
+     0
+    ],
+    "item": "leftovers",
+    "gender": null,
+    "nickname": null
+   },
+   {
+    "species": "bellibolt",
+    "ability": "electromorphosis",
+    "moves": [
+     "voltswitch",
+     "paraboliccharge",
+     "toxic",
+     "soak"
+    ],
+    "nature": "calm",
+    "sp": [
+     32,
+     0,
+     23,
+     0,
+     11,
+     0
+    ],
+    "item": "shucaberry",
+    "gender": null,
+    "nickname": null
+   }
+  ]
+ },
+ {
+  "id": "80af6ccc-5f23-4041-9e15-426dffacd0af",
+  "title": "[2400] 메가샤크니아, 메가메가니움 주축",
+  "rate": null,
+  "rank": null,
+  "team": [
+   {
+    "species": "sharpedo",
+    "ability": "speedboost",
+    "moves": [
+     "crunch",
+     "icefang",
+     "closecombat",
+     "protect"
+    ],
+    "nature": "adamant",
+    "sp": [
+     2,
+     32,
+     0,
+     0,
+     0,
+     32
+    ],
+    "item": "sharpedonite",
+    "gender": null,
+    "nickname": null
+   },
+   {
+    "species": "glimmora",
+    "ability": "corrosion",
+    "moves": [
+     "mortalspin",
+     "powergem",
+     "mudshot",
+     "stealthrock"
+    ],
+    "nature": "timid",
+    "sp": [
+     31,
+     0,
+     1,
+     1,
+     1,
+     32
+    ],
+    "item": "focussash",
+    "gender": null,
+    "nickname": null
+   },
+   {
+    "species": "meganium",
+    "ability": "leafguard",
+    "moves": [
+     "solarbeam",
+     "dazzlinggleam",
+     "weatherball",
+     "synthesis"
+    ],
+    "nature": "modest",
+    "sp": [
+     32,
+     0,
+     6,
+     14,
+     1,
+     13
+    ],
+    "item": "meganiumite",
+    "gender": null,
+    "nickname": null
+   },
+   {
+    "species": "basculegion",
+    "ability": "adaptability",
+    "moves": [
+     "wavecrash",
+     "lastrespects",
+     "aquajet",
+     "agility"
+    ],
+    "nature": "adamant",
+    "sp": [
+     0,
+     32,
+     19,
+     0,
+     0,
+     15
+    ],
+    "item": "spelltag",
+    "gender": null,
+    "nickname": null
+   },
+   {
+    "species": "volcarona",
+    "ability": "flamebody",
+    "moves": [
+     "fierydance",
+     "gigadrain",
+     "quiverdance",
+     "morningsun"
+    ],
+    "nature": "timid",
+    "sp": [
+     32,
+     0,
+     26,
+     1,
+     1,
+     6
+    ],
+    "item": "leftovers",
+    "gender": null,
+    "nickname": null
+   },
+   {
+    "species": "garchomp",
+    "ability": "roughskin",
+    "moves": [
+     "outrage",
+     "earthquake",
+     "firefang",
+     "swordsdance"
+    ],
+    "nature": "jolly",
+    "sp": [
+     0,
+     32,
+     2,
+     0,
+     0,
+     32
+    ],
+    "item": "lumberry",
+    "gender": null,
+    "nickname": null
+   }
+  ]
+ },
+ {
+  "id": "975190f4-1bee-4a8e-a658-c4f36eaa60c8",
+  "title": "[2200] Ayaka_p_p Delphox and Friends Offense",
+  "rate": null,
+  "rank": null,
+  "team": [
+   {
+    "species": "delphox",
+    "ability": "blaze",
+    "moves": [
+     "flamethrower",
+     "psyshock",
+     "nastyplot",
+     "substitute"
+    ],
+    "nature": "timid",
+    "sp": [
+     15,
+     0,
+     1,
+     18,
+     0,
+     32
+    ],
+    "item": "delphoxite",
+    "gender": null,
+    "nickname": null
+   },
+   {
+    "species": "primarina",
+    "ability": "torrent",
+    "moves": [
+     "moonblast",
+     "surf",
+     "mistyterrain",
+     "aquajet"
+    ],
+    "nature": "calm",
+    "sp": [
+     32,
+     0,
+     4,
+     4,
+     26,
+     0
+    ],
+    "item": "sitrusberry",
+    "gender": null,
+    "nickname": null
+   },
+   {
+    "species": "archaludon",
+    "ability": "sturdy",
+    "moves": [
+     "dracometeor",
+     "flashcannon",
+     "aurasphere",
+     "thunderbolt"
+    ],
+    "nature": "modest",
+    "sp": [
+     2,
+     0,
+     0,
+     32,
+     0,
+     32
+    ],
+    "item": "whiteherb",
+    "gender": null,
+    "nickname": null
+   },
+   {
+    "species": "dragonite",
+    "ability": "multiscale",
+    "moves": [
+     "extremespeed",
+     "dracometeor",
+     "airslash",
+     "thunderbolt"
+    ],
+    "nature": "modest",
+    "sp": [
+     32,
+     0,
+     0,
+     32,
+     0,
+     2
+    ],
+    "item": "dragoninite",
+    "gender": null,
+    "nickname": null
+   },
+   {
+    "species": "basculegion",
+    "ability": "adaptability",
+    "moves": [
+     "lastrespects",
+     "wavecrash",
+     "flipturn",
+     "aquajet"
+    ],
+    "nature": "jolly",
+    "sp": [
+     2,
+     32,
+     0,
+     0,
+     0,
+     32
+    ],
+    "item": "focussash",
+    "gender": null,
+    "nickname": null
+   },
+   {
+    "species": "kangaskhan",
+    "ability": "scrappy",
+    "moves": [
+     "doubleedge",
+     "suckerpunch",
+     "earthquake",
+     "icepunch"
+    ],
+    "nature": "adamant",
+    "sp": [
+     32,
+     32,
+     0,
+     0,
+     2,
+     0
+    ],
+    "item": "kangaskhanite",
+    "gender": null,
+    "nickname": null
+   }
+  ]
+ },
+ {
+  "id": "b25c6321-3214-44b4-8567-77ac569402c9",
+  "title": "[2280] Mega Floette and Dragonite Balance",
+  "rate": null,
+  "rank": null,
+  "team": [
+   {
+    "species": "toxapex",
+    "ability": "regenerator",
+    "moves": [
+     "infestation",
+     "haze",
+     "toxic",
+     "recover"
+    ],
+    "nature": "bold",
+    "sp": [
+     32,
+     0,
+     32,
+     0,
+     2,
+     0
+    ],
+    "item": "leftovers",
+    "gender": null,
+    "nickname": null
+   },
+   {
+    "species": "basculegion",
+    "ability": "adaptability",
+    "moves": [
+     "wavecrash",
+     "flipturn",
+     "aquajet",
+     "lastrespects"
+    ],
+    "nature": "jolly",
+    "sp": [
+     2,
+     32,
+     0,
+     0,
+     0,
+     32
+    ],
+    "item": "choicescarf",
+    "gender": null,
+    "nickname": null
+   },
+   {
+    "species": "floetteeternal",
+    "ability": "flowerveil",
+    "moves": [
+     "moonblast",
+     "lightofruin",
+     "calmmind",
+     "drainingkiss"
+    ],
+    "nature": "modest",
+    "sp": [
+     26,
+     0,
+     4,
+     6,
+     0,
+     30
+    ],
+    "item": "floettite",
+    "gender": null,
+    "nickname": null
+   },
+   {
+    "species": "corviknight",
+    "ability": "pressure",
+    "moves": [
+     "uturn",
+     "ironhead",
+     "thief",
+     "roost"
+    ],
+    "nature": "sassy",
+    "sp": [
+     32,
+     9,
+     0,
+     0,
+     25,
+     0
+    ],
+    "item": null,
+    "gender": null,
+    "nickname": null
+   },
+   {
+    "species": "diggersby",
+    "ability": "hugepower",
+    "moves": [
+     "earthquake",
+     "icepunch",
+     "quickattack",
+     "superpower"
+    ],
+    "nature": "adamant",
+    "sp": [
+     0,
+     32,
+     2,
+     0,
+     0,
+     32
+    ],
+    "item": "focussash",
+    "gender": null,
+    "nickname": null
+   },
+   {
+    "species": "dragonite",
+    "ability": "multiscale",
+    "moves": [
+     "dracometeor",
+     "thunderbolt",
+     "flamethrower",
+     "aquajet"
+    ],
+    "nature": "modest",
+    "sp": [
+     1,
+     0,
+     0,
+     32,
+     1,
+     32
+    ],
+    "item": "dragoninite",
+    "gender": null,
+    "nickname": null
+   }
+  ]
+ },
+ {
+  "id": "ffc3324f-1df2-4da8-9121-f8c1fca56b38",
+  "title": "[2277] Single Ranker MAV",
+  "rate": null,
+  "rank": null,
+  "team": [
+   {
+    "species": "floetteeternal",
+    "ability": "flowerveil",
+    "moves": [
+     "dazzlinggleam",
+     "moonblast",
+     "lightofruin",
+     "protect"
+    ],
+    "nature": "modest",
+    "sp": [
+     14,
+     0,
+     0,
+     20,
+     0,
+     32
+    ],
+    "item": "floettite",
+    "gender": null,
+    "nickname": null
+   },
+   {
+    "species": "sneasler",
+    "ability": "unburden",
+    "moves": [
+     "direclaw",
+     "closecombat",
+     "rocktomb",
+     "fakeout"
+    ],
+    "nature": "impish",
+    "sp": [
+     32,
+     4,
+     23,
+     0,
+     1,
+     6
+    ],
+    "item": "sitrusberry",
+    "gender": null,
+    "nickname": null
+   },
+   {
+    "species": "kingambit",
+    "ability": "supremeoverlord",
+    "moves": [
+     "kowtowcleave",
+     "suckerpunch",
+     "lowkick",
+     "protect"
+    ],
+    "nature": "adamant",
+    "sp": [
+     20,
+     32,
+     0,
+     0,
+     0,
+     14
+    ],
+    "item": "blackglasses",
+    "gender": null,
+    "nickname": null
+   },
+   {
+    "species": "basculegion",
+    "ability": "adaptability",
+    "moves": [
+     "liquidation",
+     "lastrespects",
+     "aquajet",
+     "protect"
+    ],
+    "nature": "adamant",
+    "sp": [
+     2,
+     32,
+     0,
+     0,
+     0,
+     32
+    ],
+    "item": "focussash",
+    "gender": null,
+    "nickname": null
+   },
+   {
+    "species": "aegislash",
+    "ability": "stancechange",
+    "moves": [
+     "closecombat",
+     "poltergeist",
+     "shadowsneak",
+     "kingsshield"
+    ],
+    "nature": "relaxed",
+    "sp": [
+     30,
+     20,
+     15,
+     0,
+     0,
+     1
+    ],
+    "item": "spelltag",
+    "gender": null,
+    "nickname": null
+   },
+   {
+    "species": "delphox",
+    "ability": "blaze",
+    "moves": [
+     "heatwave",
+     "psychic",
+     "encore",
+     "substitute"
+    ],
+    "nature": "timid",
+    "sp": [
+     9,
+     0,
+     23,
+     5,
+     0,
+     29
+    ],
+    "item": "delphoxite",
+    "gender": null,
+    "nickname": null
+   }
+  ]
+ }
+]

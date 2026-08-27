@@ -61,6 +61,7 @@
 "dryskin": "건조피부",
 "earlybird": "일찍기상",
 "eartheater": "흙먹기",
+"eelevate": "천정부지",
 "effectspore": "포자",
 "electricsurge": "일렉트릭메이커",
 "electromorphosis": "전기로바꾸기",
@@ -68,6 +69,7 @@
 "emergencyexit": "위기회피",
 "fairyaura": "페어리오라",
 "filter": "필터",
+"firemane": "불꽃의갈기",
 "flamebody": "불꽃몸",
 "flareboost": "열폭주",
 "flashfire": "타오르는불꽃",
@@ -3399,7 +3401,7 @@
 "zippyzap": "파찌파찌액셀"
 },
 "note": "Ids are never localized -- they key into Showdown's data and the Champions overrides. Only display names live here.",
-"source": "PokeAPI multilingual CSVs; formes composed from the base name",
+"source": "PokeAPI multilingual CSVs; formes composed from the base name; gaps filled from the 포케챔스 dex",
 "species": {
 "abomasnow": "눈설왕",
 "abomasnowmega": "메가눈설왕",

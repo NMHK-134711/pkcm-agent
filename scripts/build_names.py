@@ -115,6 +115,69 @@ def korean_species(base_names: dict[str, str], dex) -> tuple[dict[str, str], lis
     return resolved, missing
 
 
+
+POKECHAMS_DIR = ROOT / "data" / "raw" / "pokechams"
+
+
+def overlay_pokechams(dex, species: dict, moves: dict, abilities: dict,
+                      items: dict) -> dict[str, list[str]]:
+    """Fill the names PokeAPI has none for, from the 포케챔스 dex.
+
+    **Gaps only -- it never overrules a name that is already there.** The
+    temptation is to let it win outright, since it is a Champions dex and
+    PokeAPI is not, but the two disagree about wording as often as about facts:
+    포케챔스 calls Aegislash 킬가르도(실드폼) where every other surface says
+    킬가르도, and pkmnchamps (which ``fetch_pkmnchamps.py`` scrapes for the
+    party sheets) disagrees with both. Picking a winner among third-party
+    spellings is not this file's job; having *a* name for everything is.
+
+    What it does fix is real: ``eelevate`` and ``firemane`` are Champions
+    originals that PokeAPI has never heard of, and docs/RESUME.md has carried
+    them as an open question -- "no published Korean name, shown in English".
+    There is one, and this is where it was.
+
+    Returns what changed, so the diff is visible rather than silent.
+    """
+    from build_champions_learnsets import our_species_id
+
+    if not POKECHAMS_DIR.exists():
+        print("  (no data/raw/pokechams -- run scripts/fetch_pokechams.py; "
+              "keeping the composed names)")
+        return {}
+
+    def read(name):
+        return json.loads((POKECHAMS_DIR / name).read_text(encoding="utf-8"))
+
+    def ident(value: str) -> str:
+        return "".join(c for c in (value or "").lower() if c.isalnum())
+
+    changed: dict[str, list[str]] = {}
+    known = set(dex.species)
+    for entry in read("champions_pokemon.json"):
+        species_id = our_species_id(entry["slug"], known)
+        korean = entry.get("nameKo")
+        if not species_id or not korean or species.get(species_id):
+            continue
+        changed.setdefault("species", []).append(
+            f"{species_id} had no Korean name -> {korean!r}")
+        species[species_id] = korean
+
+    for file_name, table, lookup, label in (
+        ("moves.json", moves, dex.moves, "moves"),
+        ("items.json", items, dex.items, "items"),
+        ("abilities.json", abilities, dex.abilities, "abilities"),
+    ):
+        for entry in read(file_name):
+            key = ident(entry.get("nameEn"))
+            korean = entry.get("nameKo")
+            if key not in lookup or not korean or table.get(key):
+                continue
+            changed.setdefault(label, []).append(
+                f"{key} had no Korean name -> {korean!r}")
+            table[key] = korean
+    return changed
+
+
 def main() -> int:
     from pkcm.data.dex import load_dex
 
@@ -136,9 +199,12 @@ def main() -> int:
         items[entry["id"]] = entry["korean"]
     types = names_by_identifier("types.csv", "type_names.csv", "type_id")
 
+    corrected = overlay_pokechams(dex, species, moves, abilities, items)
+
     payload = {
         "language": "ko",
-        "source": "PokeAPI multilingual CSVs; formes composed from the base name",
+        "source": ("PokeAPI multilingual CSVs; formes composed from the base "
+                   "name; gaps filled from the 포케챔스 dex"),
         "note": (
             "Ids are never localized -- they key into Showdown's data and the "
             "Champions overrides. Only display names live here."
@@ -152,6 +218,9 @@ def main() -> int:
     OUT_PATH.parent.mkdir(parents=True, exist_ok=True)
     OUT_PATH.write_text(json.dumps(payload, indent=0, ensure_ascii=False, sort_keys=True),
                         encoding="utf-8")
+
+    for label, rows in corrected.items():
+        print(f"  포케챔스 filled {len(rows)} missing {label}; e.g. {rows[0]}")
 
     regulation = dex.regulation("m_b")
     roster = regulation.legal_species | regulation.legal_megas

@@ -71,9 +71,16 @@ def test_everything_champions_uses_has_a_korean_name(dex, names):
 
 
 def test_unknown_ids_fall_back_rather_than_vanish(dex):
-    """Two Champions-original abilities have no published Korean name."""
+    """An id with no name renders as English, then as itself -- never blank.
+
+    This used to assert that ``eelevate`` came out as "Eelevate", because it
+    was one of two Champions originals PokeAPI had never heard of. It has a
+    published Korean name -- 천정부지 -- and the 포케챔스 dex had it all along;
+    the test was pinning a gap in our data as though it were a fact about the
+    game. It asks about an id that cannot exist instead.
+    """
     korean = Names("ko", dex)
-    assert korean.ability("eelevate") == "Eelevate", "English, not a raw id"
+    assert korean.ability("eelevate") == "천정부지"
     assert korean.ability("nonsense_id") == "nonsense_id"
 
 

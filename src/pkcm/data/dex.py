@@ -269,8 +269,29 @@ class Dex:
         self.type_chart = TypeChart(_load_raw("typechart"))
 
     def exists_in_champions(self, entry) -> bool:
-        """Whether a move / item / ability is part of Champions at all."""
+        """Whether a move / item / ability is part of Champions at all.
+
+        Moves are answered by the ROM's own availability flag, built into
+        ``data/champions/moves_available.json``. Showdown's ``isNonstandard``
+        used to answer it and got three wrong: it kept Spore, Soft-Boiled and
+        Power Shift, none of which are in the game. Spore in particular was
+        being modelled as *banned by a clause* when it simply does not exist.
+
+        Items and abilities have no ROM list yet and still fall back to
+        ``isNonstandard``.
+        """
+        available = self.available_moves
+        if available is not None and isinstance(entry, Move):
+            return entry.id in available
         return entry.raw.get("isNonstandard") is None
+
+    @cached_property
+    def available_moves(self) -> frozenset[str] | None:
+        """The ROM's move list, or ``None`` if it has not been built."""
+        path = CHAMPIONS_DIR / "moves_available.json"
+        if not path.exists():
+            return None
+        return frozenset(json.loads(path.read_text(encoding="utf-8")))
 
     @cached_property
     def learnsets(self) -> dict[str, Any]:

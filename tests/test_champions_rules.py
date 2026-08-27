@@ -38,8 +38,17 @@ def regulation(dex):
 
 
 def test_champions_cuts_a_quarter_of_the_move_list(dex):
+    """497, from the ROM's own availability flag.
+
+    It was 500 while Showdown's ``isNonstandard`` answered this, and the three
+    it kept -- Spore, Soft-Boiled, Power Shift -- are not in the game. The
+    포케챔스 dex independently lists 497, which is the same answer from a
+    different direction.
+    """
     pool = [m for m in dex.moves.values() if dex.exists_in_champions(m)]
-    assert len(pool) == 500, "base data calls 685 standard; Champions has 500"
+    assert len(pool) == 497, "base data calls 685 standard; Champions has 497"
+    for absent in ("spore", "softboiled", "powershift"):
+        assert not dex.exists_in_champions(dex.moves[absent]), absent
 
 
 @pytest.mark.parametrize("move_id", ["tackle", "growl", "ember", "crushgrip", "scratch"])
@@ -138,10 +147,6 @@ def test_a_frozen_pokemon_always_thaws_within_three_attempts(dex):
 @pytest.mark.parametrize(
     "move_id,clause",
     [
-        ("spore", "sleep moves clause"),
-        ("hypnosis", "sleep moves clause"),
-        ("sheercold", "OHKO clause"),
-        ("fissure", "OHKO clause"),
         ("doubleteam", "evasion clause"),
         ("minimize", "evasion clause"),
     ],
@@ -150,15 +155,34 @@ def test_banned_move_categories(dex, move_id, clause):
     assert clause_violation(dex.moves[move_id]) == clause
 
 
+@pytest.mark.parametrize("move_id", ["spore", "hypnosis", "sing", "sheercold",
+                                     "fissure", "horndrill"])
+def test_sleep_and_ohko_moves_are_allowed_on_a_team(dex, move_id):
+    """Showdown's champions mod claims otherwise, and the game disagrees.
+
+    ``mods/champions/rulesets.ts`` lists Sleep Moves Clause and OHKO Clause in
+    its ``standard`` ruleset, and we enforced both. hk confirmed Sleep Powder
+    is usable, and the ladder archive settles it at scale: of 113 ranker
+    parties rated 2400-2800, **eleven carry a sleep move** (Sleep Powder ten
+    times, Hypnosis once) and three carry a one-hit-KO move.
+
+    **Showdown is a mechanics reference, not a rules source.** It runs its own
+    ruleset, and where the two differ the game wins -- so a rule needs a
+    Champions source behind it, not a line in someone else's format file.
+    """
+    assert clause_violation(dex.moves[move_id]) is None
+
+
 def test_ordinary_moves_pass_the_clauses(dex):
     for move_id in ("thunderbolt", "swordsdance", "protect", "willowisp", "reflect"):
         assert clause_violation(dex.moves[move_id]) is None
 
 
 def test_a_banned_move_makes_a_set_illegal(dex, regulation):
-    bad = PokemonSet(species="venusaur", ability="overgrow", moves=("sludgebomb", "spore"))
+    bad = PokemonSet(species="clefable", ability="cutecharm",
+                     moves=("moonblast", "minimize"))
     errors = set_errors(dex, regulation, bad)
-    assert any("sleep moves clause" in e for e in errors), errors
+    assert any("evasion clause" in e for e in errors), errors
 
 
 def test_a_removed_move_makes_a_set_illegal(dex, regulation):
@@ -221,27 +245,33 @@ def test_the_table_also_adds_what_the_union_missed(dex):
     for gained in ("wish", "healpulse", "airslash", "tickle"):
         assert gained in clefable, gained
 
-    # Sing is on its row too, and the sleep clause still keeps it off the team --
-    # which is the separation the next test is about.
+    # Sing is on its row too, and it stays: the sleep clause it used to be
+    # filtered by was Showdown's, not the game's.
     from pkcm.engine.legality import champions_learnsets
 
     assert "sing" in champions_learnsets()["clefable"]
-    assert "sing" not in clefable
+    assert "sing" in clefable
 
 
 def test_clauses_still_apply_on_top_of_the_table(dex):
     """Taught and allowed are different questions, and the table answers one.
 
-    Hypnosis is on plenty of rows; the sleep clause keeps it off every team.
+    Minimize is on plenty of rows; the evasion clause keeps it off every team.
+    Hypnosis used to be the example here, back when we banned it.
     """
     from pkcm.engine.legality import champions_learnsets, learnable_moves
 
     table = champions_learnsets()
-    teaches_hypnosis = [s for s, moves in table.items() if "hypnosis" in moves]
-    assert teaches_hypnosis, "the table should carry banned moves too"
-    for species in teaches_hypnosis[:5]:
+    teaches = [s for s, moves in table.items() if "minimize" in moves]
+    assert teaches, "the table should carry banned moves too"
+    checked = 0
+    for species in teaches:
         if species in dex.species:
-            assert "hypnosis" not in learnable_moves(dex, species)
+            assert "minimize" not in learnable_moves(dex, species)
+            checked += 1
+            if checked == 5:
+                break
+    assert checked, "no species with Minimize is in the dex"
 
 
 def test_no_species_learns_nothing(dex):
@@ -325,3 +355,22 @@ def test_the_two_slug_alias_tables_agree():
     builder = load("build_champions_learnsets")
     report = load("compare_pokechams")
     assert builder.SLUG_ALIASES == report.SLUG_ALIASES
+
+
+def test_the_learnset_table_never_teaches_a_move_that_is_not_in_the_game(dex):
+    """``waza_learn.json`` is the raw table and ships rows for disabled moves.
+
+    561 distinct moves appear across it against 497 flagged available, and taken
+    unfiltered it hands Tsareena Magical Leaf and Rotom Thunder Shock. The build
+    intersects the two; this is the guard that it kept doing so, because the
+    failure is silent -- a team builder simply gets moves the game does not have.
+    """
+    from pkcm.engine.legality import champions_learnsets
+
+    table = champions_learnsets()
+    for species, moves in table.items():
+        for move_id in moves:
+            move = dex.moves.get(move_id)
+            if move is None:
+                continue
+            assert dex.exists_in_champions(move), f"{species} learns {move_id}"

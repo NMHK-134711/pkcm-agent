@@ -134,7 +134,18 @@ def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--iterations", type=int, default=3)
     parser.add_argument("--battles", type=int, default=40, help="per iteration")
-    parser.add_argument("--search-iterations", type=int, default=200)
+    parser.add_argument("--search-iterations", type=int, default=800,
+                        help="simulations per decision when generating "
+                             "self-play data, where time trades directly "
+                             "against games")
+    parser.add_argument("--eval-search-iterations", type=int, default=None,
+                        help="simulations per decision in the in-loop arena. "
+                             "Defaults to --search-iterations. Set it higher "
+                             "to measure at the budget the agent would "
+                             "actually play at: singles gains 6.5 to 7.6 "
+                             "points per doubling and has not saturated, so "
+                             "the cheap budget self-play needs understates "
+                             "what the network is worth")
     parser.add_argument("--format", default="singles", choices=("singles", "doubles"))
     parser.add_argument("--workers", type=int, default=None)
     parser.add_argument("--epochs", type=int, default=2)
@@ -243,6 +254,8 @@ def main() -> int:
             "format": args.format,
             "battles_per_iteration": args.battles,
             "search_iterations": args.search_iterations,
+            "eval_search_iterations": (args.eval_search_iterations
+                                       or args.search_iterations),
             "epochs": args.epochs,
             "hidden": args.hidden,
             "blocks": args.blocks,
@@ -416,11 +429,15 @@ def measure(args, checkpoint: Path, workers: int) -> tuple[float, float, float]:
     from pkcm.train.matchup import MatchConfig, Record
     from pkcm.train.matchup import stream as play
 
+    # Both sides get it, so the comparison is still like for like -- it just
+    # happens at a different operating point.
+    budget = (args.eval_search_iterations if args.eval_search_iterations
+              else args.search_iterations)
     config = MatchConfig(
         checkpoint=str(checkpoint), battle_format=args.format,
         teams=args.teams,
-        search=SearchConfig(iterations=args.search_iterations,
-                            determinizations=max(4, args.search_iterations // 20),
+        search=SearchConfig(iterations=budget,
+                            determinizations=max(4, budget // 20),
                             leaf_batch=args.leaf_batch),
         trust=1.0, trust_prior=args.trust_prior, trust_value=args.trust_value)
 

@@ -44,6 +44,15 @@ from pkcm.search.policy import (
 
 Choice = tuple[Action, ...]
 
+#: What to search with when the point is to play well rather than to make
+#: data cheaply. Four times the self-play budget, on the evidence in
+#: ``SearchConfig.iterations`` that every doubling so far has paid.
+#:
+#: Not a ceiling -- the ceiling is whatever the clock allows, and no measured
+#: rung has bent yet. It is the largest setting this project has actually
+#: played four hundred games at.
+DEPLOY_ITERATIONS = 3200
+
 #: Added to an unvisited option's score so it outranks every visited one. The
 #: value only has to exceed the range of ``mean + bias + exploration``, which is
 #: bounded well below this.
@@ -99,7 +108,33 @@ class MinMax:
 class SearchConfig:
     """How much thinking to do, and of what kind."""
 
-    #: Total simulations. The only real dial.
+    #: Total simulations.
+    #:
+    #: **This buys strength in singles and has not stopped.** Head to head on
+    #: ranker teams, 400 games apiece, each rung separable:
+    #:
+    #:     200 -> 800    +9.7pp
+    #:     800 -> 1600   +7.6pp
+    #:     1600 -> 3200  +6.5pp
+    #:
+    #: Doubles is a different shape: 800 to 1600 came back +2.0pp and not
+    #: separable, because ``max_branching`` discards half the legal moves at
+    #: nearly two doubles decisions in three, and looking harder at a list the
+    #: answer is missing from does not find it. See ``max_branching``.
+    #:
+    #: So the right number depends on what the budget is being spent for, and
+    #: those are two different jobs:
+    #:
+    #: * **Playing.** Spend what the clock allows. A real turn timer is 45 to
+    #:   90 seconds against the couple of seconds 3200 costs, so there is room
+    #:   for two or three more doublings above anything measured here.
+    #: * **Generating self-play data.** Time trades directly against games:
+    #:   3200 simulations buys a quarter of the battles 800 does. Whether a
+    #:   stronger teacher on fewer games beats a weaker one on more has not
+    #:   been measured, so this stays where it was.
+    #:
+    #: ``DEPLOY_ITERATIONS`` is the first job's number, this default is the
+    #: second's.
     iterations: int = 400
     #: How many determinizations to spread them over. One draw per
     #: ``iterations // determinizations`` simulations. More draws means a

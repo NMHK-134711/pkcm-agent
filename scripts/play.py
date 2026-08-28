@@ -36,6 +36,7 @@ from pkcm.engine.legality import random_team  # noqa: E402
 from pkcm.engine.rng import Rng  # noqa: E402
 from pkcm.engine.state import BattleConfig, Phase, legal_actions, new_battle  # noqa: E402
 from pkcm.envs.observation import Observation  # noqa: E402
+from pkcm.search.mcts import DEPLOY_ITERATIONS  # noqa: E402
 from pkcm.render.names import Names  # noqa: E402
 from pkcm.render.text import Renderer  # noqa: E402
 from pkcm.search import MCTS, SearchConfig  # noqa: E402
@@ -328,7 +329,13 @@ def main() -> int:
     parser.add_argument("--checkpoint", default=None,
                         help="a saved network for the agent's prior and leaf "
                              "value. Without one it plays the handcrafted search")
-    parser.add_argument("--search-iterations", type=int, default=800)
+    parser.add_argument("--search-iterations", type=int,
+                        default=DEPLOY_ITERATIONS,
+                        help="simulations per decision. The default is the "
+                             "playing budget, not the self-play one: every "
+                             "doubling measured so far has bought singles "
+                             "strength and none has bent yet. Lower it for a "
+                             "faster, weaker opponent")
     parser.add_argument("--trust", type=float, default=1.0)
     parser.add_argument("--seed", type=int, default=None,
                         help="fix the teams. Omit for a different pair each time")

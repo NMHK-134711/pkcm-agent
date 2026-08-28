@@ -910,3 +910,71 @@ def test_value_error_is_averaged_over_the_rows_that_voted(pieces, samples):
 
     # Doubling the rows with abstainers must not halve the reported error.
     assert two["value_mae"] > one["value_mae"] * 0.6, (one, two)
+
+
+# --------------------------------------------------------------------------- #
+# The n-step value target
+# --------------------------------------------------------------------------- #
+
+
+def test_the_bootstrap_reaches_n_decisions_forward_in_the_same_seat():
+    """Both players' decisions interleave in one list, and a value seen from
+    one seat says nothing about the other. Reaching forward has to stay inside
+    a seat or the target is the opponent's opinion with the sign wrong."""
+    from pkcm.train.samples import Sample, bootstrap_targets
+
+    made = []
+    for turn in range(6):
+        for player in (0, 1):
+            made.append(Sample(observation={}, policy=np.zeros(4),
+                               value=1.0 if player == 0 else -1.0,
+                               player=player, turn=turn, battle=1,
+                               search_value=(turn + 1) / 10 * (1 if player == 0 else -1)))
+    done = bootstrap_targets(made, n_step=2)
+
+    # Player 0's turn-0 sample must take player 0's turn-2 root value.
+    first = next(s for s in done if s.player == 0 and s.turn == 0)
+    assert first.bootstrap == pytest.approx(0.3)
+    other = next(s for s in done if s.player == 1 and s.turn == 0)
+    assert other.bootstrap == pytest.approx(-0.3)
+
+
+def test_reaching_past_the_end_lands_on_the_outcome():
+    """There is nothing left to estimate once the battle is over, so the last
+    n decisions take the truth."""
+    from pkcm.train.samples import Sample, bootstrap_targets
+
+    made = [Sample(observation={}, policy=np.zeros(4), value=-1.0, player=0,
+                   turn=turn, battle=1, search_value=0.5)
+            for turn in range(4)]
+    done = bootstrap_targets(made, n_step=3)
+    assert done[0].bootstrap == pytest.approx(0.5), "reaches the third one ahead"
+    for sample in done[1:]:
+        assert sample.bootstrap == pytest.approx(-1.0), "past the end, the outcome"
+
+
+def test_n_step_zero_leaves_the_samples_alone():
+    from pkcm.train.samples import Sample, bootstrap_targets
+
+    made = [Sample(observation={}, policy=np.zeros(4), value=1.0, player=0,
+                   turn=t, battle=1, search_value=0.2) for t in range(3)]
+    assert bootstrap_targets(made, 0) == made
+
+
+def test_validation_still_scores_the_outcome_under_a_bootstrap_target(pieces, samples):
+    """The trap this whole design walks past: a target the network helped write
+    cannot also be the exam. Fit to a constant bootstrap and the training error
+    collapses; the held-out score against the real win or loss must not."""
+    from dataclasses import replace
+
+    vocabulary, sheet, action_space = pieces
+    spread = [replace(sample, battle=index % 6, bootstrap=0.0)
+              for index, sample in enumerate(samples)]
+
+    net = build(vocabulary, sheet, action_space, SCALAR_SIZE,
+                NetConfig(hidden=64, blocks=1))
+    result = fit(net, spread, torch.device("cpu"),
+                 TrainConfig(epochs=1, batch_size=16, validation_fraction=0.25,
+                             bootstrap_weight=1.0))
+    assert result["val_value_mae"] > 0.5, (
+        "validation is scoring the bootstrap, not the outcome")

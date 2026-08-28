@@ -79,6 +79,24 @@ class Sample:
     #: are distributions over the same actions -- so rehearsal speaks to the
     #: policy head and stays quiet about the value.
     value_weight: float = 1.0
+    #: The n-step bootstrap: what the search thought the position was worth
+    #: **n turns after this one**, or the real outcome if the battle ended
+    #: first. MuZero's value target, with no intermediate rewards to sum
+    #: because this game pays only at the end.
+    #:
+    #: Why not the outcome. Who won, thirty turns later, is the truth and it is
+    #: one sample of a very noisy variable. Measured here, a value head fitted
+    #: to it drove the search to 39.9% [33.3, 46.8] against the handcrafted
+    #: one -- separably worse -- while the policy head from the same network
+    #: scored 55.0%. The value head accounted for the whole loss.
+    #:
+    #: Why not this turn's root value, which ``search_value`` already holds:
+    #: the network largely produced that number, so fitting it teaches almost
+    #: nothing. Reaching n turns forward carries real information back while
+    #: staying on the same scale, which is the second half of the problem --
+    #: pre-training fits ``heuristic`` at about +-0.08 and the loop fits +-1,
+    #: and a head asked to jump between them lands between them.
+    bootstrap: float = 0.0
 
 
 @dataclass(frozen=True, slots=True)
@@ -91,6 +109,13 @@ class SelfPlayConfig:
     #: attack at all, against 4.9% of the ranker pool's.
     teams: str = "random"
     search: SearchConfig = field(default_factory=SearchConfig)
+    #: How far forward the value target looks. See ``Sample.bootstrap``.
+    #:
+    #: Five is MuZero's number for Atari; its board games use the outcome,
+    #: which they can afford because they play millions of games from one
+    #: position. Nothing here recurs.
+    n_step: int = 5
+
     #: Stop a battle that will not end. The engine's own limit is 200 turns and
     #: reaching it is decided on attrition, which is a real result -- this is
     #: only a guard against a search that has gone wrong.
@@ -156,12 +181,42 @@ def play_one(dex: Dex, config: SelfPlayConfig, seed: int) -> list[Sample]:
             ))
         state, _ = step(state, chosen[0], chosen[1])
 
-    return [
+    outcome = {player: _outcome(state, player) for player in (0, 1)}
+    collected = [
         Sample(observation=observation, policy=policy,
-               value=_outcome(state, player), player=player, turn=turn, battle=seed,
+               value=outcome[player], player=player, turn=turn, battle=seed,
                search_value=rooted)
         for observation, policy, player, turn, rooted in pending
     ]
+    return bootstrap_targets(collected, config.n_step)
+
+
+def bootstrap_targets(samples: list[Sample], n_step: int) -> list[Sample]:
+    """Fill in each sample's ``bootstrap`` from n decisions further on.
+
+    Per player, because the two sides' decisions interleave in one list and a
+    value seen from one seat says nothing about the other. Within a seat the
+    samples are already in turn order.
+
+    Reaching past the end of a battle lands on the outcome, which is right: at
+    that point there is nothing left to estimate.
+    """
+    if n_step <= 0:
+        return samples
+    from dataclasses import replace as _replace
+
+    ordered: dict[int, list[int]] = {}
+    for index, sample in enumerate(samples):
+        ordered.setdefault(sample.player, []).append(index)
+
+    out = list(samples)
+    for indices in ordered.values():
+        for position, index in enumerate(indices):
+            ahead = position + n_step
+            target = (samples[indices[ahead]].search_value if ahead < len(indices)
+                      else samples[index].value)
+            out[index] = _replace(samples[index], bootstrap=target)
+    return out
 
 
 #: One evaluator per worker process, not one per battle. Loading a checkpoint

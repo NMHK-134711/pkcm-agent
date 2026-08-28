@@ -62,6 +62,14 @@ class TrainConfig:
     #: can collapse into predicting its own output, which is exactly the kind of
     #: change that looks like progress in every number except the arena.
     search_value_weight: float = 0.0
+    #: How much of the value target is the n-step bootstrap rather than who
+    #: won. One is MuZero's target; zero is AlphaZero's. See
+    #: ``Sample.bootstrap``.
+    #:
+    #: **Off until measured.** A target the network partly wrote itself can
+    #: collapse into predicting its own output, so validation scores the real
+    #: outcome whatever this is set to, and a test holds that line.
+    bootstrap_weight: float = 0.0
 
 
 @dataclass
@@ -133,6 +141,11 @@ def fit(net: ChampionsNet, samples: list[Sample], device: torch.device,
         rooted = np.array([sample.search_value for sample in samples],
                           dtype=np.float32)
         outcomes = (1 - blend) * outcomes + blend * rooted
+    boot = settings.bootstrap_weight
+    if boot > 0:
+        ahead = np.array([sample.bootstrap for sample in samples],
+                         dtype=np.float32)
+        outcomes = (1 - boot) * outcomes + boot * ahead
     values = torch.as_tensor(outcomes, dtype=torch.float32)
     value_weights = torch.as_tensor(
         np.array([sample.value_weight for sample in samples], dtype=np.float32))

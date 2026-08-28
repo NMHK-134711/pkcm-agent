@@ -186,6 +186,15 @@ def main() -> int:
                              "16 is 2.35x the sequential search and measured "
                              "51.0%% [46.1, 55.9] against it over 396 games. "
                              "1 restores the sequential path")
+    parser.add_argument("--bootstrap-weight", type=float, default=0.0,
+                        help="how much of the value target is the n-step "
+                             "bootstrap rather than who won. 1.0 is MuZero's "
+                             "target, 0.0 is AlphaZero's. The value head "
+                             "fitted to outcomes measured 39.9%% against the "
+                             "handcrafted search while the policy head from "
+                             "the same network measured 55.0%%")
+    parser.add_argument("--n-step", type=int, default=5,
+                        help="how far forward the bootstrap looks")
     parser.add_argument("--search-value-weight", type=float, default=0.0,
                         help="how much of the value target is the search's "
                              "root value rather than who won. Off by default "
@@ -227,7 +236,8 @@ def main() -> int:
     net = build(vocabulary, sheet, action_space, SCALAR_SIZE,
                 NetConfig(hidden=args.hidden, blocks=args.blocks)).to(device)
     settings = TrainConfig(epochs=args.epochs,
-                           search_value_weight=args.search_value_weight)
+                           search_value_weight=args.search_value_weight,
+                           bootstrap_weight=args.bootstrap_weight)
     optimiser = torch.optim.AdamW(net.parameters(), lr=settings.learning_rate,
                                   weight_decay=settings.weight_decay)
 
@@ -306,6 +316,7 @@ def main() -> int:
                 determinizations=max(4, args.search_iterations // 20),
                 leaf_batch=args.leaf_batch),
             checkpoint=None if iteration == 0 else str(checkpoint),
+            n_step=args.n_step,
             trust=trust,
             trust_prior=args.trust_prior,
             trust_value=args.trust_value,

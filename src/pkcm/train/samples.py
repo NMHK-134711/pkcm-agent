@@ -108,6 +108,16 @@ class SelfPlayConfig:
     #: initialised network is worse than the heuristic, so early iterations
     #: blend rather than hand over.
     trust: float = 1.0
+    #: Per-head overrides for ``trust``. ``None`` follows it.
+    #:
+    #: The two heads were measured apart on a network self-played for seven
+    #: iterations, 200 games each on ranker teams: its policy head with the
+    #: handcrafted leaf value scored 55.0% [48.1, 61.7], not separable; its
+    #: value head with the handcrafted prior scored 39.9% [33.3, 46.8],
+    #: separably weaker; both together, 38.7%. The value head accounts for the
+    #: whole loss and the policy head is fine.
+    trust_prior: float | None = None
+    trust_value: float | None = None
 
 
 def play_one(dex: Dex, config: SelfPlayConfig, seed: int) -> list[Sample]:
@@ -156,7 +166,7 @@ def play_one(dex: Dex, config: SelfPlayConfig, seed: int) -> list[Sample]:
 
 #: One evaluator per worker process, not one per battle. Loading a checkpoint
 #: and rebuilding the reference sheet costs more than a couple of battles do.
-_EVALUATOR: tuple[str | None, float, int, object] | None = None
+_EVALUATOR: tuple | None = None
 
 
 def _evaluator(dex: Dex, config: SelfPlayConfig):
@@ -167,9 +177,10 @@ def _evaluator(dex: Dex, config: SelfPlayConfig):
     # against one dex object, so an evaluator cached under a different
     # one answers with the wrong tables -- invisible in a worker, which
     # only ever has one, and wrong in-process.
-    key = (config.checkpoint, config.trust, id(dex))
-    if _EVALUATOR is not None and _EVALUATOR[:3] == key:
-        return _EVALUATOR[3]
+    key = (config.checkpoint, config.trust, config.trust_prior,
+           config.trust_value, id(dex))
+    if _EVALUATOR is not None and _EVALUATOR[:5] == key:
+        return _EVALUATOR[5]
 
     from pkcm.envs.encoding import SCALAR_SIZE
     from pkcm.train.evaluator import from_checkpoint
@@ -187,8 +198,10 @@ def _evaluator(dex: Dex, config: SelfPlayConfig):
     built = from_checkpoint(
         config.checkpoint, dex,
         action_space_size(battle_config.registered, battle_config.brought),
-        SCALAR_SIZE, device="cpu", trust=config.trust)
-    _EVALUATOR = (config.checkpoint, config.trust, id(dex), built)
+        SCALAR_SIZE, device="cpu", trust=config.trust,
+        trust_prior=config.trust_prior, trust_value=config.trust_value)
+    _EVALUATOR = (config.checkpoint, config.trust, config.trust_prior,
+                  config.trust_value, id(dex), built)
     return built
 
 

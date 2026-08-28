@@ -144,6 +144,13 @@ def main() -> int:
                              "recombines the imported pkmnchamps parties; "
                              "37.5%% of random Pokemon carry no same-type "
                              "attack at all, against 4.9%% of those")
+    parser.add_argument("--trust-value", type=float, default=None,
+                        help="how far self-play AND the in-loop arena believe "
+                             "the value head, apart from the policy head. 0 "
+                             "keeps the handcrafted leaf value: measured, a "
+                             "self-played network's policy head with the "
+                             "heuristic scored 55.0%% where the same network's "
+                             "value head scored 39.9%%")
     parser.add_argument("--rehearse", type=int, default=0,
                         help="imitation battles to regenerate and mix into "
                              "each training pass. Guards against forgetting "
@@ -281,6 +288,7 @@ def main() -> int:
                 leaf_batch=args.leaf_batch),
             checkpoint=None if iteration == 0 else str(checkpoint),
             trust=trust,
+            trust_value=args.trust_value,
             teams=args.teams,
         )
 
@@ -405,8 +413,9 @@ def measure(args, checkpoint: Path, workers: int) -> tuple[float, float, float]:
         checkpoint=str(checkpoint), battle_format=args.format,
         teams=args.teams,
         search=SearchConfig(iterations=args.search_iterations,
-                            determinizations=max(4, args.search_iterations // 20)),
-        trust=1.0)
+                            determinizations=max(4, args.search_iterations // 20),
+                            leaf_batch=args.leaf_batch),
+        trust=1.0, trust_value=args.trust_value)
 
     started = beat = time.perf_counter()
     record = Record()

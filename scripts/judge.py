@@ -33,6 +33,11 @@ def main() -> int:
     parser.add_argument("--matches", type=int, default=200,
                         help="each is two battles, the same teams both seats")
     parser.add_argument("--search-iterations", type=int, default=800)
+    parser.add_argument("--search-iterations-b", type=int, default=None,
+                        help="side B's, when the two differ. 800 is the number "
+                             "AlphaZero chose for Go, where the board update "
+                             "is free and the network is enormous; here it is "
+                             "the reverse and the number has never been tested")
     parser.add_argument("--trust", type=float, default=1.0)
     parser.add_argument("--trust-prior", type=float, default=None,
                         help="override --trust for the policy head alone")
@@ -95,7 +100,8 @@ def main() -> int:
 
     workers = args.workers if args.workers is not None else default_workers()
     def search_for(weight, belief, leaf_batch, evaluation=None,
-                   pressure_weight=None):
+                   pressure_weight=None, iterations=None):
+        count = iterations if iterations is not None else args.search_iterations
         extra = {} if weight is None else {"switch_matchup": weight}
         if belief is not None:
             extra["belief"] = belief
@@ -105,8 +111,8 @@ def main() -> int:
             extra["evaluation"] = evaluation
         if pressure_weight is not None:
             extra["pressure_weight"] = pressure_weight
-        return SearchConfig(iterations=args.search_iterations,
-                            determinizations=max(4, args.search_iterations // 20),
+        return SearchConfig(iterations=count,
+                            determinizations=max(4, count // 20),
                             **extra)
 
     config = MatchConfig(
@@ -117,11 +123,11 @@ def main() -> int:
                           args.evaluation, args.pressure_weight),
         search_b=search_for(args.switch_matchup_b, args.belief_b,
                             args.leaf_batch_b, args.evaluation_b,
-                            args.pressure_weight_b))
+                            args.pressure_weight_b, args.search_iterations_b))
 
     def label(search, netted):
-        return (f"search(eval={search.evaluation}, belief={search.belief}, "
-                f"batch={search.leaf_batch}{', net' if netted else ''})")
+        return (f"search({search.iterations} sims, eval={search.evaluation}, "
+                f"belief={search.belief}{', net' if netted else ''})")
 
     side_a = label(config.search, args.checkpoint is not None)
     side_b = label(config.search_b, args.checkpoint_b)

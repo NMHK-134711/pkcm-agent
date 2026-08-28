@@ -141,11 +141,11 @@ def main() -> int:
                              "recombines the imported pkmnchamps parties; "
                              "37.5%% of random Pokemon carry no same-type "
                              "attack at all, against 4.9%% of those")
-    parser.add_argument("--leaf-batch", type=int, default=1,
+    parser.add_argument("--leaf-batch", type=int, default=16,
                         help="leaves per network forward in self-play search. "
-                             "1 is the sequential search; 16 measured 2.35x "
-                             "faster. Turn up only after the strength arena "
-                             "has priced it")
+                             "16 is 2.35x the sequential search and measured "
+                             "51.0%% [46.1, 55.9] against it over 396 games. "
+                             "1 restores the sequential path")
     parser.add_argument("--search-value-weight", type=float, default=0.0,
                         help="how much of the value target is the search's "
                              "root value rather than who won. Off by default "

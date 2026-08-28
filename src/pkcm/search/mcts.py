@@ -239,10 +239,14 @@ class SearchConfig:
     #:
     #: The cost is not free in kind: simulations inside one batch cannot see
     #: each other's results, so the search explores slightly more diffusely
-    #: than the sequential one. **Default 1 until the arena has priced that.**
-    #: This project has shipped exactly one unmeasured search default, and it
-    #: lost 59.5/40.5.
-    leaf_batch: int = 1
+    #: than the sequential one. **Priced before this became the default**, both
+    #: sides holding the same network and differing only here: 51.0% [46.1,
+    #: 55.9] over 396 decided games on ranker teams. Not separable, so the
+    #: diffusion costs nothing measurable and the 2.35x is free.
+    #:
+    #: Sixteen rather than thirty-two because sixteen is the number that was
+    #: measured. Thirty-two timed 5% faster again and has never been played.
+    leaf_batch: int = 16
 
 
 #: What a simulation pessimistically scores while it is still in flight.

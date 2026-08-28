@@ -307,8 +307,16 @@ def main() -> int:
         # A pre-trained network is not the random one the ramp was written for:
         # it has already been measured against the handcrafted search, so it
         # starts trusted and stays capped by its held-out error like any other.
-        trust = (trust_for(iteration, earned) if args.init is None
-                 else max(0.0, min(1.0, 1.0 - (earned if earned is not None else 0.0))))
+        # The held-out error is a fair cap only when the value head was asked
+        # to predict outcomes. Under a bootstrap target it is not: boot1 fitted
+        # the n-step value, scored 0.581 against who actually won where boot0
+        # scored 0.299, and was capped at 0.44 trust against boot0's 0.74 --
+        # for not doing a job it was never given. It then beat boot0 by eleven
+        # points anyway. Scoring a network against a target it was not trained
+        # on, and then throttling it on that score, is two mistakes.
+        measured = None if args.bootstrap_weight > 0 else earned
+        trust = (trust_for(iteration, measured) if args.init is None
+                 else max(0.0, min(1.0, 1.0 - (measured if measured is not None else 0.0))))
         selfplay = SelfPlayConfig(
             battle_format=args.format,
             search=SearchConfig(

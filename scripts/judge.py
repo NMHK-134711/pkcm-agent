@@ -63,11 +63,22 @@ def main() -> int:
                         help="side B gets the same network as side A, so the "
                              "match prices the search change on the search "
                              "that will run it")
-    parser.add_argument("--belief", action="store_true",
+    # **Defaults follow SearchConfig, not the flag's absence.** These were
+    # ``store_true``, so every judge run so far passed ``belief=False``
+    # explicitly and quietly measured a configuration nobody ships -- belief is
+    # on by default and is the largest single gain this project has measured.
+    # Comparisons stayed valid, since both sides were equally handicapped, but
+    # the numbers were not about the real agent.
+    parser.add_argument("--belief", dest="belief", action="store_true",
+                        default=None,
                         help="side A draws the opponent's hidden fields from "
-                             "the ranker pool rather than uniformly")
-    parser.add_argument("--belief-b", action="store_true",
-                        help="side B does too")
+                             "the ranker pool rather than uniformly (default)")
+    parser.add_argument("--no-belief", dest="belief", action="store_false",
+                        help="side A samples them uniformly instead")
+    parser.add_argument("--belief-b", dest="belief_b", action="store_true",
+                        default=None, help="side B, same (default on)")
+    parser.add_argument("--no-belief-b", dest="belief_b", action="store_false",
+                        help="side B samples them uniformly instead")
     parser.add_argument("--teams", default="random",
                         choices=("random", "ranker"),
                         help="which distribution teams come from. ``ranker`` "
@@ -81,13 +92,15 @@ def main() -> int:
     workers = args.workers if args.workers is not None else default_workers()
     def search_for(weight, belief, leaf_batch, evaluation=None):
         extra = {} if weight is None else {"switch_matchup": weight}
+        if belief is not None:
+            extra["belief"] = belief
         if leaf_batch is not None:
             extra["leaf_batch"] = leaf_batch
         if evaluation is not None:
             extra["evaluation"] = evaluation
         return SearchConfig(iterations=args.search_iterations,
                             determinizations=max(4, args.search_iterations // 20),
-                            belief=belief, **extra)
+                            **extra)
 
     config = MatchConfig(
         checkpoint=args.checkpoint, battle_format=args.format, trust=args.trust,

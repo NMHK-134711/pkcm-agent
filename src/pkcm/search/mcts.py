@@ -34,7 +34,7 @@ from pkcm.engine.battle import IllegalActionError, step
 from pkcm.engine.rng import Rng, RngCursor
 from pkcm.engine.state import BattleState, Phase
 from pkcm.envs.observation import Observation, determinize
-from pkcm.search.evaluate import heuristic, terminal_value
+from pkcm.search.evaluate import heuristic, pressure, terminal_value
 from pkcm.search.policy import (
     RandomPolicy,
     decisions_wanted,
@@ -247,6 +247,17 @@ class SearchConfig:
     #: Sixteen rather than thirty-two because sixteen is the number that was
     #: measured. Thirty-two timed 5% faster again and has never been played.
     leaf_batch: int = 16
+    #: Which leaf evaluation. ``"material"`` counts what is left;
+    #: ``"pressure"`` adds who is about to knock out whom.
+    #:
+    #: Measured, this tree reaches 2.8 turns in singles and 1.8 in doubles
+    #: against a cap of twelve -- 800 simulations spread over |A|x|B| children
+    #: go wide, not deep. Almost nothing has fainted that soon, so a material
+    #: count returns nearly the same number down every line, and the root Q
+    #: spread came out at 0.037 against an exploration term worth ten times it.
+    #:
+    #: **Off until measured**, like every other evaluation change here.
+    evaluation: str = "material"
 
 
 #: What a simulation pessimistically scores while it is still in flight.
@@ -611,7 +622,7 @@ class MCTS:
         if self.evaluator is not None:
             return self.evaluator.value(state, player)
         if self.config.rollout_turns <= 0:
-            return heuristic(state, player)
+            return self._leaf(state, player)
 
         from pkcm.search.policy import play_out
 
@@ -620,7 +631,13 @@ class MCTS:
         finished = play_out(state, (rollout, rollout), turn_limit=limit)
         if finished.finished:
             return terminal_value(finished, player)
-        return heuristic(finished, player)
+        return self._leaf(finished, player)
+
+    def _leaf(self, state: BattleState, player: int) -> float:
+        """The handcrafted leaf value this search was configured with."""
+        if self.config.evaluation == "pressure":
+            return pressure(state, player)
+        return heuristic(state, player)
 
     def _node(self, state: BattleState, player: int) -> Node:
         """Options with ``player`` first, so index 0 is always the searcher."""

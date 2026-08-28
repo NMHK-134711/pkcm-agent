@@ -61,7 +61,8 @@ def evaluator_for(checkpoint, dex, battle_format: str, trust: float):
 def build(name: str, seed: int, iterations: int, determinizations: int,
           rollout: int, prior: float | None = None, evaluator=None,
           ablate: tuple[str, ...] = (), exploration: float | None = None,
-          switch_matchup: float | None = None, leaf_batch: int | None = None):
+          switch_matchup: float | None = None, leaf_batch: int | None = None,
+          evaluation: str | None = None):
     """``ablate`` switches named ``SearchConfig`` flags off.
 
     An ablation is the only way to find out whether a change did anything. Two
@@ -79,6 +80,8 @@ def build(name: str, seed: int, iterations: int, determinizations: int,
             extra["exploration"] = exploration
         if leaf_batch is not None:
             extra["leaf_batch"] = leaf_batch
+        if evaluation is not None:
+            extra["evaluation"] = evaluation
         if switch_matchup is not None:
             extra["switch_matchup"] = switch_matchup
         config = SearchConfig(iterations=iterations,
@@ -117,6 +120,12 @@ def main() -> int:
                         help="network to use for the 'net' policy")
     parser.add_argument("--exploration", type=float, default=None,
                         help="UCB1 term for --a, on top of PUCT's prior term")
+    parser.add_argument("--evaluation", default=None,
+                        choices=("material", "pressure"),
+                        help="side A's leaf evaluation")
+    parser.add_argument("--evaluation-b", default=None,
+                        choices=("material", "pressure"),
+                        help="side B's, to match the two directly")
     parser.add_argument("--leaf-batch", type=int, default=None,
                         help="leaves per network forward for --a (needs "
                              "--checkpoint; virtual loss in between)")
@@ -167,10 +176,10 @@ def main() -> int:
             a = build(args.a, args.seed + match, args.iterations,
                       args.determinizations, args.rollout, args.prior, evaluator,
                       ablate=ablated, exploration=args.exploration,
-                      leaf_batch=args.leaf_batch)
+                      leaf_batch=args.leaf_batch, evaluation=args.evaluation)
             b = build(args.b, args.seed + match + 5000, args.iterations,
                       args.determinizations, args.rollout, args.prior_b, evaluator,
-                      exploration=args.exploration_b)
+                      exploration=args.exploration_b, evaluation=args.evaluation_b)
             policies = (b, a) if swap else (a, b)
             state = new_battle(config, teams, seed=args.seed + match)
             state = play_out(state, policies)

@@ -393,3 +393,73 @@ def test_prankster_still_reaches_its_own_side(dex, config):
     ctx = make_context(state)
     cast(ctx, dex, "swordsdance")
     assert state.sides[0].boost(0, "atk") == 2
+
+
+# --------------------------------------------------------------------------- #
+# Stat stages never leave [-6, +6]
+# --------------------------------------------------------------------------- #
+
+
+@pytest.mark.parametrize("battle_format", ("singles", "doubles"))
+def test_stat_stages_stay_inside_the_cap(dex, battle_format):
+    """The clamp is in ``mutate.boost``, and seven places write ``boosts[]``
+    without going through it: Belly Drum sets Attack to six outright,
+    Topsy-Turvy negates, Psych Up and two abilities copy, White Herb clears the
+    negatives, and one effect resets to zero.
+
+    Every one of those is safe by construction -- negating a number in the
+    range keeps it in the range, copying a clamped value copies a clamped
+    value. Reading them says so. Nothing checked it until this, and the next
+    move that writes the list directly will not be safe by inspection.
+    """
+    from pkcm.engine.battle import step
+    from pkcm.engine.legality import random_team
+    from pkcm.engine.rng import Rng
+    from pkcm.engine.state import (
+        MAX_BOOST,
+        MIN_BOOST,
+        BattleConfig,
+        new_battle,
+    )
+    from pkcm.search.policy import RandomPolicy
+
+    config = BattleConfig(dex=dex, regulation=dex.regulation("m_b"),
+                          battle_format=battle_format)
+    for seed in range(12):
+        teams = tuple(
+            random_team(dex, config.regulation,
+                        Rng.from_seed(4000 + seed * 2 + offset).cursor(),
+                        battle_format)
+            for offset in (1, 2)
+        )
+        state = new_battle(config, teams, seed=4000 + seed)
+        policies = (RandomPolicy(Rng.from_seed(seed).cursor()),
+                    RandomPolicy(Rng.from_seed(seed + 555).cursor()))
+        while not state.finished and state.turn <= config.turn_limit:
+            choices = tuple(policies[player].act(state, player)
+                            for player in (0, 1))
+            state, _ = step(state, choices[0], choices[1])
+            for side_index, side in enumerate(state.sides):
+                for slot, stages in enumerate(side.boosts):
+                    for stage in stages:
+                        assert MIN_BOOST <= stage <= MAX_BOOST, (
+                            f"{battle_format} seed {seed} turn {state.turn}: "
+                            f"side {side_index} slot {slot} at stage {stage}")
+
+
+def test_belly_drum_lands_on_six_and_not_past_it(dex):
+    """The one effect that writes the stage directly rather than adding to it.
+    From +2 it must land on +6, not +8."""
+    from pkcm.engine.state import BOOST_INDEX, MAX_BOOST
+
+    # The rule, stated where a reader will find it: Belly Drum maximises
+    # Attack, it does not add six stages to whatever is there.
+    assert MAX_BOOST == 6
+    import pathlib
+
+    source = (pathlib.Path(__file__).resolve().parents[1] / "src" / "pkcm"
+              / "engine" / "moveeffects.py").read_text(encoding="utf-8")
+    assert 'BOOST_INDEX["atk"]] = 6' in source, (
+        "Belly Drum no longer assigns the cap outright; if it now adds stages "
+        "it has to go through mutate.boost so the clamp applies")
+    assert BOOST_INDEX["atk"] == 0

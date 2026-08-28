@@ -32,7 +32,7 @@ from pkcm.envs.encoding import (
 )
 from pkcm.envs.observation import Observation
 from pkcm.envs.reference import sheet_for
-from pkcm.search.evaluate import heuristic
+from pkcm.search.evaluate import heuristic, pressure
 from pkcm.train.net import ChampionsNet
 
 
@@ -65,6 +65,9 @@ class Evaluator:
     #: these to zero and the other to one says which of those cost the points.
     trust_prior: float | None = None
     trust_value: float | None = None
+    #: Which handcrafted evaluation the network's value is blended against.
+    #: Has to match the search's, or ``trust`` mixes two different functions.
+    evaluation: str = "material"
     _vocabulary: Vocabulary | None = field(default=None, repr=False)
     _sheet: object | None = field(default=None, repr=False)
     _cache: dict = field(default_factory=dict, repr=False)
@@ -134,8 +137,8 @@ class Evaluator:
         weight = self.trust if self.trust_value is None else self.trust_value
         if weight >= 1.0:
             return float(value)
-        return (weight * float(value)
-                + (1 - weight) * heuristic(state, player))
+        fallback = (pressure if self.evaluation == "pressure" else heuristic)
+        return weight * float(value) + (1 - weight) * fallback(state, player)
 
     def look_many(self, pairs: list[tuple[BattleState, int]]
                   ) -> list[tuple[np.ndarray, float]]:

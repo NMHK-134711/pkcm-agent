@@ -35,7 +35,8 @@ def decisions_wanted(state: BattleState, player: int) -> int:
 
 def joint_actions(state: BattleState, player: int,
                   limit: int | None = None,
-                  switch_matchup: float = 0.0) -> list[tuple[Action, ...]]:
+                  switch_matchup: float = 0.0,
+                  switch_promise: float | None = None) -> list[tuple[Action, ...]]:
     """Every combination of per-position actions this side may submit.
 
     The one rule a per-position mask cannot carry is enforced here: the same
@@ -69,7 +70,8 @@ def joint_actions(state: BattleState, player: int,
             return []
     if limit is not None and len(combinations) > limit:
         combinations.sort(
-            key=lambda choice: -_promise(state, player, choice, switch_matchup))
+            key=lambda choice: -_promise(state, player, choice, switch_matchup,
+                                         switch_promise))
         return combinations[:limit]
     return combinations
 
@@ -130,7 +132,7 @@ def _pick_promise(state: BattleState, player: int,
 
 
 def _switch_promise(state: BattleState, player: int, slot: int,
-                    weight: float) -> float:
+                    weight: float, base: float) -> float:
     """What sending this one in is worth against what is standing there.
 
     ``SWITCH_PROMISE`` alone gave every switch the same number, which is not a
@@ -148,14 +150,15 @@ def _switch_promise(state: BattleState, player: int, slot: int,
     mine = state.pokemon(player, slot)
     foes = [state.pokemon(*ref) for ref in state.active_refs(1 - player)]
     if not foes:
-        return SWITCH_PROMISE
+        return base
     edge = sum(matchup(dex, mine.moves, mine.stats, mine.species.types,
                        foe.species.id) for foe in foes) / len(foes)
-    return max(0.05, SWITCH_PROMISE + weight * edge)
+    return max(0.05, base + weight * edge)
 
 
 def _promise(state: BattleState, player: int, choice: tuple[Action, ...],
-             switch_matchup: float = 0.0) -> float:
+             switch_matchup: float = 0.0,
+             switch_promise: float | None = None) -> float:
     """A cheap guess at how good a choice is, for ordering only.
 
     Reads the state directly, which is legitimate here and nowhere else: inside
@@ -169,8 +172,10 @@ def _promise(state: BattleState, player: int, choice: tuple[Action, ...],
     total = 0.0
     for position, action in enumerate(choice):
         if action.kind is ActionKind.SWITCH:
-            total += (_switch_promise(state, player, action.index, switch_matchup)
-                      if switch_matchup else SWITCH_PROMISE)
+            base = SWITCH_PROMISE if switch_promise is None else switch_promise
+            total += (_switch_promise(state, player, action.index, switch_matchup,
+                                      base)
+                      if switch_matchup else base)
             continue
         if action.kind is not ActionKind.MOVE:
             continue
@@ -301,7 +306,8 @@ def play_out(state: BattleState, policies: Sequence[Policy],
 
 def prior_over(state: BattleState, player: int,
                options: Sequence[tuple[Action, ...]],
-               switch_matchup: float = 0.0) -> list[float]:
+               switch_matchup: float = 0.0,
+               switch_promise: float | None = None) -> list[float]:
     """A normalised guess at which of these are worth looking at first.
 
     The search uses it as PUCT's prior. Without one, both sides explore
@@ -320,7 +326,7 @@ def prior_over(state: BattleState, player: int,
     """
     if not options:
         return []
-    raw = [_promise(state, player, choice, switch_matchup)
+    raw = [_promise(state, player, choice, switch_matchup, switch_promise)
            for choice in options]
     span = max(raw) - min(raw)
     if span <= 0:

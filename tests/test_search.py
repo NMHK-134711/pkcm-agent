@@ -555,3 +555,64 @@ def test_batched_and_sequential_agree_on_a_lopsided_position(dex):
             state, 0, Rng.from_seed(13).cursor())
     # Same evaluator, same budget: root values must land in the same region.
     assert abs(results[1].value - results[16].value) < 0.6
+
+
+def test_it_switches_into_the_immunity(dex):
+    """hk's position, and the one a person would name to test this.
+
+    Glimmora is Rock/Poison and takes Earthquake at 4x; Corviknight is
+    Flying/Steel and takes it at 0. Garchomp is out holding Earthquake. A
+    player switches, and so should this.
+
+    Worth having as a test rather than a one-off because it exercises the whole
+    chain at once -- the belief samples a Garchomp set that has Earthquake, the
+    leaf evaluation sees what the exchange costs, and the prior has to not bury
+    the switch. Any of the three regressing shows up here.
+    """
+    from pkcm.engine.actions import Action, ActionKind
+    from pkcm.engine.battle import step
+    from pkcm.engine.pokemon import PokemonSet
+    from pkcm.engine.rng import Rng
+    from pkcm.engine.state import BattleConfig, new_battle
+    from pkcm.search import MCTS, SearchConfig
+
+    def a_set(species, ability, moves, item=None, sp=(0,) * 6, nature="serious"):
+        return PokemonSet(species=species, ability=ability, moves=tuple(moves),
+                          item=item, nature=nature, sp=sp)
+
+    config = BattleConfig(dex=dex, regulation=dex.regulation("m_b"),
+                          battle_format="singles")
+    filler = [a_set(name, "__none__", ("tackle",))
+              for name in ("pikachu", "gengar", "alakazam")]
+    ours = [
+        a_set("glimmora", "toxicdebris",
+              ("powergem", "sludgewave", "energyball", "earthpower"),
+              "focussash", (0, 0, 0, 32, 2, 32), "modest"),
+        a_set("corviknight", "pressure",
+              ("bravebird", "ironhead", "roost", "bulkup"),
+              "leftovers", (32, 0, 32, 0, 2, 0), "impish"),
+        a_set("dragonite", "multiscale",
+              ("dragonclaw", "earthquake", "roost", "dragondance"),
+              "sitrusberry", (0, 32, 0, 0, 2, 32), "adamant"),
+    ]
+    theirs = [
+        a_set("garchomp", "roughskin",
+              ("earthquake", "dragonclaw", "scaleshot", "firefang"),
+              "focussash", (0, 32, 2, 0, 0, 32), "jolly"),
+        a_set("snorlax", "thickfat", ("bodyslam", "crunch", "rest", "curse"),
+              "leftovers", (32, 32, 2, 0, 0, 0), "adamant"),
+        a_set("starmie", "naturalcure",
+              ("hydropump", "icebeam", "psychic", "recover"),
+              "lifeorb", (0, 0, 0, 32, 2, 32), "timid"),
+    ]
+    state = new_battle(config, (tuple(ours + filler), tuple(theirs + filler)),
+                       seed=11)
+    state, _ = step(state, Action.select(0, 1, 2), Action.select(0, 1, 2))
+
+    search = SearchConfig(iterations=800, determinizations=40)
+    result = MCTS(search).choose(state, 0, Rng.from_seed(5).cursor())
+    assert result.action[0].kind is ActionKind.SWITCH, (
+        "stayed in against a 4x Earthquake with the immunity on the bench")
+    switching = sum(share for choice, share in result.distribution
+                    if choice and choice[0].kind is ActionKind.SWITCH)
+    assert switching > 0.5, f"only {switching:.0%} of visits went to a switch"

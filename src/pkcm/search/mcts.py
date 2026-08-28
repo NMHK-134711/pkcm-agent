@@ -212,6 +212,17 @@ class SearchConfig:
     #: **51.0% [46.1, 55.9]**. Four hundred games could not tell it from the
     #: flat version. Kept because it is measured and cheap to re-test, not
     #: because it helps.
+    #: What a switch is worth before its matchup is considered, against a move
+    #: promise of ``power * effectiveness * stab / 100`` -- so the default 0.6
+    #: is exactly a 60-power neutral move, and 40% of a same-type 100.
+    #:
+    #: Never measured. ``switch_matchup`` deliberately held the mean here fixed
+    #: so it would only change the order among switches, which left the
+    #: move-against-switch balance itself untested. hk played the agent and said
+    #: it does not switch enough; measured, it switches on 18.8% of the turns
+    #: where it could, 4.3 times a battle. That is not nothing, so the question
+    #: is whether the level is right rather than whether it switches at all.
+    switch_promise: float | None = None
     switch_matchup: float = 0.0
     #: Draw the opponent's hidden fields from the ranker pool instead of
     #: uniformly, and narrow them by what they have already shown.
@@ -386,7 +397,8 @@ class MCTS:
         observation = Observation.of(state, player)
 
         options = joint_actions(state, player, self.config.max_branching,
-                                self.config.switch_matchup)
+                                self.config.switch_matchup,
+                                self.config.switch_promise)
         if len(options) <= 1:
             only = options[0] if options else (Action.PASS,) * decisions_wanted(state, player)
             return SearchResult(only, ((only, 1.0),), 0.0, 0)
@@ -696,9 +708,11 @@ class MCTS:
         """Options with ``player`` first, so index 0 is always the searcher."""
         fallback = [(Action.PASS,) * max(1, decisions_wanted(state, player))]
         mine = joint_actions(state, player, self.config.max_branching,
-                             self.config.switch_matchup) or fallback
+                             self.config.switch_matchup,
+                             self.config.switch_promise) or fallback
         theirs = joint_actions(state, 1 - player, self.config.max_branching,
-                               self.config.switch_matchup) or fallback
+                               self.config.switch_matchup,
+                               self.config.switch_promise) or fallback
         return Node((mine, theirs),
                     priors=(self._prior(state, player, mine),
                             self._prior(state, 1 - player, theirs)))
@@ -707,4 +721,5 @@ class MCTS:
         if self.evaluator is not None:
             return self.evaluator.prior(state, player, options)
         return prior_over(state, player, options,
-                          self.config.switch_matchup)
+                          self.config.switch_matchup,
+                          self.config.switch_promise)

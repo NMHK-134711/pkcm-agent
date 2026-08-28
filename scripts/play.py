@@ -32,7 +32,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 from pkcm.data.dex import load_dex  # noqa: E402
 from pkcm.engine.actions import TARGET_ALLY, TARGET_SELF, Action, ActionKind  # noqa: E402
 from pkcm.engine.battle import step  # noqa: E402
-from pkcm.engine.legality import random_team  # noqa: E402
+from pkcm.engine.legality import make_team  # noqa: E402
 from pkcm.engine.rng import Rng  # noqa: E402
 from pkcm.engine.state import BattleConfig, Phase, legal_actions, new_battle  # noqa: E402
 from pkcm.envs.observation import Observation  # noqa: E402
@@ -339,6 +339,16 @@ def main() -> int:
     parser.add_argument("--trust", type=float, default=1.0)
     parser.add_argument("--seed", type=int, default=None,
                         help="fix the teams. Omit for a different pair each time")
+    parser.add_argument("--teams", default="ranker",
+                        choices=("random", "ranker"),
+                        help="which distribution both teams come from. "
+                             "``ranker`` recombines the imported pkmnchamps "
+                             "parties and is the default here because random "
+                             "teams are a long way from the game -- 37.5%% of "
+                             "their Pokemon carry no same-type attack at all, "
+                             "against 4.9%% of the ranker pool's, and a battle "
+                             "between two of them teaches you little about "
+                             "either player")
     parser.add_argument("--format", default="singles", choices=("singles", "doubles"))
     parser.add_argument("--lang", default="ko", choices=("ko", "en"))
     args = parser.parse_args()
@@ -355,8 +365,9 @@ def main() -> int:
     config = BattleConfig(dex=dex, regulation=dex.regulation("m_b"),
                           battle_format=args.format)
     teams = tuple(
-        random_team(dex, config.regulation,
-                    Rng.from_seed(seed * 2 + offset).cursor(), args.format)
+        make_team(dex, config.regulation,
+                  Rng.from_seed(seed * 2 + offset).cursor(), args.format,
+                  args.teams)
         for offset in (1, 2))
     state = new_battle(config, teams, seed=seed)
 

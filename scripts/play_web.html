@@ -74,7 +74,7 @@
   .pick {
     display: grid; gap: 4px; justify-items: center; padding: 8px;
     background: #12161f; border: 1px solid var(--line); border-radius: 10px;
-    cursor: pointer; width: 118px;
+    cursor: pointer; width: 118px; font: inherit; color: var(--ink);
   }
   .pick:hover { border-color: var(--you); }
   .pick.chosen { border-color: var(--you); background: #16203a; }
@@ -156,15 +156,27 @@ function conditions(list) {
   return list.map(c => `<span class="chip">${c.name} ${c.value}${c.unit}</span>`).join(" ");
 }
 
+// At team preview nobody has been brought, so `foe` is empty and the registered
+// six is the only thing there is to look at -- and it is the whole decision.
+// Public from preview on both sides, which is why the pick is a real choice
+// rather than a guess.
+function roster(six) {
+  return six.map(entry => `<div class="mon">
+    ${sprite(entry.sprite, "front")}
+    <div><div class="who">${entry.name}</div>
+    <div class="meta">등록</div></div>
+  </div>`).join("");
+}
+
 function drawPreview(choice) {
   const cards = choice.team.map(slot => {
     const order = picks.indexOf(slot.slot);
-    return `<div class="pick ${order >= 0 ? "chosen" : ""}" data-slot="${slot.slot}">
+    return `<button class="pick ${order >= 0 ? "chosen" : ""}" data-slot="${slot.slot}">
       <div class="order">${order >= 0 ? (order === 0 ? "선봉" : order + 1 + "번째") : "&nbsp;"}</div>
       ${sprite(slot.sprite, "back")}
       <div class="who">${slot.name}</div>
       <div class="set">${slot.item ? "@" + slot.item + "<br>" : ""}${slot.moves.join(", ")}</div>
-    </div>`;
+    </button>`;
   }).join("");
   const ready = picks.length === choice.brought;
   return `<h2>팀 프리뷰 — ${choice.brought}마리를 순서대로 (1번이 선봉)</h2>
@@ -201,9 +213,11 @@ function render(view) {
         : view.winner === 0 ? " · 당신 승" : " · 에이전트 승"
       : "");
   $("weather").innerHTML = view.field.map(f => `<span class="chip">${f}</span>`).join(" ");
-  $("foe").innerHTML = view.foe.map(m => mon(m, "front")).join("");
-  $("you").innerHTML = view.you.map(m => mon(m, "back")).join("");
-  $("theirs").innerHTML = conditions(view.theirs);
+  const preview = view.phase === "TEAM_PREVIEW";
+  $("foe").innerHTML = preview ? roster(view.registered[1])
+                               : view.foe.map(m => mon(m, "front")).join("");
+  $("you").innerHTML = preview ? "" : view.you.map(m => mon(m, "back")).join("");
+  $("theirs").innerHTML = preview ? "상대 등록 6마리" : conditions(view.theirs);
   $("yours").innerHTML = conditions(view.yours);
   $("log").innerHTML = view.log.join("\n") +
     (view.finished ? `\n<span class="over">배틀 종료</span>` : "");

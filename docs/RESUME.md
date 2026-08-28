@@ -78,6 +78,9 @@ git clone https://github.com/NMHK-134711/pkcm-agent.git && cd pkcm-agent
 .venv/Scripts/python.exe scripts/fetch_showdown_data.py && .venv/Scripts/python.exe scripts/fetch_champout.py && .venv/Scripts/python.exe scripts/fetch_pokechams.py
 ```
 
+`scripts/fetch_sprites.py`는 브라우저 UI(`scripts/play_web.py`)를 쓸 때만 필요하다 —
+PokeAPI 스프라이트 608장, 2.3MB.
+
 `data/raw/`는 gitignore돼 있고 이 세 스크립트가 다시 받는다. **`load_dex()`가 이것 없이는
 죽으므로 첫 단계다.** `fetch_showdown_source.py`는 메커니즘 참고용 TypeScript라 학습에는
 필요 없다. `fetch_pkmnchamps.py`는 랭커 아카이브를 받지만, 거기서 뽑은

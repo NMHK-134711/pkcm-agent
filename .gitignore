@@ -8,7 +8,8 @@ __pycache__/
 build/
 dist/
 
-# Downloaded upstream data (regenerate with: python scripts/fetch_showdown_data.py)
+# Downloaded upstream data (regenerate with: python scripts/fetch_showdown_data.py,
+# fetch_champout.py, fetch_pokechams.py, fetch_sprites.py)
 data/raw/
 
 # Training artifacts

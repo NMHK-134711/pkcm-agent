@@ -1,0 +1,270 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<title>포켓몬 챔피언스 — 에이전트와 대전</title>
+<style>
+  :root {
+    --bg: #10131a; --panel: #191d27; --line: #2a3040; --ink: #e7ebf3;
+    --dim: #8d97ab; --you: #6ea8fe; --foe: #f08a8a; --good: #6ee7a8;
+    --warn: #f6c453;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: var(--bg); color: var(--ink);
+    font: 14px/1.5 "Malgun Gothic", "Apple SD Gothic Neo", system-ui, sans-serif;
+  }
+  .wrap { max-width: 1080px; margin: 0 auto; padding: 16px; }
+  header {
+    display: flex; align-items: baseline; gap: 12px; flex-wrap: wrap;
+    padding-bottom: 10px; border-bottom: 1px solid var(--line);
+  }
+  h1 { font-size: 16px; margin: 0; font-weight: 600; }
+  .muted { color: var(--dim); font-size: 12px; }
+  button {
+    font: inherit; color: var(--ink); background: var(--panel);
+    border: 1px solid var(--line); border-radius: 8px; padding: 7px 12px;
+    cursor: pointer;
+  }
+  button:hover:not(:disabled) { border-color: var(--you); }
+  button:disabled { opacity: .45; cursor: default; }
+
+  .field { display: grid; gap: 10px; margin: 14px 0; }
+  .weather { display: flex; gap: 8px; flex-wrap: wrap; min-height: 22px; }
+  .chip {
+    font-size: 12px; padding: 2px 9px; border-radius: 999px;
+    background: var(--panel); border: 1px solid var(--line); color: var(--dim);
+  }
+
+  .row { display: grid; grid-template-columns: 1fr auto; gap: 14px; align-items: center; }
+  .team { display: flex; gap: 10px; flex-wrap: wrap; }
+  .mon {
+    display: flex; gap: 8px; align-items: center; padding: 8px 10px;
+    background: var(--panel); border: 1px solid var(--line); border-radius: 10px;
+    min-width: 190px;
+  }
+  .mon.active { border-color: var(--you); }
+  .foe .mon.active { border-color: var(--foe); }
+  .mon.fainted { opacity: .4; }
+  .mon img { width: 56px; height: 56px; image-rendering: pixelated; }
+  .mon .who { font-size: 13px; }
+  .mon .meta { font-size: 11px; color: var(--dim); }
+  .unknown img { filter: brightness(0) saturate(0) opacity(.45); }
+
+  .bar { height: 5px; border-radius: 3px; background: #2a3040; margin-top: 4px; }
+  .bar > i { display: block; height: 100%; border-radius: 3px; background: var(--good); }
+  .bar.low > i { background: var(--warn); }
+  .bar.crit > i { background: var(--foe); }
+
+  .panel {
+    background: var(--panel); border: 1px solid var(--line);
+    border-radius: 12px; padding: 14px; margin-top: 14px;
+  }
+  .panel h2 { font-size: 13px; margin: 0 0 10px; font-weight: 600; color: var(--dim); }
+  .options { display: grid; gap: 7px; }
+  .opt {
+    display: grid; grid-template-columns: 1fr auto; gap: 12px;
+    text-align: left; align-items: center;
+  }
+  .opt .note { color: var(--dim); font-size: 12px; font-variant-numeric: tabular-nums; }
+  .opt.switch { grid-template-columns: 24px 1fr auto; }
+  .opt.switch img { width: 24px; height: 24px; image-rendering: pixelated; }
+
+  .picks { display: flex; gap: 10px; flex-wrap: wrap; }
+  .pick {
+    display: grid; gap: 4px; justify-items: center; padding: 8px;
+    background: #12161f; border: 1px solid var(--line); border-radius: 10px;
+    cursor: pointer; width: 118px;
+  }
+  .pick:hover { border-color: var(--you); }
+  .pick.chosen { border-color: var(--you); background: #16203a; }
+  .pick img { width: 64px; height: 64px; image-rendering: pixelated; }
+  .pick .order {
+    font-size: 11px; color: var(--you); min-height: 14px;
+  }
+  .pick .set { font-size: 10px; color: var(--dim); text-align: center; }
+
+  .log {
+    margin-top: 14px; padding: 12px 14px; background: #0c0f16;
+    border: 1px solid var(--line); border-radius: 12px;
+    max-height: 220px; overflow-y: auto; white-space: pre-wrap;
+    font-size: 12.5px; color: #c3cbdb;
+  }
+  .over { color: var(--good); font-weight: 600; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1>포켓몬 챔피언스</h1>
+    <span class="muted" id="status">불러오는 중…</span>
+    <span style="flex:1"></span>
+    <button id="again">새 배틀</button>
+  </header>
+
+  <div class="field">
+    <div class="weather" id="weather"></div>
+    <div class="row foe">
+      <div class="team" id="foe"></div>
+      <div class="muted" id="theirs"></div>
+    </div>
+    <div class="row you">
+      <div class="team" id="you"></div>
+      <div class="muted" id="yours"></div>
+    </div>
+  </div>
+
+  <div class="panel" id="choices"></div>
+  <div class="log" id="log"></div>
+</div>
+
+<script>
+const $ = (id) => document.getElementById(id);
+let picks = [];          // team-preview selection, in order
+let busy = false;
+
+const sprite = (id, view) =>
+  id ? `<img src="/sprite/${view}/${id}.png" alt="">` : `<img src="" alt="">`;
+
+function bar(hp) {
+  const cls = hp <= 20 ? "bar crit" : hp <= 50 ? "bar low" : "bar";
+  return `<div class="${cls}"><i style="width:${Math.max(0, hp)}%"></i></div>`;
+}
+
+function mon(entry, view) {
+  const marks = [];
+  if (entry.status) marks.push(entry.status);
+  entry.boosts.forEach(b => marks.push(`${b.name}${b.value > 0 ? "+" : ""}${b.value}`));
+  if (entry.item) marks.push(`@${entry.item}`);
+  if (entry.ability) marks.push(`[${entry.ability}]`);
+  if (entry.moves && entry.moves.length) marks.push(entry.moves.join(", "));
+  const classes = ["mon"];
+  if (entry.active) classes.push("active");
+  if (entry.fainted) classes.push("fainted");
+  if (!entry.id) classes.push("unknown");
+  return `<div class="${classes.join(" ")}">
+    ${sprite(entry.sprite, view)}
+    <div>
+      <div class="who">${entry.name}</div>
+      ${entry.fainted ? `<div class="meta">기절</div>` : bar(entry.hp)}
+      <div class="meta">${entry.fainted ? "" : entry.hp + "%"} ${marks.join(" · ")}</div>
+    </div>
+  </div>`;
+}
+
+function conditions(list) {
+  return list.map(c => `<span class="chip">${c.name} ${c.value}${c.unit}</span>`).join(" ");
+}
+
+function drawPreview(choice) {
+  const cards = choice.team.map(slot => {
+    const order = picks.indexOf(slot.slot);
+    return `<div class="pick ${order >= 0 ? "chosen" : ""}" data-slot="${slot.slot}">
+      <div class="order">${order >= 0 ? (order === 0 ? "선봉" : order + 1 + "번째") : "&nbsp;"}</div>
+      ${sprite(slot.sprite, "back")}
+      <div class="who">${slot.name}</div>
+      <div class="set">${slot.item ? "@" + slot.item + "<br>" : ""}${slot.moves.join(", ")}</div>
+    </div>`;
+  }).join("");
+  const ready = picks.length === choice.brought;
+  return `<h2>팀 프리뷰 — ${choice.brought}마리를 순서대로 (1번이 선봉)</h2>
+    <div class="picks">${cards}</div>
+    <div style="margin-top:12px">
+      <button id="go" ${ready ? "" : "disabled"}>결정</button>
+      <button id="clear">다시</button>
+    </div>`;
+}
+
+function drawActions(choices) {
+  return choices.map(group => {
+    const options = group.options.map(o => {
+      if (o.kind === "switch") {
+        return `<button class="opt switch" data-position="${group.position}" data-index="${o.index}">
+          ${sprite(o.sprite, "back")}<span>교체 → ${o.label}</span><span class="note"></span>
+        </button>`;
+      }
+      return `<button class="opt" data-position="${group.position}" data-index="${o.index}">
+        <span>${o.label}</span><span class="note">${o.note || ""}</span>
+      </button>`;
+    }).join("");
+    const head = choices.length > 1 ? `${group.position}번 자리` : "행동";
+    return `<h2>${head}${group.speed ? " · " + group.speed : ""}</h2>
+      <div class="options">${options}</div>`;
+  }).join("");
+}
+
+function render(view) {
+  $("status").textContent =
+    `${view.turn}턴 · 시드 ${view.seed}` +
+    (view.finished
+      ? view.winner === null ? " · 무승부"
+        : view.winner === 0 ? " · 당신 승" : " · 에이전트 승"
+      : "");
+  $("weather").innerHTML = view.field.map(f => `<span class="chip">${f}</span>`).join(" ");
+  $("foe").innerHTML = view.foe.map(m => mon(m, "front")).join("");
+  $("you").innerHTML = view.you.map(m => mon(m, "back")).join("");
+  $("theirs").innerHTML = conditions(view.theirs);
+  $("yours").innerHTML = conditions(view.yours);
+  $("log").innerHTML = view.log.join("\n") +
+    (view.finished ? `\n<span class="over">배틀 종료</span>` : "");
+  $("log").scrollTop = $("log").scrollHeight;
+
+  const panel = $("choices");
+  if (view.finished) {
+    panel.innerHTML = `<h2>끝났습니다</h2><button id="go2">새 배틀</button>`;
+    $("go2").onclick = () => load("/new");
+    return;
+  }
+  const first = view.choices[0];
+  if (first && first.kind === "select") {
+    panel.innerHTML = drawPreview(first);
+    panel.querySelectorAll(".pick").forEach(card => {
+      card.onclick = () => {
+        const slot = Number(card.dataset.slot);
+        const at = picks.indexOf(slot);
+        if (at >= 0) picks.splice(at, 1);
+        else if (picks.length < first.brought) picks.push(slot);
+        render(view);
+      };
+    });
+    $("clear").onclick = () => { picks = []; render(view); };
+    const go = $("go");
+    if (go) go.onclick = () => {
+      const chosen = picks.slice();
+      picks = [];
+      load("/act?" + chosen.map(s => "pick=" + s).join("&"));
+    };
+    return;
+  }
+  panel.innerHTML = drawActions(view.choices);
+  // One position at a time: the first click on a doubles turn stores its pick
+  // and re-renders for the second, so the server always gets one per position.
+  const pending = [];
+  panel.querySelectorAll(".opt").forEach(btn => {
+    btn.onclick = () => {
+      pending[Number(btn.dataset.position)] = Number(btn.dataset.index);
+      if (pending.filter(v => v !== undefined).length === view.choices.length) {
+        load("/act?" + pending.map(v => "pick=" + v).join("&"));
+      } else {
+        btn.style.borderColor = "var(--you)";
+      }
+    };
+  });
+}
+
+async function load(path) {
+  if (busy) return;
+  busy = true;
+  $("status").textContent = "에이전트가 생각 중…";
+  try {
+    render(await (await fetch(path)).json());
+  } finally {
+    busy = false;
+  }
+}
+
+$("again").onclick = () => { picks = []; load("/new"); };
+load("/state");
+</script>
+</body>
+</html>

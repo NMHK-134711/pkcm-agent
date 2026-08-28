@@ -248,7 +248,17 @@ class SearchConfig:
     #: measured. Thirty-two timed 5% faster again and has never been played.
     leaf_batch: int = 16
     #: Which leaf evaluation. ``"material"`` counts what is left;
-    #: ``"pressure"`` adds who is about to knock out whom.
+    #: ``"pressure"`` adds who is about to knock out whom; ``"blind"`` returns
+    #: nothing at all except at terminals.
+    #:
+    #: ``"blind"`` is an ablation, not a setting to run. Every attempt to
+    #: improve on the material count has come back worse -- the learned value
+    #: head at 39.9%, the handcrafted threat term at 46.7% singles and 42.0%
+    #: doubles -- while the two changes that did buy strength were the prior
+    #: (+20.6pp) and belief (+18.6pp), neither of which is an opinion about how
+    #: good a position is. So the question this answers is whether the leaf
+    #: value contributes anything at all, or whether this search is a tactical
+    #: filter driven by its prior with an evaluation bolted on the side.
     #:
     #: Measured, this tree reaches 2.8 turns in singles and 1.8 in doubles
     #: against a cap of twelve -- 800 simulations spread over |A|x|B| children
@@ -637,6 +647,10 @@ class MCTS:
         """The handcrafted leaf value this search was configured with."""
         if self.config.evaluation == "pressure":
             return pressure(state, player)
+        if self.config.evaluation == "blind":
+            # Terminals still pay, or the search would have no reason to
+            # prefer winning. Everything short of one reads as unknown.
+            return terminal_value(state, player) if state.finished else 0.0
         return heuristic(state, player)
 
     def _node(self, state: BattleState, player: int) -> Node:

@@ -48,12 +48,12 @@ def main() -> int:
                         help="side B's, to put the two directly against "
                              "each other")
     parser.add_argument("--evaluation", default=None,
-                        choices=("material", "pressure"),
+                        choices=("material", "pressure", "blind"),
                         help="side A's leaf evaluation. material counts what "
                              "is left; pressure adds who is about to knock "
                              "out whom")
     parser.add_argument("--evaluation-b", default=None,
-                        choices=("material", "pressure"),
+                        choices=("material", "pressure", "blind"),
                         help="side B's")
     parser.add_argument("--leaf-batch", type=int, default=None,
                         help="side A's leaves per network forward")

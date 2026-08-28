@@ -121,10 +121,10 @@ def main() -> int:
     parser.add_argument("--exploration", type=float, default=None,
                         help="UCB1 term for --a, on top of PUCT's prior term")
     parser.add_argument("--evaluation", default=None,
-                        choices=("material", "pressure"),
+                        choices=("material", "pressure", "blind"),
                         help="side A's leaf evaluation")
     parser.add_argument("--evaluation-b", default=None,
-                        choices=("material", "pressure"),
+                        choices=("material", "pressure", "blind"),
                         help="side B's, to match the two directly")
     parser.add_argument("--leaf-batch", type=int, default=None,
                         help="leaves per network forward for --a (needs "

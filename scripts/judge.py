@@ -47,6 +47,14 @@ def main() -> int:
     parser.add_argument("--switch-matchup-b", type=float, default=None,
                         help="side B's, to put the two directly against "
                              "each other")
+    parser.add_argument("--evaluation", default=None,
+                        choices=("material", "pressure"),
+                        help="side A's leaf evaluation. material counts what "
+                             "is left; pressure adds who is about to knock "
+                             "out whom")
+    parser.add_argument("--evaluation-b", default=None,
+                        choices=("material", "pressure"),
+                        help="side B's")
     parser.add_argument("--leaf-batch", type=int, default=None,
                         help="side A's leaves per network forward")
     parser.add_argument("--leaf-batch-b", type=int, default=None,
@@ -71,10 +79,12 @@ def main() -> int:
     args = parser.parse_args()
 
     workers = args.workers if args.workers is not None else default_workers()
-    def search_for(weight, belief, leaf_batch):
+    def search_for(weight, belief, leaf_batch, evaluation=None):
         extra = {} if weight is None else {"switch_matchup": weight}
         if leaf_batch is not None:
             extra["leaf_batch"] = leaf_batch
+        if evaluation is not None:
+            extra["evaluation"] = evaluation
         return SearchConfig(iterations=args.search_iterations,
                             determinizations=max(4, args.search_iterations // 20),
                             belief=belief, **extra)
@@ -83,14 +93,14 @@ def main() -> int:
         checkpoint=args.checkpoint, battle_format=args.format, trust=args.trust,
         teams=args.teams, checkpoint_b=args.checkpoint_b,
         trust_prior=args.trust_prior, trust_value=args.trust_value,
-        search=search_for(args.switch_matchup, args.belief, args.leaf_batch),
+        search=search_for(args.switch_matchup, args.belief, args.leaf_batch,
+                          args.evaluation),
         search_b=search_for(args.switch_matchup_b, args.belief_b,
-                            args.leaf_batch_b))
+                            args.leaf_batch_b, args.evaluation_b))
 
     def label(search, netted):
-        return (f"search(switch={search.switch_matchup}, "
-                f"belief={search.belief}, batch={search.leaf_batch}"
-                f"{', net' if netted else ''})")
+        return (f"search(eval={search.evaluation}, belief={search.belief}, "
+                f"batch={search.leaf_batch}{', net' if netted else ''})")
 
     side_a = label(config.search, args.checkpoint is not None)
     side_b = label(config.search_b, args.checkpoint_b)

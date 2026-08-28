@@ -33,6 +33,15 @@ def main() -> int:
     parser.add_argument("--matches", type=int, default=200,
                         help="each is two battles, the same teams both seats")
     parser.add_argument("--search-iterations", type=int, default=800)
+    parser.add_argument("--max-branching", type=int, default=None,
+                        help="side A's cap on joint actions per node. Doubles "
+                             "offers 18 at the root against singles' 5.7, and "
+                             "children are keyed by the pair, so a doubles "
+                             "node has ~324 of them and 800 simulations give "
+                             "each 2.5 visits -- noise. Narrowing trades "
+                             "options considered for visits per option")
+    parser.add_argument("--max-branching-b", type=int, default=None,
+                        help="side B's")
     parser.add_argument("--search-iterations-b", type=int, default=None,
                         help="side B's, when the two differ. 800 is the number "
                              "AlphaZero chose for Go, where the board update "
@@ -100,7 +109,7 @@ def main() -> int:
 
     workers = args.workers if args.workers is not None else default_workers()
     def search_for(weight, belief, leaf_batch, evaluation=None,
-                   pressure_weight=None, iterations=None):
+                   pressure_weight=None, iterations=None, branching=None):
         count = iterations if iterations is not None else args.search_iterations
         extra = {} if weight is None else {"switch_matchup": weight}
         if belief is not None:
@@ -111,6 +120,8 @@ def main() -> int:
             extra["evaluation"] = evaluation
         if pressure_weight is not None:
             extra["pressure_weight"] = pressure_weight
+        if branching is not None:
+            extra["max_branching"] = branching
         return SearchConfig(iterations=count,
                             determinizations=max(4, count // 20),
                             **extra)
@@ -120,14 +131,16 @@ def main() -> int:
         teams=args.teams, checkpoint_b=args.checkpoint_b,
         trust_prior=args.trust_prior, trust_value=args.trust_value,
         search=search_for(args.switch_matchup, args.belief, args.leaf_batch,
-                          args.evaluation, args.pressure_weight),
+                          args.evaluation, args.pressure_weight,
+                          branching=args.max_branching),
         search_b=search_for(args.switch_matchup_b, args.belief_b,
                             args.leaf_batch_b, args.evaluation_b,
-                            args.pressure_weight_b, args.search_iterations_b))
+                            args.pressure_weight_b, args.search_iterations_b,
+                            args.max_branching_b))
 
     def label(search, netted):
-        return (f"search({search.iterations} sims, eval={search.evaluation}, "
-                f"belief={search.belief}{', net' if netted else ''})")
+        return (f"search({search.iterations} sims, branch={search.max_branching}, "
+                f"eval={search.evaluation}{', net' if netted else ''})")
 
     side_a = label(config.search, args.checkpoint is not None)
     side_b = label(config.search_b, args.checkpoint_b)

@@ -55,6 +55,11 @@ class MatchConfig:
     trust: float = 1.0
     #: Side B's search, when the two differ. ``None`` gives it side A's.
     search_b: SearchConfig | None = None
+    #: Give side B the same network as side A. The docstring above says the
+    #: checkpoint is the only difference between the sides; with this set the
+    #: checkpoint is on *both* and the searches differ, which is how a search
+    #: change is priced on the search that will actually run it.
+    checkpoint_b: bool = False
     #: Base for the team seeds. Held away from the self-play seeds so the
     #: measurement is not played on teams the network was trained on.
     team_seed: int = 90000
@@ -93,12 +98,14 @@ def play_match(dex: Dex, config: MatchConfig, match: int) -> Record:
     )
     evaluator = _evaluator(dex, config) if config.checkpoint else None
     other = config.search_b or config.search
+    evaluator_b = evaluator if config.checkpoint_b else None
 
     record = Record()
     for swap in (False, True):
         netted = SearchPolicy(MCTS(config.search, evaluator=evaluator),
                               Rng.from_seed(match).cursor())
-        plain = SearchPolicy(MCTS(other), Rng.from_seed(match + 7777).cursor())
+        plain = SearchPolicy(MCTS(other, evaluator=evaluator_b),
+                             Rng.from_seed(match + 7777).cursor())
         policies = (plain, netted) if swap else (netted, plain)
         state = play_out(new_battle(battle_config, teams, seed=match), policies)
 

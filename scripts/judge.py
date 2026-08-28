@@ -40,6 +40,14 @@ def main() -> int:
     parser.add_argument("--switch-matchup-b", type=float, default=None,
                         help="side B's, to put the two directly against "
                              "each other")
+    parser.add_argument("--leaf-batch", type=int, default=None,
+                        help="side A's leaves per network forward")
+    parser.add_argument("--leaf-batch-b", type=int, default=None,
+                        help="side B's")
+    parser.add_argument("--checkpoint-b", action="store_true",
+                        help="side B gets the same network as side A, so the "
+                             "match prices the search change on the search "
+                             "that will run it")
     parser.add_argument("--belief", action="store_true",
                         help="side A draws the opponent's hidden fields from "
                              "the ranker pool rather than uniformly")
@@ -56,24 +64,28 @@ def main() -> int:
     args = parser.parse_args()
 
     workers = args.workers if args.workers is not None else default_workers()
-    def search_for(weight, belief):
+    def search_for(weight, belief, leaf_batch):
         extra = {} if weight is None else {"switch_matchup": weight}
+        if leaf_batch is not None:
+            extra["leaf_batch"] = leaf_batch
         return SearchConfig(iterations=args.search_iterations,
                             determinizations=max(4, args.search_iterations // 20),
                             belief=belief, **extra)
 
     config = MatchConfig(
         checkpoint=args.checkpoint, battle_format=args.format, trust=args.trust,
-        teams=args.teams,
-        search=search_for(args.switch_matchup, args.belief),
-        search_b=search_for(args.switch_matchup_b, args.belief_b))
+        teams=args.teams, checkpoint_b=args.checkpoint_b,
+        search=search_for(args.switch_matchup, args.belief, args.leaf_batch),
+        search_b=search_for(args.switch_matchup_b, args.belief_b,
+                            args.leaf_batch_b))
 
-    def label(search):
+    def label(search, netted):
         return (f"search(switch={search.switch_matchup}, "
-                f"belief={search.belief})")
+                f"belief={search.belief}, batch={search.leaf_batch}"
+                f"{', net' if netted else ''})")
 
-    side_a = args.checkpoint or label(config.search)
-    side_b = label(config.search_b)
+    side_a = label(config.search, args.checkpoint is not None)
+    side_b = label(config.search_b, args.checkpoint_b)
     print(f"{side_a} vs {side_b} | {args.matches} matches | {args.teams} teams "
           f"| {workers} workers", flush=True)
     started = beat = time.perf_counter()
@@ -91,12 +103,13 @@ def main() -> int:
     print(f"\n  {total.wins}-{total.losses} ({total.draws} drawn) over "
           f"{total.decided} decided games")
     print(f"  {rate:.1%} [{low:.1%}, {high:.1%}]")
+    rival = 'side B' if args.checkpoint_b else 'the handcrafted search'
     if low > 0.5:
-        print("  stronger than the handcrafted search.")
+        print(f"  stronger than {rival}.")
     elif high < 0.5:
-        print("  weaker than the handcrafted search, and separably so.")
+        print(f"  weaker than {rival}, and separably so.")
     else:
-        print("  not separable from the handcrafted search.")
+        print(f"  not separable from {rival}.")
     return 0
 
 

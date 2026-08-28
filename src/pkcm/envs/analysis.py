@@ -26,7 +26,9 @@ from pkcm.data.dex import Dex, Move, Stat
 from pkcm.engine.moves import (
     DAMAGE_ROLL_HIGH,
     DAMAGE_ROLL_LOW,
+    damage_base,
     damage_formula,
+    damage_from_base,
 )
 from pkcm.engine.stats import LEVEL, NATURES, compute_stat
 from pkcm.envs.observation import KnownPokemon, Observation
@@ -208,10 +210,11 @@ def estimate_damage(
         return None
 
     def rolls_against(defense: int, crit: bool = False) -> tuple[int, ...]:
+        # The base is the same for all sixteen rolls, so it is computed once.
+        base = damage_base(power=power, attack=attack, defense=defense,
+                           crit=crit, spread=spread)
         return tuple(
-            damage_formula(power=power, attack=attack, defense=defense, roll=roll,
-                           crit=crit, spread=spread, stab=stab,
-                           effectiveness=effectiveness)
+            damage_from_base(base, roll, stab=stab, effectiveness=effectiveness)
             for roll in range(DAMAGE_ROLL_LOW, DAMAGE_ROLL_HIGH + 1)
         )
 

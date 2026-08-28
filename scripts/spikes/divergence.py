@@ -20,13 +20,16 @@ from pkcm.search.policy import RandomPolicy
 TOTAL, STEPS = 256, 40
 
 fired: set = set()
-original = effects._ordered
-def watched(held, event, ref):
-    out = original(held, event, ref)
-    for _, effect, key in out:
+original = effects._relevant
+def watched(ctx, event, ref, scope):
+    out = original(ctx, event, ref, scope)
+    for holder, effect, _ in out:
+        # The key a handler answered to, reconstructed: a partner's effect
+        # answers to the ally variant and to nothing else.
+        key = event if holder == ref else effects.ALLY_PREFIX + event
         fired.add((effect.id, key))
     return out
-effects._ordered = watched
+effects._relevant = watched
 
 dex = load_dex()
 config = BattleConfig(dex=dex, regulation=dex.regulation("m_b"), battle_format="singles")

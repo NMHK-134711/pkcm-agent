@@ -333,6 +333,32 @@ def damage_formula(
     terrain says -- is settled by the caller. This is only the order of
     operations, and the order is visible in the result because each step floors.
     """
+    return damage_from_base(
+        damage_base(power=power, attack=attack, defense=defense, crit=crit,
+                    spread=spread, level=level),
+        roll, stab=stab, effectiveness=effectiveness)
+
+
+def damage_base(
+    *,
+    power: int,
+    attack: int,
+    defense: int,
+    crit: bool = False,
+    spread: bool = False,
+    level: int = LEVEL,
+) -> int:
+    """Everything above the damage roll, which the roll does not touch.
+
+    Split out for the estimator, which needs sixteen rolls of the same move
+    against the same defence and was recomputing all of this for each one --
+    two multiplications and three floor divisions, sixteen times, for a number
+    that could not change. The estimator asks for the base once and rolls it.
+
+    Not a second copy of the formula: ``damage_formula`` is these two halves
+    composed, so the engine and the estimator still run one set of steps in one
+    order. A test holds them equal.
+    """
     damage = ((2 * level // 5 + 2) * power * attack // defense) // 50 + 2
 
     # Showdown applies the spread penalty here -- before the crit multiplier and
@@ -341,7 +367,18 @@ def damage_formula(
         damage = chain_modify(damage, SPREAD_MODIFIER)
     if crit:
         damage = damage * CRIT_MULTIPLIER_NUM // CRIT_MULTIPLIER_DEN
-    damage = damage * roll // 100
+    return damage
+
+
+def damage_from_base(
+    base: int,
+    roll: int,
+    *,
+    stab: bool = False,
+    effectiveness: float = 1.0,
+) -> int:
+    """The half of the formula the damage roll reaches."""
+    damage = base * roll // 100
     if stab:
         damage = damage * STAB_NUM // STAB_DEN
     return int(damage * effectiveness)

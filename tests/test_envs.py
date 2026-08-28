@@ -1220,3 +1220,62 @@ def test_the_shared_preview_grid_cannot_be_written(dex):
     grid = encode_preview(Observation.of(new_battle(config, teams, seed=1), 0), dex)
     with _pytest.raises((ValueError, RuntimeError)):
         grid[0, 0] = 1.0
+
+
+
+# --------------------------------------------------------------------------- #
+# The damage formula, split in two halves that must stay one formula
+# --------------------------------------------------------------------------- #
+
+
+def test_the_split_formula_equals_the_whole_one():
+    """``damage_base`` and ``damage_from_base`` exist so the estimator can roll
+    sixteen damages without recomputing the part no roll touches. The moment
+    they stop composing back to ``damage_formula`` there are two formulas, and
+    two copies of a calculation that floors at every step do not stay equal --
+    which is the reason the engine and the estimator share this function at all.
+    """
+    from pkcm.engine.moves import (
+        DAMAGE_ROLL_HIGH,
+        DAMAGE_ROLL_LOW,
+        damage_base,
+        damage_formula,
+        damage_from_base,
+    )
+
+    checked = 0
+    for power in (40, 75, 90, 120, 250):
+        for attack in (80, 140, 200, 350):
+            for defense in (60, 110, 180, 400):
+                for crit in (False, True):
+                    for spread in (False, True):
+                        for stab in (False, True):
+                            for effectiveness in (0.25, 0.5, 1.0, 2.0, 4.0):
+                                base = damage_base(power=power, attack=attack,
+                                                   defense=defense, crit=crit,
+                                                   spread=spread)
+                                for roll in (DAMAGE_ROLL_LOW, 92, DAMAGE_ROLL_HIGH):
+                                    whole = damage_formula(
+                                        power=power, attack=attack, defense=defense,
+                                        roll=roll, crit=crit, spread=spread,
+                                        stab=stab, effectiveness=effectiveness)
+                                    halves = damage_from_base(
+                                        base, roll, stab=stab,
+                                        effectiveness=effectiveness)
+                                    assert whole == halves, (
+                                        f"power={power} attack={attack} "
+                                        f"defense={defense} roll={roll} crit={crit} "
+                                        f"spread={spread} stab={stab} "
+                                        f"eff={effectiveness}: "
+                                        f"{whole} != {halves}")
+                                    checked += 1
+    assert checked > 3000, "the sweep stopped covering the formula"
+
+
+def test_the_base_does_not_depend_on_the_roll():
+    """Which is the whole reason it can be hoisted out of the loop."""
+    from pkcm.engine.moves import damage_base
+
+    first = damage_base(power=90, attack=150, defense=120)
+    for _ in range(4):
+        assert damage_base(power=90, attack=150, defense=120) == first

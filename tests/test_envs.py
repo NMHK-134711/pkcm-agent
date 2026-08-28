@@ -1168,3 +1168,55 @@ def test_belief_narrows_on_what_has_been_seen(dex):
         assert all(move in one.moves for one in after)
         return
     pytest.skip("no move in the pool separates two sets of one species")
+
+
+# --------------------------------------------------------------------------- #
+# The preview grid is per-battle, and encoding must treat it that way
+# --------------------------------------------------------------------------- #
+
+
+def test_the_preview_grid_is_computed_once_per_battle(dex):
+    """The 6x6 matchup grid is 92% of encoding cost and depends only on our
+    registered sets and their registered species -- fixed at preview, unchanged
+    by determinization. The search encodes ~800 states per decision; paying
+    five hundred ``midpoint`` calls each time was most of self-play."""
+    from pkcm.engine.legality import random_team
+    from pkcm.engine.rng import Rng
+    from pkcm.engine.state import BattleConfig, new_battle
+    from pkcm.envs.encoding import encode_preview
+    from pkcm.envs.observation import Observation
+
+    config = BattleConfig(dex=dex, regulation=dex.regulation("m_b"))
+    teams = tuple(random_team(dex, config.regulation, Rng.from_seed(o).cursor())
+                  for o in (1, 2))
+    one = Observation.of(new_battle(config, teams, seed=1), 0)
+    two = Observation.of(new_battle(config, teams, seed=2), 0)
+
+    first = encode_preview(one, dex)
+    again = encode_preview(two, dex)
+    assert first is again, "same battle, same grid object -- else nothing was saved"
+
+    other_teams = tuple(random_team(dex, config.regulation,
+                                    Rng.from_seed(10 + o).cursor()) for o in (1, 2))
+    other = Observation.of(new_battle(config, other_teams, seed=1), 0)
+    assert encode_preview(other, dex) is not first, "different battle, different grid"
+
+
+def test_the_shared_preview_grid_cannot_be_written(dex):
+    """Every state of a battle shares one array now. A writer would corrupt not
+    its own encoding but every later state's."""
+    import numpy as np
+    import pytest as _pytest
+
+    from pkcm.engine.legality import random_team
+    from pkcm.engine.rng import Rng
+    from pkcm.engine.state import BattleConfig, new_battle
+    from pkcm.envs.encoding import encode_preview
+    from pkcm.envs.observation import Observation
+
+    config = BattleConfig(dex=dex, regulation=dex.regulation("m_b"))
+    teams = tuple(random_team(dex, config.regulation, Rng.from_seed(o).cursor())
+                  for o in (1, 2))
+    grid = encode_preview(Observation.of(new_battle(config, teams, seed=1), 0), dex)
+    with _pytest.raises((ValueError, RuntimeError)):
+        grid[0, 0] = 1.0

@@ -164,6 +164,14 @@ def _evaluator(dex: Dex, config: SelfPlayConfig):
     from pkcm.envs.encoding import SCALAR_SIZE
     from pkcm.train.evaluator import from_checkpoint
 
+    # One inference thread, like the arena workers (``matchup.py``) already do.
+    # The env vars in ``_start_worker`` cover OpenMP, but torch's own intra-op
+    # pool is sized at first use, and fifteen workers each spawning a
+    # core-count's worth of threads is a machine doing context switches
+    # instead of battles.
+    import torch
+    torch.set_num_threads(1)
+
     battle_config = BattleConfig(dex=dex, regulation=dex.regulation(config.regulation),
                                  battle_format=config.battle_format)
     built = from_checkpoint(

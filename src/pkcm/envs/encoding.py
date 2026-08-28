@@ -379,9 +379,29 @@ def encode_observation(observation: Observation, vocabulary: Vocabulary,
     return encoded
 
 
+#: The matchup grid, remembered across states of the same battle.
+#:
+#: **This grid is 92% of encoding cost and it never changes within a battle.**
+#: It is a function of our registered sets and their registered species -- both
+#: fixed at team preview, both unchanged by determinization (their *sets* are
+#: resampled, but the grid only reads their species through the public
+#: bracket). The search encodes ~800 states per decision and was recomputing
+#: all thirty-six matchups -- five hundred ``midpoint`` calls -- for each one.
+#:
+#: A handful of entries, FIFO-evicted: a worker plays one battle at a time, and
+#: the parent's training pass touches a few battles' worth at once.
+_PREVIEW_CACHE: dict[tuple, np.ndarray] = {}
+_PREVIEW_CACHE_LIMIT = 16
+
+
 def encode_preview(observation: Observation, dex) -> np.ndarray:
     """Every one of ours against every one of theirs, as the pick sees them."""
     from pkcm.envs.analysis import matchup, our_threat, their_threat
+
+    key = (observation.own_sets[:6], observation.registered[1][:6])
+    cached = _PREVIEW_CACHE.get(key)
+    if cached is not None:
+        return cached
 
     grid = np.zeros((PREVIEW_ROWS, PREVIEW_FEATURES), dtype=np.float32)
     theirs = observation.registered[1][:6]
@@ -397,4 +417,10 @@ def encode_preview(observation: Observation, dex) -> np.ndarray:
                 their_threat(dex, foe_id, entry.stats, types),
                 matchup(dex, moves, entry.stats, types, foe_id),
             )
+    # Read-only, because every caller from now on shares this one array. A
+    # writer would corrupt not its own encoding but every later state's.
+    grid.setflags(write=False)
+    if len(_PREVIEW_CACHE) >= _PREVIEW_CACHE_LIMIT:
+        _PREVIEW_CACHE.pop(next(iter(_PREVIEW_CACHE)))
+    _PREVIEW_CACHE[key] = grid
     return grid

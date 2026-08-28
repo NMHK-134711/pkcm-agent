@@ -228,6 +228,30 @@ class SearchConfig:
     #: so this is a claim about scale and about target sharpness, not a claim
     #: about strength, and it is on because of the first two.
     normalize_value: bool = True
+    #: Leaves evaluated per network forward. One is the sequential search,
+    #: exactly as before; above one, that many simulations descend the tree
+    #: under **virtual loss** and their leaves go to the network as one batch.
+    #:
+    #: Why: a batch-1 forward costs 4.8ms and almost all of it is per-call
+    #: overhead -- the same net at batch 64 is 0.17ms per state. With two
+    #: forwards per expansion (each side observes the leaf its own way), the
+    #: forward was ~85% of self-play. Batching pays the overhead once.
+    #:
+    #: The cost is not free in kind: simulations inside one batch cannot see
+    #: each other's results, so the search explores slightly more diffusely
+    #: than the sequential one. **Default 1 until the arena has priced that.**
+    #: This project has shipped exactly one unmeasured search default, and it
+    #: lost 59.5/40.5.
+    leaf_batch: int = 1
+
+
+#: What a simulation pessimistically scores while it is still in flight.
+#:
+#: Applied to *both* sides of every node on the way down, taken back out on
+#: backup. The point is only to make the next simulation in the same batch
+#: look elsewhere: an in-flight line reads as one extra visit that lost, which
+#: is precisely the signature of a move tried and found wanting.
+VIRTUAL_LOSS = 1.0
 
 
 @dataclass
@@ -308,13 +332,24 @@ class MCTS:
         root = self._node(state, player)
         bounds = MinMax()
         per_draw = max(1, self.config.iterations // max(1, self.config.determinizations))
+        # Batching needs a network to batch for. The heuristic is microseconds;
+        # collecting it into batches would only add the virtual-loss diffusion
+        # and buy nothing.
+        batch = self.config.leaf_batch if self.evaluator is not None else 1
         done = 0
         while done < self.config.iterations:
             sampled = determinize(observation, state, draw,
                                   self.config.belief)
-            for _ in range(min(per_draw, self.config.iterations - done)):
-                self._simulate(sampled.clone(), root, player, draw, bounds)
-                done += 1
+            left = min(per_draw, self.config.iterations - done)
+            while left > 0:
+                if batch > 1:
+                    ran = self._simulate_batch(sampled, root, player, draw,
+                                               bounds, min(batch, left))
+                else:
+                    self._simulate(sampled.clone(), root, player, draw, bounds)
+                    ran = 1
+                done += ran
+                left -= ran
 
         counts = root.counts[0]
         best = max(range(len(counts)), key=lambda index: counts[index])
@@ -404,6 +439,112 @@ class MCTS:
                 # well rather than randomly.
                 visited.totals[side][index] += value if side == 0 else -value
         return value
+
+    def _simulate_batch(self, sampled: BattleState, node: Node, player: int,
+                        cursor: RngCursor, bounds: MinMax, count: int) -> int:
+        """``count`` simulations whose leaves share one network forward.
+
+        Three phases. **Descend**: each simulation selects a path exactly as
+        ``_simulate`` does, but instead of stopping to evaluate it parks its
+        leaf and stamps virtual loss down its path, steering the next
+        simulation in the batch elsewhere. **Evaluate**: every parked leaf
+        goes to the network in one call -- two rows per expansion (one per
+        side), one row per depth-limited or illegal leaf. **Back up**: the
+        virtual loss is refunded and the real value goes in, leaving exactly
+        the statistics ``count`` sequential simulations would have left, up to
+        which lines the in-flight pessimism steered them down.
+        """
+        pending = []  # (path, kind, payload, parent, key)
+        for _ in range(count):
+            state = sampled.clone()
+            path: list[tuple[Node, tuple[int, int]]] = []
+            current = node
+            depth = 0
+            while True:
+                if state.finished:
+                    pending.append((path, "terminal",
+                                    terminal_value(state, player), None, None))
+                    break
+                if depth >= self.config.max_depth or not current.expanded:
+                    pending.append((path, "value", state, None, None))
+                    break
+                mine = self._select(current, 0, bounds)
+                theirs = (self._sample(current, 1, cursor)
+                          if self.config.sample_opponent
+                          else self._select(current, 1, bounds))
+                picked = (mine, theirs)
+                path.append((current, picked))
+                choices = (current.options[0][mine], current.options[1][theirs])
+                ordered = choices if player == 0 else (choices[1], choices[0])
+                try:
+                    state, _ = step(state, ordered[0], ordered[1])
+                except IllegalActionError:
+                    pending.append((path, "value", state, None, None))
+                    break
+                key = (mine, 0) if self.config.sample_opponent else picked
+                child = current.children.get(key)
+                if child is None:
+                    pending.append((path, "expand", state, current, key))
+                    break
+                current = child
+                depth += 1
+
+            # Applied now, so the NEXT simulation in this batch sees this line
+            # as taken-and-lost rather than untouched.
+            for visited, chosen in path:
+                visited.visits += 1
+                for side in (0, 1):
+                    visited.counts[side][chosen[side]] += 1
+                    visited.totals[side][chosen[side]] -= VIRTUAL_LOSS
+
+        # One forward for every leaf that needs the network.
+        asks: list[tuple[BattleState, int]] = []
+        for path, kind, payload, parent, key in pending:
+            if kind == "value":
+                asks.append((payload, player))
+            elif kind == "expand":
+                asks.append((payload, player))
+                asks.append((payload, 1 - player))
+        answers = iter(self.evaluator.look_many(asks))
+
+        for path, kind, payload, parent, key in pending:
+            if kind == "terminal":
+                value = payload
+            elif kind == "value":
+                _, raw = next(answers)
+                value = self.evaluator.value_from(raw, payload, player)
+            else:
+                probabilities, raw = next(answers)
+                their_probabilities, _ = next(answers)
+                value = self.evaluator.value_from(raw, payload, player)
+                # Two simulations in one batch can race to the same child --
+                # virtual loss discourages it but cannot forbid it. The first
+                # builds the node; the second only backs its value up.
+                if key not in parent.children:
+                    fallback = [(Action.PASS,) * max(1, decisions_wanted(payload, player))]
+                    mine_options = joint_actions(
+                        payload, player, self.config.max_branching,
+                        self.config.switch_matchup) or fallback
+                    their_options = joint_actions(
+                        payload, 1 - player, self.config.max_branching,
+                        self.config.switch_matchup) or fallback
+                    parent.children[key] = Node(
+                        (mine_options, their_options),
+                        priors=(self.evaluator.prior_from(
+                                    probabilities, payload, player, mine_options),
+                                self.evaluator.prior_from(
+                                    their_probabilities, payload,
+                                    1 - player, their_options)))
+
+            bounds.add(value)
+            # Counts and visits were already advanced with the virtual loss;
+            # refund it and add what the leaf was actually worth.
+            for visited, chosen in path:
+                for side in (0, 1):
+                    index = chosen[side]
+                    visited.totals[side][index] += VIRTUAL_LOSS + (
+                        value if side == 0 else -value)
+        return len(pending)
 
     def _sample(self, node: Node, side: int, cursor: RngCursor) -> int:
         """Draw one of this side's actions from what the search believes it plays.

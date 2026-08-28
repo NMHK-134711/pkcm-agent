@@ -61,7 +61,7 @@ def evaluator_for(checkpoint, dex, battle_format: str, trust: float):
 def build(name: str, seed: int, iterations: int, determinizations: int,
           rollout: int, prior: float | None = None, evaluator=None,
           ablate: tuple[str, ...] = (), exploration: float | None = None,
-          switch_matchup: float | None = None):
+          switch_matchup: float | None = None, leaf_batch: int | None = None):
     """``ablate`` switches named ``SearchConfig`` flags off.
 
     An ablation is the only way to find out whether a change did anything. Two
@@ -77,6 +77,8 @@ def build(name: str, seed: int, iterations: int, determinizations: int,
         extra.update({flag: False for flag in ablate})
         if exploration is not None:
             extra["exploration"] = exploration
+        if leaf_batch is not None:
+            extra["leaf_batch"] = leaf_batch
         if switch_matchup is not None:
             extra["switch_matchup"] = switch_matchup
         config = SearchConfig(iterations=iterations,
@@ -115,6 +117,9 @@ def main() -> int:
                         help="network to use for the 'net' policy")
     parser.add_argument("--exploration", type=float, default=None,
                         help="UCB1 term for --a, on top of PUCT's prior term")
+    parser.add_argument("--leaf-batch", type=int, default=None,
+                        help="leaves per network forward for --a (needs "
+                             "--checkpoint; virtual loss in between)")
     parser.add_argument("--prior-b", type=float, default=None,
                         help="prior_weight for --b. AlphaZero's c_puct assumes "
                              "Q over [-1, 1]; min-max normalisation puts ours "
@@ -161,7 +166,8 @@ def main() -> int:
         for swap in (False, True):
             a = build(args.a, args.seed + match, args.iterations,
                       args.determinizations, args.rollout, args.prior, evaluator,
-                      ablate=ablated, exploration=args.exploration)
+                      ablate=ablated, exploration=args.exploration,
+                      leaf_batch=args.leaf_batch)
             b = build(args.b, args.seed + match + 5000, args.iterations,
                       args.determinizations, args.rollout, args.prior_b, evaluator,
                       exploration=args.exploration_b)

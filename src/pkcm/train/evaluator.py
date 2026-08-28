@@ -71,6 +71,16 @@ class Evaluator:
     def prior(self, state: BattleState, player: int, options: list) -> list[float]:
         """A distribution over ``options``, from the policy head."""
         probabilities, _ = self._look(state, player)
+        return self.prior_from(probabilities, state, player, options)
+
+    def prior_from(self, probabilities: np.ndarray, state: BattleState,
+                   player: int, options: list) -> list[float]:
+        """The mapping half of ``prior``, for a policy vector already computed.
+
+        Split out so a batched caller -- the search evaluating thirty-two
+        leaves in one forward -- can turn each row of the batch into a prior
+        without asking for the forward again.
+        """
         registered = state.config.registered
         brought = state.config.brought
 
@@ -106,10 +116,53 @@ class Evaluator:
         merely fail to rank the lines, it ranks them backwards with conviction.
         """
         _, value = self._look(state, player)
+        return self.value_from(value, state, player)
+
+    def value_from(self, value: float, state: BattleState, player: int) -> float:
+        """The trust blend, for a value already computed by a batched forward."""
         if self.trust >= 1.0:
             return float(value)
         return (self.trust * float(value)
                 + (1 - self.trust) * heuristic(state, player))
+
+    def look_many(self, pairs: list[tuple[BattleState, int]]
+                  ) -> list[tuple[np.ndarray, float]]:
+        """``_look`` for many (state, player) pairs, one forward for the lot.
+
+        This is the whole point of leaf batching: a batch-1 forward costs
+        4.8ms of which almost all is per-call overhead, and the same net at
+        batch 64 costs 0.17ms per state. The search collects a batch of leaves
+        and pays the overhead once.
+
+        Cache-coherent with ``_look``: hits are served from the same cache,
+        misses are encoded, evaluated together, and written back, so mixing
+        batched and unbatched callers stays correct.
+        """
+        results: list = [None] * len(pairs)
+        misses: list[int] = []
+        for index, (state, player) in enumerate(pairs):
+            key = (id(state), player, state.turn, state.phase)
+            found = self._cache.get(key)
+            if found is not None and found[0] is state:
+                results[index] = found[1]
+            else:
+                misses.append(index)
+
+        if misses:
+            encoded = [
+                encode_observation(Observation.of(pairs[i][0], pairs[i][1]),
+                                   self._vocabulary, self._sheet, self.dex)
+                for i in misses
+            ]
+            probabilities, values = self.net.evaluate(encoded, self.device)
+            if len(self._cache) > 4096:
+                self._cache.clear()
+            for row, index in enumerate(misses):
+                state, player = pairs[index]
+                found = (probabilities[row], float(values[row]))
+                self._cache[(id(state), player, state.turn, state.phase)] = (state, found)
+                results[index] = found
+        return results
 
     # -- one forward pass, reused ------------------------------------------ #
 

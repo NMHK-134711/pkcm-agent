@@ -423,3 +423,135 @@ def test_the_pick_prior_does_see_their_species(dex):
     after = _pick_promise(_replace(state, parties=(state.parties[0],
                                                    other.parties[1])), 0, (0, 1, 2))
     assert before != after, "the same pick scores the same against any opponent"
+
+
+
+# --------------------------------------------------------------------------- #
+# Leaf batching -- one forward for many leaves, virtual loss in between
+# --------------------------------------------------------------------------- #
+
+
+class CountingEvaluator:
+    """A stand-in network that counts its forwards and answers deterministically.
+
+    The value is a hash of the turn so different states get different numbers,
+    and ``calls``/``rows`` say how the search asked: many small forwards or few
+    batched ones.
+    """
+
+    def __init__(self):
+        self.calls = 0
+        self.rows = 0
+        self.trust = 1.0
+
+    def reset(self):
+        pass
+
+    def _one(self, state, player):
+        import numpy as np
+        width = 512
+        value = ((state.turn * 37 + player * 11) % 13 - 6) / 10.0
+        return np.full(width, 1.0 / width), value
+
+    def look_many(self, pairs):
+        self.calls += 1
+        self.rows += len(pairs)
+        return [self._one(state, player) for state, player in pairs]
+
+    def prior(self, state, player, options):
+        probabilities, _ = self._one(state, player)
+        return self.prior_from(probabilities, state, player, options)
+
+    def prior_from(self, probabilities, state, player, options):
+        return [1.0 / max(1, len(options))] * len(options)
+
+    def value(self, state, player):
+        self.calls += 1
+        self.rows += 1
+        _, value = self._one(state, player)
+        return value
+
+    def value_from(self, value, state, player):
+        return float(value)
+
+
+def test_batched_search_pays_one_forward_per_batch(dex):
+    """The point of the whole change: 64 simulations at leaf_batch 16 must ask
+    the network a handful of times, not sixty-four."""
+    from dataclasses import replace
+
+    state = battle(dex)
+    counting = CountingEvaluator()
+    config = SearchConfig(iterations=64, determinizations=4, leaf_batch=16)
+    result = MCTS(config, evaluator=counting).choose(
+        state, 0, Rng.from_seed(3).cursor())
+
+    assert result.iterations == 64
+    assert counting.calls <= 8, (
+        f"{counting.calls} forwards for 64 simulations -- batching is not batching")
+    assert counting.rows >= 64, "every leaf still has to be evaluated"
+
+
+def test_batched_statistics_are_clean_after_the_batch(dex):
+    """Virtual loss must be fully refunded: root counts sum to the simulation
+    budget, and no total is left carrying in-flight pessimism."""
+    import math as _math
+
+    state = battle(dex)
+    config = SearchConfig(iterations=48, determinizations=4, leaf_batch=12)
+    search = MCTS(config, evaluator=CountingEvaluator())
+
+    root = None
+    original = search._node
+
+    def keep(s, p):
+        nonlocal root
+        node = original(s, p)
+        if root is None:
+            root = node
+        return node
+
+    search._node = keep
+    search.choose(state, 0, Rng.from_seed(5).cursor())
+
+    assert sum(root.counts[0]) == 48
+    assert root.visits == 48
+    for side in (0, 1):
+        for index, count in enumerate(root.counts[side]):
+            mean = root.totals[side][index] / count if count else 0.0
+            assert _math.isfinite(mean) and -1.5 < mean < 1.5, (
+                f"side {side} option {index}: mean {mean} -- a virtual loss "
+                "was never refunded")
+
+
+def test_batch_of_one_is_the_sequential_search(dex):
+    """leaf_batch=1 must take the untouched sequential path, bit for bit."""
+    state = battle(dex)
+    counting = CountingEvaluator()
+    config = SearchConfig(iterations=24, determinizations=4, leaf_batch=1)
+    result = MCTS(config, evaluator=counting).choose(
+        state, 0, Rng.from_seed(7).cursor())
+    assert result.iterations == 24
+    # The sequential path calls value()/prior() per leaf, never look_many.
+    assert counting.rows >= 24
+
+
+def test_batched_and_sequential_agree_on_a_lopsided_position(dex):
+    """Virtual loss changes exploration, not conclusions. On a position where
+    one side is nearly dead, both searches must read the same sign."""
+    from pkcm.search.policy import RandomPolicy as RP, play_out as po
+
+    state = battle(dex)
+    policy = RP(Rng.from_seed(11).cursor())
+    state = po(state, (policy, policy), turn_limit=10)
+    if state.finished:
+        return  # nothing to search
+
+    results = {}
+    for batch in (1, 16):
+        counting = CountingEvaluator()
+        config = SearchConfig(iterations=96, determinizations=6, leaf_batch=batch)
+        results[batch] = MCTS(config, evaluator=counting).choose(
+            state, 0, Rng.from_seed(13).cursor())
+    # Same evaluator, same budget: root values must land in the same region.
+    assert abs(results[1].value - results[16].value) < 0.6

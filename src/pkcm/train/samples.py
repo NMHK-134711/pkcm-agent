@@ -69,6 +69,16 @@ class Sample:
     #: The root value depends on the tactics in front of it rather than on which
     #: battle it belongs to, so it is the part of the target that can generalise.
     search_value: float = 0.0
+    #: How much this sample's value target counts. One is a full vote; zero
+    #: trains the policy head from this row and leaves the value head alone.
+    #:
+    #: Rehearsal needs it. An imitation sample's value target is the heuristic,
+    #: on a twelfth of the scale of the win/loss the loop fits, so a mixed
+    #: batch would ask the value head to satisfy two different questions and
+    #: get the average of them. The policy target has no such conflict -- both
+    #: are distributions over the same actions -- so rehearsal speaks to the
+    #: policy head and stays quiet about the value.
+    value_weight: float = 1.0
 
 
 @dataclass(frozen=True, slots=True)

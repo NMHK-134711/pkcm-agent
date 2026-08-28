@@ -843,3 +843,70 @@ def test_a_run_directory_always_means_the_same_wandb_run(tmp_path):
     assert first == _id_for(tmp_path / "." / "fifth"), "resolve, not string match"
     assert first != _id_for(tmp_path / "sixth")
     assert first.isalnum() and len(first) == 16
+
+
+
+# --------------------------------------------------------------------------- #
+# Rehearsal -- teaching the policy head without arguing with the value head
+# --------------------------------------------------------------------------- #
+
+
+def test_a_zero_weighted_row_does_not_move_the_value_head(pieces, samples):
+    """The assumption the whole rehearsal design rests on.
+
+    An imitation sample's value target is the heuristic, on roughly a twelfth
+    of the scale of the win/loss the loop fits. Mixed in at full weight it
+    would ask the value head to satisfy two different questions and it would
+    answer with the average. ``value_weight=0`` has to mean *silent*, not
+    *quiet*.
+    """
+    from dataclasses import replace
+
+    vocabulary, sheet, action_space = pieces
+    honest = [replace(s, battle=i % 6) for i, s in enumerate(samples)]
+    # The same rows again, with an absurd value target and no vote.
+    muted = [replace(s, battle=i % 6, value=-1.0 if s.value > 0 else 1.0,
+                     value_weight=0.0)
+             for i, s in enumerate(samples)]
+
+    scores = {}
+    for label, rows in (("clean", honest), ("with muted lies", honest + muted)):
+        torch.manual_seed(0)
+        net = build(vocabulary, sheet, action_space, SCALAR_SIZE,
+                    NetConfig(hidden=64, blocks=1))
+        result = fit(net, rows, torch.device("cpu"),
+                     TrainConfig(epochs=1, batch_size=32, validation_fraction=0.0))
+        scores[label] = result["value_mae"]
+
+    # Rows carrying inverted targets at zero weight must not drag the value
+    # error around. Some movement is inevitable -- the shared trunk still gets
+    # policy gradients from them -- but not the wholesale corruption that
+    # counting them would cause.
+    assert abs(scores["with muted lies"] - scores["clean"]) < 0.35, scores
+
+
+def test_value_error_is_averaged_over_the_rows_that_voted(pieces, samples):
+    """Not over the batch. A batch that is mostly rehearsal would otherwise
+    report a value error diluted by rows that abstained, which would read as
+    the value head improving when nothing had happened to it."""
+    from dataclasses import replace
+
+    vocabulary, sheet, action_space = pieces
+    voting = [replace(s, battle=i % 6) for i, s in enumerate(samples)]
+    padded = voting + [replace(s, battle=i % 6, value_weight=0.0)
+                       for i, s in enumerate(samples)]
+
+    torch.manual_seed(0)
+    net = build(vocabulary, sheet, action_space, SCALAR_SIZE,
+                NetConfig(hidden=64, blocks=1))
+    one = fit(net, voting, torch.device("cpu"),
+              TrainConfig(epochs=1, batch_size=1024, validation_fraction=0.0))
+
+    torch.manual_seed(0)
+    net = build(vocabulary, sheet, action_space, SCALAR_SIZE,
+                NetConfig(hidden=64, blocks=1))
+    two = fit(net, padded, torch.device("cpu"),
+              TrainConfig(epochs=1, batch_size=1024, validation_fraction=0.0))
+
+    # Doubling the rows with abstainers must not halve the reported error.
+    assert two["value_mae"] > one["value_mae"] * 0.6, (one, two)

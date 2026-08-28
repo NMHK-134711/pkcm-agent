@@ -34,6 +34,13 @@ def main() -> int:
                         help="each is two battles, the same teams both seats")
     parser.add_argument("--search-iterations", type=int, default=800)
     parser.add_argument("--trust", type=float, default=1.0)
+    parser.add_argument("--trust-prior", type=float, default=None,
+                        help="override --trust for the policy head alone")
+    parser.add_argument("--trust-value", type=float, default=None,
+                        help="override --trust for the value head alone. "
+                             "--trust-prior 1 --trust-value 0 asks what the "
+                             "network's prior is worth over the handcrafted "
+                             "leaf value, and the other way round")
     parser.add_argument("--switch-matchup", type=float, default=None,
                         help="side A's switch ranking weight; 0 is the old flat "
                              "score for every switch")
@@ -75,6 +82,7 @@ def main() -> int:
     config = MatchConfig(
         checkpoint=args.checkpoint, battle_format=args.format, trust=args.trust,
         teams=args.teams, checkpoint_b=args.checkpoint_b,
+        trust_prior=args.trust_prior, trust_value=args.trust_value,
         search=search_for(args.switch_matchup, args.belief, args.leaf_batch),
         search_b=search_for(args.switch_matchup_b, args.belief_b,
                             args.leaf_batch_b))

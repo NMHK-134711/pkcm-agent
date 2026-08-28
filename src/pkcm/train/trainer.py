@@ -134,6 +134,8 @@ def fit(net: ChampionsNet, samples: list[Sample], device: torch.device,
                           dtype=np.float32)
         outcomes = (1 - blend) * outcomes + blend * rooted
     values = torch.as_tensor(outcomes, dtype=torch.float32)
+    value_weights = torch.as_tensor(
+        np.array([sample.value_weight for sample in samples], dtype=np.float32))
     #: Validation always scores against the real outcome, whatever the training
     #: target was blended from. Scoring against a target the network helped
     #: write would make a collapse into self-prediction look like success.
@@ -150,6 +152,7 @@ def fit(net: ChampionsNet, samples: list[Sample], device: torch.device,
             batch = collate([samples[index].observation for index in rows], device)
             target_policy = policies[rows].to(device)
             target_value = values[rows].to(device)
+            weights = value_weights[rows].to(device)
 
             logits, value = net(batch)
 
@@ -160,7 +163,13 @@ def fit(net: ChampionsNet, samples: list[Sample], device: torch.device,
             log_probabilities = torch.log_softmax(
                 logits.masked_fill(~support, float("-inf")), dim=1)
             policy_loss = -(target_policy * log_probabilities.nan_to_num(0.0)).sum(1).mean()
-            value_loss = nn.functional.mse_loss(value, target_value)
+            # Weighted, so a rehearsal row can train the policy head and
+            # abstain on the value. Normalised by the weight actually present
+            # rather than the batch size, or a batch that is mostly rehearsal
+            # would quietly shrink the value gradient as well as narrowing it.
+            squared = (value - target_value) ** 2 * weights
+            present = weights.sum()
+            value_loss = squared.sum() / present if present > 0 else squared.sum() * 0
             loss = policy_loss + settings.value_weight * value_loss
 
             optimiser.zero_grad(set_to_none=True)
@@ -168,8 +177,9 @@ def fit(net: ChampionsNet, samples: list[Sample], device: torch.device,
             nn.utils.clip_grad_norm_(net.parameters(), settings.grad_clip)
             optimiser.step()
 
+            error = ((value - target_value).abs() * weights).sum()
             metrics.add(float(policy_loss), float(value_loss),
-                        float((value - target_value).abs().mean()))
+                        float(error / present) if present > 0 else 0.0)
 
     result = metrics.mean()
     result.update(_validate(net, samples, validation, policies, truth,

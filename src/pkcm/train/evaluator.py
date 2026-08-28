@@ -55,6 +55,16 @@ class Evaluator:
     #: honest answer is "nobody has moved yet", and the search it drove lost to
     #: the handcrafted one 16.2% [9.8, 25.8].
     trust: float = 1.0
+    #: Override ``trust`` for one head or the other. ``None`` follows ``trust``.
+    #:
+    #: The two heads fail differently and a single dial cannot tell them apart.
+    #: Pre-training left a network at parity with the handcrafted search, one
+    #: iteration of self-play took it to 37.0%, and both heads changed at once
+    #: -- the policy head moved from the handcrafted prior to visit counts, the
+    #: value head from the heuristic to who eventually won. Setting one of
+    #: these to zero and the other to one says which of those cost the points.
+    trust_prior: float | None = None
+    trust_value: float | None = None
     _vocabulary: Vocabulary | None = field(default=None, repr=False)
     _sheet: object | None = field(default=None, repr=False)
     _cache: dict = field(default_factory=dict, repr=False)
@@ -98,13 +108,14 @@ class Evaluator:
         if total <= 0:
             return [1.0 / max(1, len(options))] * len(options)
         network = [score / total for score in scores]
-        if self.trust >= 1.0:
+        weight = self.trust if self.trust_prior is None else self.trust_prior
+        if weight >= 1.0:
             return network
 
         from pkcm.search.policy import prior_over
 
         handcrafted = prior_over(state, player, options)
-        return [self.trust * a + (1 - self.trust) * b
+        return [weight * a + (1 - weight) * b
                 for a, b in zip(network, handcrafted)]
 
     def value(self, state: BattleState, player: int) -> float:
@@ -120,10 +131,11 @@ class Evaluator:
 
     def value_from(self, value: float, state: BattleState, player: int) -> float:
         """The trust blend, for a value already computed by a batched forward."""
-        if self.trust >= 1.0:
+        weight = self.trust if self.trust_value is None else self.trust_value
+        if weight >= 1.0:
             return float(value)
-        return (self.trust * float(value)
-                + (1 - self.trust) * heuristic(state, player))
+        return (weight * float(value)
+                + (1 - weight) * heuristic(state, player))
 
     def look_many(self, pairs: list[tuple[BattleState, int]]
                   ) -> list[tuple[np.ndarray, float]]:
@@ -196,7 +208,9 @@ class Evaluator:
 
 
 def from_checkpoint(path, dex: Dex, action_space: int, scalar_size: int,
-                    device: torch.device | str = "cpu", trust: float = 1.0) -> Evaluator:
+                    device: torch.device | str = "cpu", trust: float = 1.0,
+                    trust_prior: float | None = None,
+                    trust_value: float | None = None) -> Evaluator:
     """Rebuild an evaluator from a saved network."""
     from pkcm.train.net import build
     from pkcm.train.trainer import load_into
@@ -208,4 +222,5 @@ def from_checkpoint(path, dex: Dex, action_space: int, scalar_size: int,
                 payload.get("config"))
     load_into(net, path, torch.device(device))
     return Evaluator(net=net, dex=dex, device=device, trust=trust,
+                     trust_prior=trust_prior, trust_value=trust_value,
                      _vocabulary=vocabulary, _sheet=sheet)

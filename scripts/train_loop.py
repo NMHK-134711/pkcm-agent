@@ -23,6 +23,7 @@ import argparse
 import json
 import os
 import sys
+from dataclasses import replace
 import time
 from pathlib import Path
 
@@ -38,6 +39,8 @@ from pkcm.train.interval import wilson  # noqa: E402
 from pkcm.train.logging import RunLog  # noqa: E402
 from pkcm.train.net import NetConfig, build, pick_device  # noqa: E402
 from pkcm.train.parallel import default_workers, generate  # noqa: E402
+from pkcm.train.imitate import ImitateConfig  # noqa: E402
+from pkcm.train.imitate import generate as imitation  # noqa: E402
 from pkcm.train.samples import SelfPlayConfig  # noqa: E402
 from pkcm.train.trainer import TrainConfig, fit, save  # noqa: E402
 
@@ -141,6 +144,19 @@ def main() -> int:
                              "recombines the imported pkmnchamps parties; "
                              "37.5%% of random Pokemon carry no same-type "
                              "attack at all, against 4.9%% of those")
+    parser.add_argument("--rehearse", type=int, default=0,
+                        help="imitation battles to regenerate and mix into "
+                             "each training pass. Guards against forgetting "
+                             "the pre-trained prior: pre-training fitted 2.1M "
+                             "samples and the replay buffer holds 40,000, so "
+                             "self-play can walk the network off what it was "
+                             "started from. 0 is off")
+    parser.add_argument("--rehearse-value", action="store_true",
+                        help="let rehearsal train the value head too. Off by "
+                             "default: the imitation value target is the "
+                             "heuristic, on a twelfth of the scale of the "
+                             "win/loss the loop fits, and mixing them asks the "
+                             "head to satisfy two answers at once")
     parser.add_argument("--leaf-batch", type=int, default=16,
                         help="leaves per network forward in self-play search. "
                              "16 is 2.35x the sequential search and measured "
@@ -281,8 +297,32 @@ def main() -> int:
         buffer.extend(fresh)
         buffer = buffer[-args.buffer:]
 
+        # Rehearsal. Regenerated rather than stored: imitation play is greedy
+        # with no search behind it, so a few hundred battles cost seconds
+        # against self-play's hour, and 2.1M encoded observations would be
+        # tens of gigabytes on disk.
+        rehearsal: list = []
+        if args.rehearse:
+            started = time.perf_counter()
+            beat = started
+            recall = ImitateConfig(battle_format=args.format, teams=args.teams)
+            for done, batch in enumerate(imitation(
+                    recall, args.rehearse,
+                    seed=args.seed + 500000 + iteration * 10000,
+                    workers=workers), 1):
+                rehearsal.extend(batch)
+                beat = _heartbeat(done, args.rehearse, "rehearsal", started, beat)
+            if not args.rehearse_value:
+                # The imitation value target is the heuristic and the loop's is
+                # who won -- a twelfth of the scale. Asking the head to fit both
+                # gets an average of two different questions, so rehearsal
+                # speaks only to the policy head unless told otherwise.
+                rehearsal = [replace(sample, value_weight=0.0)
+                             for sample in rehearsal]
+            recalled = time.perf_counter() - started
+
         started = time.perf_counter()
-        losses = fit(net, buffer, device, settings, optimizer=optimiser)
+        losses = fit(net, buffer + rehearsal, device, settings, optimizer=optimiser)
         learned = time.perf_counter() - started
         save(net, checkpoint, {"iteration": iteration, "samples": len(buffer)})
         earned = losses.get("val_value_mae")
@@ -292,6 +332,7 @@ def main() -> int:
             "trust": round(trust, 2),
             "fresh_samples": len(fresh),
             "buffer": len(buffer),
+            "rehearsal_samples": len(rehearsal),
             "battles_per_second": round(args.battles / max(played, 1e-9), 3),
             "selfplay_seconds": round(played, 1),
             "train_seconds": round(learned, 1),

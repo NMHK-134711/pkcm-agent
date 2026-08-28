@@ -53,6 +53,10 @@ class MatchConfig:
     teams: str = "random"
     search: SearchConfig = field(default_factory=SearchConfig)
     trust: float = 1.0
+    #: Per-head overrides. ``None`` follows ``trust``. Setting one to 1 and the
+    #: other to 0 asks which head is responsible for a change in strength.
+    trust_prior: float | None = None
+    trust_value: float | None = None
     #: Side B's search, when the two differ. ``None`` gives it side A's.
     search_b: SearchConfig | None = None
     #: Give side B the same network as side A. The docstring above says the
@@ -202,9 +206,10 @@ def _evaluator(dex: Dex, config: MatchConfig):
     # against one dex object, so an evaluator cached under a different
     # one answers with the wrong tables -- invisible in a worker, which
     # only ever has one, and wrong in-process.
-    key = (config.checkpoint, config.trust, id(dex))
-    if _CACHED is not None and _CACHED[:3] == key:
-        return _CACHED[3]
+    key = (config.checkpoint, config.trust, config.trust_prior,
+           config.trust_value, id(dex))
+    if _CACHED is not None and _CACHED[:5] == key:
+        return _CACHED[5]
 
     from pkcm.envs.encoding import SCALAR_SIZE, action_space_size
     from pkcm.train.evaluator import from_checkpoint
@@ -214,6 +219,8 @@ def _evaluator(dex: Dex, config: MatchConfig):
     built = from_checkpoint(
         config.checkpoint, dex,
         action_space_size(battle_config.registered, battle_config.brought),
-        SCALAR_SIZE, device="cpu", trust=config.trust)
-    _CACHED = (config.checkpoint, config.trust, id(dex), built)
+        SCALAR_SIZE, device="cpu", trust=config.trust,
+        trust_prior=config.trust_prior, trust_value=config.trust_value)
+    _CACHED = (config.checkpoint, config.trust, config.trust_prior,
+               config.trust_value, id(dex), built)
     return built

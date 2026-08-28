@@ -144,6 +144,12 @@ def main() -> int:
                              "recombines the imported pkmnchamps parties; "
                              "37.5%% of random Pokemon carry no same-type "
                              "attack at all, against 4.9%% of those")
+    parser.add_argument("--trust-prior", type=float, default=None,
+                        help="how far self-play and the in-loop arena believe "
+                             "the policy head. Without it the prior is "
+                             "throttled by the value head's held-out error, "
+                             "which is the right guard when the value head is "
+                             "in play and nonsense when --trust-value is 0")
     parser.add_argument("--trust-value", type=float, default=None,
                         help="how far self-play AND the in-loop arena believe "
                              "the value head, apart from the policy head. 0 "
@@ -288,6 +294,7 @@ def main() -> int:
                 leaf_batch=args.leaf_batch),
             checkpoint=None if iteration == 0 else str(checkpoint),
             trust=trust,
+            trust_prior=args.trust_prior,
             trust_value=args.trust_value,
             teams=args.teams,
         )
@@ -415,7 +422,7 @@ def measure(args, checkpoint: Path, workers: int) -> tuple[float, float, float]:
         search=SearchConfig(iterations=args.search_iterations,
                             determinizations=max(4, args.search_iterations // 20),
                             leaf_batch=args.leaf_batch),
-        trust=1.0, trust_value=args.trust_value)
+        trust=1.0, trust_prior=args.trust_prior, trust_value=args.trust_value)
 
     started = beat = time.perf_counter()
     record = Record()

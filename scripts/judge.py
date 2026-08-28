@@ -55,6 +55,10 @@ def main() -> int:
     parser.add_argument("--evaluation-b", default=None,
                         choices=("material", "pressure", "blind"),
                         help="side B's")
+    parser.add_argument("--pressure-weight", type=float, default=None,
+                        help="side A's weight on the threat term")
+    parser.add_argument("--pressure-weight-b", type=float, default=None,
+                        help="side B's")
     parser.add_argument("--leaf-batch", type=int, default=None,
                         help="side A's leaves per network forward")
     parser.add_argument("--leaf-batch-b", type=int, default=None,
@@ -90,7 +94,8 @@ def main() -> int:
     args = parser.parse_args()
 
     workers = args.workers if args.workers is not None else default_workers()
-    def search_for(weight, belief, leaf_batch, evaluation=None):
+    def search_for(weight, belief, leaf_batch, evaluation=None,
+                   pressure_weight=None):
         extra = {} if weight is None else {"switch_matchup": weight}
         if belief is not None:
             extra["belief"] = belief
@@ -98,6 +103,8 @@ def main() -> int:
             extra["leaf_batch"] = leaf_batch
         if evaluation is not None:
             extra["evaluation"] = evaluation
+        if pressure_weight is not None:
+            extra["pressure_weight"] = pressure_weight
         return SearchConfig(iterations=args.search_iterations,
                             determinizations=max(4, args.search_iterations // 20),
                             **extra)
@@ -107,9 +114,10 @@ def main() -> int:
         teams=args.teams, checkpoint_b=args.checkpoint_b,
         trust_prior=args.trust_prior, trust_value=args.trust_value,
         search=search_for(args.switch_matchup, args.belief, args.leaf_batch,
-                          args.evaluation),
+                          args.evaluation, args.pressure_weight),
         search_b=search_for(args.switch_matchup_b, args.belief_b,
-                            args.leaf_batch_b, args.evaluation_b))
+                            args.leaf_batch_b, args.evaluation_b,
+                            args.pressure_weight_b))
 
     def label(search, netted):
         return (f"search(eval={search.evaluation}, belief={search.belief}, "

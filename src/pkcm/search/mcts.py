@@ -268,6 +268,10 @@ class SearchConfig:
     #:
     #: **Off until measured**, like every other evaluation change here.
     evaluation: str = "material"
+    #: Used when ``evaluation`` is ``"pressure"``. ``None`` takes the module
+    #: default. See ``evaluate.PRESSURE_WEIGHT`` for why the first guess was
+    #: ten times too large.
+    pressure_weight: float | None = None
 
 
 #: What a simulation pessimistically scores while it is still in flight.
@@ -646,7 +650,7 @@ class MCTS:
     def _leaf(self, state: BattleState, player: int) -> float:
         """The handcrafted leaf value this search was configured with."""
         if self.config.evaluation == "pressure":
-            return pressure(state, player)
+            return pressure(state, player, self.config.pressure_weight)
         if self.config.evaluation == "blind":
             # Terminals still pay, or the search would have no reason to
             # prefer winning. Everything short of one reads as unknown.

@@ -132,7 +132,7 @@ def _threat(state: BattleState, attacker, defender) -> float:
     return min(1.0, best)
 
 
-def pressure(state: BattleState, player: int) -> float:
+def pressure(state: BattleState, player: int, weight: float | None = None) -> float:
     """Material, plus who is about to knock out whom, in ``[-1, 1]``.
 
     The second term is what the material count cannot see at two turns' depth.
@@ -161,18 +161,28 @@ def pressure(state: BattleState, player: int) -> float:
 
     # Only when both sides are close to finishing something does moving first
     # decide it; otherwise speed is already priced into the threats.
+    share = PRESSURE_WEIGHT if weight is None else weight
     if ours > 0.9 and yours > 0.9:
         fast = max(_boosted(state, *ref, 5) for ref in mine)
         slow = max(_boosted(state, *ref, 5) for ref in theirs)
         if fast != slow:
-            return max(-1.0, min(1.0, material + (0.5 if fast > slow else -0.5)))
+            edge = share * 2 * (1 if fast > slow else -1)
+            return max(-1.0, min(1.0, material + edge))
 
-    return max(-1.0, min(1.0, material + PRESSURE_WEIGHT * (ours - yours)))
+    return max(-1.0, min(1.0, material + share * (ours - yours)))
 
 
-#: How much "about to knock out" counts against material. Above zero this is a
-#: different evaluation function and has to be measured like one.
-PRESSURE_WEIGHT = 0.5
+#: How much "about to knock out" counts against material.
+#:
+#: **The first value tried was 0.5 and it was far too large.** Measured, the
+#: material term's median magnitude is 0.024 in singles and 0.124 in doubles,
+#: while the threat term's is 0.127 and 0.162 -- so at 0.5 this did not add to
+#: material, it replaced it. That matters more than it sounds: ablating the
+#: leaf evaluation entirely costs 19 points in singles and 28 in doubles, so
+#: material is one of the largest measured contributors in this search, and
+#: drowning it out is expensive. At 0.5 the result was 46.7% singles, 42.0%
+#: doubles, the latter separable.
+PRESSURE_WEIGHT = 0.05
 
 
 def terminal_value(state: BattleState, player: int) -> float:

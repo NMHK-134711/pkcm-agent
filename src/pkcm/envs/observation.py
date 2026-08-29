@@ -103,6 +103,11 @@ class RegisteredSet:
     item: str | None
     ability: str
     stats: tuple[int, ...]
+    #: The build, not just its result. Needed because a Pokemon holding its own
+    #: Mega Stone is scored as the forme it becomes, and the Mega's stats cannot
+    #: be recovered from the base forme's -- see ``analysis.fought_as``.
+    sp: tuple[int, ...] = ()
+    nature: str = ""
 
 
 @dataclass(frozen=True, slots=True)
@@ -159,6 +164,8 @@ class Observation:
                     item=pokemon.item,
                     ability=pokemon.ability,
                     stats=tuple(pokemon.stats),
+                    sp=tuple(pokemon.set.sp),
+                    nature=pokemon.set.nature,
                 )
                 for pokemon in state.parties[player]
             ),

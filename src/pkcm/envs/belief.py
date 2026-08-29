@@ -43,10 +43,23 @@ from pkcm.engine.pokemon import PokemonSet
 #: around it -- sampling a whole coherent set rather than field by field, and
 #: narrowing it by every move we have watched.
 #:
-#: That distinction decides how much a patch costs. A new Pokemon or a new item
-#: makes the frequencies stale; it does not touch the machinery. If the gain is
-#: mostly machinery, a patch is survivable. If it is mostly frequencies, the
-#: agent waits for a meta to form before it is good again.
+#: That distinction decides how much a patch costs, and it has been measured.
+#: Four hundred games each, against sampling the hidden fields uniformly:
+#:
+#:     ranker pool     68.6% [63.9, 73.0]   separably stronger
+#:     invented pool   51.3% [46.4, 56.1]   not separable
+#:
+#: Same 42 species, same 120 sets, same count each -- only the contents differ.
+#: **The whole gain is knowing what people actually run.** Sampling coherent
+#: sets and narrowing them by what we have watched, on a pool of plausible but
+#: unplayed sets, is worth nothing measurable over drawing each field at
+#: random. Narrowing perfectly inside a wrong candidate set does not help.
+#:
+#: So a patch is a cliff, not a slope. The docstring above says a species the
+#: pool has never seen "is one the search will rarely meet", and that is true;
+#: what is not true is the reassurance it was offering. A species the pool
+#: knows *wrongly* is as bad as one it does not know at all, and after a patch
+#: that describes every species whose sets moved.
 _SOURCE = "ranker"
 
 

@@ -30,6 +30,11 @@ def main() -> int:
     parser.add_argument("checkpoint", nargs="?", default=None,
                         help="a saved network for side A. Omit to put "
                              "one search configuration against another")
+    parser.add_argument("--team-seed", type=int, default=None,
+                        help="base for the team seeds. Changing it draws a "
+                             "disjoint set of matches, so two runs can be "
+                             "pooled -- cheaper than restarting a long "
+                             "measurement to widen its sample")
     parser.add_argument("--matches", type=int, default=200,
                         help="each is two battles, the same teams both seats")
     parser.add_argument("--search-iterations", type=int, default=800)
@@ -129,6 +134,7 @@ def main() -> int:
     config = MatchConfig(
         checkpoint=args.checkpoint, battle_format=args.format, trust=args.trust,
         teams=args.teams, checkpoint_b=args.checkpoint_b,
+        **({} if args.team_seed is None else {"team_seed": args.team_seed}),
         trust_prior=args.trust_prior, trust_value=args.trust_value,
         search=search_for(args.switch_matchup, args.belief, args.leaf_batch,
                           args.evaluation, args.pressure_weight,

@@ -57,6 +57,10 @@ class MatchConfig:
     #: other to 0 asks which head is responsible for a change in strength.
     trust_prior: float | None = None
     trust_value: float | None = None
+    #: Which pool the belief draws from -- ``"ranker"`` or ``"invented"``.
+    #: Applies to **both** sides, because it is a property of the world both
+    #: are playing in rather than of either player. See ``envs.belief``.
+    belief_pool: str = "ranker"
     #: Side B's search, when the two differ. ``None`` gives it side A's.
     search_b: SearchConfig | None = None
     #: Give side B the same network as side A. The docstring above says the
@@ -92,6 +96,12 @@ def play_match(dex: Dex, config: MatchConfig, match: int) -> Record:
     Returns the network side's record. The seeds are derived from ``match``
     alone, which is what lets the pool hand matches out in any order.
     """
+    from pkcm.envs import belief as _belief
+
+    # Process-global and cached, so a worker has to be told once.
+    if _belief._SOURCE != config.belief_pool:
+        _belief.use_pool(config.belief_pool)
+
     battle_config = BattleConfig(dex=dex, regulation=dex.regulation(config.regulation),
                                  battle_format=config.battle_format)
     teams = tuple(

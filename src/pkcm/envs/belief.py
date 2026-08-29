@@ -35,15 +35,69 @@ from functools import lru_cache
 from pkcm.engine.pokemon import PokemonSet
 
 
+#: Which pool the belief samples from. ``"ranker"`` is what people bring;
+#: ``"invented"`` is the same shape filled with legal sets nobody plays.
+#:
+#: The second is an ablation and exists to answer one question: how much of
+#: belief's gain is *knowing what people run*, and how much is the machinery
+#: around it -- sampling a whole coherent set rather than field by field, and
+#: narrowing it by every move we have watched.
+#:
+#: That distinction decides how much a patch costs. A new Pokemon or a new item
+#: makes the frequencies stale; it does not touch the machinery. If the gain is
+#: mostly machinery, a patch is survivable. If it is mostly frequencies, the
+#: agent waits for a meta to form before it is good again.
+_SOURCE = "ranker"
+
+
+def use_pool(source: str) -> None:
+    """Switch the pool. ``sets_by_species`` is cached, so this clears it."""
+    global _SOURCE
+    if source not in ("ranker", "invented"):
+        raise ValueError(f"unknown belief pool {source!r}")
+    _SOURCE = source
+    sets_by_species.cache_clear()
+
+
 @lru_cache(maxsize=1)
 def sets_by_species() -> dict[str, tuple[PokemonSet, ...]]:
-    """Every ranker set this project has imported, grouped by species."""
+    """The sets the belief draws from, grouped by species."""
     from pkcm.engine.legality import ranker_slots
 
     grouped: dict[str, list[PokemonSet]] = defaultdict(list)
     for pokemon in ranker_slots():
         grouped[pokemon.species].append(pokemon)
-    return {species: tuple(found) for species, found in grouped.items()}
+    real = {species: tuple(found) for species, found in grouped.items()}
+    return real if _SOURCE == "ranker" else _invented_like(real)
+
+
+def _invented_like(real: dict[str, tuple[PokemonSet, ...]]
+                   ) -> dict[str, tuple[PokemonSet, ...]]:
+    """The same pool shape, filled with legal sets nobody brings.
+
+    Same species, same number of candidates each, so the narrowing has the same
+    resolution to work with and only the *contents* differ. Anything the
+    comparison finds is then about knowing what people run, not about having
+    more or fewer candidates to choose between.
+    """
+    from pkcm.data.dex import load_dex
+    from pkcm.engine.legality import random_set
+    from pkcm.engine.rng import Rng
+
+    dex = load_dex()
+    cursor = Rng.from_seed(0xBE11EF).cursor()
+    invented: dict[str, tuple[PokemonSet, ...]] = {}
+    for species, found in real.items():
+        made = []
+        for _ in found:
+            try:
+                made.append(random_set(dex, species, cursor))
+            except ValueError:
+                pass
+        # A species the random builder cannot serve keeps its real sets rather
+        # than dropping out of the pool, which would change the shape.
+        invented[species] = tuple(made) if made else found
+    return invented
 
 
 def consistent(candidate: PokemonSet, known) -> bool:

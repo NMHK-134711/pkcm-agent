@@ -30,6 +30,13 @@ def main() -> int:
     parser.add_argument("checkpoint", nargs="?", default=None,
                         help="a saved network for side A. Omit to put "
                              "one search configuration against another")
+    parser.add_argument("--belief-pool", default="ranker",
+                        choices=("ranker", "invented"),
+                        help="which sets the belief draws from. ``invented`` "
+                             "keeps the pool's shape -- same species, same "
+                             "count each -- and fills it with legal sets "
+                             "nobody plays, which is what a stale meta looks "
+                             "like after a patch. Applies to both sides")
     parser.add_argument("--team-seed", type=int, default=None,
                         help="base for the team seeds. Changing it draws a "
                              "disjoint set of matches, so two runs can be "
@@ -134,6 +141,7 @@ def main() -> int:
     config = MatchConfig(
         checkpoint=args.checkpoint, battle_format=args.format, trust=args.trust,
         teams=args.teams, checkpoint_b=args.checkpoint_b,
+        belief_pool=args.belief_pool,
         **({} if args.team_seed is None else {"team_seed": args.team_seed}),
         trust_prior=args.trust_prior, trust_value=args.trust_value,
         search=search_for(args.switch_matchup, args.belief, args.leaf_batch,

@@ -1,0 +1,349 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<title>챔피언스 코치</title>
+<style>
+  :root {
+    --bg:#10131a; --panel:#191d27; --line:#2a3040; --ink:#e7ebf3; --dim:#8d97ab;
+    --us:#6ea8fe; --them:#f08a8a; --good:#6ee7a8; --warn:#f6c453; --bad:#ff6b6b;
+  }
+  * { box-sizing:border-box; }
+  body { margin:0; background:var(--bg); color:var(--ink);
+         font:14px/1.5 "Malgun Gothic","Apple SD Gothic Neo",system-ui,sans-serif; }
+  .wrap { max-width:1180px; margin:0 auto; padding:14px; }
+  header { display:flex; align-items:baseline; gap:12px; flex-wrap:wrap;
+           padding-bottom:10px; border-bottom:1px solid var(--line); }
+  h1 { font-size:15px; margin:0; font-weight:600; }
+  .muted { color:var(--dim); font-size:12px; }
+  button, input, select {
+    font:inherit; color:var(--ink); background:var(--panel);
+    border:1px solid var(--line); border-radius:8px; padding:7px 11px; }
+  button { cursor:pointer; }
+  button:hover:not(:disabled) { border-color:var(--us); }
+  button:disabled { opacity:.4; cursor:default; }
+  input { width:100%; }
+  .panel { background:var(--panel); border:1px solid var(--line);
+           border-radius:12px; padding:14px; margin-top:12px; }
+  .panel h2 { font-size:12px; margin:0 0 10px; font-weight:600; color:var(--dim);
+              letter-spacing:.04em; }
+
+  /* the advice is the reason the page exists, so it is the biggest thing on it */
+  .advice { border-color:var(--us); background:#141c2e;
+            position:sticky; top:0; z-index:5; margin-top:0; }
+  .advice .best { font-size:23px; font-weight:700; color:var(--us); }
+  .advice .conf { margin-top:8px; display:grid; gap:5px; }
+  .bar2 { display:grid; grid-template-columns:190px 1fr 48px; gap:9px;
+          align-items:center; font-size:12.5px; }
+  .bar2 .track { height:8px; background:#222839; border-radius:4px; overflow:hidden; }
+  .bar2 .track > i { display:block; height:100%; background:var(--us); }
+  .bar2 .pct { text-align:right; color:var(--dim); font-variant-numeric:tabular-nums; }
+  .sure { margin-top:9px; font-size:12px; color:var(--dim); }
+
+  .cols { display:grid; grid-template-columns:1fr 1fr; gap:12px; }
+  .mon { display:flex; gap:9px; align-items:center; padding:8px 10px;
+         background:#12161f; border:1px solid var(--line); border-radius:10px; }
+  .mon.on { border-color:var(--us); }
+  .them .mon.on { border-color:var(--them); }
+  .mon.out { opacity:.38; }
+  .mon img { width:44px; height:44px; image-rendering:pixelated; }
+  .mon .who { font-size:13px; }
+  .mon .meta { font-size:11px; color:var(--dim); }
+  .unknown img { filter:brightness(0) saturate(0) opacity(.4); }
+  .hpbar { height:5px; border-radius:3px; background:#2a3040; margin-top:4px;
+           width:150px; }
+  .hpbar > i { display:block; height:100%; border-radius:3px; background:var(--good); }
+  .hpbar.low > i { background:var(--warn); }
+  .hpbar.crit > i { background:var(--them); }
+  .list { display:flex; gap:8px; flex-wrap:wrap; }
+
+  .row { display:grid; gap:8px; margin-bottom:9px; }
+  .row.two { grid-template-columns:1fr 1fr; }
+  .row.three { grid-template-columns:1fr 1fr 1fr; }
+  label { font-size:11px; color:var(--dim); display:block; margin-bottom:3px; }
+  .chip { font-size:12px; padding:2px 9px; border-radius:999px; background:#12161f;
+          border:1px solid var(--line); color:var(--dim); }
+  .err { color:var(--bad); font-size:12.5px; margin-top:8px; }
+  .log { margin-top:12px; padding:11px 13px;  background:#0c0f16;
+         border:1px solid var(--line); border-radius:12px; max-height:190px;
+         overflow-y:auto; white-space:pre-wrap; font-size:12.5px; color:#c3cbdb; }
+  .picks { display:flex; gap:9px; flex-wrap:wrap; }
+  .pick { display:grid; gap:3px; justify-items:center; padding:8px; width:112px;
+          background:#12161f; border:1px solid var(--line); border-radius:10px;
+          cursor:pointer; font:inherit; color:var(--ink); }
+  .pick.chosen { border-color:var(--us); background:#16203a; }
+  .pick img { width:56px; height:56px; image-rendering:pixelated; }
+  .pick .order { font-size:11px; color:var(--us); min-height:14px; }
+  .big { font-size:15px; padding:10px 16px; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1>챔피언스 코치</h1>
+    <span class="muted" id="status">불러오는 중…</span>
+    <span style="flex:1"></span>
+    <button id="restart">새 배틀</button>
+  </header>
+  <div id="app"></div>
+  <div class="log" id="log"></div>
+</div>
+
+<script>
+const $ = (id) => document.getElementById(id);
+let V = {};           // the last view from the server
+let picks = [];       // our team-preview order
+let busy = false;
+
+const sprite = (id, view) => id
+  ? `<img src="/sprite/${view}/${id}.png" alt="">`
+  : `<img src="" alt="">`;
+
+async function call(path) {
+  if (busy) return;
+  busy = true;
+  $("status").textContent = "생각 중…";
+  try { V = await (await fetch(path)).json(); draw(); }
+  finally { busy = false; }
+}
+
+// A <datalist> is the whole autocomplete: the browser does the matching, and
+// typing three syllables of a Korean name is faster than any list we could draw.
+function datalist(id, rows) {
+  return `<datalist id="${id}">` +
+    rows.map(r => `<option value="${r.ko}">`).join("") + `</datalist>`;
+}
+function idFor(kind, text) {
+  const hit = (V.lookup[kind] || []).find(r => r.ko === text.trim());
+  return hit ? hit.id : null;
+}
+
+function hpbar(pct) {
+  const cls = pct <= 20 ? "hpbar crit" : pct <= 50 ? "hpbar low" : "hpbar";
+  return `<div class="${cls}"><i style="width:${Math.max(0, pct)}%"></i></div>`;
+}
+
+function monCard(m, view) {
+  const marks = [];
+  if (m.status) marks.push(m.status);
+  m.boosts.forEach(b => marks.push(`${b.name}${b.value > 0 ? "+" : ""}${b.value}`));
+  if (m.item) marks.push(`@${m.item}`);
+  if (m.moves.length) marks.push(m.moves.join(", "));
+  const cls = ["mon"];
+  if (m.active) cls.push("on");
+  if (m.fainted) cls.push("out");
+  if (!m.id) cls.push("unknown");
+  return `<div class="${cls.join(" ")}">${sprite(m.sprite, view)}<div>
+    <div class="who">${m.ko}</div>
+    ${m.fainted ? `<div class="meta">기절</div>` : hpbar(m.hp)}
+    <div class="meta">${m.fainted ? "" : m.hp + "%"} ${marks.join(" · ")}</div>
+  </div></div>`;
+}
+
+// ---- screen 1: their six -------------------------------------------------- //
+function screenEntry() {
+  const boxes = [0,1,2,3,4,5].map(i =>
+    `<div><label>${i + 1}</label><input class="six" id="six${i}"
+      list="dl-species" autocomplete="off" ${i === 0 ? "autofocus" : ""}></div>`
+  ).join("");
+  return `<div class="panel"><h2>상대 팀 프리뷰에 보이는 6마리</h2>
+    ${datalist("dl-species", V.lookup.species)}
+    <div class="row three">${boxes}</div>
+    <button id="go" class="big">시작</button>
+    <div class="muted" style="margin-top:8px">
+      우리 파티는 <b>${V.party.title}</b>로 고정입니다.
+    </div></div>`;
+}
+
+function bindEntry() {
+  $("go").onclick = () => {
+    const ids = [], missing = [];
+    for (let i = 0; i < 6; i++) {
+      const text = $("six" + i).value;
+      const id = idFor("species", text);
+      if (!id) missing.push(text || `${i + 1}번 칸`); else ids.push(id);
+    }
+    if (missing.length) {
+      $("app").insertAdjacentHTML("beforeend",
+        `<div class="err">못 찾은 이름: ${missing.join(", ")}</div>`);
+      return;
+    }
+    call("/begin?" + ids.map(s => "species=" + encodeURIComponent(s)).join("&"));
+  };
+}
+
+// ---- screen 2: team preview ---------------------------------------------- //
+function screenPreview() {
+  const cards = V.party.team.map(m => {
+    const at = picks.indexOf(m.slot);
+    return `<button class="pick ${at >= 0 ? "chosen" : ""}" data-slot="${m.slot}">
+      <div class="order">${at >= 0 ? (at === 0 ? "선봉" : at + 1 + "번째") : "&nbsp;"}</div>
+      ${sprite(m.sprite, "back")}<div class="who">${m.ko}</div></button>`;
+  }).join("");
+  const six = V.their_six.map(s =>
+    `<div class="mon">${sprite(s.sprite, "front")}<div>
+      <div class="who">${s.ko}</div><div class="meta">등록</div></div></div>`).join("");
+  return `<div class="panel"><h2>상대 등록 6마리</h2>
+      <div class="list">${six}</div></div>
+    ${advicePanel()}
+    <div class="panel"><h2>우리가 낼 3마리 (1번이 선봉)</h2>
+      <div class="picks">${cards}</div>
+      <div class="row two" style="margin-top:12px">
+        <div><label>상대 선봉</label>
+          <input id="lead" list="dl-their" autocomplete="off"></div>
+        <div><label>&nbsp;</label>
+          <button id="open" class="big" ${picks.length === 3 ? "" : "disabled"}>
+            배틀 시작</button></div>
+      </div>
+      ${datalist("dl-their", V.their_six)}
+    </div>`;
+}
+
+function bindPreview() {
+  document.querySelectorAll(".pick").forEach(card => {
+    card.onclick = () => {
+      const slot = Number(card.dataset.slot);
+      const at = picks.indexOf(slot);
+      if (at >= 0) picks.splice(at, 1);
+      else if (picks.length < 3) picks.push(slot);
+      draw();
+    };
+  });
+  const open = $("open");
+  if (open) open.onclick = () => {
+    const lead = idFor("species", $("lead").value)
+      || (V.their_six.find(s => s.ko === $("lead").value.trim()) || {}).id;
+    if (!lead) { alert("상대 선봉을 등록 6마리 중에서 골라주세요"); return; }
+    call("/open?lead=" + encodeURIComponent(lead) + "&"
+         + picks.map(s => "pick=" + s).join("&"));
+  };
+}
+
+// ---- the advice ----------------------------------------------------------- //
+function advicePanel() {
+  if (!V.advice) return "";
+  const a = V.advice;
+  if (a.waiting) return `<div class="panel advice"><h2>추천</h2>
+    <div class="best" style="font-size:18px">이번 턴은 우리가 고를 것이 없습니다</div>
+    <div class="sure">상대가 내보낸 포켓몬만 입력하고 턴을 진행하세요.</div></div>`;
+  const rows = a.options.map(o => `<div class="bar2">
+      <span>${o.label}</span>
+      <span class="track"><i style="width:${(o.share * 100).toFixed(0)}%"></i></span>
+      <span class="pct">${(o.share * 100).toFixed(0)}%</span>
+    </div>`).join("");
+  const top = a.options.length ? a.options[0].share : 0;
+  // A recommendation is not one number. 94% of visits on one option is an
+  // instruction; 38% with a 31% behind it is "these are close, and the reason
+  // to prefer it is thin".
+  const sure = top > 0.75 ? "확신 — 다른 수와 뚜렷하게 갈립니다."
+    : top > 0.5 ? "선호 — 2순위와 차이가 있습니다."
+    : "박빙 — 2순위와 거의 같습니다. 읽기 싸움입니다.";
+  return `<div class="panel advice"><h2>추천</h2>
+    <div class="best">${a.best}</div>
+    <div class="conf">${rows}</div>
+    <div class="sure">${sure} · 루트 평가 ${a.value}</div></div>`;
+}
+
+// ---- screen 3: the turn --------------------------------------------------- //
+function screenBattle() {
+  // The options come from the engine's own legal_actions, so a forced switch
+  // offers switches only and nothing has to be filtered here.
+  const ourActs = V.our_options.map(o =>
+    `<option value="${o.code}" ${o.label === (V.advice || {}).best ? "selected" : ""}>${
+      o.label}${o.pp !== null ? ` (PP ${o.pp})` : ""}</option>`).join("");
+  const theirActive = V.theirs.find(m => m.active) || {hp: 100, rawStatus: ""};
+  const ourActive = V.ours.find(m => m.active) || {hp: 100, rawStatus: ""};
+  const statusOptions = (now) => ["", "brn", "par", "psn", "tox", "slp", "frz"]
+    .map(s => `<option value="${s}" ${s === now ? "selected" : ""}>${
+      {"": "없음", brn: "화상", par: "마비", psn: "독", tox: "맹독",
+       slp: "잠듦", frz: "얼음"}[s]}</option>`).join("");
+
+  return `${advicePanel()}
+  <div class="cols">
+    <div class="panel"><h2>우리</h2>${V.ours.map(m => monCard(m, "back")).join("")}
+      <div class="list" style="margin-top:8px">
+        ${V.our_conditions.map(c => `<span class="chip">${c.name} ${c.value}${c.unit}</span>`).join("")}
+      </div></div>
+    <div class="panel them"><h2>상대</h2>${V.theirs.map(m => monCard(m, "front")).join("")}
+      <div class="list" style="margin-top:8px">
+        ${V.their_conditions.map(c => `<span class="chip">${c.name} ${c.value}${c.unit}</span>`).join("")}
+      </div></div>
+  </div>
+
+  <div class="cols">
+    <div class="panel"><h2>이번 턴에 실제로 일어난 일</h2>
+      <div class="row"><label>우리가 낸 수 (기본값 = 추천)</label>
+        <select id="ourAct">${ourActs}</select></div>
+      <div class="row"><label>상대가 한 것</label>
+        ${V.their_decision
+          ? `<input id="theirAct" list="dl-acts" autocomplete="off"
+                    placeholder="기술 이름 또는 교체한 포켓몬">`
+          : `<div class="chip" style="padding:8px 11px">
+               상대는 이번에 고를 것이 없습니다</div>`}
+      </div>
+      ${datalist("dl-acts", (V.lookup.moves || []).concat(V.their_six))}
+      <button id="turn" class="big" style="width:100%">턴 진행</button>
+    </div>
+
+    <div class="panel"><h2>화면과 맞추기 — 엔진의 굴림은 게임의 굴림이 아닙니다</h2>
+      <div class="row two">
+        <div><label>우리 HP %</label>
+          <input id="ourHp" type="number" min="0" max="100" value="${ourActive.hp}"></div>
+        <div><label>상대 HP %</label>
+          <input id="theirHp" type="number" min="0" max="100" value="${theirActive.hp}"></div>
+      </div>
+      <div class="row two">
+        <div><label>우리 상태이상</label>
+          <select id="ourStatus">${statusOptions(ourActive.rawStatus || "")}</select></div>
+        <div><label>상대 상태이상</label>
+          <select id="theirStatus">${statusOptions(theirActive.rawStatus || "")}</select></div>
+      </div>
+      <button id="fix" style="width:100%">맞추고 다시 계산</button>
+    </div>
+  </div>`;
+}
+
+function bindBattle() {
+  $("turn").onclick = () => {
+    const parts = ["ours=" + encodeURIComponent($("ourAct").value)];
+    if (V.their_decision) {
+      const text = $("theirAct").value.trim();
+      const move = idFor("moves", text);
+      // A species match wins: switching to a Pokemon whose name collides with
+      // a move is the reading a person means.
+      const species = (V.their_six.find(s => s.ko === text) || {}).id;
+      if (!move && !species) { alert("상대가 한 것을 입력해 주세요"); return; }
+      parts.push(species ? "their_switch=" + encodeURIComponent(species)
+                         : "their_move=" + encodeURIComponent(move));
+    }
+    call("/turn?" + parts.join("&"));
+  };
+  $("fix").onclick = () => call("/observe?" + [
+    "our_hp=" + $("ourHp").value, "their_hp=" + $("theirHp").value,
+    "our_status=" + $("ourStatus").value,
+    "their_status=" + $("theirStatus").value].join("&"));
+}
+
+// ---- router --------------------------------------------------------------- //
+function draw() {
+  const head = [];
+  if (V.started) head.push(`${V.turn}턴`);
+  head.push(V.party ? V.party.title.slice(0, 46) : "");
+  if (V.finished) head.push(V.winner === 0 ? "우리 승" :
+                            V.winner === 1 ? "상대 승" : "무승부");
+  $("status").textContent = head.join(" · ");
+  $("log").textContent = (V.log || []).join("\n");
+  $("log").scrollTop = $("log").scrollHeight;
+
+  const app = $("app");
+  if (!V.started) { app.innerHTML = screenEntry(); bindEntry(); }
+  else if (V.phase === "TEAM_PREVIEW") { app.innerHTML = screenPreview(); bindPreview(); }
+  else { app.innerHTML = screenBattle(); bindBattle(); }
+  if (V.error) app.insertAdjacentHTML("beforeend", `<div class="err">${V.error}</div>`);
+}
+
+$("restart").onclick = () => { picks = []; V.started = false; draw(); };
+call("/state");
+</script>
+</body>
+</html>

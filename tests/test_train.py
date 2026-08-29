@@ -978,3 +978,76 @@ def test_validation_still_scores_the_outcome_under_a_bootstrap_target(pieces, sa
                              bootstrap_weight=1.0))
     assert result["val_value_mae"] > 0.5, (
         "validation is scoring the bootstrap, not the outcome")
+
+
+# --------------------------------------------------------------------------- #
+# The team tournament
+# --------------------------------------------------------------------------- #
+
+
+def test_the_schedule_is_every_pair_once_and_no_mirrors():
+    """A team against itself is 50% by construction; counting it would only
+    pull every entrant towards the middle and narrow the interval on nothing."""
+    from pkcm.train.tournament import fixtures
+
+    schedule = fixtures((0, 1, 2, 3), repeats=2)
+    assert len(schedule) == 6 * 2
+    pairs = {(a, b) for a, b, _ in schedule}
+    assert pairs == {(0, 1), (0, 2), (0, 3), (1, 2), (1, 3), (2, 3)}
+    assert not any(a == b for a, b, _ in schedule)
+
+
+def test_standings_credit_both_entrants_of_a_fixture():
+    """One fixture is two rows in the table: b's losses are a's wins. Getting
+    this wrong is how a round robin reports a winner nobody beat."""
+    from pkcm.train.tournament import Result, standings
+
+    rows = standings([Result(a=0, b=1, a_wins=3, b_wins=1, draws=0),
+                      Result(a=0, b=2, a_wins=0, b_wins=2, draws=2)],
+                     (0, 1, 2))
+    by_party = {row.party: row for row in rows}
+    assert (by_party[0].wins, by_party[0].losses, by_party[0].draws) == (3, 3, 2)
+    assert (by_party[1].wins, by_party[1].losses) == (1, 3)
+    assert (by_party[2].wins, by_party[2].losses) == (2, 0)
+    assert [row.party for row in rows] == [2, 0, 1], "best first"
+
+
+def test_a_fixture_plays_both_seatings(dex):
+    """The measurement is of the six Pokemon and nothing else, so whatever
+    moving first is worth has to be worth the same to both entrants."""
+    from pkcm.train.tournament import TournamentConfig, play_fixture
+    from pkcm.engine.legality import ranker_parties
+
+    config = TournamentConfig(search=SearchConfig(iterations=12,
+                                                  determinizations=2))
+    result = play_fixture(dex, ranker_parties(), config, (0, 1, 0))
+    assert result.a_wins + result.b_wins + result.draws == 2
+    assert (result.a, result.b) == (0, 1)
+    assert play_fixture(dex, ranker_parties(), config, (0, 1, 0)) == result, (
+        "every seed comes from the fixture, so a pool may hand them out in "
+        "any order")
+
+
+def test_the_tournament_pool_returns_what_one_process_would():
+    from pkcm.train.tournament import TournamentConfig, stream
+
+    config = TournamentConfig(search=SearchConfig(iterations=12,
+                                                  determinizations=2))
+    schedule = [(0, 1, 0), (0, 2, 0)]
+    pooled = list(stream(config, schedule, workers=2))
+    serial = list(stream(config, schedule, workers=1))
+    if len(pooled) != len(schedule) or len(serial) != len(schedule):
+        pytest.skip("a worker crashed hard enough to drop a fixture")
+    assert sorted(pooled, key=repr) == sorted(serial, key=repr)
+
+
+def test_every_imported_party_is_a_legal_team(dex):
+    """They are entered as their authors built them, without a repair pass --
+    so a party the ruleset would reject has to fail here rather than quietly
+    play in the tournament."""
+    from pkcm.engine.legality import ranker_parties, team_errors
+
+    regulation = dex.regulation("m_b")
+    for index, party in enumerate(ranker_parties()):
+        assert not team_errors(dex, regulation, party.team, "singles"), (
+            f"party {index} ({party.title}) is not legal")

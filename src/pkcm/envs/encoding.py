@@ -396,7 +396,7 @@ _PREVIEW_CACHE_LIMIT = 16
 
 def encode_preview(observation: Observation, dex) -> np.ndarray:
     """Every one of ours against every one of theirs, as the pick sees them."""
-    from pkcm.envs.analysis import matchup, our_threat, their_threat
+    from pkcm.envs.analysis import fought_as, matchup, our_threat, their_threat
 
     key = (observation.own_sets[:6], observation.registered[1][:6])
     cached = _PREVIEW_CACHE.get(key)
@@ -407,15 +407,20 @@ def encode_preview(observation: Observation, dex) -> np.ndarray:
     theirs = observation.registered[1][:6]
     for ours_index, entry in enumerate(observation.own_sets[:6]):
         moves = [dex.moves[move_id] for move_id in entry.moves if move_id in dex.moves]
-        types = dex.species[entry.species_id].types
+        # The same resolution ``search.policy._matchup`` does. These two grids
+        # have to agree: a policy trained to imitate one while the search runs
+        # the other drifts apart silently, which is why the arithmetic lives in
+        # ``analysis`` and neither copy does its own.
+        _, stats, types = fought_as(dex, entry.species_id, entry.item,
+                                    entry.ability, entry.sp, entry.nature)
         for foe_index, foe_id in enumerate(theirs):
             if foe_id not in dex.species:
                 continue
             row = ours_index * 6 + foe_index
             grid[row] = (
-                our_threat(dex, moves, entry.stats, types, foe_id),
-                their_threat(dex, foe_id, entry.stats, types),
-                matchup(dex, moves, entry.stats, types, foe_id),
+                our_threat(dex, moves, stats, types, foe_id),
+                their_threat(dex, foe_id, stats, types),
+                matchup(dex, moves, stats, types, foe_id),
             )
     # Read-only, because every caller from now on shares this one array. A
     # writer would corrupt not its own encoding but every later state's.

@@ -510,6 +510,51 @@ _HOLDABLE: frozenset[str] | None = None
 PARTIES_PATH = Path(__file__).resolve().parents[3] / "data" / "champions" / "parties_m_b.json"
 
 
+@dataclass(frozen=True, slots=True)
+class Party:
+    """One imported ranker party, kept whole.
+
+    ``ranker_slots`` below throws the team away and keeps the Pokemon, which is
+    what training wants. A tournament between teams cannot use that: the whole
+    question there is whether *this* six beats *that* six, and the team's own
+    idea -- the sand setter and the sweeper that needs it -- is the thing being
+    measured rather than the thing being averaged out.
+    """
+
+    title: str
+    #: The author's ladder rating and placing, where the archive recorded them.
+    rate: int | None
+    rank: int | None
+    team: Team
+
+
+def _party_payload(path: str | None) -> list[dict]:
+    target = Path(path) if path else PARTIES_PATH
+    if not target.exists():
+        raise FileNotFoundError(
+            f"{target} is not there -- run scripts/import_parties.py")
+    return json.loads(target.read_text(encoding="utf-8"))
+
+
+def _party_set(entry: dict) -> PokemonSet:
+    return PokemonSet(
+        species=entry["species"], ability=entry["ability"],
+        moves=tuple(entry["moves"]), item=entry.get("item"),
+        nature=entry["nature"], sp=tuple(entry["sp"]),
+        gender=entry.get("gender"))
+
+
+@lru_cache(maxsize=4)
+def ranker_parties(path: str | None = None) -> tuple[Party, ...]:
+    """The imported parties as their authors built them, in file order."""
+    return tuple(
+        Party(title=party["title"], rate=party.get("rate"),
+              rank=party.get("rank"),
+              team=tuple(_party_set(entry) for entry in party["team"]))
+        for party in _party_payload(path)
+    )
+
+
 @lru_cache(maxsize=4)
 def ranker_slots(path: str | None = None) -> tuple[PokemonSet, ...]:
     """Every Pokemon from every imported ranker party, as a flat pool.
@@ -525,20 +570,9 @@ def ranker_slots(path: str | None = None) -> tuple[PokemonSet, ...]:
     its sweepers arrive separately -- so this is a distribution of good Pokemon
     rather than of good teams. That is the trade, and it is deliberate.
     """
-    target = Path(path) if path else PARTIES_PATH
-    if not target.exists():
-        raise FileNotFoundError(
-            f"{target} is not there -- run scripts/import_parties.py")
-    payload = json.loads(target.read_text(encoding="utf-8"))
-    slots: list[PokemonSet] = []
-    for party in payload:
-        for entry in party["team"]:
-            slots.append(PokemonSet(
-                species=entry["species"], ability=entry["ability"],
-                moves=tuple(entry["moves"]), item=entry.get("item"),
-                nature=entry["nature"], sp=tuple(entry["sp"]),
-                gender=entry.get("gender")))
-    return tuple(slots)
+    return tuple(pokemon
+                 for party in ranker_parties(path)
+                 for pokemon in party.team)
 
 
 def ranker_team(

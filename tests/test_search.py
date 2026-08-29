@@ -616,3 +616,169 @@ def test_it_switches_into_the_immunity(dex):
     switching = sum(share for choice, share in result.distribution
                     if choice and choice[0].kind is ActionKind.SWITCH)
     assert switching > 0.5, f"only {switching:.0%} of visits went to a switch"
+
+
+# --------------------------------------------------------------------------- #
+# Mega Evolution, and the forme the estimator is looking at
+# --------------------------------------------------------------------------- #
+
+
+def test_a_stone_holder_is_scored_as_the_forme_it_becomes(dex):
+    """Base Starmie is a fast special attacker; Mega Starmie is a physical one
+    with Huge Power. A set built for the Mega -- Adamant, four physical moves --
+    is incoherent read as the base, which is exactly how it got benched."""
+    from pkcm.envs.analysis import fought_as
+
+    sp = (2, 32, 0, 0, 0, 32)
+    species, stats, types = fought_as(dex, "starmie", "starminite",
+                                      "naturalcure", sp, "adamant")
+    assert species == "starmiemega"
+    plain = fought_as(dex, "starmie", None, "naturalcure", sp, "adamant")
+    assert plain[0] == "starmie"
+    assert stats[1] == plain[1][1] * 2 + 56, (
+        "Huge Power doubles the Mega's Attack, not the base forme's")
+    assert stats[1] > 300 and plain[1][1] < 150
+
+    # Staraptor is the other half of it: the forme changes type, so the same
+    # move is same-type after Mega Evolving and not before.
+    _, _, base_types = fought_as(dex, "staraptor", None, "reckless",
+                                 sp, "adamant")
+    _, _, mega_types = fought_as(dex, "staraptor", "staraptite", "reckless",
+                                 sp, "adamant")
+    assert "fighting" not in base_types and "fighting" in mega_types
+
+
+def test_a_stoneless_pokemon_is_scored_exactly_as_before(dex):
+    """The resolution recomputes stats rather than adjusting them, so it has to
+    reproduce ``compile_set`` when there is no stone to resolve."""
+    from pkcm.engine.pokemon import PokemonSet, compile_set
+    from pkcm.envs.analysis import fought_from_set
+
+    built = compile_set(dex, PokemonSet(
+        species="corviknight", ability="pressure",
+        moves=("bravebird", "bodypress", "roost", "ironhead"),
+        item="leftovers", nature="impish", sp=(32, 0, 32, 0, 2, 0)))
+    species, stats, types = fought_from_set(dex, built)
+    assert species == "corviknight"
+    assert stats == tuple(built.stats)
+    assert types == built.species.types
+
+
+def test_mega_evolving_changes_what_the_prior_thinks_of_a_move(dex):
+    """hk's probe, and the one that named the bug.
+
+    Base Staraptor is normal/flying with Reckless, so Close Combat is a
+    self-inflicted drop off a non-STAB type. Mega Staraptor is fighting/flying
+    with Contrary, so the same move is same-type and the drops are boosts.
+    Nothing about the move changes -- only the forme -- and the prior scored
+    ``mega+closecombat`` and ``closecombat`` identically to four decimals,
+    which left the pair ordered by whichever ``legal_actions`` emitted first.
+    """
+    from pkcm.engine.actions import Action
+    from pkcm.engine.battle import step
+    from pkcm.engine.legality import mega_stone_for
+    from pkcm.engine.pokemon import PokemonSet
+    from pkcm.engine.state import BattleConfig, new_battle
+    from pkcm.search.policy import _promise
+
+    def a_set(species, ability, moves, item=None, sp=(0,) * 6, nature="serious"):
+        return PokemonSet(species=species, ability=ability, moves=tuple(moves),
+                          item=item, nature=nature, sp=sp)
+
+    config = BattleConfig(dex=dex, regulation=dex.regulation("m_b"),
+                          battle_format="singles")
+    stone = mega_stone_for(dex, config.regulation, "staraptor")
+    filler = [a_set(name, "__none__", ("tackle",))
+              for name in ("pikachu", "gengar", "alakazam")]
+    ours = [a_set("staraptor", "reckless",
+                  ("closecombat", "bravebird", "uturn", "quickattack"),
+                  stone, (2, 32, 0, 0, 0, 32), "adamant")] + filler[:2]
+    # Archaludon is steel/dragon: it resists Brave Bird and folds to Fighting,
+    # so the two moves are on opposite sides of the question.
+    theirs = [a_set("archaludon", "stamina",
+                    ("flashcannon", "dracometeor", "bodypress", "thunderwave"),
+                    "assaultvest", (30, 0, 0, 32, 4, 0), "modest")] + filler[:2]
+    state = new_battle(config, (tuple(ours + filler), tuple(theirs + filler)),
+                       seed=3)
+    state, _ = step(state, Action.select(0, 1, 2), Action.select(0, 1, 2))
+
+    plain = _promise(state, 0, (Action.move(0),))
+    mega = _promise(state, 0, (Action.move(0, mega=True),))
+    assert mega > plain, (
+        f"mega+closecombat {mega:.4f} did not beat closecombat {plain:.4f}; "
+        "the prior is reading the base forme")
+    assert mega == pytest.approx(plain * 1.5), "the difference is the STAB"
+
+
+def test_the_pick_brings_the_pokemon_the_team_is_built_around(dex):
+    """The bug this whole change is about.
+
+    ``joint_actions`` keeps the ``max_branching`` most promising of the 120
+    orderings, so a Pokemon the prior scores low is not ranked low -- it is
+    never expanded, and the search cannot correct what it never sees. Measured
+    on the imported parties, Mega Starmie appeared in **0 of 24** candidates
+    and both teams built on it finished last.
+    """
+    from pkcm.engine.legality import mega_stone_for, ranker_parties
+    from pkcm.engine.state import BattleConfig, new_battle
+    from pkcm.search.policy import joint_actions
+
+    config = BattleConfig(dex=dex, regulation=dex.regulation("m_b"),
+                          battle_format="singles")
+    parties = ranker_parties()
+    ours = next(p for p in parties
+                if any(m.species == "starmie"
+                       and m.item == mega_stone_for(dex, config.regulation, "starmie")
+                       for m in p.team))
+    slot = next(i for i, m in enumerate(ours.team) if m.species == "starmie")
+
+    # Against the whole field, not one opponent: which opponents it survived
+    # against is exactly the thing that used to vary, so a single fixture would
+    # pass or fail on the draw.
+    missing = []
+    for other in parties:
+        if other is ours:
+            continue
+        state = new_battle(config, (ours.team, other.team), seed=0)
+        options = joint_actions(state, 0, limit=SearchConfig().max_branching)
+        if not any(slot in choice[0].selection for choice in options):
+            missing.append(other.title)
+    assert not missing, (
+        f"the team's own Mega did not survive truncation against "
+        f"{len(missing)} of {len(parties) - 1} opponents: {missing[:3]}")
+
+
+def test_the_preview_grid_and_the_pick_prior_agree_about_a_mega(dex):
+    """Two copies of one sum, and the network is trained on the other one.
+
+    Not a regression on the Mega bug -- before the fix both copies read the
+    base forme and agreed, wrongly. It is the guard against *half* a fix:
+    ``search.policy`` resolving the forme while ``encode_preview`` does not
+    would leave a policy imitating one grid while the search runs another, and
+    nothing else in the suite would notice.
+
+    ``test_the_preview_grid_is_the_prior_the_pick_is_scored_by`` checks the
+    same property on a random team, where holding a stone is a coin flip.
+    """
+    from pkcm.engine.legality import mega_stone_for, ranker_parties
+    from pkcm.engine.state import BattleConfig, new_battle
+    from pkcm.envs.encoding import encode_preview
+    from pkcm.envs.observation import Observation
+    from pkcm.search.policy import _matchup
+
+    config = BattleConfig(dex=dex, regulation=dex.regulation("m_b"),
+                          battle_format="singles")
+    parties = ranker_parties()
+    ours = next(p for p in parties
+                if any(m.species == "starmie"
+                       and m.item == mega_stone_for(dex, config.regulation, "starmie")
+                       for m in p.team))
+    slot = next(i for i, m in enumerate(ours.team) if m.species == "starmie")
+    theirs = next(p for p in parties if p is not ours)
+
+    state = new_battle(config, (ours.team, theirs.team), seed=0)
+    observation = Observation.of(state, 0)
+    grid = encode_preview(observation, dex)
+    for foe_index, foe_id in enumerate(observation.registered[1][:6]):
+        assert grid[slot * 6 + foe_index][2] == pytest.approx(
+            _matchup(state, state.parties[0][slot], foe_id), abs=1e-5)

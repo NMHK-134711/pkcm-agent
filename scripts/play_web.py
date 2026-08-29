@@ -113,14 +113,28 @@ class Battle:
     def start(self, seed: int) -> None:
         self.seed = seed
         teams = tuple(
-            make_team(self.dex, self.config.regulation,
-                      Rng.from_seed(seed * 2 + offset).cursor(),
-                      self.args.format, self.args.teams)
-            for offset in (1, 2))
+            self._team(party, seed, offset)
+            for party, offset in ((self.args.your_party, 1),
+                                  (self.args.agent_party, 2)))
         self.state = new_battle(self.config, teams, seed=seed)
         self.agent = MCTS(self.search, evaluator=self.evaluator)
         self.cursor = Rng.from_seed(seed ^ 0xA9E27).cursor()
         self.log = []
+
+    def _team(self, party: int | None, seed: int, offset: int):
+        """A named party, or one drawn from the configured distribution.
+
+        Naming one is how a team the tournament picked out gets played rather
+        than described -- and naming both is a rematch of a fixture, with a
+        person in one of the seats.
+        """
+        if party is not None:
+            from pkcm.engine.legality import ranker_parties
+
+            return ranker_parties()[party].team
+        return make_team(self.dex, self.config.regulation,
+                         Rng.from_seed(seed * 2 + offset).cursor(),
+                         self.args.format, self.args.teams)
 
     def submit(self, indices: list[int]) -> None:
         """Take the human's choice, let the agent answer, advance one step."""
@@ -391,6 +405,12 @@ def main() -> int:
     parser.add_argument("--seed", type=int, default=None)
     parser.add_argument("--format", default="singles", choices=("singles", "doubles"))
     parser.add_argument("--teams", default="ranker", choices=("random", "ranker"))
+    parser.add_argument("--your-party", type=int, default=None,
+                        help="play an imported ranker party by index instead "
+                             "of a drawn team -- scripts/tournament.py prints "
+                             "the indices")
+    parser.add_argument("--agent-party", type=int, default=None,
+                        help="give the agent one, to practise against it")
     parser.add_argument("--port", type=int, default=8760)
     parser.add_argument("--no-browser", action="store_true")
     args = parser.parse_args()
@@ -407,8 +427,17 @@ def main() -> int:
 
         args.seed = int(_time.time()) % 100000
 
+    def described(party: int | None) -> str:
+        if party is None:
+            return f"{args.teams} 팀"
+        from pkcm.engine.legality import ranker_parties
+
+        return f"파티 {party} — {ranker_parties()[party].title}"
+
     print(f"상대: {'망 + 탐색 ' + args.checkpoint if args.checkpoint else '손으로 짠 탐색'}"
-          f" ({args.search_iterations} iterations, {args.teams} 팀)")
+          f" ({args.search_iterations} iterations)")
+    print(f"  당신: {described(args.your_party)}")
+    print(f"  에이전트: {described(args.agent_party)}")
     Handler.battle = Battle(args)
 
     address = f"http://127.0.0.1:{args.port}"

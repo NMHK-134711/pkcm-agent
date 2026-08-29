@@ -92,11 +92,15 @@ def _matchup(state: BattleState, mine, foe_id: str) -> float:
     The arithmetic used to live here. It moved because the encoder shows the
     same grid to the network at team preview, and a policy trained to imitate
     one copy while the search runs the other would drift apart silently.
-    """
-    from pkcm.envs.analysis import matchup
 
-    return matchup(state.config.dex, mine.moves, mine.stats,
-                   mine.species.types, foe_id)
+    Scored as the forme it will fight as, not the one on the sheet -- see
+    ``fought_from_set``. Ours only; ``foe_id`` stays whatever preview shows.
+    """
+    from pkcm.envs.analysis import fought_from_set, matchup
+
+    dex = state.config.dex
+    _, stats, types = fought_from_set(dex, mine)
+    return matchup(dex, mine.moves, stats, types, foe_id)
 
 
 def _pick_promise(state: BattleState, player: int,
@@ -144,16 +148,29 @@ def _switch_promise(state: BattleState, player: int, slot: int,
     Move-versus-switch balance was measured at the old ratio and is not what
     this is about.
     """
-    from pkcm.envs.analysis import matchup
+    from pkcm.envs.analysis import fought_from_set, matchup
 
     dex = state.config.dex
     mine = state.pokemon(player, slot)
-    foes = [state.pokemon(*ref) for ref in state.active_refs(1 - player)]
+    # The state knows about forme changes that have already happened; the
+    # compiled set does not.
+    _, stats, types = fought_from_set(dex, mine, state.species_id(player, slot))
+    foes = [state.species_id(*ref) for ref in state.active_refs(1 - player)]
     if not foes:
         return base
-    edge = sum(matchup(dex, mine.moves, mine.stats, mine.species.types,
-                       foe.species.id) for foe in foes) / len(foes)
+    edge = sum(matchup(dex, mine.moves, stats, types, foe)
+               for foe in foes) / len(foes)
     return max(0.05, base + weight * edge)
+
+
+def _fought_types(state: BattleState, player: int, slot: int,
+                  mega: bool) -> tuple[str, ...]:
+    """The types this one attacks with, once the action's Mega is spent."""
+    if mega:
+        target = state.mega_target(player, slot)
+        if target is not None:
+            return state.config.dex.species[target].types
+    return state.types(player, slot)
 
 
 def _promise(state: BattleState, player: int, choice: tuple[Action, ...],
@@ -193,7 +210,13 @@ def _promise(state: BattleState, player: int, choice: tuple[Action, ...],
             effectiveness = state.config.dex.type_chart.multiplier(
                 move.type, state.types(*foe))
             best = max(best, effectiveness)
-        stab = 1.5 if move.type in state.types(player, slot) else 1.0
+        # ``mega+X`` and ``X`` are the same move from different Pokemon.
+        # Without this they scored identically to four decimals, so the pair
+        # was ordered by whichever ``legal_actions`` emitted first and the
+        # forme change was invisible to the prior: Mega Staraptor's Close
+        # Combat is same-type and Staraptor's is not.
+        types = _fought_types(state, player, slot, action.mega)
+        stab = 1.5 if move.type in types else 1.0
         total += power * (best if best else 0.1) * stab / 100.0
     return total
 

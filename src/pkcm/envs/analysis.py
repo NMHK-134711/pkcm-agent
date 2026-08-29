@@ -30,7 +30,13 @@ from pkcm.engine.moves import (
     damage_formula,
     damage_from_base,
 )
-from pkcm.engine.stats import LEVEL, NATURES, compute_stat
+from pkcm.engine.stats import (
+    LEVEL,
+    NATURES,
+    compute_stat,
+    compute_stats,
+    get_nature,
+)
 from pkcm.envs.observation import KnownPokemon, Observation
 from pkcm.envs.reference import ReferenceSheet
 
@@ -778,6 +784,82 @@ def damage_share(power: float, offence: float, defence: float, health: float,
     """
     damage = (22 * power * offence / max(1.0, defence)) / 50 + 2
     return min(1.0, damage * stab * effectiveness / max(1.0, health))
+
+
+#: Abilities that are a plain multiplier on an attacking stat.
+#:
+#: The estimator below prices no other ability, deliberately -- there are
+#: hundreds and most of them are situational. These two are here because
+#: Champions builds three of its Mega formes on them (Mawile, Medicham,
+#: Starmie), and for those the ability is not a modifier on the design, it *is*
+#: the design: Mega Starmie's base Attack is 100, and reading the stat without
+#: the ability is wrong by a factor of two. An estimate that far out does not
+#: rank the Pokemon low, it removes it from consideration.
+DOUBLES_ATTACK = frozenset({"hugepower", "purepower"})
+
+
+def mega_forme(dex: Dex, species_id: str, item: str | None) -> str | None:
+    """The Mega this one becomes, if it is holding its own stone.
+
+    Mirrors ``BattleState.mega_target``: already a Mega means there is nothing
+    left to resolve.
+    """
+    if not item or dex.species[species_id].is_mega:
+        return None
+    return dex.mega_evolution(species_id, item)
+
+
+def fought_as(dex: Dex, species_id: str, item: str | None, ability: str,
+              sp, nature: str) -> tuple[str, tuple[int, ...], tuple[str, ...]]:
+    """The species, stats and types this one will actually fight with.
+
+    A Pokemon holding its own Mega Stone is going to Mega Evolve, and every
+    number that matters changes when it does. Mega Staraptor is not Staraptor
+    with better stats -- it is fighting/flying with Contrary, so Close Combat
+    goes from a self-inflicted drop to a boost and picks up STAB on the way.
+    Mega Starmie is not a fast special attacker at all; it is a physical one
+    with twice the Attack its stat line shows.
+
+    Reading the base forme is not a small error, because the sets people build
+    are built *for the Mega*: an Adamant Starmie with four physical moves is an
+    incoherent Pokemon until the stone resolves, and an estimator that scores it
+    as it stands scores something nobody brought. Measured on the imported
+    ranker parties, Mega Starmie never once survived ``joint_actions``'
+    truncation into the team-preview candidates -- so the search did not rank it
+    low, it never saw it.
+
+    The stats are recomputed rather than adjusted, which also fixes the case
+    where the forme change has already happened: a compiled ``BattlePokemon``
+    keeps the base species' stats for the whole battle and only the state's
+    overrides know better.
+
+    **Our own side only.** The stone is an item and items are hidden at team
+    preview, so this is never applied to the opponent -- ``their_threat`` takes
+    a species id and has nothing to resolve. Once they Mega Evolve on the field
+    their species id *is* the Mega and it needs no help.
+    """
+    target = mega_forme(dex, species_id, item)
+    fought = dex.species[target or species_id]
+    if target is not None and fought.abilities:
+        # The forme's own first ability replaces whatever was chosen, which is
+        # what ``battle._mega_evolve`` does.
+        ability = fought.abilities[0]
+    stats = list(compute_stats(fought.base_stats, sp, get_nature(nature)))
+    if ability in DOUBLES_ATTACK:
+        stats[Stat.ATK] *= 2
+    return fought.id, tuple(stats), fought.types
+
+
+def fought_from_set(dex: Dex, pokemon,
+                    species_id: str | None = None) -> tuple[str, tuple[int, ...],
+                                                            tuple[str, ...]]:
+    """``fought_as`` for a compiled ``BattlePokemon``.
+
+    ``species_id`` overrides the compiled species, for a caller that can see
+    the state's forme-change overrides and knows better.
+    """
+    return fought_as(dex, species_id or pokemon.species.id, pokemon.item,
+                     pokemon.ability, pokemon.set.sp, pokemon.set.nature)
 
 
 def our_threat(dex: Dex, moves, stats, types, foe_id: str) -> float:

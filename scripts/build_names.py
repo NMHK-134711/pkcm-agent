@@ -117,6 +117,31 @@ def korean_species(base_names: dict[str, str], dex) -> tuple[dict[str, str], lis
 
 
 POKECHAMS_DIR = ROOT / "data" / "raw" / "pokechams"
+PKMNCHAMPS_DIR = ROOT / "data" / "raw" / "pkmnchamps"
+
+
+def korean_natures(existing: dict[str, str] | None = None) -> dict[str, str]:
+    """Stat Alignment names, from the pkmnchamps dex.
+
+    PokeAPI has these too, but under the old Nature wording; Champions renamed
+    the mechanic and pkmnchamps is the surface that shows the game's own. Only
+    the 21 alignments the ruleset allows are kept -- the four neutral extras
+    exist in the data and cannot be chosen.
+
+    ``existing`` is what is already in the committed file, returned unchanged
+    when the raw scrape is not on this machine. Regenerating names.json without
+    ``data/raw/pkmnchamps`` must not silently drop a section.
+    """
+    from pkcm.engine.stats import NATURES
+
+    source = PKMNCHAMPS_DIR / "names_ko.json"
+    if not source.exists():
+        print("  (no data/raw/pkmnchamps -- run scripts/fetch_pkmnchamps.py; "
+              "keeping the committed Stat Alignment names)")
+        return dict(existing or {})
+    raw = json.loads(source.read_text(encoding="utf-8"))["natures"]
+    return {key: entry["ko"] for key, entry in raw.items()
+            if key in NATURES and entry.get("ko")}
 
 
 def overlay_pokechams(dex, species: dict, moves: dict, abilities: dict,
@@ -198,6 +223,9 @@ def main() -> int:
     for entry in scraped["items"]:
         items[entry["id"]] = entry["korean"]
     types = names_by_identifier("types.csv", "type_names.csv", "type_id")
+    committed = (json.loads(OUT_PATH.read_text(encoding="utf-8"))
+                 if OUT_PATH.exists() else {})
+    natures = korean_natures(committed.get("natures"))
 
     corrected = overlay_pokechams(dex, species, moves, abilities, items)
 
@@ -214,6 +242,7 @@ def main() -> int:
         "abilities": abilities,
         "items": items,
         "types": types,
+        "natures": natures,
     }
     OUT_PATH.parent.mkdir(parents=True, exist_ok=True)
     OUT_PATH.write_text(json.dumps(payload, indent=0, ensure_ascii=False, sort_keys=True),

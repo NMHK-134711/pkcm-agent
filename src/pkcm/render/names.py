@@ -76,5 +76,9 @@ class Names:
     def type(self, key: str | None) -> str:
         return self._resolve("types", key)
 
+    def nature(self, key: str | None) -> str:
+        """A Stat Alignment. English falls back to the id, which is the name."""
+        return self._localized("natures", key) or (key.title() if key else "")
+
 
 ENGLISH = Names("en")

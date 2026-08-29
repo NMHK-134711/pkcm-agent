@@ -621,10 +621,31 @@ def legal_actions(state: BattleState, player: int, position: int = 0) -> tuple[A
     if not actions:
         actions.append(Action.struggle())
 
-    trapped = side.has_volatile(slot, "trapped") and state.item_id(player, slot) != "shedshell"
-    if not trapped:
+    if not _is_trapped(state, player, slot):
         actions.extend(Action.switch(bench) for bench in _bench(state, player))
     return tuple(actions)
+
+
+def _is_trapped(state: BattleState, player: int, slot: int) -> bool:
+    """Whether this one may not switch out. Shed Shell ignores every hold.
+
+    **An ability's hold lasts exactly as long as the ability is on the field.**
+    Shadow Tag re-applies itself every turn while its Gengar is standing there,
+    and nothing ever took the flag off again -- so an opponent trapped once
+    stayed trapped for the rest of the battle, including after the Gengar had
+    fainted. In a format that brings three Pokemon a side that is not a small
+    error: it turns one switch-in into a permanent lock on the other player,
+    and it made every Mega Gengar team look better than it is.
+
+    A hold with no ``by`` was set by a move (Block, Mean Look, a binding move)
+    and holds on its own terms, which are the move's business.
+    """
+    side = state.sides[player]
+    held = side.volatiles[slot].get("trapped")
+    if held is None or state.item_id(player, slot) == "shedshell":
+        return False
+    holder = held.get("by")
+    return holder is None or holder in state.active_refs(holder[0])
 
 
 def _bench(state: BattleState, player: int) -> list[int]:

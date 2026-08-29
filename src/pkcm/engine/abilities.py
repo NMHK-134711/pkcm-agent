@@ -1603,7 +1603,10 @@ def _traps_the_opponent(ability: str, condition=None):
         for target in _foes_of(ctx, ref):
             if condition is not None and not condition(ctx, target):
                 continue
-            mutate.add_volatile(ctx, target, "trapped", source=ref)
+            # ``by`` is what makes the hold releasable. ``source`` is only
+            # shown to the try_volatile check and is not kept, so without this
+            # the flag outlives whoever set it -- see ``state._is_trapped``.
+            mutate.add_volatile(ctx, target, "trapped", source=ref, by=ref)
 
     return handler
 

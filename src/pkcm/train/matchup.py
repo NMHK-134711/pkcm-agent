@@ -63,11 +63,10 @@ class MatchConfig:
     belief_pool: str = "ranker"
     #: Side B's search, when the two differ. ``None`` gives it side A's.
     search_b: SearchConfig | None = None
-    #: Give side B the same network as side A. The docstring above says the
-    #: checkpoint is the only difference between the sides; with this set the
-    #: checkpoint is on *both* and the searches differ, which is how a search
-    #: change is priced on the search that will actually run it.
-    checkpoint_b: bool = False
+    #: Side B's network. ``False`` gives side B the handcrafted pair,
+    #: ``True`` the same network as side A, and a **path** its own network --
+    #: which is what gating needs: candidate against incumbent, nothing shared.
+    checkpoint_b: bool | str = False
     #: Base for the team seeds. Held away from the self-play seeds so the
     #: measurement is not played on teams the network was trained on.
     team_seed: int = 90000
@@ -110,9 +109,12 @@ def play_match(dex: Dex, config: MatchConfig, match: int) -> Record:
                   config.battle_format, config.teams)
         for offset in (1, 2)
     )
-    evaluator = _evaluator(dex, config) if config.checkpoint else None
+    evaluator = _evaluator(dex, config, config.checkpoint) if config.checkpoint else None
     other = config.search_b or config.search
-    evaluator_b = evaluator if config.checkpoint_b else None
+    if isinstance(config.checkpoint_b, str):
+        evaluator_b = _evaluator(dex, config, config.checkpoint_b)
+    else:
+        evaluator_b = evaluator if config.checkpoint_b else None
 
     record = Record()
     for swap in (False, True):
@@ -182,7 +184,7 @@ def default_workers() -> int:
 #: would otherwise reload the dex and the checkpoint for every battle.
 _DEX: Dex | None = None
 _CONFIG: MatchConfig | None = None
-_CACHED: tuple[str, float, int, object] | None = None
+_CACHED: dict | None = None
 
 
 def _start_worker(config: MatchConfig) -> None:
@@ -207,19 +209,24 @@ def _play(match: int) -> Record:
     return play_match(_DEX, _CONFIG, match)
 
 
-def _evaluator(dex: Dex, config: MatchConfig):
-    """The network, loaded once per process rather than once per battle."""
-    if config.checkpoint is None:
-        return None
+def _evaluator(dex: Dex, config: MatchConfig, checkpoint: str):
+    """A network, loaded once per process per path rather than once per battle.
+
+    A dict rather than a single slot, because gating puts two different
+    networks in one match -- candidate on side A, incumbent on side B -- and a
+    one-slot cache would reload them alternately every battle. Keyed by the
+    dex too: ``sheet_for`` and the vocabulary are built against one dex
+    object, so an evaluator cached under a different one answers with the
+    wrong tables.
+    """
     global _CACHED
-    # Keyed by the dex too. ``sheet_for`` and the vocabulary are built
-    # against one dex object, so an evaluator cached under a different
-    # one answers with the wrong tables -- invisible in a worker, which
-    # only ever has one, and wrong in-process.
-    key = (config.checkpoint, config.trust, config.trust_prior,
+    if not isinstance(_CACHED, dict):
+        _CACHED = {}
+    key = (checkpoint, config.trust, config.trust_prior,
            config.trust_value, id(dex))
-    if _CACHED is not None and _CACHED[:5] == key:
-        return _CACHED[5]
+    found = _CACHED.get(key)
+    if found is not None:
+        return found
 
     from pkcm.envs.encoding import SCALAR_SIZE, action_space_size
     from pkcm.train.evaluator import from_checkpoint
@@ -227,10 +234,9 @@ def _evaluator(dex: Dex, config: MatchConfig):
     battle_config = BattleConfig(dex=dex, regulation=dex.regulation(config.regulation),
                                  battle_format=config.battle_format)
     built = from_checkpoint(
-        config.checkpoint, dex,
+        checkpoint, dex,
         action_space_size(battle_config.registered, battle_config.brought),
         SCALAR_SIZE, device="cpu", trust=config.trust,
         trust_prior=config.trust_prior, trust_value=config.trust_value)
-    _CACHED = (config.checkpoint, config.trust, config.trust_prior,
-               config.trust_value, id(dex), built)
+    _CACHED[key] = built
     return built

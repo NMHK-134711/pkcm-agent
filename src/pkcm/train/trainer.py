@@ -36,6 +36,17 @@ class TrainConfig:
     learning_rate: float = 1e-3
     weight_decay: float = 1e-4
     epochs: int = 1
+    #: When set, ignore ``epochs`` and run exactly this many minibatches,
+    #: each drawn uniformly from the training split.
+    #:
+    #: This is AlphaZero's regime and the epoch loop is not. AlphaZero samples
+    #: minibatches uniformly from a window of ~500,000 games, so a position is
+    #: trained on about once; the epoch loop here walked the entire buffer --
+    #: 40,000 correlated samples -- twice per iteration, every iteration, at a
+    #: fixed learning rate. Around 312 optimiser steps per ~7,000 fresh
+    #: samples, repeated on the same data each round, is a regime for walking
+    #: away from the initialisation, and six runs did.
+    steps: int | None = None
     #: How much the value head counts against the policy head. AlphaZero uses
     #: one; a lower number is usual when the value target is noisy, and a win
     #: or loss thirty turns away is about as noisy as they come.
@@ -158,10 +169,20 @@ def fit(net: ChampionsNet, samples: list[Sample], device: torch.device,
 
     metrics = Metrics()
     order = np.array(training)
-    for _ in range(settings.epochs):
-        np.random.shuffle(order)
-        for start in range(0, len(order), settings.batch_size):
-            rows = order[start:start + settings.batch_size]
+
+    def batches():
+        if settings.steps:
+            for _ in range(settings.steps):
+                yield np.random.choice(
+                    order, size=min(settings.batch_size, len(order)),
+                    replace=False)
+            return
+        for _ in range(settings.epochs):
+            np.random.shuffle(order)
+            for start in range(0, len(order), settings.batch_size):
+                yield order[start:start + settings.batch_size]
+
+    for rows in batches():
             batch = collate([samples[index].observation for index in rows], device)
             target_policy = policies[rows].to(device)
             target_value = values[rows].to(device)

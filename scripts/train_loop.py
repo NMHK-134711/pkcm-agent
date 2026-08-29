@@ -193,6 +193,31 @@ def main() -> int:
                              "fitted to outcomes measured 39.9%% against the "
                              "handcrafted search while the policy head from "
                              "the same network measured 55.0%%")
+    parser.add_argument("--gate", type=int, default=0,
+                        help="AlphaGo Zero's evaluator, matches per iteration. "
+                             "The freshly trained candidate plays the network "
+                             "currently generating self-play data, and only "
+                             "replaces it by winning more than "
+                             "--gate-threshold of decided games. Without it "
+                             "the loop has no brake: a degraded network "
+                             "generates the next data, which degrades it "
+                             "further -- six runs went down that way. 0 keeps "
+                             "the old unconditional swap")
+    parser.add_argument("--gate-threshold", type=float, default=0.55,
+                        help="AlphaGo Zero used 0.55 over 400 games")
+    parser.add_argument("--gate-search-iterations", type=int, default=400,
+                        help="both sides of the gate match, so cheaper is "
+                             "fair; it only moves the operating point")
+    parser.add_argument("--train-steps", type=int, default=0,
+                        help="optimiser steps per iteration, minibatches drawn "
+                             "uniformly from the buffer. 0 keeps the epoch "
+                             "loop. AlphaZero trains a position about once; "
+                             "the epoch loop walks the whole correlated "
+                             "buffer twice per iteration")
+    parser.add_argument("--learning-rate", type=float, default=None,
+                        help="override TrainConfig's 1e-3, which suits "
+                             "pre-training's millions of samples and is a "
+                             "regime for drift on self-play's thousands")
     parser.add_argument("--root-noise", type=float, default=0.25,
                         help="Dirichlet noise on the root prior during "
                              "self-play. AlphaZero uses 0.25 and this project "
@@ -252,8 +277,11 @@ def main() -> int:
     net = build(vocabulary, sheet, action_space, SCALAR_SIZE,
                 NetConfig(hidden=args.hidden, blocks=args.blocks)).to(device)
     settings = TrainConfig(epochs=args.epochs,
+                           steps=args.train_steps or None,
                            search_value_weight=args.search_value_weight,
-                           bootstrap_weight=args.bootstrap_weight)
+                           bootstrap_weight=args.bootstrap_weight,
+                           **({} if args.learning_rate is None
+                              else {"learning_rate": args.learning_rate}))
     optimiser = torch.optim.AdamW(net.parameters(), lr=settings.learning_rate,
                                   weight_decay=settings.weight_decay)
 
@@ -295,6 +323,14 @@ def main() -> int:
     )
     if log.url:
         print(f"  wandb: {log.url}")
+
+    #: The network generating self-play data. With gating on, a candidate
+    #: has to beat it to take the job; without, it is just the latest save.
+    best = args.out / "best.pt"
+    if args.gate and args.init is not None and not best.exists():
+        import shutil
+
+        shutil.copyfile(args.init, best)
 
     buffer: list = []
     history: list[dict] = []
@@ -342,7 +378,8 @@ def main() -> int:
                 root_noise=args.root_noise,
                 noise_alpha=args.noise_alpha,
                 sample_turns=args.sample_turns),
-            checkpoint=None if iteration == 0 else str(checkpoint),
+            checkpoint=(None if iteration == 0
+                        else str(best) if args.gate else str(checkpoint)),
             n_step=args.n_step,
             trust=trust,
             trust_prior=args.trust_prior,
@@ -393,12 +430,47 @@ def main() -> int:
         save(net, checkpoint, {"iteration": iteration, "samples": len(buffer)})
         earned = losses.get("val_value_mae")
 
+        promoted = None
+        if args.gate:
+            from pkcm.train.interval import wilson
+            from pkcm.train.matchup import MatchConfig, Record
+            from pkcm.train.matchup import stream as gate_play
+
+            gate_config = MatchConfig(
+                checkpoint=str(checkpoint), checkpoint_b=str(best),
+                battle_format=args.format, teams=args.teams,
+                search=SearchConfig(
+                    iterations=args.gate_search_iterations,
+                    determinizations=max(4, args.gate_search_iterations // 20),
+                    leaf_batch=args.leaf_batch),
+                trust=1.0)
+            tally = Record()
+            started = time.perf_counter()
+            for one in gate_play(gate_config, args.gate, workers):
+                tally += one
+            gated = time.perf_counter() - started
+            rate = tally.wins / max(1, tally.decided)
+            promoted = rate > args.gate_threshold
+            if promoted:
+                import shutil
+
+                shutil.copyfile(checkpoint, best)
+            low, high = wilson(tally.wins, max(1, tally.decided))[1:]
+            print(f"        gate: {tally.wins}-{tally.losses} = {rate:.1%} "
+                  f"[{low:.1%}, {high:.1%}] vs incumbent "
+                  f"({gated:.0f}s) -> "
+                  f"{'PROMOTED' if promoted else 'incumbent stays'}")
+
         row = {
             "iteration": iteration,
             "trust": round(trust, 2),
             "fresh_samples": len(fresh),
             "buffer": len(buffer),
             "rehearsal_samples": len(rehearsal),
+            **({} if promoted is None else {
+                "gate/win_rate": round(rate, 4),
+                "gate/promoted": float(promoted),
+            }),
             "battles_per_second": round(args.battles / max(played, 1e-9), 3),
             "selfplay_seconds": round(played, 1),
             "train_seconds": round(learned, 1),

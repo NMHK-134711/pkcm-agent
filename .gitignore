@@ -29,6 +29,12 @@ runs/imitate8/*
 !runs/imitate8/net.pt
 !runs/imitate8/summary.json
 
+# ...and the tournament results, which are measurements rather than artifacts.
+# 165 KB of counts that cost forty-five minutes on twenty cores, and the next
+# question asked of them ("did the ranking change?") needs the old one to
+# compare against.
+!runs/tournament_*.json
+
 # Showdown TypeScript sources, used as the mechanics reference
 # (regenerate with: python scripts/fetch_showdown_source.py)
 data/reference/

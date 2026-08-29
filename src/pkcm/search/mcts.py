@@ -297,6 +297,35 @@ class SearchConfig:
     #: Sixteen rather than thirty-two because sixteen is the number that was
     #: measured. Thirty-two timed 5% faster again and has never been played.
     leaf_batch: int = 16
+    #: Dirichlet noise mixed into the root prior, AlphaZero's exploration.
+    #:
+    #: **This was missing, and five self-play runs failed without it.** Without
+    #: noise at the root the search only ever widens options its prior already
+    #: likes, so a network doing self-play never tries the move it currently
+    #: dislikes and has no route to discovering that it was wrong. Its policy
+    #: loss falls -- it is fitting the narrow band of positions its own play
+    #: produces -- while the arena, which puts it against a different opponent,
+    #: falls with it.
+    #:
+    #: Zero outside self-play: noise is there to make *training data* diverse,
+    #: and a search that is only playing wants its best guess.
+    root_noise: float = 0.0
+    #: Concentration of that noise. AlphaZero scales it to the branching factor
+    #: -- roughly 10 divided by the typical move count -- which is 0.3 for Go's
+    #: 250 and 1.8 for singles' 5.7. Doubles offers 18 at the root, so one
+    #: number cannot serve both; this is the singles figure and doubles wants
+    #: its own.
+    noise_alpha: float = 1.8
+    #: Sample the played action from the visit counts rather than taking the
+    #: most visited, for this many turns at the start of a battle.
+    #:
+    #: The other half of the same problem. ``SearchPolicy`` played the argmax
+    #: every turn, so two self-play battles from one pair of teams differed
+    #: only by what the determinization drew. AlphaZero samples at temperature
+    #: one for the opening and hardens afterwards, which is what spreads the
+    #: training set over positions instead of a corridor.
+    sample_turns: int = 0
+
     #: Which leaf evaluation. ``"material"`` counts what is left;
     #: ``"pressure"`` adds who is about to knock out whom; ``"blind"`` returns
     #: nothing at all except at terminals.
@@ -410,6 +439,8 @@ class MCTS:
         if self.evaluator is not None:
             self.evaluator.reset()
         root = self._node(state, player)
+        if self.config.root_noise > 0:
+            self._add_root_noise(root, draw)
         bounds = MinMax()
         per_draw = max(1, self.config.iterations // max(1, self.config.determinizations))
         # Batching needs a network to batch for. The heuristic is microseconds;
@@ -432,8 +463,19 @@ class MCTS:
                 left -= ran
 
         counts = root.counts[0]
-        best = max(range(len(counts)), key=lambda index: counts[index])
         total = sum(counts) or 1
+        if self.config.sample_turns and state.turn <= self.config.sample_turns:
+            # Temperature one: the visit share *is* the distribution.
+            roll = (draw.between(0, 999999) + 0.5) / 1000000
+            running = 0.0
+            best = len(counts) - 1
+            for index, count in enumerate(counts):
+                running += count / total
+                if roll < running:
+                    best = index
+                    break
+        else:
+            best = max(range(len(counts)), key=lambda index: counts[index])
         distribution = tuple(
             (root.options[0][index], counts[index] / total)
             for index in range(len(counts))
@@ -625,6 +667,52 @@ class MCTS:
                     visited.totals[side][index] += VIRTUAL_LOSS + (
                         value if side == 0 else -value)
         return len(pending)
+
+    def _add_root_noise(self, root: Node, cursor: RngCursor) -> None:
+        """Mix Dirichlet noise into our own prior at the root.
+
+        Ours only. The opponent's prior is our model of what they will do, and
+        randomising it would have the search plan against a player nobody is.
+
+        Drawn through the engine's cursor rather than numpy so a seeded search
+        stays reproducible -- gamma variates by the sum-of-exponentials
+        identity, which is exact for the shape parameters this uses.
+        """
+        import math
+
+        weight = self.config.root_noise
+        priors = root.priors[0]
+        if len(priors) < 2:
+            return
+        alpha = self.config.noise_alpha
+        draws = []
+        for _ in priors:
+            # Gamma(alpha, 1) by Marsaglia-Tsang, on uniforms from the cursor.
+            d = alpha - 1.0 / 3.0 if alpha >= 1 else alpha + 2.0 / 3.0
+            c = 1.0 / math.sqrt(9.0 * d)
+            while True:
+                # Box-Muller for a standard normal, two uniforms at a time.
+                u1 = max(1e-9, (cursor.between(0, 999999) + 0.5) / 1000000)
+                u2 = (cursor.between(0, 999999) + 0.5) / 1000000
+                x = math.sqrt(-2.0 * math.log(u1)) * math.cos(2 * math.pi * u2)
+                v = (1.0 + c * x) ** 3
+                if v <= 0:
+                    continue
+                u = (cursor.between(0, 999999) + 0.5) / 1000000
+                if math.log(u) < 0.5 * x * x + d - d * v + d * math.log(v):
+                    value = d * v
+                    if alpha < 1:
+                        value *= ((cursor.between(0, 999999) + 0.5)
+                                  / 1000000) ** (1.0 / alpha)
+                    draws.append(value)
+                    break
+        total = sum(draws)
+        if total <= 0:
+            return
+        root.priors[0][:] = [
+            (1 - weight) * prior + weight * (draw / total)
+            for prior, draw in zip(priors, draws)
+        ]
 
     def _sample(self, node: Node, side: int, cursor: RngCursor) -> int:
         """Draw one of this side's actions from what the search believes it plays.

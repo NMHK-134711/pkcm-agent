@@ -193,6 +193,22 @@ def main() -> int:
                              "fitted to outcomes measured 39.9%% against the "
                              "handcrafted search while the policy head from "
                              "the same network measured 55.0%%")
+    parser.add_argument("--root-noise", type=float, default=0.25,
+                        help="Dirichlet noise on the root prior during "
+                             "self-play. AlphaZero uses 0.25 and this project "
+                             "used none for five failed runs -- without it a "
+                             "network never tries the move it currently "
+                             "dislikes, so it has no route to finding out it "
+                             "was wrong")
+    parser.add_argument("--noise-alpha", type=float, default=1.8,
+                        help="concentration, roughly 10/branching. 1.8 suits "
+                             "singles' 5.7 root actions; doubles offers 18")
+    parser.add_argument("--sample-turns", type=int, default=12,
+                        help="turns from the start of a battle where the "
+                             "played action is sampled from the visit counts "
+                             "rather than taken as the most visited. Spreads "
+                             "the training set over positions instead of one "
+                             "corridor")
     parser.add_argument("--n-step", type=int, default=5,
                         help="how far forward the bootstrap looks")
     parser.add_argument("--search-value-weight", type=float, default=0.0,
@@ -322,7 +338,10 @@ def main() -> int:
             search=SearchConfig(
                 iterations=args.search_iterations,
                 determinizations=max(4, args.search_iterations // 20),
-                leaf_batch=args.leaf_batch),
+                leaf_batch=args.leaf_batch,
+                root_noise=args.root_noise,
+                noise_alpha=args.noise_alpha,
+                sample_turns=args.sample_turns),
             checkpoint=None if iteration == 0 else str(checkpoint),
             n_step=args.n_step,
             trust=trust,

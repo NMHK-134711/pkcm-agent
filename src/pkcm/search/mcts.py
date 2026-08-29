@@ -48,9 +48,13 @@ Choice = tuple[Action, ...]
 #: data cheaply. Four times the self-play budget, on the evidence in
 #: ``SearchConfig.iterations`` that every doubling so far has paid.
 #:
-#: Not a ceiling -- the ceiling is whatever the clock allows, and no measured
-#: rung has bent yet. It is the largest setting this project has actually
-#: played four hundred games at.
+#: **And this is where it stops paying.** 6400 against 3200 came back 52.8%
+#: [48.8, 56.8] over 598 games, not separable, after three separable rungs of
+#: +9.7, +7.6 and +6.5. Two disjoint samples: the first read 55.2% and the
+#: second 50.5%, which is what a lean looks like before it is paid for.
+#:
+#: So 3200 is not a floor chosen for the clock, it is the last rung that
+#: measured. Raising it further is free in wall-clock and buys nothing.
 DEPLOY_ITERATIONS = 3200
 
 #: Added to an unvisited option's score so it outranks every visited one. The

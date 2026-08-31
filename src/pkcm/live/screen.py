@@ -177,7 +177,14 @@ def anchor(title: str) -> tuple[int, int, int, int]:
 
 
 def capture(box: tuple[int, int, int, int]):
-    """One grab of a screen rectangle, as a PIL image."""
+    """One grab of a screen rectangle, as a PIL image.
+
+    **Whatever is on top at those coordinates is what gets grabbed.** This
+    reads the screen, not the window's own buffer, so anything covering the
+    game is read instead of the game -- during calibration on this machine it
+    quietly returned a chat window that happened to overlap. The game has to be
+    unobstructed, which it is while it is being played.
+    """
     from PIL import ImageGrab
 
     left, top, right, bottom = box
@@ -263,10 +270,28 @@ def read_text(image, language: str = "ko") -> str:
         return out.read_text(encoding="utf-8-sig").strip()
 
 
+#: What a profile is expected to mark, and what each one is for.
+#:
+#: hk's own list, from playing with it: their bar carries a percentage, ours
+#: carries current/maximum as numbers, both sides show a status, and the log
+#: is two lines at the bottom that appear and then go away again.
+REGIONS = {
+    "their_hp_bar": "상대 HP 막대 (숫자가 아니라 막대 자체)",
+    "their_hp_text": "상대 HP 퍼센트 숫자 (있으면)",
+    "their_status": "상대 상태이상 표시",
+    "our_hp_text": "내 HP 숫자 (현재/최대)",
+    "our_status": "내 상태이상 표시",
+    "log": "배틀 로그 두 줄",
+}
+
+#: Marked with a bar rather than read: a name ending in ``_bar`` is measured.
+BAR_SUFFIX = "_bar"
+
+
 def read(profile: Profile, names=None) -> dict[str, object]:
     """Every calibrated region at once, as text or as a bar fraction.
 
-    A region whose name ends in ``_hp`` is measured; everything else is read.
+    A region whose name ends in ``_bar`` is measured; everything else is read.
     Failures are returned rather than raised -- one unreadable region should
     not cost the person the other five.
     """
@@ -281,9 +306,154 @@ def read(profile: Profile, names=None) -> dict[str, object]:
         crop = shot.crop((left - origin[0], top - origin[1],
                           right - origin[0], bottom - origin[1]))
         try:
-            out[name] = (round(bar_fraction(crop) * 100) if name.endswith("_hp")
-                         else read_text(crop))
+            out[name] = (round(bar_fraction(crop) * 100)
+                         if name.endswith(BAR_SUFFIX) else read_text(crop))
         except Exception as error:  # one bad region is not six bad regions
             out[name] = None
             out.setdefault("_errors", {})[name] = str(error)[:200]
     return out
+
+
+# --------------------------------------------------------------------------- #
+# Making sense of what came back
+# --------------------------------------------------------------------------- #
+
+def parse_percent(text: str | None) -> int | None:
+    """A percentage out of whatever else OCR put in the box."""
+    import re
+
+    if not text:
+        return None
+    found = re.search(r"(\d{1,3})\s*%", text)
+    if found is None:
+        found = re.search(r"\b(\d{1,3})\b", text)
+    if found is None:
+        return None
+    value = int(found.group(1))
+    return value if 0 <= value <= 100 else None
+
+
+def parse_hp_fraction(text: str | None) -> tuple[int, int] | None:
+    """``현재/최대`` as a pair. OCR reads the slash as several things."""
+    import re
+
+    if not text:
+        return None
+    cleaned = text.replace("／", "/").replace("|", "/").replace("l", "/")
+    found = re.search(r"(\d{1,4})\s*/\s*(\d{1,4})", cleaned)
+    if found is None:
+        return None
+    current, maximum = int(found.group(1)), int(found.group(2))
+    if maximum <= 0 or current > maximum:
+        return None
+    return current, maximum
+
+
+def our_hp_percent(text: str | None, maximums) -> tuple[int, str] | None:
+    """Our HP as a percentage, checked against a maximum we already know.
+
+    **This is the one reading that can check itself.** Our own Pokemon's
+    maximum HP is not a guess -- the engine computed it from the set -- so a
+    denominator that matches none of the ones we brought means OCR misread,
+    and a wrong HP is worth more to catch than a missing one.
+
+    Returns the percentage and which maximum it matched, or ``None``.
+    """
+    pair = parse_hp_fraction(text)
+    if pair is None:
+        return None
+    current, maximum = pair
+    for known in maximums:
+        # One digit out of four is the common OCR slip, so an exact match is
+        # what is wanted; being near is not evidence.
+        if known == maximum:
+            return round(current * 100 / known), f"{current}/{known}"
+    return None
+
+
+#: How much of a name OCR has to get right for it to count as that name.
+#:
+#: Not a knob to turn up. Measured on this machine, Windows OCR read 랭크배틀 as
+#: "랭크dH틀" at menu size -- one syllable in four wrong -- so exact matching
+#: would miss real moves. But a threshold low enough to accept anything will
+#: happily read 지진 out of a line that says something else, and a wrong move
+#: goes into the mirror as a fact.
+NAME_SIMILARITY = 0.72
+
+
+def _flatten(text: str) -> str:
+    """Drop everything that is not a name's own characters.
+
+    OCR inserts spaces and punctuation freely and turns 배 into dH; nothing is
+    gained by comparing those.
+    """
+    return "".join(c for c in text if c.isalnum())
+
+
+def _best_window(flat: str, target: str) -> float:
+    """How well ``target`` appears anywhere in ``flat``, as a ratio in 0..1.
+
+    A log line is a sentence and the name is a few characters of it, so the
+    comparison has to slide rather than score the whole line.
+    """
+    from difflib import SequenceMatcher
+
+    if not target or not flat:
+        return 0.0
+    if target in flat:
+        return 1.0
+    width = len(target)
+    best = 0.0
+    # A little slack either side, because OCR drops and adds characters.
+    for start in range(0, max(1, len(flat) - width + 2)):
+        for size in (width - 1, width, width + 1):
+            if size <= 0:
+                continue
+            piece = flat[start:start + size]
+            if not piece:
+                continue
+            best = max(best, SequenceMatcher(None, piece, target).ratio())
+            if best == 1.0:
+                return best
+    return best
+
+
+def scan_log(text: str | None, vocabulary: dict[str, dict[str, str]],
+             threshold: float = NAME_SIMILARITY) -> dict:
+    """Everything in the log that names something the engine knows.
+
+    Champions' exact phrasing is not something this can assume, so it does not
+    parse sentences: it looks for the names themselves. A line holding 칼춤 and
+    킬가르도 says both, whatever the words around them are, and the caller
+    decides what that means.
+
+    Longest first, because 플레어드라이브 and 드라이브 would both hit a line
+    holding the first, and the longer name is the one that was really there.
+
+    Each hit carries its score, because the caller is filling a form for a
+    person to check and "probably 칼춤" and "certainly 칼춤" are different
+    things to show them.
+    """
+    found: dict[str, list[tuple[str, float]]] = {kind: [] for kind in vocabulary}
+    if not text:
+        return found
+    flat = _flatten(text)
+    for kind, table in vocabulary.items():
+        taken: set[str] = set()
+        claimed: list[str] = []
+        for korean, identifier in sorted(table.items(),
+                                         key=lambda pair: -len(pair[0])):
+            if not korean or identifier in taken:
+                continue
+            flat_name = _flatten(korean)
+            # A shorter name sitting inside one that already matched is not a
+            # second hit: 플레어드라이브 in the line is not also a 드라이브.
+            if any(flat_name in longer for longer in claimed):
+                continue
+            score = _best_window(flat, flat_name)
+            if score >= threshold:
+                taken.add(identifier)
+                claimed.append(flat_name)
+                found[kind].append((identifier, round(score, 3)))
+        found[kind].sort(key=lambda pair: -pair[1])
+    return found

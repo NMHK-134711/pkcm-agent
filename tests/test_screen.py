@@ -122,3 +122,83 @@ def test_a_window_that_is_not_open_lists_what_is():
         pytest.skip(f"cannot enumerate windows here: {error}")
     else:
         pytest.fail("a window that is not open should not resolve")
+
+
+# --------------------------------------------------------------------------- #
+# Making sense of what came back
+# --------------------------------------------------------------------------- #
+
+from pkcm.live.screen import (  # noqa: E402
+    our_hp_percent,
+    parse_hp_fraction,
+    parse_percent,
+    scan_log,
+)
+
+VOCABULARY = {
+    "moves": {"칼춤": "swordsdance", "지진": "earthquake",
+              "드라이브": "shorter", "플레어드라이브": "flaredrive",
+              "아쿠아브레이크": "aquabreak"},
+    "species": {"킬가르도": "aegislash", "한카리아스": "garchomp"},
+}
+
+
+@pytest.mark.parametrize("text, want", [
+    ("72%", 72), (" 100 % ", 100), ("HP 72", 72), ("", None),
+    ("abc", None), ("150%", None), ("-", None),
+])
+def test_a_percentage_is_pulled_out_of_whatever_else_ocr_saw(text, want):
+    assert parse_percent(text) == want
+
+
+@pytest.mark.parametrize("text, want", [
+    ("152/187", (152, 187)),
+    ("152 | 187", (152, 187)),      # OCR reads the slash as a bar
+    ("152 / 187", (152, 187)),
+    ("200/187", None),             # more than full is a misread
+    ("187", None), ("", None), (None, None),
+])
+def test_our_hp_is_a_pair_however_the_slash_came_out(text, want):
+    assert parse_hp_fraction(text) == want
+
+
+def test_our_own_hp_checks_itself_against_a_maximum_we_know():
+    """The one reading that can be verified rather than trusted. Our maximum HP
+    is not a guess -- the engine computed it from the set -- so a denominator
+    matching none of the Pokemon we brought means OCR misread, and a wrong HP
+    is worth more to catch than a missing one."""
+    assert our_hp_percent("152/187", [187, 205]) == (81, "152/187")
+    assert our_hp_percent("152/188", [187, 205]) is None, (
+        "one digit out is the common OCR slip, and near is not evidence")
+    assert our_hp_percent("nonsense", [187]) is None
+
+
+def test_the_log_is_scanned_for_names_not_parsed_as_a_sentence():
+    """Champions' phrasing is not something this may assume, so it looks for
+    the names themselves and lets the caller decide what they mean."""
+    found = scan_log("상대의 킬가르도는 칼춤을 썼다!", VOCABULARY)
+    assert [name for name, _ in found["moves"]] == ["swordsdance"]
+    assert [name for name, _ in found["species"]] == ["aegislash"]
+
+
+def test_a_name_survives_ocr_getting_a_syllable_wrong():
+    """Windows OCR read 랭크배틀 as 랭크dH틀 on this machine, so exact matching
+    would drop real moves. The score comes back with the hit, because the form
+    it fills is checked by a person and "probably" is worth showing."""
+    found = scan_log("상대의 킬가르dH는 칼춤을 썼다!", VOCABULARY)
+    names = dict(found["species"])
+    assert "aegislash" in names and names["aegislash"] < 1.0
+
+
+def test_a_shorter_name_inside_a_longer_one_is_not_a_second_hit():
+    found = scan_log("한카리아스의 플레어드라이브!", VOCABULARY)
+    assert [name for name, _ in found["moves"]] == ["flaredrive"], (
+        "플레어드라이브 in the line is not also a 드라이브")
+
+
+def test_a_line_that_names_nothing_finds_nothing():
+    """The threshold has to be tight enough that noise does not become a move.
+    A wrong move goes into the mirror as a fact."""
+    for line in ("아무 말도 없는 줄", "Play & win", "63.594VP", ""):
+        found = scan_log(line, VOCABULARY)
+        assert not found["moves"] and not found["species"], line

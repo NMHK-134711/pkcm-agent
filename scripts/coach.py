@@ -143,7 +143,14 @@ class Coach:
         moves = [{"id": one.id, "ko": self.names.move(one.id)}
                  for one in sorted(self.dex.moves.values(), key=lambda m: m.id)
                  if self.dex.exists_in_champions(one)]
-        return {"species": species, "moves": moves}
+        abilities = [{"id": one, "ko": self.names.ability(one)}
+                     for one in sorted(self.dex.abilities)]
+        from pkcm.engine.items import champions_items
+
+        items = [{"id": one, "ko": self.names.item(one)}
+                 for one in sorted(champions_items())]
+        return {"species": species, "moves": moves,
+                "abilities": abilities, "items": items}
 
     # -- the game ------------------------------------------------------------ #
 
@@ -355,6 +362,13 @@ def _routes(coach: Coach, path: str, query: dict) -> None:
             theirs = mirror.report_move(
                 query["their_move"][0],
                 mega=query.get("their_mega", ["0"])[0] == "1")
+        # Before the step, not after: an ability that announces itself mostly
+        # does it by doing something, and Intimidate is a -1 on our Attack that
+        # the engine can only apply if it knows about it when the switch
+        # happens. A switch aims these at the Pokemon arriving, not the one
+        # leaving.
+        landing = theirs.index if theirs.kind is ActionKind.SWITCH else None
+        _learned(coach, query, landing)
         events = mirror.advance(ours, theirs)
         coach.log.extend(coach.renderer.render_log(events).splitlines())
         # The correction rides along with the turn rather than following it.
@@ -366,9 +380,20 @@ def _routes(coach: Coach, path: str, query: dict) -> None:
         _correct(coach, query)
         return
     if path == "/observe":
+        _learned(coach, query, None)
         _correct(coach, query)
         return
     raise MirrorError(f"알 수 없는 요청: {path}")
+
+
+def _learned(coach: Coach, query: dict, slot: int | None) -> None:
+    """Anything new about their set, from the turn we just watched."""
+    ability = (query.get("their_ability") or [""])[0].strip()
+    if ability:
+        coach.mirror.report_ability(ability, slot)
+    item = (query.get("their_item") or [""])[0].strip()
+    if item:
+        coach.mirror.report_item(item, slot)
 
 
 def _correct(coach: Coach, query: dict) -> None:

@@ -170,6 +170,58 @@ class Mirror:
         """They switched to this species, revealing it if it is new."""
         return Action.switch(self._reveal(species_id))
 
+    def report_ability(self, ability_id: str, slot: int | None = None) -> None:
+        """Their ability announced itself -- Intimidate, Pressure, a weather.
+
+        Worth more than the display suggests: ``belief.consistent`` filters the
+        ranker pool on ``ability_known``, so one of these can cut the set of
+        Pokemon the search thinks it might be facing to a handful.
+
+        Applied *before* the turn is stepped, because the ones that announce
+        themselves mostly do it by doing something -- Intimidate is a -1 on our
+        Attack, and the engine can only apply that if it knows about it when
+        the switch happens.
+        """
+        from pkcm.engine.legality import registrable_abilities
+
+        dex = self.config.dex
+        if ability_id not in dex.abilities:
+            raise MirrorError(f"그런 특성이 없습니다: {ability_id!r}")
+        slot = self._their_active_slot() if slot is None else slot
+        party_index = self.state.sides[THEM].selection[slot]
+        pokemon = self.state.parties[THEM][party_index]
+        allowed = registrable_abilities(pokemon.species)
+        if allowed and ability_id not in allowed:
+            raise MirrorError(
+                f"{pokemon.species.name}는 {dex.abilities[ability_id].name}을 "
+                f"가질 수 없습니다 — 가능한 것: {', '.join(allowed)}")
+        self._rewrite(party_index, ability=ability_id)
+        self.state.revealed[THEM].abilities.add(slot)
+
+    def report_item(self, item_id: str, slot: int | None = None) -> None:
+        """Their held item was shown -- eaten, knocked off, or simply used.
+
+        Same payoff as ``report_ability``: the belief pool filters on
+        ``item_known``, and an item is often the most identifying thing about a
+        set. Choice Scarf and Leftovers say what the whole spread is for.
+
+        **A consumed item is recorded as still held.** The alternative -- taking
+        it away, which is what the engine does -- makes ``item_id`` report
+        ``None`` while ``item_known`` stays true, and the belief filter then
+        looks for ranker sets holding nothing, which almost none of them do. So
+        the search may model one more Sitrus Berry than they have left. That
+        errs towards thinking they are healthier than they are, which is the
+        safe direction for advice, and it keeps the filter working.
+        """
+        from pkcm.engine.items import champions_items
+
+        if item_id not in champions_items():
+            raise MirrorError(f"챔피언스에 없는 도구입니다: {item_id!r}")
+        slot = self._their_active_slot() if slot is None else slot
+        party_index = self.state.sides[THEM].selection[slot]
+        self._rewrite(party_index, item=item_id)
+        self.state.revealed[THEM].items.add(slot)
+
     def advance(self, ours: Action, theirs: Action) -> list:
         """Play the turn both sides committed to. Returns the engine's events."""
         return self._step(ours, theirs)

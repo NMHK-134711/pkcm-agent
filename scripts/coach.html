@@ -259,6 +259,9 @@ function screenBattle() {
        slp: "잠듦", frz: "얼음"}[s]}</option>`).join("");
 
   return `${advicePanel()}
+  ${(V.field || []).length ? `<div class="list" style="margin-top:12px">
+      ${V.field.map(f => `<span class="chip">${f}</span>`).join("")}
+    </div>` : ""}
   <div class="cols">
     <div class="panel"><h2>우리</h2>${V.ours.map(m => monCard(m, "back")).join("")}
       <div class="list" style="margin-top:8px">
@@ -298,6 +301,16 @@ function screenBattle() {
       <div><label id="theirStatusLabel"></label>
         <select id="theirStatus">${statusOptions(theirActive.rawStatus || "")}</select></div>
     </div>
+    <div class="row two">
+      <div><label>4. 상대 특성이 드러났으면 (선택)</label>
+        <input id="theirAbility" list="dl-abilities" autocomplete="off"
+               placeholder="예: 위협, 프레셔"></div>
+      <div><label>4. 상대 도구가 드러났으면 (선택)</label>
+        <input id="theirItem" list="dl-items" autocomplete="off"
+               placeholder="예: 구애스카프, 자뭉열매"></div>
+    </div>
+    ${datalist("dl-abilities", V.lookup.abilities || [])}
+    ${datalist("dl-items", V.lookup.items || [])}
     <button id="turn" class="big" style="width:100%">턴 진행 · 다음 수 계산</button>
     <div class="muted" style="margin-top:9px">
       HP 칸에는 <b>엔진이 계산한 값</b>이 미리 들어 있습니다. 화면과 같으면 그대로
@@ -354,9 +367,17 @@ function refreshLabels() {
 }
 
 function corrections() {
-  return ["our_hp=" + $("ourHp").value, "their_hp=" + $("theirHp").value,
-          "our_status=" + $("ourStatus").value,
-          "their_status=" + $("theirStatus").value];
+  const parts = ["our_hp=" + $("ourHp").value, "their_hp=" + $("theirHp").value,
+                 "our_status=" + $("ourStatus").value,
+                 "their_status=" + $("theirStatus").value];
+  // These narrow what the search believes it is facing, so they are worth more
+  // than they look: the belief pool filters candidate sets on exactly these
+  // two once they are known.
+  const ability = idFor("abilities", $("theirAbility").value);
+  if (ability) parts.push("their_ability=" + encodeURIComponent(ability));
+  const item = idFor("items", $("theirItem").value);
+  if (item) parts.push("their_item=" + encodeURIComponent(item));
+  return parts;
 }
 
 function bindBattle() {

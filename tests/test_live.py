@@ -262,3 +262,69 @@ def test_a_correction_follows_their_switch_too(dex, our_team):
     maximum = mirror.state.pokemon(1, slot).max_hp
     assert mirror.state.sides[1].hp[slot] == pytest.approx(
         round(maximum * 0.5), abs=1)
+
+
+def test_a_revealed_ability_narrows_what_they_might_be(dex, our_team):
+    """Worth more than the display suggests: belief.consistent filters the
+    ranker pool on ability_known, so one of these can cut the set of Pokemon
+    the search thinks it is facing to a handful."""
+    from pkcm.envs.belief import candidates
+
+    mirror = open_battle(a_mirror(dex, our_team), lead="clefable")
+    slot = mirror.state.sides[1].active[0]
+    known = Observation.of(mirror.state, 0).foe[slot]
+    before = len(candidates("clefable", known))
+
+    mirror.report_ability("magicguard")
+    known = Observation.of(mirror.state, 0).foe[slot]
+    assert known.ability_known and known.ability == "magicguard"
+    after = len(candidates("clefable", known))
+    assert after <= before, "knowing the ability cannot widen the pool"
+    assert all(one.ability == "magicguard"
+               for one in candidates("clefable", known))
+
+
+def test_a_revealed_item_narrows_it_too(dex, our_team):
+    from pkcm.envs.belief import candidates
+
+    mirror = open_battle(a_mirror(dex, our_team), lead="meowscarada")
+    slot = mirror.state.sides[1].active[0]
+    mirror.report_item("choicescarf")
+    known = Observation.of(mirror.state, 0).foe[slot]
+    assert known.item_known and known.item == "choicescarf"
+    assert all(one.item == "choicescarf"
+               for one in candidates("meowscarada", known))
+
+
+def test_an_ability_that_species_cannot_have_is_refused(dex, our_team):
+    mirror = open_battle(a_mirror(dex, our_team), lead="clefable")
+    with pytest.raises(MirrorError, match="가질 수 없습니다"):
+        mirror.report_ability("intimidate")
+    with pytest.raises(MirrorError, match="그런 특성이 없습니다"):
+        mirror.report_ability("notanability")
+    with pytest.raises(MirrorError, match="챔피언스에 없는 도구"):
+        mirror.report_item("notanitem")
+
+
+def test_a_switch_in_ability_is_applied_before_the_turn_is_stepped(dex, our_team):
+    """The abilities that announce themselves mostly do it by *doing*
+    something. Reporting one after the switch had already been played would
+    leave its effect off the board, and the search would plan on a position
+    that never happened."""
+    six = ("hippowdon", "gengar", "kangaskhan", "starmie", "clefable",
+           "archaludon")
+    mirror = Mirror.begin(dex, dex.regulation("m_b"), our_team, six, seed=3)
+    mirror.choose_ours((0, 1, 2))
+    mirror.their_lead("gengar")
+    mirror.open()
+    assert mirror.state.field.weather is None
+
+    # Sand Stream announces itself by changing the weather, which is about as
+    # visible as an ability gets.
+    landing = mirror.report_switch("hippowdon")
+    mirror.report_ability("sandstream", landing.index)
+    mirror.advance(Action.move(2), landing)
+
+    assert mirror.state.field.weather == "sandstorm", (
+        "the ability did not reach the field")
+    assert landing.index in mirror.state.revealed[1].abilities

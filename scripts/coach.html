@@ -270,37 +270,45 @@ function screenBattle() {
       </div></div>
   </div>
 
-  <div class="cols">
-    <div class="panel"><h2>이번 턴에 실제로 일어난 일</h2>
-      <div class="row"><label>우리가 낸 수 (기본값 = 추천)</label>
+  <div class="panel"><h2>이번 턴 — 화면에 나온 대로 채우고 한 번만 누르세요</h2>
+    <div class="row two">
+      <div><label>1. 우리가 낸 수 (기본값 = 추천)</label>
         <select id="ourAct">${ourActs}</select></div>
-      <div class="row"><label>상대가 한 것</label>
+      <div><label>2. 상대가 한 것</label>
         ${V.their_decision
           ? `<input id="theirAct" list="dl-acts" autocomplete="off"
-                    placeholder="기술 이름 또는 교체한 포켓몬">`
+                    placeholder="기술 이름 또는 교체해서 나온 포켓몬">`
           : `<div class="chip" style="padding:8px 11px">
                상대는 이번에 고를 것이 없습니다</div>`}
       </div>
-      ${datalist("dl-acts", (V.lookup.moves || []).concat(V.their_six))}
-      <button id="turn" class="big" style="width:100%">턴 진행</button>
     </div>
-
-    <div class="panel"><h2>화면과 맞추기 — 엔진의 굴림은 게임의 굴림이 아닙니다</h2>
-      <div class="row two">
-        <div><label>우리 HP %</label>
-          <input id="ourHp" type="number" min="0" max="100" value="${ourActive.hp}"></div>
-        <div><label>상대 HP %</label>
-          <input id="theirHp" type="number" min="0" max="100" value="${theirActive.hp}"></div>
-      </div>
-      <div class="row two">
-        <div><label>우리 상태이상</label>
-          <select id="ourStatus">${statusOptions(ourActive.rawStatus || "")}</select></div>
-        <div><label>상대 상태이상</label>
-          <select id="theirStatus">${statusOptions(theirActive.rawStatus || "")}</select></div>
-      </div>
-      <button id="fix" style="width:100%">맞추고 다시 계산</button>
+    ${datalist("dl-acts", (V.lookup.moves || []).concat(V.their_six))}
+    <div class="row two">
+      <div><label>3. 턴이 끝난 뒤 ${V.our_active} HP %</label>
+        <input id="ourHp" type="number" min="0" max="100" value="${ourActive.hp}"></div>
+      <div><label>3. 턴이 끝난 뒤 ${V.their_active} HP %</label>
+        <input id="theirHp" type="number" min="0" max="100" value="${theirActive.hp}"></div>
+    </div>
+    <div class="row two">
+      <div><label>${V.our_active} 상태이상</label>
+        <select id="ourStatus">${statusOptions(ourActive.rawStatus || "")}</select></div>
+      <div><label>${V.their_active} 상태이상</label>
+        <select id="theirStatus">${statusOptions(theirActive.rawStatus || "")}</select></div>
+    </div>
+    <button id="turn" class="big" style="width:100%">턴 진행 · 다음 수 계산</button>
+    <div class="muted" style="margin-top:9px">
+      HP 칸에는 <b>엔진이 계산한 값</b>이 미리 들어 있습니다. 화면과 같으면 그대로
+      두고 누르시면 됩니다. 우리 굴림은 게임의 굴림이 아니라서 보통은 다릅니다.
+      <button id="fix" style="margin-left:8px; font-size:12px; padding:4px 9px">
+        턴은 넘기지 말고 숫자만 맞추기</button>
     </div>
   </div>`;
+}
+
+function corrections() {
+  return ["our_hp=" + $("ourHp").value, "their_hp=" + $("theirHp").value,
+          "our_status=" + $("ourStatus").value,
+          "their_status=" + $("theirStatus").value];
 }
 
 function bindBattle() {
@@ -316,12 +324,9 @@ function bindBattle() {
       parts.push(species ? "their_switch=" + encodeURIComponent(species)
                          : "their_move=" + encodeURIComponent(move));
     }
-    call("/turn?" + parts.join("&"));
+    call("/turn?" + parts.concat(corrections()).join("&"));
   };
-  $("fix").onclick = () => call("/observe?" + [
-    "our_hp=" + $("ourHp").value, "their_hp=" + $("theirHp").value,
-    "our_status=" + $("ourStatus").value,
-    "their_status=" + $("theirStatus").value].join("&"));
+  $("fix").onclick = () => call("/observe?" + corrections().join("&"));
 }
 
 // ---- router --------------------------------------------------------------- //

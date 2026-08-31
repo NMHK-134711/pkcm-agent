@@ -227,6 +227,8 @@ class Coach:
                        for known in observation.foe],
             "our_options": self._our_options(),
             "their_decision": self._their_decision(),
+            "our_active": self.active_name(US),
+            "their_active": self.active_name(THEM),
             "field": self._field(),
             "our_conditions": self._conditions(observation.own_conditions),
             "their_conditions": self._conditions(observation.foe_conditions),
@@ -260,6 +262,17 @@ class Coach:
             "moves": [self.names.move(m) for m in known.moves],
             "item": self.names.item(known.item) if known.item_known else None,
         }
+
+    def active_name(self, side: int) -> str:
+        """Who the HP field is about. After a faint that is not who it was."""
+        state = self.mirror.state
+        side_state = state.sides[side]
+        if not side_state.active or side_state.active[0] < 0:
+            return ""
+        slot = side_state.active[0]
+        if side == THEM and slot not in state.revealed[THEM].species:
+            return "???"
+        return self.names.species(state.species_id(side, slot))
 
     def _our_options(self) -> list[dict]:
         """Everything we may legally submit, labelled.
@@ -341,18 +354,31 @@ def _routes(coach: Coach, path: str, query: dict) -> None:
             theirs = mirror.report_move(query["their_move"][0])
         events = mirror.advance(ours, theirs)
         coach.log.extend(coach.renderer.render_log(events).splitlines())
+        # The correction rides along with the turn rather than following it.
+        # Two buttons meant the first one produced advice computed on HP the
+        # engine had guessed, and the second produced different advice on the
+        # HP that was true -- and no way to tell from the page which of the two
+        # to play. There is one number that matters and it is the one on the
+        # screen, so it is entered with the turn.
+        _correct(coach, query)
         return
     if path == "/observe":
-        for side_name, side in (("our", US), ("their", THEM)):
-            hp = query.get(f"{side_name}_hp")
-            status = query.get(f"{side_name}_status")
-            if hp or status is not None:
-                mirror.observe(
-                    side,
-                    hp_fraction=float(hp[0]) / 100 if hp else None,
-                    status=(status[0] or None) if status is not None else ...)
+        _correct(coach, query)
         return
     raise MirrorError(f"알 수 없는 요청: {path}")
+
+
+def _correct(coach: Coach, query: dict) -> None:
+    """Overwrite HP and status with what the person read off the screen."""
+    for side_name, side in (("our", US), ("their", THEM)):
+        hp = query.get(f"{side_name}_hp")
+        status = query.get(f"{side_name}_status")
+        if not hp and status is None:
+            continue
+        coach.mirror.observe(
+            side,
+            hp_fraction=float(hp[0]) / 100 if hp else None,
+            status=(status[0] or None) if status is not None else ...)
 
 
 def _encode(action: Action) -> str:

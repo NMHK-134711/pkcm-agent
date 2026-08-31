@@ -214,6 +214,10 @@ register("volatile", "stall", name="Stall")
 
 register("volatile", "trapped", name="Trapped")
 
+#: Cud Chew's memory of the berry it ate, until the end of the next turn.
+#: Cleared by switching out, which is right: leaving the field ends it.
+register("volatile", "cudchew", name="Cud Chew")
+
 
 def _disabled_expires(ctx, ref, **_):
     data = ctx.state.sides[ref[0]].volatiles[ref[1]].get("disabled")

@@ -578,6 +578,7 @@ ENGINE_SIDE_VOLATILES = {
     "ingrain": "conditions.is_grounded and tactics, which refuses the switch",
     "abilitysuppressed": "effects.Context.ability_of",
     "trapped": "state.legal_actions",
+    "cudchew": "abilities._cud_chew_residual, which eats the stored berry again",
     "choicelock": "state.legal_actions",
     "lockedmove": "state.legal_actions and tactics.start_locked_move",
     "twoturn": "state.legal_actions and tactics.finish_charging",

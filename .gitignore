@@ -29,6 +29,18 @@ runs/imitate8/*
 !runs/imitate8/net.pt
 !runs/imitate8/summary.json
 
+# ...and the agent people are meant to be able to play. curriculum4 is the first
+# network in this project measured separably stronger than the handcrafted
+# search -- 59.4% [54.5%, 64.2%] over 397 games on the four parties it trained
+# on -- and an opponent nobody can download is not an opponent. 20 MB.
+!runs/curriculum4/
+runs/curriculum4/*
+!runs/curriculum4/best.pt
+!runs/curriculum4/history.json
+
+# ...and the party profiles, measurements like the tournament ones.
+!runs/profile_*.json
+
 # ...and the tournament results, which are measurements rather than artifacts.
 # 165 KB of counts that cost forty-five minutes on twenty cores, and the next
 # question asked of them ("did the ranking change?") needs the old one to

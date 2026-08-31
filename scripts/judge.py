@@ -19,6 +19,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 
 from pkcm.search import SearchConfig  # noqa: E402
+from pkcm.engine.legality import parse_team_source  # noqa: E402
 from pkcm.train.interval import wilson  # noqa: E402
 from pkcm.train.matchup import MatchConfig, Record  # noqa: E402
 from pkcm.train.matchup import stream as play  # noqa: E402
@@ -26,7 +27,12 @@ from pkcm.train.parallel import default_workers  # noqa: E402
 
 
 def main() -> int:
-    parser = argparse.ArgumentParser(description=__doc__)
+    # ``allow_abbrev`` off: ``--checkpoint`` is an unambiguous prefix of
+    # ``--checkpoint-b``, so writing the positional as a flag used to set side B
+    # to a copy of side A. The run then played the network against itself for
+    # an hour and printed a win rate that meant nothing. A typo should stop the
+    # program, not change the experiment.
+    parser = argparse.ArgumentParser(allow_abbrev=False, description=__doc__)
     parser.add_argument("checkpoint", nargs="?", default=None,
                         help="a saved network for side A. Omit to put "
                              "one search configuration against another")
@@ -110,7 +116,7 @@ def main() -> int:
     parser.add_argument("--no-belief-b", dest="belief_b", action="store_false",
                         help="side B samples them uniformly instead")
     parser.add_argument("--teams", default="random",
-                        choices=("random", "ranker"),
+                        type=parse_team_source,
                         help="which distribution teams come from. ``ranker`` "
                              "recombines the imported pkmnchamps parties; "
                              "37.5%% of random Pokemon carry no same-type "

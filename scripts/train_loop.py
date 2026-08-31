@@ -32,6 +32,7 @@ import torch
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 
 from pkcm.data.dex import load_dex  # noqa: E402
+from pkcm.engine.legality import parse_team_source  # noqa: E402
 from pkcm.envs.encoding import SCALAR_SIZE, Vocabulary, action_space_size  # noqa: E402
 from pkcm.envs.reference import sheet_for  # noqa: E402
 from pkcm.search import SearchConfig  # noqa: E402
@@ -150,7 +151,7 @@ def main() -> int:
     parser.add_argument("--workers", type=int, default=None)
     parser.add_argument("--epochs", type=int, default=2)
     parser.add_argument("--teams", default="random",
-                        choices=("random", "ranker"),
+                        type=parse_team_source,
                         help="which distribution teams come from. ``ranker`` "
                              "recombines the imported pkmnchamps parties; "
                              "37.5%% of random Pokemon carry no same-type "

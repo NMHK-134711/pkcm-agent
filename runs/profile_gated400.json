@@ -1,0 +1,234 @@
+{
+ "checkpoint": "runs/gated400/best.pt",
+ "repeats": 25,
+ "iterations": 800,
+ "overall": {
+  "wins": 491,
+  "decided": 990,
+  "rate": 0.49595959595959593,
+  "low": 0.4648906037247535,
+  "high": 0.5270598226445806
+ },
+ "parties": [
+  {
+   "party": 3,
+   "title": "[2780] らいざ Mega Gyarados & Garchomp Offense",
+   "wins": 33,
+   "losses": 17,
+   "draws": 0,
+   "rate": 0.66,
+   "low": 0.5215382604694402,
+   "high": 0.7756305077979341,
+   "trained_on": false
+  },
+  {
+   "party": 19,
+   "title": "[2277] Single Ranker MAV",
+   "wins": 31,
+   "losses": 19,
+   "draws": 0,
+   "rate": 0.62,
+   "low": 0.48150446927775903,
+   "high": 0.7413721069227714,
+   "trained_on": false
+  },
+  {
+   "party": 0,
+   "title": "[2816] サックー Mega Lucario & Mega Floette Offense",
+   "wins": 29,
+   "losses": 19,
+   "draws": 2,
+   "rate": 0.6041666666666666,
+   "low": 0.463104084893048,
+   "high": 0.7297917214198023,
+   "trained_on": false
+  },
+  {
+   "party": 8,
+   "title": "[2763] シグマ Mega Glimmora & Mega Starmie Offense",
+   "wins": 29,
+   "losses": 21,
+   "draws": 0,
+   "rate": 0.58,
+   "low": 0.44233441765448356,
+   "high": 0.7062499664792034,
+   "trained_on": false
+  },
+  {
+   "party": 16,
+   "title": "[2400] 메가샤크니아, 메가메가니움 주축",
+   "wins": 27,
+   "losses": 20,
+   "draws": 3,
+   "rate": 0.574468085106383,
+   "low": 0.4328191934229275,
+   "high": 0.7048637165903182,
+   "trained_on": false
+  },
+  {
+   "party": 4,
+   "title": "[2779] キョウタ Mega Sableye & Mega Lucario Offense",
+   "wins": 28,
+   "losses": 22,
+   "draws": 0,
+   "rate": 0.56,
+   "low": 0.4230602801857627,
+   "high": 0.6883780079145027,
+   "trained_on": false
+  },
+  {
+   "party": 15,
+   "title": "[2400] 픽시, 아쿠스타 밸런스 파티",
+   "wins": 27,
+   "losses": 23,
+   "draws": 0,
+   "rate": 0.54,
+   "low": 0.403988713961299,
+   "high": 0.6703034781055446,
+   "trained_on": false
+  },
+  {
+   "party": 13,
+   "title": "[2400] 싱글 2100에서 2400올린 파티",
+   "wins": 25,
+   "losses": 22,
+   "draws": 3,
+   "rate": 0.5319148936170213,
+   "low": 0.39232383217113287,
+   "high": 0.6666831292631152,
+   "trained_on": false
+  },
+  {
+   "party": 11,
+   "title": "[2339] 따라큐 Mega Charizard X & Lucario Offense",
+   "wins": 26,
+   "losses": 24,
+   "draws": 0,
+   "rate": 0.52,
+   "low": 0.38511744887073723,
+   "high": 0.6520286471626846,
+   "trained_on": false
+  },
+  {
+   "party": 12,
+   "title": "[2432] Rank 3rd - Double Mega Balance with Aegislash",
+   "wins": 26,
+   "losses": 24,
+   "draws": 0,
+   "rate": 0.52,
+   "low": 0.38511744887073723,
+   "high": 0.6520286471626846,
+   "trained_on": false
+  },
+  {
+   "party": 9,
+   "title": "[2748] よしこぽけ Mega Gengar & Garchomp Offense",
+   "wins": 25,
+   "losses": 25,
+   "draws": 0,
+   "rate": 0.5,
+   "low": 0.36644514313918053,
+   "high": 0.6335548568608195,
+   "trained_on": false
+  },
+  {
+   "party": 17,
+   "title": "[2200] Ayaka_p_p Delphox and Friends Offense",
+   "wins": 25,
+   "losses": 25,
+   "draws": 0,
+   "rate": 0.5,
+   "low": 0.36644514313918053,
+   "high": 0.6335548568608195,
+   "trained_on": true
+  },
+  {
+   "party": 18,
+   "title": "[2280] Mega Floette and Dragonite Balance",
+   "wins": 25,
+   "losses": 25,
+   "draws": 0,
+   "rate": 0.5,
+   "low": 0.36644514313918053,
+   "high": 0.6335548568608195,
+   "trained_on": false
+  },
+  {
+   "party": 10,
+   "title": "[2403] 엑자몽 중심 10일전 랭크 13위 달성 파티",
+   "wins": 23,
+   "losses": 25,
+   "draws": 2,
+   "rate": 0.4791666666666667,
+   "low": 0.3447131617406337,
+   "high": 0.6167076769967964,
+   "trained_on": true
+  },
+  {
+   "party": 1,
+   "title": "[2814] 攻め意識 Mega Starmie & Mega Glimmora Offense",
+   "wins": 23,
+   "losses": 27,
+   "draws": 0,
+   "rate": 0.46,
+   "low": 0.3296965218944554,
+   "high": 0.5960112860387011,
+   "trained_on": false
+  },
+  {
+   "party": 6,
+   "title": "[2776] ピッツ Mega Starmie & Mega Floette Offense",
+   "wins": 22,
+   "losses": 28,
+   "draws": 0,
+   "rate": 0.44,
+   "low": 0.31162199208549735,
+   "high": 0.5769397198142374,
+   "trained_on": false
+  },
+  {
+   "party": 5,
+   "title": "[2777] みるふぃ Gyarados & Mega Gengar Offense",
+   "wins": 19,
+   "losses": 31,
+   "draws": 0,
+   "rate": 0.38,
+   "low": 0.2586278930772285,
+   "high": 0.518495530722241,
+   "trained_on": false
+  },
+  {
+   "party": 7,
+   "title": "[2769] ミルク Garchomp & Mega Dragonite Offense",
+   "wins": 18,
+   "losses": 32,
+   "draws": 0,
+   "rate": 0.36,
+   "low": 0.24138749649462618,
+   "high": 0.4985898312714214,
+   "trained_on": true
+  },
+  {
+   "party": 14,
+   "title": "[2200]가람 Mega Gengar and Kangaskhan Offense",
+   "wins": 17,
+   "losses": 33,
+   "draws": 0,
+   "rate": 0.34,
+   "low": 0.22436949220206606,
+   "high": 0.4784617395305599,
+   "trained_on": true
+  },
+  {
+   "party": 2,
+   "title": "[2787] くまおつ Mega Scizor & Gengar Offense",
+   "wins": 13,
+   "losses": 37,
+   "draws": 0,
+   "rate": 0.26,
+   "low": 0.15871527491664314,
+   "high": 0.39553157268229566,
+   "trained_on": false
+  }
+ ]
+}

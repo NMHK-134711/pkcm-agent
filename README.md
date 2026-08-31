@@ -7,6 +7,7 @@ Regulation Set M-B 룰을 따르는 배틀 엔진을 직접 구현하고, 그 �
 
 - 설계 원칙과 로드맵: [docs/DESIGN.md](docs/DESIGN.md)
 - 이어서 작업할 때: [docs/HANDOFF.md](docs/HANDOFF.md)
+- **에이전트와 직접 대전: [docs/PLAY.md](docs/PLAY.md)**
 
 ## 현재 상태
 

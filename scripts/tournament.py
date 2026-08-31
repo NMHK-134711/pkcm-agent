@@ -35,6 +35,17 @@ from pkcm.train.tournament import (  # noqa: E402
 
 
 def main() -> int:
+    # Team titles are whatever the ranker typed -- Korean, Japanese, emoji --
+    # and a Windows console defaults to cp949, which raises on the first
+    # character it cannot encode. That is a display problem, and it once threw
+    # away three hours of finished games, so it is downgraded to a replacement
+    # character here.
+    for stream_out in (sys.stdout, sys.stderr):
+        try:
+            stream_out.reconfigure(encoding="utf-8", errors="replace")
+        except (AttributeError, ValueError):
+            pass
+
     parser = argparse.ArgumentParser(description=__doc__,
                                      formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument("--repeats", type=int, default=6,
@@ -98,6 +109,29 @@ def main() -> int:
             beat = now
 
     rows = standings(results, entrants)
+    if args.out:
+        target = Path(args.out)
+        target.parent.mkdir(parents=True, exist_ok=True)
+        target.write_text(json.dumps({
+            "format": args.format,
+            "iterations": iterations,
+            "checkpoint": args.checkpoint,
+            "repeats": args.repeats,
+            "entrants": list(entrants),
+            "standings": [
+                {"party": row.party, "title": parties[row.party].title,
+                 "wins": row.wins, "losses": row.losses, "draws": row.draws,
+                 "rate": row.rate}
+                for row in rows
+            ],
+            "fixtures": [
+                {"a": one.a, "b": one.b, "a_wins": one.a_wins,
+                 "b_wins": one.b_wins, "draws": one.draws}
+                for one in results
+            ],
+        }, ensure_ascii=False, indent=1), encoding="utf-8")
+        print(f"  written to {target}")
+
     width = max(len(_name(parties[row.party])) for row in rows)
     print(f"\n  {'#':>2}  {'party':>5}  {'win rate':>20}  {'W-L-D':>12}  team")
     for place, row in enumerate(rows, 1):
@@ -121,28 +155,6 @@ def main() -> int:
               f"more repeats, or the field is flat.")
     print(f"  spread: {best.rate:.1%} down to {worst.rate:.1%}")
 
-    if args.out:
-        target = Path(args.out)
-        target.parent.mkdir(parents=True, exist_ok=True)
-        target.write_text(json.dumps({
-            "format": args.format,
-            "iterations": iterations,
-            "checkpoint": args.checkpoint,
-            "repeats": args.repeats,
-            "entrants": list(entrants),
-            "standings": [
-                {"party": row.party, "title": parties[row.party].title,
-                 "wins": row.wins, "losses": row.losses, "draws": row.draws,
-                 "rate": row.rate}
-                for row in rows
-            ],
-            "fixtures": [
-                {"a": one.a, "b": one.b, "a_wins": one.a_wins,
-                 "b_wins": one.b_wins, "draws": one.draws}
-                for one in results
-            ],
-        }, ensure_ascii=False, indent=1), encoding="utf-8")
-        print(f"  written to {target}")
     return 0
 
 

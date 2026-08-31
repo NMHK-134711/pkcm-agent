@@ -334,3 +334,35 @@ def test_an_unknown_team_source_is_refused(dex, regulation):
 
     with pytest.raises(ValueError):
         make_team(dex, regulation, Rng.from_seed(0).cursor(), "singles", "rankers")
+
+
+def test_a_party_source_repeats_its_teams(dex, regulation):
+    """The curriculum's whole point: matchups have to recur.
+
+    ``ranker`` draws six slots out of a hundred and twenty, so a run never sees
+    the same team twice and the policy head is asked to generalise across the
+    team space before it can learn to play in any of it. ``parties`` hands back
+    whole imported parties, so positions repeat and there is something to
+    accumulate.
+    """
+    from pkcm.engine.legality import make_team
+
+    def distinct(source, draws=120):
+        return {tuple(sorted(pokemon.species for pokemon in make_team(
+            dex, regulation, Rng.from_seed(seed).cursor(), "singles", source)))
+            for seed in range(draws)}
+
+    assert len(distinct("parties:10,14,17,7")) == 4
+    assert len(distinct("parties")) <= 20
+    assert len(distinct("ranker")) > 100
+
+
+def test_a_party_subset_is_checked_when_it_is_written(dex, regulation):
+    """Not once a worker is three minutes into a run."""
+    from pkcm.engine.legality import parse_team_source, ranker_parties
+
+    assert parse_team_source("parties:0,1") == "parties:0,1"
+    assert parse_team_source("ranker") == "ranker"
+    for bad in ("parties:%d" % len(ranker_parties()), "parties:x", "rankers"):
+        with pytest.raises(ValueError):
+            parse_team_source(bad)

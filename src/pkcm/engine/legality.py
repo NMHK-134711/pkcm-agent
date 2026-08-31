@@ -611,7 +611,10 @@ def ranker_team(
 
 
 #: How a caller says which distribution it wants.
-TEAM_SOURCES = ("random", "ranker")
+#:
+#: ``"parties"`` also accepts a subset after a colon -- ``"parties:10,14,17,7"``
+#: -- which is how the team curriculum is written. See ``party_team``.
+TEAM_SOURCES = ("random", "ranker", "parties")
 
 
 def make_team(
@@ -625,6 +628,70 @@ def make_team(
     """One team, from whichever distribution was asked for."""
     if source == "ranker":
         return ranker_team(dex, regulation, cursor, battle_format)
+    if source == "parties" or source.startswith("parties:"):
+        _, _, listed = source.partition(":")
+        return party_team(dex, regulation, cursor, battle_format,
+                          _party_indices(listed))
     if source != "random":
         raise ValueError(f"unknown team source {source!r}; expected {TEAM_SOURCES}")
     return random_team(dex, regulation, cursor, battle_format, options)
+
+
+def parse_team_source(value: str) -> str:
+    """Validate a ``--teams`` value now, rather than inside a worker later.
+
+    ``argparse`` cannot express ``parties:10,14,17,7`` as a ``choices`` list, and
+    a bad party index that only surfaces once ten spawned processes are three
+    minutes into a run is a bad trade for the brevity.
+    """
+    if value in ("random", "ranker", "parties"):
+        return value
+    if value.startswith("parties:"):
+        _party_indices(value.partition(":")[2])
+        return value
+    raise ValueError(f"unknown team source {value!r}; expected {TEAM_SOURCES} "
+                     f"or parties:<comma separated indices>")
+
+
+def _party_indices(listed: str) -> tuple[int, ...] | None:
+    """``"10,14,17,7"`` to indices; empty means every imported party."""
+    if not listed.strip():
+        return None
+    try:
+        picked = tuple(int(one) for one in listed.split(",") if one.strip())
+    except ValueError:
+        raise ValueError(f"party subset {listed!r} is not a list of integers")
+    if not picked:
+        return None
+    total = len(ranker_parties())
+    for index in picked:
+        if not 0 <= index < total:
+            raise ValueError(f"party {index} is outside 0..{total - 1}")
+    return picked
+
+
+def party_team(
+    dex: Dex,
+    regulation: Regulation,
+    cursor: RngCursor,
+    battle_format: str = "singles",
+    picked: tuple[int, ...] | None = None,
+) -> Team:
+    """One imported party, whole, as its author built it.
+
+    The difference from ``ranker_team`` is the difference between AlphaZero's
+    problem and this one. ``ranker_team`` draws six slots out of a hundred and
+    twenty, so no two battles in a run ever share a matchup and the policy head
+    is asked to generalise across roughly ten to the nineteen team pairings
+    before it is asked to play well in any of them. Measured: held-out policy
+    cross-entropy 0.315 above the target's own entropy with drawn teams and
+    0.181 with a fixed four, and the sign of train-minus-validation flips with
+    it -- drawn teams memorise, fixed teams generalise.
+
+    Restricting ``picked`` narrows the curriculum further. Widening it back out
+    is the experiment that says how much of the strength survives contact with
+    a bigger team space.
+    """
+    parties = ranker_parties()
+    choices = picked if picked is not None else tuple(range(len(parties)))
+    return parties[choices[cursor.between(0, len(choices) - 1)]].team

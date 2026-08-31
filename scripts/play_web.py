@@ -38,6 +38,7 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "src"))
 
 from pkcm.data.dex import load_dex  # noqa: E402
+from pkcm.engine.legality import parse_team_source  # noqa: E402
 from pkcm.engine.actions import TARGET_ALLY, TARGET_SELF, Action, ActionKind  # noqa: E402
 from pkcm.engine.battle import step  # noqa: E402
 from pkcm.engine.legality import make_team  # noqa: E402
@@ -404,7 +405,10 @@ def main() -> int:
     parser.add_argument("--trust", type=float, default=1.0)
     parser.add_argument("--seed", type=int, default=None)
     parser.add_argument("--format", default="singles", choices=("singles", "doubles"))
-    parser.add_argument("--teams", default="ranker", choices=("random", "ranker"))
+    parser.add_argument("--teams", default="ranker", type=parse_team_source,
+                        help="which distribution both teams come from: "
+                             "``ranker``, ``random``, ``parties`` for whole "
+                             "imported parties, or ``parties:7,17`` for a few")
     parser.add_argument("--your-party", type=int, default=None,
                         help="play an imported ranker party by index instead "
                              "of a drawn team -- scripts/tournament.py prints "

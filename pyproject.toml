@@ -18,6 +18,9 @@ rl = ["pettingzoo>=1.24", "gymnasium>=0.29"]
 #   pip install --index-url https://download.pytorch.org/whl/cu124 torch
 train = ["torch>=2.4", "wandb>=0.17"]
 dev = ["pytest>=8.0"]
+# Reading the game's own screen, for scripts/coach.py. The OCR is Windows' own
+# and needs nothing installed; these two are the capture half.
+screen = ["Pillow>=10.0", "mss>=9.0"]
 
 [tool.setuptools.packages.find]
 where = ["src"]

@@ -189,3 +189,76 @@ def test_it_advises_a_legal_action(dex, our_team):
     mirror = open_battle(a_mirror(dex, our_team))
     result = mirror.advise(MCTS(SearchConfig(iterations=60, determinizations=4)))
     assert result.action[0] in mirror.our_options()
+
+
+def test_their_mega_evolution_can_be_reported(dex, our_team):
+    """determinize never hands an unrevealed Pokemon a Mega Stone -- one that
+    never fires would have the search planning around a Mega Evolution that
+    cannot happen. That is the right default, and it is exactly why a Mega
+    that *does* fire has to be sayable: the placeholder is holding something
+    else and the engine will not run the turn."""
+    mirror = open_battle(a_mirror(dex, our_team), lead="gengar")
+    slot = mirror.state.sides[1].active[0]
+    # The pool sometimes draws a Gengar already holding its stone, which would
+    # let this pass without the fix. Take it away so the case under test is the
+    # one that matters.
+    mirror._rewrite(mirror.state.sides[1].selection[slot], item="leftovers")
+    assert mirror.state.pokemon(1, slot).item == "leftovers"
+
+    theirs = mirror.report_move("shadowball", mega=True)
+    assert theirs.mega
+    assert mirror.state.pokemon(1, slot).item == "gengarite"
+    mirror.advance(Action.move(2), theirs)
+
+    assert mirror.state.mega_used[1]
+    assert mirror.state.species_id(1, mirror.state.sides[1].active[0]) \
+        == "gengarmega"
+    # And it is a fact from here on: the observation reports the Mega, so
+    # every later determinization builds on it.
+    seen = Observation.of(mirror.state, 0)
+    assert any(known.species_id == "gengarmega" for known in seen.foe)
+
+
+def test_a_second_mega_evolution_is_refused(dex, our_team):
+    mirror = open_battle(a_mirror(dex, our_team), lead="gengar")
+    mirror.advance(Action.move(2), mirror.report_move("shadowball", mega=True))
+    with pytest.raises(MirrorError, match="이미"):
+        mirror.report_move("sludgebomb", mega=True)
+
+
+def test_a_species_with_no_mega_is_refused(dex, our_team):
+    mirror = open_battle(a_mirror(dex, our_team), lead="archaludon")
+    with pytest.raises(MirrorError, match="메가진화가 없습니다"):
+        mirror.report_move("flashcannon", mega=True)
+
+
+def test_a_correction_after_a_switch_lands_on_who_came_in(dex, our_team):
+    """hk hit this: switch, and the Pokemon whose HP you are typing is the one
+    that arrived, not the one that left. The write has to follow the field."""
+    mirror = open_battle(a_mirror(dex, our_team), lead="gengar")
+    before = mirror.state.sides[0].active[0]
+    mirror.advance(Action.switch(1), mirror.report_move("shadowball"))
+    after = mirror.state.sides[0].active[0]
+    assert after != before, "the switch happened"
+
+    left_at = mirror.state.sides[0].hp[before]
+    mirror.observe(0, hp_fraction=0.8)
+    arrived = mirror.state.pokemon(0, after)
+    assert mirror.state.sides[0].hp[after] == pytest.approx(
+        round(arrived.max_hp * 0.8), abs=1), "the correction missed the arrival"
+    assert mirror.state.sides[0].hp[before] == left_at, (
+        "and it must not have touched the one that left")
+
+
+def test_a_correction_follows_their_switch_too(dex, our_team):
+    mirror = open_battle(a_mirror(dex, our_team), lead="gengar")
+    absent = next(species for index, species in enumerate(THEIR_SIX)
+                  if index not in mirror.state.sides[1].selection)
+    mirror.advance(Action.move(2), mirror.report_switch(absent))
+    slot = mirror.state.sides[1].active[0]
+    assert mirror.state.species_id(1, slot) == absent
+
+    mirror.observe(1, hp_fraction=0.5)
+    maximum = mirror.state.pokemon(1, slot).max_hp
+    assert mirror.state.sides[1].hp[slot] == pytest.approx(
+        round(maximum * 0.5), abs=1)

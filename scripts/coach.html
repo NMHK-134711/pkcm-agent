@@ -277,22 +277,25 @@ function screenBattle() {
       <div><label>2. 상대가 한 것</label>
         ${V.their_decision
           ? `<input id="theirAct" list="dl-acts" autocomplete="off"
-                    placeholder="기술 이름 또는 교체해서 나온 포켓몬">`
+                    placeholder="기술 이름 또는 교체해서 나온 포켓몬">
+             ${V.their_mega_used ? "" : `<label style="margin-top:6px">
+               <input type="checkbox" id="theirMega" style="width:auto">
+               이 기술과 함께 상대가 메가진화</label>`}`
           : `<div class="chip" style="padding:8px 11px">
                상대는 이번에 고를 것이 없습니다</div>`}
       </div>
     </div>
     ${datalist("dl-acts", (V.lookup.moves || []).concat(V.their_six))}
     <div class="row two">
-      <div><label>3. 턴이 끝난 뒤 ${V.our_active} HP %</label>
+      <div><label id="ourHpLabel"></label>
         <input id="ourHp" type="number" min="0" max="100" value="${ourActive.hp}"></div>
-      <div><label>3. 턴이 끝난 뒤 ${V.their_active} HP %</label>
+      <div><label id="theirHpLabel"></label>
         <input id="theirHp" type="number" min="0" max="100" value="${theirActive.hp}"></div>
     </div>
     <div class="row two">
-      <div><label>${V.our_active} 상태이상</label>
+      <div><label id="ourStatusLabel"></label>
         <select id="ourStatus">${statusOptions(ourActive.rawStatus || "")}</select></div>
-      <div><label>${V.their_active} 상태이상</label>
+      <div><label id="theirStatusLabel"></label>
         <select id="theirStatus">${statusOptions(theirActive.rawStatus || "")}</select></div>
     </div>
     <button id="turn" class="big" style="width:100%">턴 진행 · 다음 수 계산</button>
@@ -303,6 +306,51 @@ function screenBattle() {
         턴은 넘기지 말고 숫자만 맞추기</button>
     </div>
   </div>`;
+}
+
+// Whoever will be standing there once this turn resolves -- which is not who
+// is standing there now the moment either side has picked a switch. Leaving the
+// label on the departing Pokemon is how a pre-filled number ends up written
+// onto the one that arrived.
+function arriving() {
+  const out = {};
+  const code = $("ourAct") ? $("ourAct").value : "";
+  if (code.startsWith("s:")) {
+    const slot = Number(code.slice(2));
+    out.ours = V.ours.find(m => m.slot === slot);
+  }
+  out.ours = out.ours || V.ours.find(m => m.active);
+
+  const text = $("theirAct") ? $("theirAct").value.trim() : "";
+  const species = V.their_six.find(s => s.ko === text);
+  if (species) {
+    // One we have already watched keeps the HP we know it has; one we have not
+    // is arriving whole, less whatever the hazards take -- which is exactly
+    // what the person is about to correct.
+    out.theirs = V.theirs.find(m => m.id === species.id)
+              || {ko: species.ko, hp: 100, rawStatus: ""};
+  }
+  out.theirs = out.theirs || V.theirs.find(m => m.active)
+            || {ko: "상대", hp: 100, rawStatus: ""};
+  return out;
+}
+
+function refreshLabels() {
+  const now = arriving();
+  const switching = {
+    ours: now.ours !== V.ours.find(m => m.active),
+    theirs: now.theirs !== V.theirs.find(m => m.active),
+  };
+  const mark = (who) => who ? "  ← 교체로 나온 포켓몬" : "";
+  $("ourHpLabel").textContent =
+    `3. 턴이 끝난 뒤 ${now.ours.ko} HP %${mark(switching.ours)}`;
+  $("theirHpLabel").textContent =
+    `3. 턴이 끝난 뒤 ${now.theirs.ko} HP %${mark(switching.theirs)}`;
+  $("ourStatusLabel").textContent = `${now.ours.ko} 상태이상`;
+  $("theirStatusLabel").textContent = `${now.theirs.ko} 상태이상`;
+  // The pre-filled number belongs to whoever the label now names.
+  if (switching.ours) $("ourHp").value = now.ours.hp;
+  if (switching.theirs) $("theirHp").value = now.theirs.hp;
 }
 
 function corrections() {
@@ -323,10 +371,15 @@ function bindBattle() {
       if (!move && !species) { alert("상대가 한 것을 입력해 주세요"); return; }
       parts.push(species ? "their_switch=" + encodeURIComponent(species)
                          : "their_move=" + encodeURIComponent(move));
+      const mega = $("theirMega");
+      if (mega && mega.checked && !species) parts.push("their_mega=1");
     }
     call("/turn?" + parts.concat(corrections()).join("&"));
   };
   $("fix").onclick = () => call("/observe?" + corrections().join("&"));
+  $("ourAct").onchange = refreshLabels;
+  if ($("theirAct")) $("theirAct").oninput = refreshLabels;
+  refreshLabels();
 }
 
 // ---- router --------------------------------------------------------------- //

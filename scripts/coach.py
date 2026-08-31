@@ -227,6 +227,7 @@ class Coach:
                        for known in observation.foe],
             "our_options": self._our_options(),
             "their_decision": self._their_decision(),
+            "their_mega_used": self.mirror.state.mega_used[THEM],
             "our_active": self.active_name(US),
             "their_active": self.active_name(THEM),
             "field": self._field(),
@@ -351,7 +352,9 @@ def _routes(coach: Coach, path: str, query: dict) -> None:
         elif query.get("their_switch"):
             theirs = mirror.report_switch(query["their_switch"][0])
         else:
-            theirs = mirror.report_move(query["their_move"][0])
+            theirs = mirror.report_move(
+                query["their_move"][0],
+                mega=query.get("their_mega", ["0"])[0] == "1")
         events = mirror.advance(ours, theirs)
         coach.log.extend(coach.renderer.render_log(events).splitlines())
         # The correction rides along with the turn rather than following it.

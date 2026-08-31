@@ -154,10 +154,17 @@ class Mirror:
                               "can open")
         self._step(Action.select(*ours), Action.select(*theirs))
 
-    def report_move(self, move_id: str) -> Action:
-        """Their active used this move. Teaches it if we had not seen it."""
+    def report_move(self, move_id: str, mega: bool = False) -> Action:
+        """Their active used this move. Teaches it if we had not seen it.
+
+        ``mega`` says they Mega Evolved on the way, which needs the stone put
+        on the placeholder first -- see ``_give_stone``.
+        """
         slot = self._their_active_slot()
-        return Action.move(self._teach(slot, move_id))
+        index = self._teach(slot, move_id)
+        if mega:
+            self._give_stone(slot)
+        return Action.move(index, mega=mega)
 
     def report_switch(self, species_id: str) -> Action:
         """They switched to this species, revealing it if it is new."""
@@ -237,6 +244,33 @@ class Mirror:
         # PP is per brought slot and indexed the same way.
         self.state.sides[THEM].pp[slot][spare] = max_pp(dex.moves[move_id].pp)
         return spare
+
+    def _give_stone(self, slot: int) -> None:
+        """They Mega Evolved, so they were holding the stone all along.
+
+        ``determinize`` deliberately never hands an *unrevealed* Pokemon a Mega
+        Stone: one that never fires would have the search planning around a
+        Mega Evolution that cannot happen. That is the right default and it is
+        exactly why this has to be said out loud when one does fire -- the
+        placeholder is holding something else, and the engine will not run the
+        turn otherwise.
+
+        After this the forme change is a fact like any other: the state's
+        override carries the Mega's species, so the observation reports it and
+        every later determinization builds on it.
+        """
+        if self.state.mega_used[THEM]:
+            raise MirrorError("상대는 이미 메가진화를 썼습니다")
+        from pkcm.engine.legality import mega_stone_for
+
+        party_index = self.state.sides[THEM].selection[slot]
+        pokemon = self.state.parties[THEM][party_index]
+        stone = mega_stone_for(self.config.dex, self.config.regulation,
+                               pokemon.species.id)
+        if stone is None:
+            raise MirrorError(
+                f"{pokemon.species.name}에는 메가진화가 없습니다")
+        self._rewrite(party_index, item=stone)
 
     def _reveal(self, species_id: str) -> int:
         """Their brought-party slot for this species, inventing one if needed.

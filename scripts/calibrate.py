@@ -20,6 +20,7 @@ import io
 import json
 import sys
 import threading
+import time
 import webbrowser
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
@@ -49,6 +50,9 @@ class Calibrator:
         self.lock = threading.Lock()
         self.window = args.window
         self.profile = self._existing()
+        #: The capture the page is drawing on. Samples are cropped out of this
+        #: rather than grabbed afresh -- see ``sample``.
+        self.shot_image = None
 
     def _existing(self) -> Profile:
         try:
@@ -56,10 +60,19 @@ class Calibrator:
         except ScreenError:
             return Profile(window=self.window)
 
-    def shot(self) -> dict:
-        """The game window as a PNG the page can draw boxes on."""
+    def shot(self, delay: float = 0.0) -> dict:
+        """The game window as a PNG the page can draw boxes on.
+
+        ``delay`` is there because capture reads the *screen*: whatever is in
+        front of the game at those coordinates is what gets grabbed, and the
+        browser doing the calibrating is a window like any other. A few seconds
+        is enough to click the game and let it come forward.
+        """
+        if delay > 0:
+            time.sleep(min(delay, 15.0))
         box = anchor(self.window)
         image = capture(box)
+        self.shot_image = image
         buffer = io.BytesIO()
         image.save(buffer, format="PNG")
         return {
@@ -75,17 +88,30 @@ class Calibrator:
         }
 
     def sample(self, name: str, region: Region) -> dict:
-        """Read one box right now, so a bad rectangle is obvious immediately.
+        """Read one box, so a bad rectangle is obvious immediately.
 
         Drawing a box and finding out three turns into a real game that it was
         two pixels short is the failure this is here to prevent.
+
+        **Cropped out of the capture the page is showing, never grabbed
+        afresh.** A second grab reads the screen as it is *now*, which is with
+        the browser in front of the game -- so every sample came back reading
+        whatever was covering it. One capture, many samples, and what is
+        measured is what is on the picture being drawn on.
         """
-        box = anchor(self.window)
-        left, top, right, bottom = region.pixels(box)
-        crop = capture((left, top, right, bottom))
+        if self.shot_image is None:
+            raise ScreenError("아직 캡처가 없습니다 -- 다시 캡처를 누르세요")
+        width, height = self.shot_image.size
+        crop = self.shot_image.crop((
+            round(region.left * width), round(region.top * height),
+            round(region.right * width), round(region.bottom * height)))
+        if crop.width < 2 or crop.height < 2:
+            raise ScreenError(f"영역이 너무 작습니다 ({crop.width}x{crop.height})")
         if name.endswith(BAR_SUFFIX):
-            return {"kind": "bar", "value": round(bar_fraction(crop) * 100)}
-        return {"kind": "text", "value": read_text(crop)}
+            return {"kind": "bar", "value": round(bar_fraction(crop) * 100),
+                    "size": f"{crop.width}x{crop.height}"}
+        return {"kind": "text", "value": read_text(crop),
+                "size": f"{crop.width}x{crop.height}"}
 
     def save(self, window: str, regions: dict) -> str:
         self.window = window
@@ -123,7 +149,8 @@ class Handler(BaseHTTPRequestHandler):
                 if route.path == "/shot":
                     if query.get("window"):
                         self.tool.window = query["window"][0]
-                    self._json(self.tool.shot())
+                    self._json(self.tool.shot(
+                        float(query.get("delay", ["0"])[0])))
                 elif route.path == "/windows":
                     self._json({"windows": [one["title"] for one in windows()]})
                 elif route.path == "/sample":

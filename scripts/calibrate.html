@@ -45,15 +45,18 @@
   <header>
     <h1>코치 화면 보정</h1>
     <select id="window"></select>
-    <button id="refresh">다시 캡처</button>
+    <button id="refresh">지금 캡처</button>
+    <button id="delayed">3초 뒤 캡처 (게임 창을 앞으로)</button>
     <span style="flex:1"></span>
     <button id="save">저장</button>
   </header>
   <div class="muted" style="margin-top:8px">
-    오른쪽에서 항목을 고르고, 화면 위에 네모를 <b>드래그</b>하세요.
-    그리면 바로 읽어보고 결과를 보여줍니다 —
-    <b>여기서 맞게 나와야 실전에서도 맞습니다.</b>
-    배틀 중인 화면에서 하는 게 좋습니다 (로그가 떠 있을 때).
+    캡처는 <b>화면</b>을 읽습니다 — 게임을 가리는 창이 있으면 그게 찍힙니다.
+    <b>3초 뒤 캡처</b>를 누르고 게임 창을 클릭해서 앞으로 가져오세요.
+    찍힌 그림이 게임 화면이 맞는지 눈으로 확인한 다음,
+    오른쪽에서 항목을 고르고 그림 위에 네모를 <b>드래그</b>하세요.
+    네모는 <b>찍힌 그림에서 그대로 잘라서</b> 읽으므로, 읽는 동안 브라우저가
+    앞에 있어도 상관없습니다. 배틀 중 화면에서 하는 게 좋습니다.
   </div>
   <div class="cols">
     <div class="stage" id="stage"><img id="shot" alt=""></div>
@@ -68,6 +71,7 @@ let S = {};                 // last /shot payload
 let boxes = {};             // name -> {left,top,right,bottom} in 0..1
 let current = null;         // which region is being drawn
 let sampled = {};           // name -> what reading it back gave
+let sizes = {};             // name -> the crop's pixel size, which explains a bad read
 let drag = null;
 
 async function get(path) { return (await fetch(path)).json(); }
@@ -97,7 +101,8 @@ function draw() {
       <div class="why">${why}</div>
       ${got === undefined ? "" :
         `<div class="got ${got === null || got === "" ? "none" : ""}">읽음: ${
-          got === null || got === "" ? "(아무것도 못 읽음)" : got}</div>`}
+          got === null || got === "" ? "(아무것도 못 읽음)" : got}${
+          sizes[name] ? ` <span class="why">(${sizes[name]}px)</span>` : ""}</div>`}
     </div>`;
   }).join("");
   $("side").querySelectorAll(".item").forEach(el => {
@@ -139,6 +144,7 @@ window.onmouseup = async () => {
   const got = await get(`/sample?name=${encodeURIComponent(name)}&`
     + `left=${box.left}&top=${box.top}&right=${box.right}&bottom=${box.bottom}`);
   sampled[name] = got.error ? got.error : got.value;
+  sizes[name] = got.size || "";
   if (got.error) note(got.error, true); else note("");
   draw();
 };
@@ -147,18 +153,22 @@ function note(text, bad) {
   $("msg").innerHTML = text ? `<div class="${bad ? "err" : "ok"}">${text}</div>` : "";
 }
 
-async function shoot() {
+async function shoot(delay) {
   const chosen = $("window").value;
-  const got = await get("/shot?window=" + encodeURIComponent(chosen ?? ""));
+  if (delay) note(`${delay}초 뒤에 찍습니다 — 지금 게임 창을 클릭하세요…`);
+  const got = await get("/shot?delay=" + (delay || 0)
+    + "&window=" + encodeURIComponent(chosen ?? ""));
   if (got.error) { note(got.error, true); return; }
   S = got;
   $("shot").src = got.image;
   if (!Object.keys(boxes).length) boxes = JSON.parse(JSON.stringify(got.regions || {}));
   $("shot").onload = draw;
+  note("");
   draw();
 }
 
-$("refresh").onclick = shoot;
+$("refresh").onclick = () => shoot(0);
+$("delayed").onclick = () => shoot(3);
 $("save").onclick = async () => {
   const missing = Object.keys(S.wanted).filter(n => !boxes[n]);
   const got = await get("/save?window=" + encodeURIComponent($("window").value)
@@ -177,7 +187,7 @@ $("save").onclick = async () => {
     + `<option value="">(전체 화면)</option>`;
   const guess = titles.find(t => /bluestacks|ldplayer|nox|mumu|champions/i.test(t));
   if (guess) $("window").value = guess;
-  await shoot();
+  await shoot(0);
 })();
 </script>
 </body>

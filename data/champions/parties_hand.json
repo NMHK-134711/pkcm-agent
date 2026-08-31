@@ -1,0 +1,3278 @@
+[
+ {
+  "id": "01",
+  "title": "pokedb 01",
+  "team": [
+   {
+    "species": "toxapex",
+    "ability": "regenerator",
+    "moves": [
+     "liquidation",
+     "toxic",
+     "haze",
+     "recover"
+    ],
+    "item": "leftovers",
+    "nature": "careful",
+    "sp": [
+     32,
+     0,
+     14,
+     0,
+     20,
+     0
+    ]
+   },
+   {
+    "species": "corviknight",
+    "ability": "pressure",
+    "moves": [
+     "bravebird",
+     "uturn",
+     "curse",
+     "roost"
+    ],
+    "item": "sitrusberry",
+    "nature": "relaxed",
+    "sp": [
+     32,
+     1,
+     26,
+     0,
+     7,
+     0
+    ]
+   },
+   {
+    "species": "floetteeternal",
+    "ability": "flowerveil",
+    "moves": [
+     "moonblast",
+     "charm",
+     "calmmind",
+     "synthesis"
+    ],
+    "item": "floettite",
+    "nature": "timid",
+    "sp": [
+     22,
+     0,
+     11,
+     1,
+     0,
+     32
+    ]
+   },
+   {
+    "species": "samurotthisui",
+    "ability": "sharpness",
+    "moves": [
+     "ceaselessedge",
+     "sacredsword",
+     "suckerpunch",
+     "swordsdance"
+    ],
+    "item": "blackglasses",
+    "nature": "adamant",
+    "sp": [
+     16,
+     32,
+     2,
+     0,
+     6,
+     10
+    ]
+   },
+   {
+    "species": "garchomp",
+    "ability": "roughskin",
+    "moves": [
+     "dragontail",
+     "earthquake",
+     "stealthrock",
+     "rest"
+    ],
+    "item": "chestoberry",
+    "nature": "impish",
+    "sp": [
+     32,
+     0,
+     16,
+     0,
+     17,
+     1
+    ]
+   },
+   {
+    "species": "delphox",
+    "ability": "blaze",
+    "moves": [
+     "overheat",
+     "psychic",
+     "nastyplot",
+     "substitute"
+    ],
+    "item": "delphoxite",
+    "nature": "timid",
+    "sp": [
+     13,
+     0,
+     0,
+     23,
+     1,
+     29
+    ]
+   }
+  ]
+ },
+ {
+  "id": "03",
+  "title": "pokedb 03",
+  "team": [
+   {
+    "species": "gengar",
+    "ability": "cursedbody",
+    "moves": [
+     "shadowball",
+     "sludgewave",
+     "destinybond",
+     "protect"
+    ],
+    "item": "gengarite",
+    "nature": "modest",
+    "sp": [
+     12,
+     0,
+     4,
+     21,
+     0,
+     29
+    ]
+   },
+   {
+    "species": "hydreigon",
+    "ability": "levitate",
+    "moves": [
+     "dracometeor",
+     "darkpulse",
+     "fireblast",
+     "uturn"
+    ],
+    "item": "choicescarf",
+    "nature": "modest",
+    "sp": [
+     2,
+     0,
+     0,
+     32,
+     0,
+     32
+    ]
+   },
+   {
+    "species": "metagross",
+    "ability": "clearbody",
+    "moves": [
+     "psychicfangs",
+     "bulletpunch",
+     "hammerarm",
+     "thunderpunch"
+    ],
+    "item": "metagrossite",
+    "nature": "adamant",
+    "sp": [
+     32,
+     32,
+     0,
+     0,
+     0,
+     2
+    ]
+   },
+   {
+    "species": "corviknight",
+    "ability": "pressure",
+    "moves": [
+     "bodypress",
+     "uturn",
+     "irondefense",
+     "roost"
+    ],
+    "item": "leftovers",
+    "nature": "impish",
+    "sp": [
+     32,
+     0,
+     32,
+     0,
+     2,
+     0
+    ]
+   },
+   {
+    "species": "garchomp",
+    "ability": "roughskin",
+    "moves": [
+     "earthquake",
+     "scaleshot",
+     "swordsdance",
+     "stealthrock"
+    ],
+    "item": "focussash",
+    "nature": "jolly",
+    "sp": [
+     0,
+     32,
+     2,
+     0,
+     0,
+     32
+    ]
+   },
+   {
+    "species": "primarina",
+    "ability": "torrent",
+    "moves": [
+     "moonblast",
+     "sparklingaria",
+     "aquajet",
+     "calmmind"
+    ],
+    "item": "sitrusberry",
+    "nature": "modest",
+    "sp": [
+     32,
+     0,
+     4,
+     14,
+     12,
+     4
+    ]
+   }
+  ]
+ },
+ {
+  "id": "04",
+  "title": "pokedb 04",
+  "team": [
+   {
+    "species": "volcarona",
+    "ability": "flamebody",
+    "moves": [
+     "flamethrower",
+     "gigadrain",
+     "psychic",
+     "quiverdance"
+    ],
+    "item": "lumberry",
+    "nature": "modest",
+    "sp": [
+     1,
+     0,
+     1,
+     32,
+     0,
+     32
+    ]
+   },
+   {
+    "species": "gyarados",
+    "ability": "intimidate",
+    "moves": [
+     "powerwhip",
+     "earthquake",
+     "icefang",
+     "dragondance"
+    ],
+    "item": "gyaradosite",
+    "nature": "jolly",
+    "sp": [
+     1,
+     31,
+     3,
+     0,
+     0,
+     31
+    ]
+   },
+   {
+    "species": "lucario",
+    "ability": "innerfocus",
+    "moves": [
+     "closecombat",
+     "meteormash",
+     "extremespeed",
+     "swordsdance"
+    ],
+    "item": "lucarionite",
+    "nature": "adamant",
+    "sp": [
+     2,
+     32,
+     0,
+     0,
+     0,
+     32
+    ]
+   },
+   {
+    "species": "garchomp",
+    "ability": "roughskin",
+    "moves": [
+     "earthquake",
+     "scaleshot",
+     "dragontail",
+     "stealthrock"
+    ],
+    "item": "focussash",
+    "nature": "adamant",
+    "sp": [
+     2,
+     32,
+     0,
+     0,
+     0,
+     32
+    ]
+   },
+   {
+    "species": "sylveon",
+    "ability": "pixilate",
+    "moves": [
+     "hypervoice",
+     "wish",
+     "yawn",
+     "protect"
+    ],
+    "item": "leftovers",
+    "nature": "bold",
+    "sp": [
+     32,
+     0,
+     32,
+     0,
+     1,
+     1
+    ]
+   },
+   {
+    "species": "mimikyu",
+    "ability": "disguise",
+    "moves": [
+     "playrough",
+     "woodhammer",
+     "shadowsneak",
+     "swordsdance"
+    ],
+    "item": "lifeorb",
+    "nature": "adamant",
+    "sp": [
+     1,
+     32,
+     1,
+     0,
+     0,
+     32
+    ]
+   }
+  ]
+ },
+ {
+  "id": "05",
+  "title": "pokedb 05",
+  "team": [
+   {
+    "species": "raichu",
+    "ability": "lightningrod",
+    "moves": [
+     "zapcannon",
+     "focusblast",
+     "grassknot",
+     "nastyplot"
+    ],
+    "item": "raichunitey",
+    "nature": "timid",
+    "sp": [
+     30,
+     0,
+     31,
+     0,
+     0,
+     5
+    ]
+   },
+   {
+    "species": "corviknight",
+    "ability": "mirrorarmor",
+    "moves": [
+     "bravebird",
+     "bulkup",
+     "uturn",
+     "roost"
+    ],
+    "item": "leftovers",
+    "nature": "impish",
+    "sp": [
+     32,
+     2,
+     17,
+     0,
+     15,
+     0
+    ]
+   },
+   {
+    "species": "garchomp",
+    "ability": "roughskin",
+    "moves": [
+     "earthquake",
+     "outrage",
+     "rocktomb",
+     "stealthrock"
+    ],
+    "item": "choicescarf",
+    "nature": "jolly",
+    "sp": [
+     0,
+     31,
+     3,
+     0,
+     0,
+     32
+    ]
+   },
+   {
+    "species": "primarina",
+    "ability": "torrent",
+    "moves": [
+     "sparklingaria",
+     "moonblast",
+     "aquajet",
+     "encore"
+    ],
+    "item": "lumberry",
+    "nature": "modest",
+    "sp": [
+     32,
+     0,
+     10,
+     1,
+     0,
+     23
+    ]
+   },
+   {
+    "species": "meowscarada",
+    "ability": "overgrow",
+    "moves": [
+     "flowertrick",
+     "throatchop",
+     "suckerpunch",
+     "toxicspikes"
+    ],
+    "item": "focussash",
+    "nature": "adamant",
+    "sp": [
+     0,
+     32,
+     2,
+     0,
+     0,
+     32
+    ]
+   },
+   {
+    "species": "delphox",
+    "ability": "blaze",
+    "moves": [
+     "fireblast",
+     "psyshock",
+     "dazzlinggleam",
+     "substitute"
+    ],
+    "item": "delphoxite",
+    "nature": "modest",
+    "sp": [
+     15,
+     0,
+     7,
+     14,
+     0,
+     30
+    ]
+   }
+  ]
+ },
+ {
+  "id": "07",
+  "title": "pokedb 07",
+  "team": [
+   {
+    "species": "dragonite",
+    "ability": "multiscale",
+    "moves": [
+     "flamethrower",
+     "thunderbolt",
+     "dragonpulse",
+     "extremespeed"
+    ],
+    "item": "dragoninite",
+    "nature": "timid",
+    "sp": [
+     1,
+     0,
+     1,
+     32,
+     0,
+     32
+    ]
+   },
+   {
+    "species": "meowscarada",
+    "ability": "overgrow",
+    "moves": [
+     "flowertrick",
+     "knockoff",
+     "suckerpunch",
+     "tripleaxel"
+    ],
+    "item": "focussash",
+    "nature": "jolly",
+    "sp": [
+     0,
+     32,
+     2,
+     0,
+     0,
+     32
+    ]
+   },
+   {
+    "species": "glimmora",
+    "ability": "toxicdebris",
+    "moves": [
+     "powergem",
+     "sludgewave",
+     "dazzlinggleam",
+     "earthpower"
+    ],
+    "item": "choicescarf",
+    "nature": "modest",
+    "sp": [
+     1,
+     0,
+     1,
+     32,
+     0,
+     32
+    ]
+   },
+   {
+    "species": "scizor",
+    "ability": "technician",
+    "moves": [
+     "bulletpunch",
+     "knockoff",
+     "uturn",
+     "brickbreak"
+    ],
+    "item": "scizorite",
+    "nature": "adamant",
+    "sp": [
+     30,
+     32,
+     1,
+     0,
+     2,
+     1
+    ]
+   },
+   {
+    "species": "samurotthisui",
+    "ability": "sharpness",
+    "moves": [
+     "ceaselessedge",
+     "suckerpunch",
+     "swordsdance",
+     "sacredsword"
+    ],
+    "item": "lumberry",
+    "nature": "adamant",
+    "sp": [
+     20,
+     32,
+     1,
+     0,
+     0,
+     13
+    ]
+   },
+   {
+    "species": "garchomp",
+    "ability": "roughskin",
+    "moves": [
+     "earthquake",
+     "scaleshot",
+     "firefang",
+     "swordsdance"
+    ],
+    "item": "expertbelt",
+    "nature": "jolly",
+    "sp": [
+     0,
+     32,
+     1,
+     0,
+     1,
+     32
+    ]
+   }
+  ]
+ },
+ {
+  "id": "08",
+  "title": "pokedb 08",
+  "team": [
+   {
+    "species": "dragonite",
+    "ability": "multiscale",
+    "moves": [
+     "dragonpulse",
+     "flamethrower",
+     "substitute",
+     "roost"
+    ],
+    "item": "dragoninite",
+    "nature": "timid",
+    "sp": [
+     1,
+     0,
+     0,
+     32,
+     1,
+     32
+    ]
+   },
+   {
+    "species": "scizor",
+    "ability": "technician",
+    "moves": [
+     "bulletpunch",
+     "uturn",
+     "swordsdance",
+     "roost"
+    ],
+    "item": "scizorite",
+    "nature": "adamant",
+    "sp": [
+     32,
+     2,
+     32,
+     0,
+     0,
+     0
+    ]
+   },
+   {
+    "species": "hippowdon",
+    "ability": "sandstream",
+    "moves": [
+     "earthquake",
+     "stealthrock",
+     "yawn",
+     "whirlwind"
+    ],
+    "item": "sitrusberry",
+    "nature": "careful",
+    "sp": [
+     32,
+     0,
+     2,
+     0,
+     32,
+     0
+    ]
+   },
+   {
+    "species": "greninja",
+    "ability": "protean",
+    "moves": [
+     "sludgewave",
+     "icebeam",
+     "mudshot",
+     "toxicspikes"
+    ],
+    "item": "focussash",
+    "nature": "modest",
+    "sp": [
+     2,
+     0,
+     0,
+     32,
+     0,
+     32
+    ]
+   },
+   {
+    "species": "hydreigon",
+    "ability": "levitate",
+    "moves": [
+     "dracometeor",
+     "darkpulse",
+     "flamethrower",
+     "uturn"
+    ],
+    "item": "choicescarf",
+    "nature": "modest",
+    "sp": [
+     2,
+     0,
+     0,
+     32,
+     0,
+     32
+    ]
+   },
+   {
+    "species": "gholdengo",
+    "ability": "goodasgold",
+    "moves": [
+     "shadowball",
+     "makeitrain",
+     "nastyplot",
+     "recover"
+    ],
+    "item": "kasibberry",
+    "nature": "modest",
+    "sp": [
+     31,
+     0,
+     0,
+     17,
+     9,
+     9
+    ]
+   }
+  ]
+ },
+ {
+  "id": "10",
+  "title": "pokedb 10",
+  "team": [
+   {
+    "species": "hippowdon",
+    "ability": "sandstream",
+    "moves": [
+     "earthquake",
+     "stealthrock",
+     "yawn",
+     "whirlwind"
+    ],
+    "item": "sitrusberry",
+    "nature": "careful",
+    "sp": [
+     32,
+     0,
+     2,
+     0,
+     32,
+     0
+    ]
+   },
+   {
+    "species": "dragonite",
+    "ability": "multiscale",
+    "moves": [
+     "dragonpulse",
+     "flamethrower",
+     "thunderbolt",
+     "roost"
+    ],
+    "item": "dragoninite",
+    "nature": "timid",
+    "sp": [
+     1,
+     0,
+     0,
+     32,
+     1,
+     32
+    ]
+   },
+   {
+    "species": "scizor",
+    "ability": "technician",
+    "moves": [
+     "bulletpunch",
+     "uturn",
+     "swordsdance",
+     "roost"
+    ],
+    "item": "scizorite",
+    "nature": "adamant",
+    "sp": [
+     32,
+     2,
+     32,
+     0,
+     0,
+     0
+    ]
+   },
+   {
+    "species": "hydreigon",
+    "ability": "levitate",
+    "moves": [
+     "dracometeor",
+     "darkpulse",
+     "flamethrower",
+     "uturn"
+    ],
+    "item": "choicescarf",
+    "nature": "modest",
+    "sp": [
+     2,
+     0,
+     0,
+     32,
+     0,
+     32
+    ]
+   },
+   {
+    "species": "primarina",
+    "ability": "torrent",
+    "moves": [
+     "sparklingaria",
+     "moonblast",
+     "calmmind",
+     "encore"
+    ],
+    "item": "leftovers",
+    "nature": "modest",
+    "sp": [
+     32,
+     0,
+     0,
+     11,
+     0,
+     23
+    ]
+   },
+   {
+    "species": "gholdengo",
+    "ability": "goodasgold",
+    "moves": [
+     "makeitrain",
+     "shadowball",
+     "nastyplot",
+     "recover"
+    ],
+    "item": "lifeorb",
+    "nature": "modest",
+    "sp": [
+     27,
+     0,
+     0,
+     22,
+     0,
+     17
+    ]
+   }
+  ]
+ },
+ {
+  "id": "16",
+  "title": "pokedb 16",
+  "team": [
+   {
+    "species": "floetteeternal",
+    "ability": "flowerveil",
+    "moves": [
+     "moonblast",
+     "calmmind",
+     "charm",
+     "synthesis"
+    ],
+    "item": "floettite",
+    "nature": "timid",
+    "sp": [
+     22,
+     0,
+     11,
+     1,
+     0,
+     32
+    ]
+   },
+   {
+    "species": "garchomp",
+    "ability": "roughskin",
+    "moves": [
+     "earthquake",
+     "dragontail",
+     "stealthrock",
+     "spikes"
+    ],
+    "item": "sitrusberry",
+    "nature": "impish",
+    "sp": [
+     30,
+     0,
+     26,
+     0,
+     7,
+     3
+    ]
+   },
+   {
+    "species": "slowking",
+    "ability": "regenerator",
+    "moves": [
+     "scald",
+     "yawn",
+     "chillyreception",
+     "slackoff"
+    ],
+    "item": "leftovers",
+    "nature": "calm",
+    "sp": [
+     31,
+     0,
+     25,
+     0,
+     10,
+     0
+    ]
+   },
+   {
+    "species": "charizard",
+    "ability": "blaze",
+    "moves": [
+     "flamethrower",
+     "solarbeam",
+     "willowisp",
+     "roost"
+    ],
+    "item": "charizarditey",
+    "nature": "timid",
+    "sp": [
+     22,
+     0,
+     17,
+     5,
+     0,
+     22
+    ]
+   },
+   {
+    "species": "scizor",
+    "ability": "technician",
+    "moves": [
+     "bulletpunch",
+     "knockoff",
+     "defog",
+     "roost"
+    ],
+    "item": "metalcoat",
+    "nature": "adamant",
+    "sp": [
+     32,
+     0,
+     26,
+     0,
+     8,
+     0
+    ]
+   },
+   {
+    "species": "meowscarada",
+    "ability": "protean",
+    "moves": [
+     "flowertrick",
+     "tripleaxel",
+     "thunderpunch",
+     "uturn"
+    ],
+    "item": "choicescarf",
+    "nature": "adamant",
+    "sp": [
+     8,
+     30,
+     0,
+     0,
+     0,
+     28
+    ]
+   }
+  ]
+ },
+ {
+  "id": "17",
+  "title": "pokedb 17",
+  "team": [
+   {
+    "species": "garchomp",
+    "ability": "roughskin",
+    "moves": [
+     "earthquake",
+     "dragontail",
+     "stealthrock",
+     "rocktomb"
+    ],
+    "item": "sitrusberry",
+    "nature": "serious",
+    "sp": [
+     24,
+     0,
+     22,
+     0,
+     0,
+     20
+    ]
+   },
+   {
+    "species": "clefable",
+    "ability": "unaware",
+    "moves": [
+     "moonblast",
+     "mysticalfire",
+     "cosmicpower",
+     "moonlight"
+    ],
+    "item": "clefablite",
+    "nature": "serious",
+    "sp": [
+     32,
+     0,
+     32,
+     0,
+     2,
+     0
+    ]
+   },
+   {
+    "species": "archaludon",
+    "ability": "sturdy",
+    "moves": [
+     "thunderbolt",
+     "flashcannon",
+     "dracometeor",
+     "dragonpulse"
+    ],
+    "item": "choicescarf",
+    "nature": "serious",
+    "sp": [
+     0,
+     0,
+     1,
+     32,
+     1,
+     32
+    ]
+   },
+   {
+    "species": "gyarados",
+    "ability": "intimidate",
+    "moves": [
+     "waterfall",
+     "dragondance",
+     "earthquake",
+     "taunt"
+    ],
+    "item": "gyaradosite",
+    "nature": "serious",
+    "sp": [
+     19,
+     32,
+     0,
+     0,
+     0,
+     15
+    ]
+   },
+   {
+    "species": "volcarona",
+    "ability": "swarm",
+    "moves": [
+     "fierydance",
+     "bugbuzz",
+     "quiverdance",
+     "psychic"
+    ],
+    "item": "focussash",
+    "nature": "serious",
+    "sp": [
+     1,
+     0,
+     1,
+     32,
+     0,
+     32
+    ]
+   },
+   {
+    "species": "mimikyu",
+    "ability": "disguise",
+    "moves": [
+     "playrough",
+     "shadowclaw",
+     "shadowsneak",
+     "swordsdance"
+    ],
+    "item": "scopelens",
+    "nature": "serious",
+    "sp": [
+     29,
+     30,
+     7,
+     0,
+     0,
+     0
+    ]
+   }
+  ]
+ },
+ {
+  "id": "18",
+  "title": "pokedb 18",
+  "team": [
+   {
+    "species": "gyarados",
+    "ability": "intimidate",
+    "moves": [
+     "powerwhip",
+     "earthquake",
+     "icefang",
+     "dragondance"
+    ],
+    "item": "gyaradosite",
+    "nature": "adamant",
+    "sp": [
+     5,
+     31,
+     0,
+     0,
+     0,
+     30
+    ]
+   },
+   {
+    "species": "hippowdon",
+    "ability": "sandstream",
+    "moves": [
+     "earthquake",
+     "stealthrock",
+     "yawn",
+     "whirlwind"
+    ],
+    "item": "sitrusberry",
+    "nature": "careful",
+    "sp": [
+     32,
+     0,
+     0,
+     0,
+     30,
+     4
+    ]
+   },
+   {
+    "species": "archaludon",
+    "ability": "sturdy",
+    "moves": [
+     "dracometeor",
+     "flashcannon",
+     "thunderbolt",
+     "rocktomb"
+    ],
+    "item": "whiteherb",
+    "nature": "modest",
+    "sp": [
+     2,
+     0,
+     0,
+     32,
+     0,
+     32
+    ]
+   },
+   {
+    "species": "primarina",
+    "ability": "torrent",
+    "moves": [
+     "sparklingaria",
+     "moonblast",
+     "encore",
+     "aquajet"
+    ],
+    "item": "focussash",
+    "nature": "mild",
+    "sp": [
+     0,
+     2,
+     0,
+     32,
+     0,
+     32
+    ]
+   },
+   {
+    "species": "scizor",
+    "ability": "technician",
+    "moves": [
+     "bulletpunch",
+     "closecombat",
+     "knockoff",
+     "swordsdance"
+    ],
+    "item": "scizorite",
+    "nature": "adamant",
+    "sp": [
+     30,
+     32,
+     3,
+     0,
+     0,
+     1
+    ]
+   },
+   {
+    "species": "garchomp",
+    "ability": "roughskin",
+    "moves": [
+     "scaleshot",
+     "earthquake",
+     "stealthrock",
+     "swordsdance"
+    ],
+    "item": "lumberry",
+    "nature": "jolly",
+    "sp": [
+     2,
+     32,
+     0,
+     0,
+     0,
+     32
+    ]
+   }
+  ]
+ },
+ {
+  "id": "19",
+  "title": "pokedb 19",
+  "team": [
+   {
+    "species": "scizor",
+    "ability": "technician",
+    "moves": [
+     "bulletpunch",
+     "knockoff",
+     "uturn",
+     "swordsdance"
+    ],
+    "item": "metalcoat",
+    "nature": "adamant",
+    "sp": [
+     30,
+     32,
+     0,
+     0,
+     0,
+     4
+    ]
+   },
+   {
+    "species": "garchomp",
+    "ability": "roughskin",
+    "moves": [
+     "scaleshot",
+     "earthquake",
+     "dragontail",
+     "stealthrock"
+    ],
+    "item": "focussash",
+    "nature": "adamant",
+    "sp": [
+     2,
+     32,
+     0,
+     0,
+     0,
+     32
+    ]
+   },
+   {
+    "species": "greninja",
+    "ability": "protean",
+    "moves": [
+     "icebeam",
+     "sludgewave",
+     "grassknot",
+     "darkpulse"
+    ],
+    "item": "greninjite",
+    "nature": "timid",
+    "sp": [
+     2,
+     0,
+     5,
+     32,
+     0,
+     27
+    ]
+   },
+   {
+    "species": "charizard",
+    "ability": "blaze",
+    "moves": [
+     "flamethrower",
+     "airslash",
+     "solarbeam",
+     "substitute"
+    ],
+    "item": "charizarditey",
+    "nature": "modest",
+    "sp": [
+     6,
+     0,
+     16,
+     26,
+     0,
+     18
+    ]
+   },
+   {
+    "species": "mimikyu",
+    "ability": "disguise",
+    "moves": [
+     "shadowsneak",
+     "drainpunch",
+     "playrough",
+     "swordsdance"
+    ],
+    "item": "lifeorb",
+    "nature": "adamant",
+    "sp": [
+     5,
+     32,
+     26,
+     0,
+     0,
+     3
+    ]
+   },
+   {
+    "species": "rotomwash",
+    "ability": "levitate",
+    "moves": [
+     "hydropump",
+     "voltswitch",
+     "painsplit",
+     "willowisp"
+    ],
+    "item": "leftovers",
+    "nature": "bold",
+    "sp": [
+     32,
+     0,
+     31,
+     0,
+     3,
+     0
+    ]
+   }
+  ]
+ },
+ {
+  "id": "22",
+  "title": "pokedb 22",
+  "team": [
+   {
+    "species": "hippowdon",
+    "ability": "sandstream",
+    "moves": [
+     "earthquake",
+     "yawn",
+     "whirlwind",
+     "slackoff"
+    ],
+    "item": "leftovers",
+    "nature": "impish",
+    "sp": [
+     32,
+     0,
+     32,
+     0,
+     2,
+     0
+    ]
+   },
+   {
+    "species": "charizard",
+    "ability": "blaze",
+    "moves": [
+     "flareblitz",
+     "outrage",
+     "flamecharge",
+     "swordsdance"
+    ],
+    "item": "charizarditex",
+    "nature": "adamant",
+    "sp": [
+     2,
+     32,
+     0,
+     0,
+     0,
+     32
+    ]
+   },
+   {
+    "species": "mimikyu",
+    "ability": "disguise",
+    "moves": [
+     "playrough",
+     "shadowclaw",
+     "shadowsneak",
+     "swordsdance"
+    ],
+    "item": "lifeorb",
+    "nature": "adamant",
+    "sp": [
+     2,
+     32,
+     0,
+     0,
+     0,
+     32
+    ]
+   },
+   {
+    "species": "metagross",
+    "ability": "clearbody",
+    "moves": [
+     "bodypress",
+     "psychicfangs",
+     "irondefense",
+     "agility"
+    ],
+    "item": "metagrossite",
+    "nature": "impish",
+    "sp": [
+     28,
+     1,
+     32,
+     0,
+     1,
+     4
+    ]
+   },
+   {
+    "species": "greninja",
+    "ability": "protean",
+    "moves": [
+     "darkpulse",
+     "sludgewave",
+     "icebeam",
+     "grassknot"
+    ],
+    "item": "greninjite",
+    "nature": "timid",
+    "sp": [
+     8,
+     0,
+     0,
+     32,
+     0,
+     26
+    ]
+   },
+   {
+    "species": "archaludon",
+    "ability": "stamina",
+    "moves": [
+     "stealthrock",
+     "dragontail",
+     "ironhead",
+     "mirrorcoat"
+    ],
+    "item": "sitrusberry",
+    "nature": "careful",
+    "sp": [
+     32,
+     0,
+     0,
+     0,
+     30,
+     4
+    ]
+   }
+  ]
+ },
+ {
+  "id": "25",
+  "title": "pokedb 25",
+  "team": [
+   {
+    "species": "gyarados",
+    "ability": "intimidate",
+    "moves": [
+     "crunch",
+     "powerwhip",
+     "temperflare",
+     "dragondance"
+    ],
+    "item": "gyaradosite",
+    "nature": "jolly",
+    "sp": [
+     1,
+     32,
+     1,
+     0,
+     0,
+     32
+    ]
+   },
+   {
+    "species": "sylveon",
+    "ability": "pixilate",
+    "moves": [
+     "hypervoice",
+     "yawn",
+     "protect",
+     "wish"
+    ],
+    "item": "leftovers",
+    "nature": "bold",
+    "sp": [
+     32,
+     0,
+     31,
+     0,
+     0,
+     3
+    ]
+   },
+   {
+    "species": "garchomp",
+    "ability": "roughskin",
+    "moves": [
+     "earthquake",
+     "dragontail",
+     "poisonjab",
+     "stealthrock"
+    ],
+    "item": "focussash",
+    "nature": "adamant",
+    "sp": [
+     2,
+     32,
+     0,
+     0,
+     0,
+     32
+    ]
+   },
+   {
+    "species": "mimikyu",
+    "ability": "disguise",
+    "moves": [
+     "playrough",
+     "shadowsneak",
+     "swordsdance",
+     "curse"
+    ],
+    "item": "lifeorb",
+    "nature": "adamant",
+    "sp": [
+     1,
+     32,
+     1,
+     0,
+     0,
+     32
+    ]
+   },
+   {
+    "species": "delphox",
+    "ability": "blaze",
+    "moves": [
+     "overheat",
+     "psyshock",
+     "grassknot",
+     "nastyplot"
+    ],
+    "item": "delphoxite",
+    "nature": "modest",
+    "sp": [
+     9,
+     0,
+     7,
+     21,
+     0,
+     29
+    ]
+   },
+   {
+    "species": "archaludon",
+    "ability": "sturdy",
+    "moves": [
+     "dracometeor",
+     "flashcannon",
+     "thunderbolt",
+     "darkpulse"
+    ],
+    "item": "choicescarf",
+    "nature": "timid",
+    "sp": [
+     2,
+     0,
+     0,
+     32,
+     0,
+     32
+    ]
+   }
+  ]
+ },
+ {
+  "id": "27",
+  "title": "pokedb 27",
+  "team": [
+   {
+    "species": "delphox",
+    "ability": "blaze",
+    "moves": [
+     "mysticalfire",
+     "psychic",
+     "willowisp",
+     "encore"
+    ],
+    "item": "delphoxite",
+    "nature": "timid",
+    "sp": [
+     31,
+     0,
+     18,
+     4,
+     0,
+     13
+    ]
+   },
+   {
+    "species": "archaludon",
+    "ability": "stamina",
+    "moves": [
+     "dracometeor",
+     "flashcannon",
+     "stealthrock",
+     "roar"
+    ],
+    "item": "sitrusberry",
+    "nature": "bold",
+    "sp": [
+     32,
+     0,
+     2,
+     0,
+     32,
+     0
+    ]
+   },
+   {
+    "species": "primarina",
+    "ability": "torrent",
+    "moves": [
+     "surf",
+     "moonblast",
+     "calmmind",
+     "rest"
+    ],
+    "item": "lumberry",
+    "nature": "modest",
+    "sp": [
+     32,
+     0,
+     22,
+     0,
+     0,
+     12
+    ]
+   },
+   {
+    "species": "kingambit",
+    "ability": "supremeoverlord",
+    "moves": [
+     "kowtowcleave",
+     "ironhead",
+     "suckerpunch",
+     "swordsdance"
+    ],
+    "item": "blackglasses",
+    "nature": "adamant",
+    "sp": [
+     8,
+     32,
+     0,
+     0,
+     0,
+     26
+    ]
+   },
+   {
+    "species": "garchomp",
+    "ability": "roughskin",
+    "moves": [
+     "earthquake",
+     "outrage",
+     "rocktomb",
+     "firefang"
+    ],
+    "item": "choicescarf",
+    "nature": "adamant",
+    "sp": [
+     2,
+     32,
+     0,
+     0,
+     0,
+     32
+    ]
+   },
+   {
+    "species": "venusaur",
+    "ability": "overgrow",
+    "moves": [
+     "gigadrain",
+     "sludgebomb",
+     "earthpower",
+     "synthesis"
+    ],
+    "item": "venusaurite",
+    "nature": "bold",
+    "sp": [
+     32,
+     0,
+     20,
+     0,
+     11,
+     3
+    ]
+   }
+  ]
+ },
+ {
+  "id": "31",
+  "title": "pokedb 31",
+  "team": [
+   {
+    "species": "gengar",
+    "ability": "cursedbody",
+    "moves": [
+     "protect",
+     "shadowball",
+     "destinybond",
+     "perishsong"
+    ],
+    "item": "gengarite",
+    "nature": "timid",
+    "sp": [
+     14,
+     0,
+     0,
+     20,
+     0,
+     32
+    ]
+   },
+   {
+    "species": "garchomp",
+    "ability": "roughskin",
+    "moves": [
+     "earthquake",
+     "rocktomb",
+     "dragontail",
+     "stealthrock"
+    ],
+    "item": "focussash",
+    "nature": "adamant",
+    "sp": [
+     2,
+     32,
+     0,
+     0,
+     0,
+     32
+    ]
+   },
+   {
+    "species": "raichu",
+    "ability": "lightningrod",
+    "moves": [
+     "zapcannon",
+     "focusblast",
+     "substitute",
+     "nastyplot"
+    ],
+    "item": "raichunitey",
+    "nature": "timid",
+    "sp": [
+     2,
+     0,
+     0,
+     32,
+     0,
+     32
+    ]
+   },
+   {
+    "species": "corviknight",
+    "ability": "pressure",
+    "moves": [
+     "uturn",
+     "ironhead",
+     "bulkup",
+     "roost"
+    ],
+    "item": "sitrusberry",
+    "nature": "relaxed",
+    "sp": [
+     32,
+     0,
+     32,
+     0,
+     2,
+     0
+    ]
+   },
+   {
+    "species": "umbreon",
+    "ability": "innerfocus",
+    "moves": [
+     "protect",
+     "foulplay",
+     "toxic",
+     "moonlight"
+    ],
+    "item": "leftovers",
+    "nature": "bold",
+    "sp": [
+     32,
+     0,
+     21,
+     0,
+     13,
+     0
+    ]
+   },
+   {
+    "species": "basculegion",
+    "ability": "adaptability",
+    "moves": [
+     "wavecrash",
+     "icefang",
+     "aquajet",
+     "flipturn"
+    ],
+    "item": "mysticwater",
+    "nature": "adamant",
+    "sp": [
+     0,
+     32,
+     29,
+     0,
+     0,
+     5
+    ]
+   }
+  ]
+ },
+ {
+  "id": "32",
+  "title": "pokedb 32",
+  "team": [
+   {
+    "species": "hippowdon",
+    "ability": "sandstream",
+    "moves": [
+     "earthquake",
+     "stoneedge",
+     "yawn",
+     "slackoff"
+    ],
+    "item": "leftovers",
+    "nature": "impish",
+    "sp": [
+     32,
+     0,
+     18,
+     0,
+     16,
+     0
+    ]
+   },
+   {
+    "species": "charizard",
+    "ability": "blaze",
+    "moves": [
+     "overheat",
+     "flamethrower",
+     "solarbeam",
+     "dragonpulse"
+    ],
+    "item": "charizarditey",
+    "nature": "modest",
+    "sp": [
+     10,
+     0,
+     14,
+     21,
+     0,
+     21
+    ]
+   },
+   {
+    "species": "meowscarada",
+    "ability": "protean",
+    "moves": [
+     "flowertrick",
+     "thunderpunch",
+     "tripleaxel",
+     "uturn"
+    ],
+    "item": "choicescarf",
+    "nature": "adamant",
+    "sp": [
+     4,
+     25,
+     23,
+     0,
+     0,
+     14
+    ]
+   },
+   {
+    "species": "mimikyu",
+    "ability": "disguise",
+    "moves": [
+     "playrough",
+     "shadowclaw",
+     "shadowsneak",
+     "swordsdance"
+    ],
+    "item": "lifeorb",
+    "nature": "adamant",
+    "sp": [
+     28,
+     32,
+     3,
+     0,
+     0,
+     3
+    ]
+   },
+   {
+    "species": "metagross",
+    "ability": "clearbody",
+    "moves": [
+     "meteormash",
+     "hammerarm",
+     "thunderpunch",
+     "bulletpunch"
+    ],
+    "item": "metagrossite",
+    "nature": "adamant",
+    "sp": [
+     25,
+     32,
+     0,
+     0,
+     0,
+     9
+    ]
+   },
+   {
+    "species": "primarina",
+    "ability": "torrent",
+    "moves": [
+     "moonblast",
+     "sparklingaria",
+     "aquajet",
+     "calmmind"
+    ],
+    "item": "sitrusberry",
+    "nature": "modest",
+    "sp": [
+     32,
+     0,
+     17,
+     14,
+     0,
+     3
+    ]
+   }
+  ]
+ },
+ {
+  "id": "33",
+  "title": "pokedb 33",
+  "team": [
+   {
+    "species": "starmie",
+    "ability": "naturalcure",
+    "moves": [
+     "liquidation",
+     "psychocut",
+     "bulkup",
+     "aquajet"
+    ],
+    "item": "starminite",
+    "nature": "jolly",
+    "sp": [
+     6,
+     32,
+     1,
+     0,
+     0,
+     27
+    ]
+   },
+   {
+    "species": "samurotthisui",
+    "ability": "sharpness",
+    "moves": [
+     "ceaselessedge",
+     "sacredsword",
+     "suckerpunch",
+     "swordsdance"
+    ],
+    "item": "sitrusberry",
+    "nature": "adamant",
+    "sp": [
+     32,
+     17,
+     7,
+     0,
+     1,
+     9
+    ]
+   },
+   {
+    "species": "gholdengo",
+    "ability": "goodasgold",
+    "moves": [
+     "makeitrain",
+     "shadowball",
+     "nastyplot",
+     "recover"
+    ],
+    "item": "lifeorb",
+    "nature": "modest",
+    "sp": [
+     27,
+     0,
+     1,
+     17,
+     1,
+     20
+    ]
+   },
+   {
+    "species": "archaludon",
+    "ability": "stamina",
+    "moves": [
+     "dracometeor",
+     "flashcannon",
+     "stealthrock",
+     "roar"
+    ],
+    "item": "leftovers",
+    "nature": "bold",
+    "sp": [
+     32,
+     0,
+     0,
+     0,
+     31,
+     3
+    ]
+   },
+   {
+    "species": "garchomp",
+    "ability": "roughskin",
+    "moves": [
+     "earthquake",
+     "outrage",
+     "rocktomb",
+     "stealthrock"
+    ],
+    "item": "choicescarf",
+    "nature": "adamant",
+    "sp": [
+     12,
+     20,
+     0,
+     0,
+     3,
+     31
+    ]
+   },
+   {
+    "species": "clefable",
+    "ability": "unaware",
+    "moves": [
+     "moonblast",
+     "cosmicpower",
+     "encore",
+     "moonlight"
+    ],
+    "item": "clefablite",
+    "nature": "bold",
+    "sp": [
+     32,
+     0,
+     32,
+     0,
+     2,
+     0
+    ]
+   }
+  ]
+ },
+ {
+  "id": "34",
+  "title": "pokedb 34",
+  "team": [
+   {
+    "species": "delphox",
+    "ability": "blaze",
+    "moves": [
+     "flamethrower",
+     "psychicnoise",
+     "dazzlinggleam",
+     "substitute"
+    ],
+    "item": "delphoxite",
+    "nature": "timid",
+    "sp": [
+     1,
+     0,
+     1,
+     32,
+     0,
+     32
+    ]
+   },
+   {
+    "species": "archaludon",
+    "ability": "stamina",
+    "moves": [
+     "dragontail",
+     "ironhead",
+     "thunderwave",
+     "stealthrock"
+    ],
+    "item": "sitrusberry",
+    "nature": "impish",
+    "sp": [
+     32,
+     0,
+     0,
+     0,
+     26,
+     8
+    ]
+   },
+   {
+    "species": "samurotthisui",
+    "ability": "sharpness",
+    "moves": [
+     "ceaselessedge",
+     "razorshell",
+     "sacredsword",
+     "flipturn"
+    ],
+    "item": "choicescarf",
+    "nature": "jolly",
+    "sp": [
+     0,
+     32,
+     2,
+     0,
+     0,
+     32
+    ]
+   },
+   {
+    "species": "glimmora",
+    "ability": "toxicdebris",
+    "moves": [
+     "sludgewave",
+     "dazzlinggleam",
+     "energyball",
+     "earthpower"
+    ],
+    "item": "focussash",
+    "nature": "modest",
+    "sp": [
+     0,
+     0,
+     0,
+     32,
+     2,
+     32
+    ]
+   },
+   {
+    "species": "staraptor",
+    "ability": "intimidate",
+    "moves": [
+     "closecombat",
+     "bravebird",
+     "bulkup",
+     "roost"
+    ],
+    "item": "staraptite",
+    "nature": "jolly",
+    "sp": [
+     31,
+     0,
+     0,
+     0,
+     3,
+     32
+    ]
+   },
+   {
+    "species": "mimikyu",
+    "ability": "disguise",
+    "moves": [
+     "shadowclaw",
+     "playrough",
+     "swordsdance",
+     "shadowsneak"
+    ],
+    "item": "lifeorb",
+    "nature": "adamant",
+    "sp": [
+     0,
+     32,
+     2,
+     0,
+     0,
+     32
+    ]
+   }
+  ]
+ },
+ {
+  "id": "36",
+  "title": "pokedb 36",
+  "team": [
+   {
+    "species": "dragonite",
+    "ability": "multiscale",
+    "moves": [
+     "dracometeor",
+     "fireblast",
+     "earthquake",
+     "extremespeed"
+    ],
+    "item": "expertbelt",
+    "nature": "quiet",
+    "sp": [
+     31,
+     2,
+     1,
+     32,
+     0,
+     0
+    ]
+   },
+   {
+    "species": "gardevoir",
+    "ability": "trace",
+    "moves": [
+     "moonblast",
+     "vacuumwave",
+     "trickroom",
+     "healingwish"
+    ],
+    "item": "focussash",
+    "nature": "bold",
+    "sp": [
+     32,
+     0,
+     32,
+     0,
+     2,
+     0
+    ]
+   },
+   {
+    "species": "hippowdon",
+    "ability": "sandstream",
+    "moves": [
+     "earthquake",
+     "yawn",
+     "whirlwind",
+     "stealthrock"
+    ],
+    "item": "sitrusberry",
+    "nature": "impish",
+    "sp": [
+     32,
+     0,
+     10,
+     0,
+     24,
+     0
+    ]
+   },
+   {
+    "species": "meowscarada",
+    "ability": "overgrow",
+    "moves": [
+     "flowertrick",
+     "foulplay",
+     "tripleaxel",
+     "suckerpunch"
+    ],
+    "item": "lifeorb",
+    "nature": "jolly",
+    "sp": [
+     0,
+     17,
+     17,
+     0,
+     0,
+     32
+    ]
+   },
+   {
+    "species": "charizard",
+    "ability": "blaze",
+    "moves": [
+     "flamethrower",
+     "solarbeam",
+     "airslash",
+     "overheat"
+    ],
+    "item": "charizarditey",
+    "nature": "modest",
+    "sp": [
+     26,
+     0,
+     22,
+     4,
+     0,
+     14
+    ]
+   },
+   {
+    "species": "mawile",
+    "ability": "intimidate",
+    "moves": [
+     "playrough",
+     "suckerpunch",
+     "knockoff",
+     "swordsdance"
+    ],
+    "item": "mawilite",
+    "nature": "adamant",
+    "sp": [
+     28,
+     17,
+     0,
+     0,
+     0,
+     21
+    ]
+   }
+  ]
+ },
+ {
+  "id": "38",
+  "title": "pokedb 38",
+  "team": [
+   {
+    "species": "delphox",
+    "ability": "blaze",
+    "moves": [
+     "mysticalfire",
+     "psychic",
+     "willowisp",
+     "encore"
+    ],
+    "item": "delphoxite",
+    "nature": "timid",
+    "sp": [
+     31,
+     0,
+     12,
+     4,
+     0,
+     19
+    ]
+   },
+   {
+    "species": "garchomp",
+    "ability": "roughskin",
+    "moves": [
+     "earthquake",
+     "scaleshot",
+     "stealthrock",
+     "dragontail"
+    ],
+    "item": "sitrusberry",
+    "nature": "impish",
+    "sp": [
+     32,
+     0,
+     29,
+     0,
+     0,
+     5
+    ]
+   },
+   {
+    "species": "kingambit",
+    "ability": "supremeoverlord",
+    "moves": [
+     "kowtowcleave",
+     "ironhead",
+     "swordsdance",
+     "suckerpunch"
+    ],
+    "item": "blackglasses",
+    "nature": "adamant",
+    "sp": [
+     0,
+     32,
+     1,
+     0,
+     1,
+     32
+    ]
+   },
+   {
+    "species": "primarina",
+    "ability": "torrent",
+    "moves": [
+     "hypervoice",
+     "moonblast",
+     "aquajet",
+     "substitute"
+    ],
+    "item": "leftovers",
+    "nature": "modest",
+    "sp": [
+     22,
+     0,
+     0,
+     21,
+     0,
+     23
+    ]
+   },
+   {
+    "species": "gengar",
+    "ability": "cursedbody",
+    "moves": [
+     "shadowball",
+     "sludgewave",
+     "focusblast",
+     "icywind"
+    ],
+    "item": "focussash",
+    "nature": "timid",
+    "sp": [
+     2,
+     0,
+     0,
+     32,
+     0,
+     32
+    ]
+   },
+   {
+    "species": "mawile",
+    "ability": "intimidate",
+    "moves": [
+     "thunderpunch",
+     "playrough",
+     "suckerpunch",
+     "swordsdance"
+    ],
+    "item": "mawilite",
+    "nature": "adamant",
+    "sp": [
+     8,
+     31,
+     0,
+     0,
+     0,
+     27
+    ]
+   }
+  ]
+ },
+ {
+  "id": "41",
+  "title": "pokedb 41",
+  "team": [
+   {
+    "species": "charizard",
+    "ability": "blaze",
+    "moves": [
+     "flareblitz",
+     "outrage",
+     "flamecharge",
+     "swordsdance"
+    ],
+    "item": "charizarditex",
+    "nature": "adamant",
+    "sp": [
+     2,
+     32,
+     0,
+     0,
+     0,
+     32
+    ]
+   },
+   {
+    "species": "raichu",
+    "ability": "lightningrod",
+    "moves": [
+     "zapcannon",
+     "focusblast",
+     "alluringvoice",
+     "nastyplot"
+    ],
+    "item": "raichunitey",
+    "nature": "modest",
+    "sp": [
+     32,
+     0,
+     0,
+     0,
+     5,
+     29
+    ]
+   },
+   {
+    "species": "orthworm",
+    "ability": "eartheater",
+    "moves": [
+     "heavyslam",
+     "bodypress",
+     "irondefense",
+     "metalburst"
+    ],
+    "item": "leftovers",
+    "nature": "impish",
+    "sp": [
+     32,
+     0,
+     25,
+     0,
+     0,
+     9
+    ]
+   },
+   {
+    "species": "mimikyu",
+    "ability": "disguise",
+    "moves": [
+     "playrough",
+     "woodhammer",
+     "shadowsneak",
+     "swordsdance"
+    ],
+    "item": "lifeorb",
+    "nature": "adamant",
+    "sp": [
+     29,
+     32,
+     4,
+     0,
+     0,
+     1
+    ]
+   },
+   {
+    "species": "primarina",
+    "ability": "torrent",
+    "moves": [
+     "hypervoice",
+     "moonblast",
+     "aquajet",
+     "encore"
+    ],
+    "item": "sitrusberry",
+    "nature": "quiet",
+    "sp": [
+     32,
+     0,
+     20,
+     14,
+     0,
+     0
+    ]
+   },
+   {
+    "species": "garchomp",
+    "ability": "roughskin",
+    "moves": [
+     "earthquake",
+     "scaleshot",
+     "thunderfang",
+     "swordsdance"
+    ],
+    "item": "focussash",
+    "nature": "adamant",
+    "sp": [
+     2,
+     32,
+     0,
+     0,
+     0,
+     32
+    ]
+   }
+  ]
+ },
+ {
+  "id": "42",
+  "title": "pokedb 42",
+  "team": [
+   {
+    "species": "hippowdon",
+    "ability": "sandstream",
+    "moves": [
+     "earthquake",
+     "stealthrock",
+     "yawn",
+     "whirlwind"
+    ],
+    "item": "sitrusberry",
+    "nature": "sassy",
+    "sp": [
+     32,
+     0,
+     2,
+     0,
+     32,
+     0
+    ]
+   },
+   {
+    "species": "lucario",
+    "ability": "innerfocus",
+    "moves": [
+     "closecombat",
+     "meteormash",
+     "extremespeed",
+     "swordsdance"
+    ],
+    "item": "lucarionite",
+    "nature": "adamant",
+    "sp": [
+     0,
+     32,
+     1,
+     0,
+     1,
+     32
+    ]
+   },
+   {
+    "species": "dragonite",
+    "ability": "multiscale",
+    "moves": [
+     "dragonrush",
+     "earthquake",
+     "thunderpunch",
+     "dragondance"
+    ],
+    "item": "expertbelt",
+    "nature": "adamant",
+    "sp": [
+     1,
+     32,
+     1,
+     0,
+     0,
+     32
+    ]
+   },
+   {
+    "species": "gyarados",
+    "ability": "intimidate",
+    "moves": [
+     "waterfall",
+     "powerwhip",
+     "lashout",
+     "dragontail"
+    ],
+    "item": "leftovers",
+    "nature": "impish",
+    "sp": [
+     32,
+     8,
+     16,
+     0,
+     0,
+     0
+    ]
+   },
+   {
+    "species": "glimmora",
+    "ability": "toxicdebris",
+    "moves": [
+     "sludgebomb",
+     "earthpower",
+     "energyball",
+     "dazzlinggleam"
+    ],
+    "item": "focussash",
+    "nature": "modest",
+    "sp": [
+     1,
+     0,
+     0,
+     32,
+     1,
+     32
+    ]
+   },
+   {
+    "species": "mimikyu",
+    "ability": "disguise",
+    "moves": [
+     "playrough",
+     "shadowsneak",
+     "woodhammer",
+     "swordsdance"
+    ],
+    "item": "lifeorb",
+    "nature": "adamant",
+    "sp": [
+     0,
+     32,
+     2,
+     0,
+     0,
+     32
+    ]
+   }
+  ]
+ },
+ {
+  "id": "44",
+  "title": "pokedb 44",
+  "team": [
+   {
+    "species": "umbreon",
+    "ability": "innerfocus",
+    "moves": [
+     "foulplay",
+     "wish",
+     "yawn",
+     "protect"
+    ],
+    "item": "leftovers",
+    "nature": "bold",
+    "sp": [
+     32,
+     0,
+     32,
+     0,
+     1,
+     1
+    ]
+   },
+   {
+    "species": "archaludon",
+    "ability": "sturdy",
+    "moves": [
+     "protect",
+     "thunderbolt",
+     "flashcannon",
+     "dracometeor"
+    ],
+    "item": "dragonfang",
+    "nature": "modest",
+    "sp": [
+     2,
+     0,
+     0,
+     32,
+     0,
+     32
+    ]
+   },
+   {
+    "species": "garchomp",
+    "ability": "roughskin",
+    "moves": [
+     "outrage",
+     "earthquake",
+     "rocktomb",
+     "firefang"
+    ],
+    "item": "choicescarf",
+    "nature": "adamant",
+    "sp": [
+     0,
+     32,
+     2,
+     0,
+     0,
+     32
+    ]
+   },
+   {
+    "species": "gengar",
+    "ability": "cursedbody",
+    "moves": [
+     "shadowball",
+     "perishsong",
+     "protect",
+     "destinybond"
+    ],
+    "item": "gengarite",
+    "nature": "timid",
+    "sp": [
+     24,
+     0,
+     0,
+     10,
+     0,
+     32
+    ]
+   },
+   {
+    "species": "basculegion",
+    "ability": "adaptability",
+    "moves": [
+     "lastrespects",
+     "wavecrash",
+     "aquajet",
+     "flipturn"
+    ],
+    "item": "mysticwater",
+    "nature": "adamant",
+    "sp": [
+     2,
+     32,
+     32,
+     0,
+     0,
+     0
+    ]
+   },
+   {
+    "species": "corviknight",
+    "ability": "pressure",
+    "moves": [
+     "uturn",
+     "ironhead",
+     "bulkup",
+     "roost"
+    ],
+    "item": "sitrusberry",
+    "nature": "relaxed",
+    "sp": [
+     32,
+     0,
+     32,
+     0,
+     2,
+     0
+    ]
+   }
+  ]
+ },
+ {
+  "id": "45",
+  "title": "pokedb 45",
+  "team": [
+   {
+    "species": "metagross",
+    "ability": "clearbody",
+    "moves": [
+     "ironhead",
+     "icepunch",
+     "thunderpunch",
+     "bulletpunch"
+    ],
+    "item": "metagrossite",
+    "nature": "adamant",
+    "sp": [
+     16,
+     25,
+     0,
+     0,
+     0,
+     25
+    ]
+   },
+   {
+    "species": "hippowdon",
+    "ability": "sandstream",
+    "moves": [
+     "earthquake",
+     "yawn",
+     "stealthrock",
+     "slackoff"
+    ],
+    "item": "leftovers",
+    "nature": "impish",
+    "sp": [
+     32,
+     0,
+     18,
+     0,
+     16,
+     0
+    ]
+   },
+   {
+    "species": "delphox",
+    "ability": "blaze",
+    "moves": [
+     "flamethrower",
+     "psyshock",
+     "encore",
+     "substitute"
+    ],
+    "item": "delphoxite",
+    "nature": "timid",
+    "sp": [
+     1,
+     0,
+     0,
+     32,
+     1,
+     32
+    ]
+   },
+   {
+    "species": "primarina",
+    "ability": "torrent",
+    "moves": [
+     "hypervoice",
+     "moonblast",
+     "aquajet",
+     "encore"
+    ],
+    "item": "sitrusberry",
+    "nature": "modest",
+    "sp": [
+     32,
+     0,
+     11,
+     14,
+     0,
+     9
+    ]
+   },
+   {
+    "species": "garchomp",
+    "ability": "roughskin",
+    "moves": [
+     "earthquake",
+     "scaleshot",
+     "poisonjab",
+     "swordsdance"
+    ],
+    "item": "focussash",
+    "nature": "jolly",
+    "sp": [
+     0,
+     32,
+     2,
+     0,
+     0,
+     32
+    ]
+   },
+   {
+    "species": "kingambit",
+    "ability": "supremeoverlord",
+    "moves": [
+     "kowtowcleave",
+     "suckerpunch",
+     "ironhead",
+     "swordsdance"
+    ],
+    "item": "blackglasses",
+    "nature": "adamant",
+    "sp": [
+     16,
+     30,
+     1,
+     0,
+     0,
+     19
+    ]
+   }
+  ]
+ },
+ {
+  "id": "46",
+  "title": "pokedb 46",
+  "team": [
+   {
+    "species": "gyarados",
+    "ability": "intimidate",
+    "moves": [
+     "dragondance",
+     "icefang",
+     "earthquake",
+     "powerwhip"
+    ],
+    "item": "gyaradosite",
+    "nature": "jolly",
+    "sp": [
+     1,
+     32,
+     1,
+     0,
+     0,
+     32
+    ]
+   },
+   {
+    "species": "grimmsnarl",
+    "ability": "prankster",
+    "moves": [
+     "taunt",
+     "reflect",
+     "lightscreen",
+     "spiritbreak"
+    ],
+    "item": "lightclay",
+    "nature": "impish",
+    "sp": [
+     31,
+     0,
+     22,
+     0,
+     10,
+     3
+    ]
+   },
+   {
+    "species": "glimmora",
+    "ability": "toxicdebris",
+    "moves": [
+     "mortalspin",
+     "mudshot",
+     "energyball",
+     "earthpower"
+    ],
+    "item": "focussash",
+    "nature": "timid",
+    "sp": [
+     1,
+     0,
+     0,
+     32,
+     1,
+     32
+    ]
+   },
+   {
+    "species": "clefable",
+    "ability": "unaware",
+    "moves": [
+     "cosmicpower",
+     "moonlight",
+     "storedpower",
+     "moonblast"
+    ],
+    "item": "clefablite",
+    "nature": "bold",
+    "sp": [
+     32,
+     0,
+     32,
+     0,
+     0,
+     2
+    ]
+   },
+   {
+    "species": "polteageist",
+    "ability": "cursedbody",
+    "moves": [
+     "shellsmash",
+     "batonpass",
+     "strengthsap",
+     "storedpower"
+    ],
+    "item": "whiteherb",
+    "nature": "bold",
+    "sp": [
+     14,
+     0,
+     26,
+     0,
+     0,
+     26
+    ]
+   },
+   {
+    "species": "volcarona",
+    "ability": "flamebody",
+    "moves": [
+     "quiverdance",
+     "morningsun",
+     "gigadrain",
+     "fierydance"
+    ],
+    "item": "sitrusberry",
+    "nature": "timid",
+    "sp": [
+     32,
+     0,
+     23,
+     0,
+     0,
+     11
+    ]
+   }
+  ]
+ },
+ {
+  "id": "47",
+  "title": "pokedb 47",
+  "team": [
+   {
+    "species": "dragonite",
+    "ability": "multiscale",
+    "moves": [
+     "dracometeor",
+     "airslash",
+     "flamethrower",
+     "roost"
+    ],
+    "item": "dragoninite",
+    "nature": "modest",
+    "sp": [
+     25,
+     0,
+     0,
+     11,
+     0,
+     30
+    ]
+   },
+   {
+    "species": "gholdengo",
+    "ability": "goodasgold",
+    "moves": [
+     "makeitrain",
+     "shadowball",
+     "recover",
+     "nastyplot"
+    ],
+    "item": "leftovers",
+    "nature": "modest",
+    "sp": [
+     31,
+     0,
+     0,
+     4,
+     27,
+     4
+    ]
+   },
+   {
+    "species": "meowscarada",
+    "ability": "protean",
+    "moves": [
+     "aurasphere",
+     "powergem",
+     "tripleaxel",
+     "toxicspikes"
+    ],
+    "item": "focussash",
+    "nature": "mild",
+    "sp": [
+     0,
+     2,
+     0,
+     32,
+     0,
+     32
+    ]
+   },
+   {
+    "species": "scizor",
+    "ability": "technician",
+    "moves": [
+     "bulletpunch",
+     "uturn",
+     "roost",
+     "swordsdance"
+    ],
+    "item": "scizorite",
+    "nature": "adamant",
+    "sp": [
+     32,
+     2,
+     32,
+     0,
+     0,
+     0
+    ]
+   },
+   {
+    "species": "hydreigon",
+    "ability": "levitate",
+    "moves": [
+     "darkpulse",
+     "dracometeor",
+     "flamethrower",
+     "uturn"
+    ],
+    "item": "choicescarf",
+    "nature": "modest",
+    "sp": [
+     2,
+     0,
+     0,
+     32,
+     0,
+     32
+    ]
+   },
+   {
+    "species": "hippowdon",
+    "ability": "sandstream",
+    "moves": [
+     "earthquake",
+     "yawn",
+     "whirlwind",
+     "stealthrock"
+    ],
+    "item": "sitrusberry",
+    "nature": "careful",
+    "sp": [
+     32,
+     0,
+     2,
+     0,
+     32,
+     0
+    ]
+   }
+  ]
+ }
+]

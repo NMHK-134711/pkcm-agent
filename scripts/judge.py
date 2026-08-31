@@ -36,6 +36,9 @@ def main() -> int:
     parser.add_argument("checkpoint", nargs="?", default=None,
                         help="a saved network for side A. Omit to put "
                              "one search configuration against another")
+    parser.add_argument("--foe-teams", default=None, type=parse_team_source,
+                        help="side B's teams, when they should differ. Both "
+                             "seatings are played, so this stays fair")
     parser.add_argument("--belief-pool", default="ranker",
                         choices=("ranker", "invented"),
                         help="which sets the belief draws from. ``invented`` "
@@ -146,7 +149,8 @@ def main() -> int:
 
     config = MatchConfig(
         checkpoint=args.checkpoint, battle_format=args.format, trust=args.trust,
-        teams=args.teams, checkpoint_b=args.checkpoint_b,
+        teams=args.teams, foe_teams=args.foe_teams,
+        checkpoint_b=args.checkpoint_b,
         belief_pool=args.belief_pool,
         **({} if args.team_seed is None else {"team_seed": args.team_seed}),
         trust_prior=args.trust_prior, trust_value=args.trust_value,

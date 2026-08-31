@@ -156,6 +156,13 @@ def main() -> int:
                              "recombines the imported pkmnchamps parties; "
                              "37.5%% of random Pokemon carry no same-type "
                              "attack at all, against 4.9%% of those")
+    parser.add_argument("--foe-teams", default=None, type=parse_team_source,
+                        help="the opponent's distribution, when it should "
+                             "differ from ours. ``--teams parties:7 "
+                             "--foe-teams parties`` fixes the six we pilot and "
+                             "lets the field vary, which is the half of the "
+                             "generalisation demand a symmetric narrowing "
+                             "cannot separate")
     parser.add_argument("--trust-prior", type=float, default=None,
                         help="how far self-play and the in-loop arena believe "
                              "the policy head. Without it the prior is "
@@ -386,6 +393,7 @@ def main() -> int:
             trust_prior=args.trust_prior,
             trust_value=args.trust_value,
             teams=args.teams,
+            foe_teams=args.foe_teams,
         )
 
         started = time.perf_counter()
@@ -440,6 +448,7 @@ def main() -> int:
             gate_config = MatchConfig(
                 checkpoint=str(checkpoint), checkpoint_b=str(best),
                 battle_format=args.format, teams=args.teams,
+                foe_teams=args.foe_teams,
                 search=SearchConfig(
                     iterations=args.gate_search_iterations,
                     determinizations=max(4, args.gate_search_iterations // 20),
@@ -546,7 +555,7 @@ def measure(args, checkpoint: Path, workers: int) -> tuple[float, float, float]:
               else args.search_iterations)
     config = MatchConfig(
         checkpoint=str(checkpoint), battle_format=args.format,
-        teams=args.teams,
+        teams=args.teams, foe_teams=args.foe_teams,
         search=SearchConfig(iterations=budget,
                             determinizations=max(4, budget // 20),
                             leaf_batch=args.leaf_batch),

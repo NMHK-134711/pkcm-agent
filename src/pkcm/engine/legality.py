@@ -509,6 +509,15 @@ _HOLDABLE: frozenset[str] | None = None
 #: from the pkmnchamps archive; committed, because the archive itself is not.
 PARTIES_PATH = Path(__file__).resolve().parents[3] / "data" / "champions" / "parties_m_b.json"
 
+#: Parties transcribed by hand from champs.pokedb.tokyo, checked by
+#: ``scripts/check_party_text.py`` and appended to the imported ones.
+#:
+#: **Appended, never interleaved.** A party's index is how every measurement in
+#: this repo names it -- ``--teams parties:10,14,17,7`` is a curriculum, and
+#: ``runs/tournament_800_fixed.json`` is a ranking of 0 through 19. Inserting
+#: anything ahead of them would silently repoint all of it at other teams.
+HAND_PARTIES_PATH = PARTIES_PATH.with_name("parties_hand.json")
+
 
 @dataclass(frozen=True, slots=True)
 class Party:
@@ -529,11 +538,19 @@ class Party:
 
 
 def _party_payload(path: str | None) -> list[dict]:
-    target = Path(path) if path else PARTIES_PATH
-    if not target.exists():
+    if path is not None:
+        target = Path(path)
+        if not target.exists():
+            raise FileNotFoundError(f"{target} is not there")
+        return json.loads(target.read_text(encoding="utf-8"))
+
+    if not PARTIES_PATH.exists():
         raise FileNotFoundError(
-            f"{target} is not there -- run scripts/import_parties.py")
-    return json.loads(target.read_text(encoding="utf-8"))
+            f"{PARTIES_PATH} is not there -- run scripts/import_parties.py")
+    payload = json.loads(PARTIES_PATH.read_text(encoding="utf-8"))
+    if HAND_PARTIES_PATH.exists():
+        payload += json.loads(HAND_PARTIES_PATH.read_text(encoding="utf-8"))
+    return payload
 
 
 def _party_set(entry: dict) -> PokemonSet:

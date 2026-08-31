@@ -51,6 +51,10 @@ class MatchConfig:
     #: way from the game: 37.5% of their Pokemon carry no same-type
     #: attack at all, against 4.9% of the ranker pool's.
     teams: str = "random"
+    #: The opponent seat's distribution. ``None`` follows ``teams``. Both
+    #: seatings are played with the pair held fixed, so an asymmetric draw
+    #: still has each side pilot each team once.
+    foe_teams: str | None = None
     search: SearchConfig = field(default_factory=SearchConfig)
     trust: float = 1.0
     #: Per-head overrides. ``None`` follows ``trust``. Setting one to 1 and the
@@ -106,7 +110,9 @@ def play_match(dex: Dex, config: MatchConfig, match: int) -> Record:
     teams = tuple(
         make_team(dex, battle_config.regulation,
                   Rng.from_seed(config.team_seed + match * 2 + offset).cursor(),
-                  config.battle_format, config.teams)
+                  config.battle_format,
+                  config.teams if offset == 1 else
+                  (config.foe_teams or config.teams))
         for offset in (1, 2)
     )
     evaluator = _evaluator(dex, config, config.checkpoint) if config.checkpoint else None

@@ -345,16 +345,19 @@ def test_a_party_source_repeats_its_teams(dex, regulation):
     whole imported parties, so positions repeat and there is something to
     accumulate.
     """
-    from pkcm.engine.legality import make_team
+    from pkcm.engine.legality import make_team, ranker_parties
 
-    def distinct(source, draws=120):
+    def distinct(source, draws=200):
         return {tuple(sorted(pokemon.species for pokemon in make_team(
             dex, regulation, Rng.from_seed(seed).cursor(), "singles", source)))
             for seed in range(draws)}
 
     assert len(distinct("parties:10,14,17,7")) == 4
-    assert len(distinct("parties")) <= 20
-    assert len(distinct("ranker")) > 100
+    # Pinned to however many are imported, not to a number written here: the
+    # pool grows as parties are transcribed, and a literal would make that
+    # growth look like a regression.
+    assert len(distinct("parties")) <= len(ranker_parties())
+    assert len(distinct("ranker")) > 150
 
 
 def test_a_party_subset_is_checked_when_it_is_written(dex, regulation):

@@ -108,6 +108,21 @@ class SelfPlayConfig:
     #: way from the game: 37.5% of their Pokemon carry no same-type
     #: attack at all, against 4.9% of the ranker pool's.
     teams: str = "random"
+    #: The distribution the *opponent's* team comes from. ``None`` gives it
+    #: ``teams``, which is the symmetric case everything before this used.
+    #:
+    #: Splitting the two is a different lever from narrowing ``teams``. A run
+    #: has to generalise over two things at once -- how to pilot the six it was
+    #: handed, and how to answer the six across the table -- and only the first
+    #: is collapsed by naming one party on both sides. Fixing our own six while
+    #: the field varies leaves the second demand in place and removes the
+    #: first, which is also how a person improves: pick a team, learn it
+    #: against everyone.
+    #:
+    #: Both seats are still kept. The search models the opponent with the same
+    #: network, so training only the seat that holds the fixed party would rot
+    #: the model of everyone else and cost both sides of the tree.
+    foe_teams: str | None = None
     search: SearchConfig = field(default_factory=SearchConfig)
     #: How far forward the value target looks. See ``Sample.bootstrap``.
     #:
@@ -152,7 +167,8 @@ def play_one(dex: Dex, config: SelfPlayConfig, seed: int) -> list[Sample]:
     teams = tuple(
         make_team(dex, battle_config.regulation,
                   Rng.from_seed(seed * 2 + offset).cursor(), config.battle_format,
-                  config.teams)
+                  config.teams if offset == 1 else
+                  (config.foe_teams or config.teams))
         for offset in (1, 2)
     )
     state = new_battle(battle_config, teams, seed=seed)

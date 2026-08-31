@@ -5,7 +5,7 @@ game is running in Champions on this machine, and everything we know about the
 opponent arrives by being typed in. Our own party is fixed -- the tournament
 picked it -- and their six comes off team preview.
 
-    python scripts/coach.py --party 14         # opens http://127.0.0.1:8761
+    python scripts/coach.py --party 7 --checkpoint runs/curriculum4/best.pt
 
 Each turn is three things and they are ordered by how much they cost:
 
@@ -41,7 +41,11 @@ sys.path.insert(0, str(ROOT / "src"))
 from pkcm.data.dex import load_dex  # noqa: E402
 from pkcm.engine.actions import Action, ActionKind  # noqa: E402
 from pkcm.engine.legality import ranker_parties  # noqa: E402
-from pkcm.engine.state import Phase, legal_actions  # noqa: E402
+from pkcm.engine.state import (  # noqa: E402
+    BattleConfig,
+    Phase,
+    legal_actions,
+)
 from pkcm.envs.observation import Observation  # noqa: E402
 from pkcm.live import Mirror, MirrorError  # noqa: E402
 from pkcm.render.names import Names  # noqa: E402
@@ -69,6 +73,11 @@ LAYERED = frozenset({"spikes", "toxicspikes", "stealthrock", "stickyweb"})
 
 US, THEM = 0, 1
 
+#: The parties runs/curriculum4 was trained on. Off them the same
+#: network scores 42.7% [37.9, 47.6] against the handcrafted search --
+#: separably worse -- so this is worth a warning rather than a default.
+TRAINED_ON = frozenset({7, 10, 14, 17})
+
 
 class Coach:
     """One live game being advised on."""
@@ -81,15 +90,37 @@ class Coach:
         self.names = Names("ko", self.dex)
         self.renderer = Renderer("ko", self.dex, ("우리", "상대"))
         self.sprites = self._sprite_map()
-        self.search = MCTS(SearchConfig(
-            iterations=args.search_iterations,
-            determinizations=max(4, args.search_iterations // 20)))
+        self.search = MCTS(
+            SearchConfig(iterations=args.search_iterations,
+                         determinizations=max(4, args.search_iterations // 20)),
+            evaluator=self._evaluator())
         self.our_party = ranker_parties()[args.party]
         self.lookup = self._lookup()
         self.mirror: Mirror | None = None
         self.log: list[str] = []
         self.advice: dict | None = None
         self.error: str | None = None
+
+    def _evaluator(self):
+        """The trained network, if one was named.
+
+        ``runs/curriculum4/best.pt`` is the first network here measured
+        separably stronger than the handcrafted search -- but only on the four
+        parties it was trained on, and separably *worse* on drawn teams. So
+        this is an option rather than a default, and which party is being
+        played decides whether it is the right one.
+        """
+        if not self.args.checkpoint:
+            return None
+        from pkcm.envs.encoding import SCALAR_SIZE, action_space_size
+        from pkcm.train.evaluator import from_checkpoint
+
+        config = BattleConfig(dex=self.dex, regulation=self.regulation,
+                              battle_format=self.args.format)
+        return from_checkpoint(
+            self.args.checkpoint, self.dex,
+            action_space_size(config.registered, config.brought),
+            SCALAR_SIZE, device="cpu", trust=self.args.trust)
 
     def _sprite_map(self) -> dict[str, int]:
         manifest = SPRITE_DIR / "MANIFEST.json"
@@ -403,9 +434,19 @@ def main() -> int:
 
     parser = argparse.ArgumentParser(description=__doc__,
                                      formatter_class=argparse.RawDescriptionHelpFormatter)
-    parser.add_argument("--party", type=int, default=14,
+    parser.add_argument("--party", type=int, default=7,
                         help="which imported party we are playing; "
-                             "scripts/tournament.py prints the indices")
+                             "scripts/tournament.py prints the indices. 7 is "
+                             "where runs/profile_curriculum4.json measured the "
+                             "trained network strongest (74.0%%)")
+    parser.add_argument("--checkpoint", default=None,
+                        help="a trained network for the prior and leaf value, "
+                             "e.g. runs/curriculum4/best.pt. It is stronger "
+                             "than the handcrafted search only on the parties "
+                             "it was trained on (7, 17, 10, 14) and separably "
+                             "weaker off them -- so pass it with --party in "
+                             "that set, and leave it off otherwise")
+    parser.add_argument("--trust", type=float, default=1.0)
     parser.add_argument("--search-iterations", type=int, default=None,
                         help="defaults to the deploy budget. A real turn timer "
                              "is 45-90s and this costs a couple of seconds, so "
@@ -422,8 +463,14 @@ def main() -> int:
         args.search_iterations = DEPLOY_ITERATIONS
 
     Handler.coach = Coach(args)
-    print(f"우리 파티: {Handler.coach.our_party.title}")
-    print(f"탐색: {args.search_iterations} iterations")
+    print(f"우리 파티: {args.party} — {Handler.coach.our_party.title}")
+    print(f"탐색: {args.search_iterations} iterations"
+          + (f" + 망 {args.checkpoint}" if args.checkpoint
+             else " (손으로 짠 탐색)"))
+    if args.checkpoint and args.party not in TRAINED_ON:
+        print(f"  경고: 이 망은 파티 {sorted(TRAINED_ON)} 에서만 탐색보다 "
+              f"강하다고 측정됐습니다. 파티 {args.party} 에서는 "
+              f"--checkpoint 없이 쓰는 쪽이 나을 수 있습니다.")
     address = f"http://127.0.0.1:{args.port}"
     server = ThreadingHTTPServer(("127.0.0.1", args.port), Handler)
     print(f"열림: {address}   (Ctrl+C로 종료)")

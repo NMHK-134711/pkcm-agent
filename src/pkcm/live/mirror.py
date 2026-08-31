@@ -198,20 +198,20 @@ class Mirror:
         self._rewrite(party_index, ability=ability_id)
         self.state.revealed[THEM].abilities.add(slot)
 
-    def report_item(self, item_id: str, slot: int | None = None) -> None:
-        """Their held item was shown -- eaten, knocked off, or simply used.
+    def report_item(self, item_id: str, slot: int | None = None,
+                    consumed: bool = False) -> None:
+        """Their held item was shown -- used, eaten, knocked off, Frisked.
 
         Same payoff as ``report_ability``: the belief pool filters on
         ``item_known``, and an item is often the most identifying thing about a
         set. Choice Scarf and Leftovers say what the whole spread is for.
 
-        **A consumed item is recorded as still held.** The alternative -- taking
-        it away, which is what the engine does -- makes ``item_id`` report
-        ``None`` while ``item_known`` stays true, and the belief filter then
-        looks for ranker sets holding nothing, which almost none of them do. So
-        the search may model one more Sitrus Berry than they have left. That
-        errs towards thinking they are healthier than they are, which is the
-        safe direction for advice, and it keeps the filter working.
+        ``consumed`` takes it away, which is what actually happened to a berry.
+        The set keeps it and the override says it is spent -- the same shape the
+        engine uses, and the same one Recycle reads to give it back. The
+        observation carries it as ``consumed_item``, so knowing they *ate* a
+        Sitrus Berry still narrows the pool to sets that hold one, while the
+        search stops letting them eat it twice.
         """
         from pkcm.engine.items import champions_items
 
@@ -220,6 +220,8 @@ class Mirror:
         slot = self._their_active_slot() if slot is None else slot
         party_index = self.state.sides[THEM].selection[slot]
         self._rewrite(party_index, item=item_id)
+        if consumed:
+            self.state.set_override(THEM, slot, "item", None, permanent=True)
         self.state.revealed[THEM].items.add(slot)
 
     def advance(self, ours: Action, theirs: Action) -> list:

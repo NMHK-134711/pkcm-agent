@@ -393,7 +393,9 @@ def _learned(coach: Coach, query: dict, slot: int | None) -> None:
         coach.mirror.report_ability(ability, slot)
     item = (query.get("their_item") or [""])[0].strip()
     if item:
-        coach.mirror.report_item(item, slot)
+        coach.mirror.report_item(
+            item, slot,
+            consumed=query.get("their_item_used", ["0"])[0] == "1")
 
 
 def _correct(coach: Coach, query: dict) -> None:

@@ -307,7 +307,10 @@ function screenBattle() {
                placeholder="예: 위협, 프레셔"></div>
       <div><label>4. 상대 도구가 드러났으면 (선택)</label>
         <input id="theirItem" list="dl-items" autocomplete="off"
-               placeholder="예: 구애스카프, 자뭉열매"></div>
+               placeholder="예: 구애스카프, 자뭉열매">
+        <label style="margin-top:6px">
+          <input type="checkbox" id="theirItemUsed" style="width:auto">
+          써서 없어졌음 (열매를 먹었다 / 날아갔다)</label></div>
     </div>
     ${datalist("dl-abilities", V.lookup.abilities || [])}
     ${datalist("dl-items", V.lookup.items || [])}
@@ -376,7 +379,10 @@ function corrections() {
   const ability = idFor("abilities", $("theirAbility").value);
   if (ability) parts.push("their_ability=" + encodeURIComponent(ability));
   const item = idFor("items", $("theirItem").value);
-  if (item) parts.push("their_item=" + encodeURIComponent(item));
+  if (item) {
+    parts.push("their_item=" + encodeURIComponent(item));
+    if ($("theirItemUsed").checked) parts.push("their_item_used=1");
+  }
   return parts;
 }
 

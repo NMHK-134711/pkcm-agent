@@ -876,3 +876,57 @@ def test_a_move_that_traps_is_not_released_by_the_same_rule(dex):
         "a move's hold carries no holder, and so is never released by one "
         "leaving")
     assert _is_trapped(state, 1, state.sides[1].active[0])
+
+
+def test_a_berry_eaten_in_play_is_still_a_clue(dex):
+    """Not only the coach's problem. Any battle where the opponent eats a berry
+    left the belief looking at a Pokemon "known to hold nothing" -- and almost
+    no ranker set holds nothing, so the pool emptied and every narrowing the
+    item could have done was thrown away at the moment it was learned."""
+    from pkcm.engine.actions import Action
+    from pkcm.engine.battle import step
+    from pkcm.engine.pokemon import PokemonSet
+    from pkcm.engine.state import BattleConfig, new_battle
+    from pkcm.envs.belief import consistent
+    from pkcm.envs.observation import Observation
+
+    def a_set(species, ability, moves, item=None, sp=(0,) * 6, nature="serious"):
+        return PokemonSet(species=species, ability=ability, moves=tuple(moves),
+                          item=item, nature=nature, sp=sp)
+
+    config = BattleConfig(dex=dex, regulation=dex.regulation("m_b"),
+                          battle_format="singles")
+    filler = [a_set(name, "__none__", ("tackle",))
+              for name in ("pikachu", "alakazam", "machamp")]
+    ours = [a_set("garchomp", "roughskin",
+                  ("earthquake", "dragonclaw", "firefang", "stoneedge"),
+                  "choicescarf", (2, 32, 0, 0, 0, 32), "jolly")] + filler[:2]
+    theirs = [a_set("archaludon", "stamina",
+                    ("flashcannon", "dracometeor", "bodypress", "thunderwave"),
+                    "sitrusberry", (30, 0, 0, 32, 4, 0), "modest")] + filler[:2]
+    state = new_battle(config, (tuple(ours + filler), tuple(theirs + filler)),
+                       seed=7)
+    state, _ = step(state, Action.select(0, 1, 2), Action.select(0, 1, 2))
+
+    # Stand them just above the berry's threshold so one Earthquake has to take
+    # them under it. Playing from full needed a line long enough that the battle
+    # ended first, and a test that skips is not a test.
+    slot = state.sides[1].active[0]
+    state.sides[1].hp[slot] = int(state.pokemon(1, slot).max_hp * 0.55)
+    state, _ = step(state, Action.move(2), Action.move(3))   # Fire Fang
+
+    known = Observation.of(state, 0).foe[slot]
+    assert known.consumed_item == "sitrusberry", (
+        "the berry did not fire; the position is wrong, not the code")
+    assert known.item is None, "it was eaten, so it is not held"
+    assert known.item_known
+
+    # The candidate has to carry the move we watched as well; the item is the
+    # only thing under test here.
+    watched = tuple(known.moves) or ("flashcannon",)
+    held = a_set("archaludon", "stamina", watched, "sitrusberry")
+    assert consistent(held, known), (
+        "the set that holds the berry it just ate was ruled out")
+    empty = a_set("archaludon", "stamina", watched, None)
+    assert not consistent(empty, known), (
+        "and a set holding nothing is not what we watched")

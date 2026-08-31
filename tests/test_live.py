@@ -296,6 +296,33 @@ def test_a_revealed_item_narrows_it_too(dex, our_team):
                for one in candidates("meowscarada", known))
 
 
+def test_a_berry_they_ate_is_gone_and_still_identifies_the_set(dex, our_team):
+    """hk: a berry that has been eaten is gone, and Harvest giving berries back
+    is the whole reason that distinction is mechanical rather than cosmetic.
+
+    Recording it as still held -- which this did -- let the search feed them the
+    same Sitrus Berry every time it dropped them below half. Recording it as
+    "holds nothing" instead would throw away the identification, because almost
+    no ranker set holds nothing. The observation carries both: what it holds now
+    and what it used up.
+    """
+    from pkcm.envs.belief import candidates
+
+    # Archaludon, because four of the six in the ranker pool hold a Sitrus
+    # Berry -- so there is something for the filter to keep.
+    mirror = open_battle(a_mirror(dex, our_team), lead="archaludon")
+    slot = mirror.state.sides[1].active[0]
+    mirror.report_item("sitrusberry", consumed=True)
+
+    assert mirror.state.item_id(1, slot) is None, "they ate it; it is gone"
+    known = Observation.of(mirror.state, 0).foe[slot]
+    assert known.item is None and known.consumed_item == "sitrusberry"
+    assert known.item_known
+    found = candidates("archaludon", known)
+    assert found and all(one.item == "sitrusberry" for one in found), (
+        "the berry still says which set this is")
+
+
 def test_an_ability_that_species_cannot_have_is_refused(dex, our_team):
     mirror = open_battle(a_mirror(dex, our_team), lead="clefable")
     with pytest.raises(MirrorError, match="가질 수 없습니다"):

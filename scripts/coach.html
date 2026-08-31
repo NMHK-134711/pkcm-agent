@@ -301,7 +301,15 @@ function screenBattle() {
       <div><label id="theirStatusLabel"></label>
         <select id="theirStatus">${statusOptions(theirActive.rawStatus || "")}</select></div>
     </div>
-    <div class="row two">
+    <div class="row three">
+      <div><label>4. 내 도구 (선택)</label>
+        ${V.our_item
+          ? `<label style="padding-top:7px"><input type="checkbox"
+               id="ourItemUsed" style="width:auto">
+               <b>${V.our_item}</b> 이번 턴에 사용됨 / 없어짐</label>`
+          : `<div class="chip" style="padding:8px 11px">
+               ${V.our_active}는 도구가 없습니다</div>`}
+      </div>
       <div><label>4. 상대 특성이 드러났으면 (선택)</label>
         <input id="theirAbility" list="dl-abilities" autocomplete="off"
                placeholder="예: 위협, 프레셔"></div>
@@ -383,6 +391,8 @@ function corrections() {
     parts.push("their_item=" + encodeURIComponent(item));
     if ($("theirItemUsed").checked) parts.push("their_item_used=1");
   }
+  const mine = $("ourItemUsed");
+  if (mine && mine.checked) parts.push("our_item_used=1");
   return parts;
 }
 

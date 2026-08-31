@@ -224,6 +224,47 @@ class Mirror:
             self.state.set_override(THEM, slot, "item", None, permanent=True)
         self.state.revealed[THEM].items.add(slot)
 
+    def report_our_item(self, consumed: bool = True, item_id: str | None = None,
+                        slot: int | None = None) -> None:
+        """Our own item went, or was swapped for another one.
+
+        There is nothing to reveal here -- our set is not a guess. The only
+        thing the screen can say that the mirror does not already know is
+        *when* it went, and that matters because our damage rolls are not the
+        game's: the engine eats a Sitrus Berry a turn early or a turn late, and
+        from then on it is planning for a Pokemon holding something it no
+        longer has. A Focus Sash the search still thinks is there is a turn
+        spent on a line that does not exist.
+
+        ``item_id`` is for the cases where it did not vanish but changed hands
+        -- Trick, Switcheroo, Symbiosis.
+        """
+        side = self.state.sides[US]
+        if slot is None:
+            if not side.active or side.active[0] < 0:
+                raise MirrorError("우리 쪽에 나와 있는 포켓몬이 없습니다")
+            slot = side.active[0]
+        if item_id is not None:
+            from pkcm.engine.items import champions_items
+
+            if item_id not in champions_items():
+                raise MirrorError(f"챔피언스에 없는 도구입니다: {item_id!r}")
+            self._rewrite(side.selection[slot], US, item=item_id)
+        if consumed:
+            self.state.set_override(US, slot, "item", None, permanent=True)
+        elif item_id is not None:
+            # Handed a new one: it is held, so any earlier "spent" mark goes.
+            self.state.set_override(US, slot, "item", item_id, permanent=True)
+
+    def our_item(self, slot: int | None = None) -> str | None:
+        """What our active is holding right now, for the page to label a box."""
+        side = self.state.sides[US]
+        if slot is None:
+            if not side.active or side.active[0] < 0:
+                return None
+            slot = side.active[0]
+        return self.state.item_id(US, slot)
+
     def advance(self, ours: Action, theirs: Action) -> list:
         """Play the turn both sides committed to. Returns the engine's events."""
         return self._step(ours, theirs)
@@ -358,15 +399,15 @@ class Mirror:
                           for move in self.state.pokemon(THEM, spare).moves]
         return spare
 
-    def _rewrite(self, party_index: int, **changes) -> None:
-        """Replace one of their registered sets, keeping everything else."""
-        old = self.state.parties[THEM][party_index]
+    def _rewrite(self, party_index: int, side: int = THEM, **changes) -> None:
+        """Replace one registered set, keeping everything else."""
+        old = self.state.parties[side][party_index]
         built = compile_team(self.config.dex,
                              (_replace_set(old.set, **changes),))[0]
         parties = list(self.state.parties)
-        theirs = list(parties[THEM])
+        theirs = list(parties[side])
         theirs[party_index] = built
-        parties[THEM] = tuple(theirs)
+        parties[side] = tuple(theirs)
         self.state.parties = tuple(parties)
 
     def _step(self, ours: Action, theirs: Action) -> list:

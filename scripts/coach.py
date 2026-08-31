@@ -236,6 +236,7 @@ class Coach:
             "their_decision": self._their_decision(),
             "their_mega_used": self.mirror.state.mega_used[THEM],
             "our_active": self.active_name(US),
+            "our_item": self.names.item(self.mirror.our_item()),
             "their_active": self.active_name(THEM),
             "field": self._field(),
             "our_conditions": self._conditions(observation.own_conditions),
@@ -387,7 +388,7 @@ def _routes(coach: Coach, path: str, query: dict) -> None:
 
 
 def _learned(coach: Coach, query: dict, slot: int | None) -> None:
-    """Anything new about their set, from the turn we just watched."""
+    """Anything new about either set, from the turn we just watched."""
     ability = (query.get("their_ability") or [""])[0].strip()
     if ability:
         coach.mirror.report_ability(ability, slot)
@@ -396,6 +397,9 @@ def _learned(coach: Coach, query: dict, slot: int | None) -> None:
         coach.mirror.report_item(
             item, slot,
             consumed=query.get("their_item_used", ["0"])[0] == "1")
+    # Ours is not a guess, so the only thing to say about it is that it went.
+    if query.get("our_item_used", ["0"])[0] == "1":
+        coach.mirror.report_our_item(consumed=True)
 
 
 def _correct(coach: Coach, query: dict) -> None:

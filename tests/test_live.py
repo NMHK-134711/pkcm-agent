@@ -355,3 +355,47 @@ def test_a_switch_in_ability_is_applied_before_the_turn_is_stepped(dex, our_team
     assert mirror.state.field.weather == "sandstorm", (
         "the ability did not reach the field")
     assert landing.index in mirror.state.revealed[1].abilities
+
+
+def test_our_own_item_can_be_reported_spent(dex, our_team):
+    """Our set is not a guess, so there is nothing to reveal -- the only thing
+    the screen can say that the mirror does not know is *when* it went.
+
+    That matters because our damage rolls are not the game's: the engine eats
+    a Sitrus Berry a turn early or late, and after that it is planning for a
+    Pokemon holding something it no longer has. A Focus Sash the search still
+    believes in is a turn spent on a line that does not exist.
+    """
+    mirror = open_battle(a_mirror(dex, our_team), ours=(3, 1, 2))
+    slot = mirror.state.sides[0].active[0]
+    assert mirror.our_item() == "focussash", "Aegislash is leading with it"
+
+    mirror.report_our_item(consumed=True)
+    assert mirror.our_item() is None
+    assert mirror.state.item_id(0, slot) is None
+    # And it is spent rather than never-held, the same shape a berry leaves.
+    known = Observation.of(mirror.state, 0).own[slot]
+    assert known.consumed_item == "focussash"
+
+
+def test_our_item_can_change_hands_rather_than_vanish(dex, our_team):
+    """Trick and Switcheroo do not use an item up, they swap it."""
+    mirror = open_battle(a_mirror(dex, our_team), ours=(3, 1, 2))
+    mirror.report_our_item(consumed=False, item_id="choicescarf")
+    assert mirror.our_item() == "choicescarf"
+
+    with pytest.raises(MirrorError, match="챔피언스에 없는 도구"):
+        mirror.report_our_item(consumed=False, item_id="notanitem")
+
+
+def test_reporting_our_item_lands_on_whoever_is_out(dex, our_team):
+    """Same rule as the HP correction: it follows the field, not the sheet."""
+    mirror = open_battle(a_mirror(dex, our_team), ours=(3, 1, 2))
+    mirror.advance(Action.switch(1), mirror.report_move("shadowball"))
+    after = mirror.state.sides[0].active[0]
+    assert mirror.our_item() == "leftovers", "Corviknight came in"
+
+    mirror.report_our_item(consumed=True)
+    assert mirror.state.item_id(0, after) is None
+    assert mirror.state.item_id(0, 0) == "focussash", (
+        "the one that left still has its own")

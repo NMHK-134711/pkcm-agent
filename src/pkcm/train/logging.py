@@ -58,6 +58,17 @@ class RunLog:
     def url(self) -> str | None:
         return getattr(self._run, "url", None) if self._run is not None else None
 
+    def adopt(self, rows: list[dict[str, Any]]) -> None:
+        """Take over a resumed run's earlier rows before logging any new ones.
+
+        ``history.json`` is rewritten whole on every ``log``, from rows this
+        process has seen. A resumed run has seen none of the earlier ones, so
+        without this it replaces the file with whatever it produces after the
+        cut -- the numbers survive in ``state.pt``, but the file everything
+        else reads is silently truncated to the tail.
+        """
+        self._rows = list(rows) + self._rows
+
     def log(self, row: dict[str, Any], step: int | None = None) -> None:
         self._rows.append(row)
         (self.directory / "history.json").write_text(

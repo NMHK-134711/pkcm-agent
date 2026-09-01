@@ -1,0 +1,25 @@
+{
+ "checkpoint": "runs/curriculum4/best.pt",
+ "repeats": 100,
+ "iterations": 800,
+ "overall": {
+  "wins": 67,
+  "decided": 199,
+  "rate": 0.33668341708542715,
+  "low": 0.2746687558319683,
+  "high": 0.40488393336023304
+ },
+ "parties": [
+  {
+   "party": 43,
+   "title": "pokedb 45",
+   "wins": 67,
+   "losses": 132,
+   "draws": 1,
+   "rate": 0.33668341708542715,
+   "low": 0.2746687558319683,
+   "high": 0.40488393336023304,
+   "trained_on": false
+  }
+ ]
+}

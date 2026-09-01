@@ -354,6 +354,7 @@ def main() -> int:
         history = payload["history"]
         earned = payload["earned"]
         first = payload["iteration"] + 1
+        log.adopt(history)
         print(f"  resumed at iteration {first} "
               f"({len(buffer)} samples in the buffer, {len(history)} recorded)")
         # The rows before the cut are already on the chart: the wandb run is

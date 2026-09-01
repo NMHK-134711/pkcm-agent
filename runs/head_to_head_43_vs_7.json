@@ -1,0 +1,13 @@
+{
+ "checkpoint_a": "runs/pilot43/best.pt",
+ "party_a": 43,
+ "checkpoint_b": "runs/curriculum4/best.pt",
+ "party_b": 7,
+ "iterations": 800,
+ "wins": 147,
+ "losses": 53,
+ "draws": 0,
+ "rate": 0.735,
+ "low": 0.6698242380576751,
+ "high": 0.7913184585409307
+}

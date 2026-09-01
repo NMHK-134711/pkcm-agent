@@ -1,10 +1,10 @@
 # 에이전트와 직접 대전하기
 
-브라우저에서 `curriculum4` 에이전트와 싱글 6→3 배틀을 합니다. 한국어 UI이고,
+브라우저에서 학습된 에이전트와 싱글 6→3 배틀을 합니다. 한국어 UI이고,
 설치 후 명령 하나면 뜹니다.
 
 ```bash
-python scripts/play_web.py --checkpoint runs/curriculum4/best.pt --agent-party 7
+python scripts/play_web.py --checkpoint runs/pilot43/best.pt --agent-party 43
 ```
 
 브라우저가 `http://127.0.0.1:8760` 으로 열립니다. 팀 프리뷰에서 셋을 고르고,
@@ -12,34 +12,39 @@ python scripts/play_web.py --checkpoint runs/curriculum4/best.pt --agent-party 7
 
 ## 상대가 누구인가
 
-`runs/curriculum4/best.pt` 는 이 저장소에서 **손으로 짠 탐색보다 분리 가능하게
-강한 것이 측정된 첫 신경망**입니다. 자기가 학습한 네 파티에서 397 결정 게임 동안
-59.4% [54.5%, 64.2%] 를 기록했습니다. 그 전 여덟 번의 학습 실행은 전부 신뢰구간이
-50% 를 덮었습니다 — 즉 탐색과 구분되지 않았습니다.
+**`runs/pilot43/best.pt` + 파티 43** 이 현재 가장 센 조합입니다. 파티 43(메가
+메타그로스·하마돈 모래·메가마폭시)은 46개 랭커 파티 라운드로빈의 1위
+(66.0% [61.0%, 70.7%])로, 필드 위로 분리되는 유일한 팀입니다. 이 조합은 이전
+배포본(curriculum4 + 파티 7)과의 맞대결 200게임에서 **73.5% [67.0%, 79.1%]**
+로 이겼습니다.
 
-경기 방식은 AlphaZero 와 같습니다. 신경망이 각 수의 사전확률과 국면의 가치를 내고,
-결정화 MCTS 가 그것을 씨앗 삼아 탐색합니다. 상대(사람)의 숨은 세트는 실제 랭커
-파티 풀에서 표본을 뽑아 추정하며, 관찰한 기술로 후보를 좁혀 나갑니다.
+경기 방식은 AlphaZero 와 같습니다. 신경망이 각 수의 사전확률과 국면의 가치를
+내고, 결정화 MCTS 가 그것을 씨앗 삼아 탐색합니다. 상대(사람)의 숨은 세트는
+실제 랭커 파티 풀(46파티, 276세트)에서 표본을 뽑아 추정하며, 관찰한 기술로
+후보를 좁혀 나갑니다.
+
+이전 배포본도 남아 있습니다 — `runs/curriculum4/best.pt` 는 파티 7을 모는
+실력만은 여전히 최고입니다(같은 팀 미러에서 74.0%). 골라 쓰면 됩니다:
+
+```bash
+python scripts/play_web.py --checkpoint runs/curriculum4/best.pt --agent-party 7
+```
 
 ## 어느 파티를 주는가
 
-파티 인덱스는 `runs/tournament_800_fixed.json` 과 `runs/profile_curriculum4.json`
-에 있습니다. 이 에이전트가 가장 잘 쓰는 셋은 프로파일에서 잰 순서대로입니다.
+파티 인덱스는 `runs/tournament_46.json` 에 있습니다 (0-19 는 pkmnchamps 임포트,
+20-45 는 pokedb 전사본). 에이전트별 최적 파티:
 
-| 파티 | 에이전트 승률 | 팀 |
+| 체크포인트 | 파티 | 근거 |
 |---|---|---|
-| **7** | **74.0%** | ミルク Garchomp & Mega Dragonite Offense |
-| 17 | 67.3% | Ayaka_p_p Delphox and Friends Offense |
-| 10 | 58.0% | 엑자몽 중심 10일전 랭크 13위 달성 파티 |
-| 14 | 52.0% | 가람 Mega Gengar and Kangaskhan Offense |
+| `pilot43/best.pt` | **43** | 그 팀으로 10 이터레이션 특화. 미러 54.5% |
+| `curriculum4/best.pt` | **7** | 미러 74.0%. 단, 파티 43 같은 신규 종족 팀을 주면 33.7%까지 떨어짐 |
 
-이 넷이 학습에 쓰인 파티라 가장 셉니다. 다른 파티를 주면 약해집니다 — 파티 5나 13을
-주면 10~14% 까지 떨어지고, 왜 그런지는 아직 모릅니다.
+학습하지 않은 파티를 주면 어느 쪽이든 약해집니다. 특화의 대가입니다.
 
 ```bash
-# 에이전트에게 최강 파티를, 나에게 다른 랭커 파티를
-python scripts/play_web.py --checkpoint runs/curriculum4/best.pt \
-    --agent-party 7 --your-party 17
+# 현재 최강 조합 그대로
+python scripts/play_web.py --checkpoint runs/pilot43/best.pt     --agent-party 43 --your-party 14
 ```
 
 `--your-party` 를 빼면 내 팀은 랭커 풀에서 무작위로 조립됩니다.

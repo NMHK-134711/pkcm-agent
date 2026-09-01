@@ -1,0 +1,25 @@
+{
+ "checkpoint": "runs/pilot43/best.pt",
+ "repeats": 100,
+ "iterations": 800,
+ "overall": {
+  "wins": 109,
+  "decided": 200,
+  "rate": 0.545,
+  "low": 0.475786113708747,
+  "high": 0.6125178069165181
+ },
+ "parties": [
+  {
+   "party": 43,
+   "title": "pokedb 45",
+   "wins": 109,
+   "losses": 91,
+   "draws": 0,
+   "rate": 0.545,
+   "low": 0.475786113708747,
+   "high": 0.6125178069165181,
+   "trained_on": true
+  }
+ ]
+}

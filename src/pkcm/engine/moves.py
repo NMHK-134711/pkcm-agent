@@ -236,6 +236,69 @@ MOVE_PRECONDITIONS: dict[str, Callable[[Context, Ref, Move], str | None]] = {
 }
 
 
+def _knock_off_power(ctx: Context, attacker: Ref, defender: Ref, move) -> int:
+    """Champions: 상대가 도구를 지니고 있으면 위력이 1.5배가 된다.
+
+    Asked before the damage is rolled, and the item is taken off after it --
+    so this reads the item while it is still there, which is the order the
+    move is written in.
+    """
+    from pkcm.engine.moveeffects import _holds_removable
+
+    if _holds_removable(ctx, defender) is None:
+        return move.base_power
+    return chain_modify(move.base_power, X1_5)
+
+
+#: Weather that lets a two-turn move fire the same turn.
+#:
+#: Champions, on Solar Beam: 쾌청 상태인 경우 차지 상태를 생략하고 바로 공격할
+#: 수 있다. On Electro Shot: 비 상태인 경우. Neither was here, so a Solar Beam
+#: in its own sun still spent a turn winding up.
+CHARGE_SKIPS: dict[str, tuple[str, ...]] = {
+    "solarbeam": ("sunnyday", "desolateland"),
+    "solarblade": ("sunnyday", "desolateland"),
+    "electroshot": ("raindance", "primordialsea"),
+}
+
+#: What a two-turn move pays its user on the turn it is used.
+CHARGE_TURN_BOOST: dict[str, dict[str, int]] = {
+    "electroshot": {"spa": 1},
+    "meteorbeam": {"spa": 1},
+}
+
+
+def _stored_power(ctx: Context, attacker: Ref, defender: Ref, move) -> int:
+    """Champions: 자신의 올라간 능력 변화 1단계당 이 기술의 위력이 20씩 올라간다.
+
+    Raised stages only -- a Pokemon that has been dropped to -2 still swings
+    at twenty.
+    """
+    boosts = ctx.state.sides[attacker[0]].boosts[attacker[1]]
+    return move.base_power + 20 * sum(stage for stage in boosts if stage > 0)
+
+
+def _lash_out(ctx: Context, attacker: Ref, defender: Ref, move) -> int:
+    """Champions: 사용한 턴 동안 자신의 능력이 떨어진 경우 위력이 2배가 된다."""
+    from pkcm.engine import mutate as _mutate
+
+    dropped = _mutate.volatile(ctx.state, attacker, "statdropped")
+    if dropped is not None and dropped.get("turn") == ctx.state.turn:
+        return move.base_power * 2
+    return move.base_power
+
+
+def _solar_power(ctx: Context, attacker: Ref, defender: Ref, move) -> int:
+    """Champions: 다른 날씨인 경우 위력이 1/2이 된다.
+
+    "Other weather" and not "no weather": clear skies leave it alone.
+    """
+    weather = ctx.state.field.weather
+    if weather is None or weather in CHARGE_SKIPS[move.id]:
+        return move.base_power
+    return max(1, move.base_power // 2)
+
+
 #: Moves whose base power depends on the battle rather than on a constant.
 VARIABLE_POWER: dict[str, Callable[[Context, Ref, Ref, Move], int]] = {
     "expandingforce": _boosted_on("psychicterrain", X1_5),
@@ -247,6 +310,12 @@ VARIABLE_POWER: dict[str, Callable[[Context, Ref, Ref, Move], int]] = {
     "heavyslam": _relative_weight,
     "heatcrash": _relative_weight,
     "gyroball": _gyro_ball,
+    "knockoff": _knock_off_power,
+    "storedpower": _stored_power,
+    "powertrip": _stored_power,
+    "lashout": _lash_out,
+    "solarbeam": _solar_power,
+    "solarblade": _solar_power,
     "electroball": _electro_ball,
     "flail": _low_hp_scaling,
     "reversal": _low_hp_scaling,
@@ -832,10 +901,17 @@ def use_move(
     # A two-turn move spends its first turn charging and its second attacking.
     if "charge" in move.flags:
         if tactics.is_charging(ctx, attacker) is None:
-            if ctx.state.item_id(*attacker) != "powerherb":
-                tactics.start_charging(ctx, attacker, move, move_index)
-                return
-            mutate.consume_item(ctx, attacker, move.id)
+            # "사용한 턴에" -- the turn it is used, which is this one whether or
+            # not the charge is skipped.
+            paid = CHARGE_TURN_BOOST.get(move.id)
+            if paid:
+                mutate.boost(ctx, attacker, paid, source=attacker)
+            skipped = ctx.state.field.weather in CHARGE_SKIPS.get(move.id, ())
+            if not skipped:
+                if ctx.state.item_id(*attacker) != "powerherb":
+                    tactics.start_charging(ctx, attacker, move, move_index)
+                    return
+                mutate.consume_item(ctx, attacker, move.id)
         else:
             tactics.finish_charging(ctx, attacker)
 
@@ -988,6 +1064,18 @@ def _apply_damaging_move(ctx: Context, attacker: Ref, defender: Ref, move) -> bo
                      __source__=attacker, __move__=move)
         return True
 
+    if move.id == "pollenpuff" and defender[0] == attacker[0] and defender != attacker:
+        # Champions: 같은 편에게 사용하면 데미지를 주는 대신 최대 HP의 1/2만큼
+        # 같은 편의 HP를 회복한다. Before this it damaged its own partner.
+        healed = mutate.heal(ctx, defender,
+                             mutate.fraction_of_max(ctx.state, defender, 2),
+                             reason=move.id)
+        if not healed:
+            ctx.emit(Event("move_failed", side=attacker[0], move=move.id,
+                           detail="already full"))
+            return False
+        return True
+
     if move.id == "endeavor":
         amount = tactics.endeavor_damage(ctx, attacker, defender)
         if amount is None:
@@ -1085,6 +1173,7 @@ def _apply_damaging_move(ctx: Context, attacker: Ref, defender: Ref, move) -> bo
                 and ctx.state.sides[defender[0]].status[defender[1]] == "frz":
             mutate.cure_status(ctx, defender)
         _apply_secondaries(ctx, attacker, defender, move)
+        _apply_self_boost(ctx, attacker, move)
         if "partiallytrapped" in _volatile_names(move):
             tactics.start_trapping(ctx, defender, move)
     _after_effects(ctx, attacker, defender, move, landed=bool(total))
@@ -1518,6 +1607,23 @@ def _apply_self_effects(ctx: Context, attacker: Ref, move) -> None:
         mutate.boost(ctx, attacker, payload["boosts"], source=attacker)
     if payload.get("volatileStatus") and payload["volatileStatus"] not in TACTICS_MANAGED_VOLATILES:
         mutate.add_volatile(ctx, attacker, payload["volatileStatus"])
+
+
+def _apply_self_boost(ctx: Context, attacker: Ref, move) -> None:
+    """``selfBoost: {boosts}`` -- once, after the last hit, if the move landed.
+
+    A separate field from ``self`` and nothing here read it, so two moves in
+    M-B changed no stat at all: Scale Shot never traded Defence for Speed, and
+    Clanging Scales cost nothing to use. Both are silent failures -- the move
+    does its damage and the stat simply does not move.
+
+    Its own field because of *when* it lands. ``self`` applies per hit and
+    ``selfBoost`` applies once at the end, which is the difference between
+    Scale Shot dropping one stage of Defence and dropping five.
+    """
+    payload = move.raw.get("selfBoost")
+    if isinstance(payload, dict) and payload.get("boosts"):
+        mutate.boost(ctx, attacker, payload["boosts"], source=attacker)
 
 
 def _apply_secondaries(ctx: Context, attacker: Ref, defender: Ref, move) -> None:

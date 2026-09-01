@@ -782,3 +782,151 @@ def test_the_preview_grid_and_the_pick_prior_agree_about_a_mega(dex):
     for foe_index, foe_id in enumerate(observation.registered[1][:6]):
         assert grid[slot * 6 + foe_index][2] == pytest.approx(
             _matchup(state, state.parties[0][slot], foe_id), abs=1e-5)
+
+
+def test_a_trap_ends_when_the_trapper_leaves_the_field(dex):
+    """Shadow Tag re-applies itself every turn while its Gengar is standing
+    there, and nothing ever took the flag off again. An opponent trapped once
+    stayed trapped for the rest of the battle -- after the Gengar had switched
+    out, and after it had fainted -- which turned one switch-in into a
+    permanent lock and made every Mega Gengar team look better than it is."""
+    from pkcm.engine.actions import Action, ActionKind
+    from pkcm.engine.battle import step
+    from pkcm.engine.legality import mega_stone_for
+    from pkcm.engine.pokemon import PokemonSet
+    from pkcm.engine.state import BattleConfig, legal_actions, new_battle
+
+    def a_set(species, ability, moves, item=None, sp=(0,) * 6, nature="serious"):
+        return PokemonSet(species=species, ability=ability, moves=tuple(moves),
+                          item=item, nature=nature, sp=sp)
+
+    config = BattleConfig(dex=dex, regulation=dex.regulation("m_b"),
+                          battle_format="singles")
+    filler = [a_set(name, "__none__", ("tackle",))
+              for name in ("pikachu", "alakazam", "machamp")]
+    ours = [
+        a_set("gengar", "cursedbody", ("shadowball", "sludgewave", "protect",
+                                       "willowisp"),
+              mega_stone_for(dex, config.regulation, "gengar"),
+              (0, 0, 2, 32, 0, 32), "timid"),
+        a_set("corviknight", "pressure", ("bravebird", "bodypress", "roost",
+                                          "ironhead"),
+              "leftovers", (32, 0, 32, 0, 2, 0), "impish"),
+        a_set("garchomp", "roughskin", ("earthquake", "dragonclaw", "firefang",
+                                        "stoneedge"),
+              "sitrusberry", (2, 32, 0, 0, 0, 32), "jolly"),
+    ]
+    theirs = [
+        a_set("snorlax", "thickfat", ("bodyslam", "crunch", "rest", "curse"),
+              "leftovers", (32, 32, 2, 0, 0, 0), "adamant"),
+        a_set("clefable", "magicguard", ("moonblast", "softboiled", "knockoff",
+                                         "stealthrock"),
+              "rockyhelmet", (32, 0, 30, 4, 0, 0), "bold"),
+        a_set("archaludon", "stamina", ("flashcannon", "dracometeor",
+                                        "bodypress", "thunderwave"),
+              "assaultvest", (30, 0, 0, 32, 4, 0), "modest"),
+    ]
+    state = new_battle(config, (tuple(ours + filler), tuple(theirs + filler)),
+                       seed=4)
+    state, _ = step(state, Action.select(0, 1, 2), Action.select(0, 1, 2))
+
+    # Mega Evolve into Shadow Tag, on a Protect so nothing faints on the way.
+    state, _ = step(state, Action.move(2, mega=True), Action.move(0))
+    assert state.ability_id(0, state.sides[0].active[0]) == "shadowtag"
+    theirs_now = state.sides[1].active[0]
+    assert state.sides[1].has_volatile(theirs_now, "trapped"), "the hold is on"
+    assert not any(action.kind is ActionKind.SWITCH
+                   for action in legal_actions(state, 1)), "and it holds"
+
+    # Now walk the Gengar off the field. The hold has to go with it.
+    state, _ = step(state, Action.switch(1), Action.move(0))
+    assert state.species_id(0, state.sides[0].active[0]) != "gengarmega"
+    assert any(action.kind is ActionKind.SWITCH
+               for action in legal_actions(state, 1)), (
+        "still trapped by a Gengar that is no longer on the field")
+
+
+def test_a_move_that_traps_is_not_released_by_the_same_rule(dex):
+    """Only an ability's hold is tied to the ability standing there. Block and
+    Mean Look hold on their own terms, and the release must not reach them."""
+    from pkcm.engine.state import _is_trapped
+
+    from pkcm.engine.actions import Action
+    from pkcm.engine.battle import step
+    from pkcm.engine.pokemon import PokemonSet
+    from pkcm.engine.state import BattleConfig, new_battle
+
+    def a_set(species, moves):
+        return PokemonSet(species=species, ability="__none__",
+                          moves=tuple(moves), item=None, nature="serious",
+                          sp=(0,) * 6)
+
+    config = BattleConfig(dex=dex, regulation=dex.regulation("m_b"),
+                          battle_format="singles")
+    six = [a_set(name, ("tackle",))
+           for name in ("pikachu", "alakazam", "machamp", "snorlax", "clefable")]
+    ours = tuple([a_set("gengar", ("meanlook", "shadowball"))] + six[:5])
+    theirs = tuple([a_set("snorlax", ("bodyslam",))] + six[:5])
+    state = new_battle(config, (ours, theirs), seed=2)
+    state, _ = step(state, Action.select(0, 1, 2), Action.select(0, 1, 2))
+    state, _ = step(state, Action.move(0), Action.move(0))
+
+    held = state.sides[1].volatiles[state.sides[1].active[0]].get("trapped")
+    assert held is not None and "by" not in held, (
+        "a move's hold carries no holder, and so is never released by one "
+        "leaving")
+    assert _is_trapped(state, 1, state.sides[1].active[0])
+
+
+def test_a_berry_eaten_in_play_is_still_a_clue(dex):
+    """Not only the coach's problem. Any battle where the opponent eats a berry
+    left the belief looking at a Pokemon "known to hold nothing" -- and almost
+    no ranker set holds nothing, so the pool emptied and every narrowing the
+    item could have done was thrown away at the moment it was learned."""
+    from pkcm.engine.actions import Action
+    from pkcm.engine.battle import step
+    from pkcm.engine.pokemon import PokemonSet
+    from pkcm.engine.state import BattleConfig, new_battle
+    from pkcm.envs.belief import consistent
+    from pkcm.envs.observation import Observation
+
+    def a_set(species, ability, moves, item=None, sp=(0,) * 6, nature="serious"):
+        return PokemonSet(species=species, ability=ability, moves=tuple(moves),
+                          item=item, nature=nature, sp=sp)
+
+    config = BattleConfig(dex=dex, regulation=dex.regulation("m_b"),
+                          battle_format="singles")
+    filler = [a_set(name, "__none__", ("tackle",))
+              for name in ("pikachu", "alakazam", "machamp")]
+    ours = [a_set("garchomp", "roughskin",
+                  ("earthquake", "dragonclaw", "firefang", "stoneedge"),
+                  "choicescarf", (2, 32, 0, 0, 0, 32), "jolly")] + filler[:2]
+    theirs = [a_set("archaludon", "stamina",
+                    ("flashcannon", "dracometeor", "bodypress", "thunderwave"),
+                    "sitrusberry", (30, 0, 0, 32, 4, 0), "modest")] + filler[:2]
+    state = new_battle(config, (tuple(ours + filler), tuple(theirs + filler)),
+                       seed=7)
+    state, _ = step(state, Action.select(0, 1, 2), Action.select(0, 1, 2))
+
+    # Stand them just above the berry's threshold so one Earthquake has to take
+    # them under it. Playing from full needed a line long enough that the battle
+    # ended first, and a test that skips is not a test.
+    slot = state.sides[1].active[0]
+    state.sides[1].hp[slot] = int(state.pokemon(1, slot).max_hp * 0.55)
+    state, _ = step(state, Action.move(2), Action.move(3))   # Fire Fang
+
+    known = Observation.of(state, 0).foe[slot]
+    assert known.consumed_item == "sitrusberry", (
+        "the berry did not fire; the position is wrong, not the code")
+    assert known.item is None, "it was eaten, so it is not held"
+    assert known.item_known
+
+    # The candidate has to carry the move we watched as well; the item is the
+    # only thing under test here.
+    watched = tuple(known.moves) or ("flashcannon",)
+    held = a_set("archaludon", "stamina", watched, "sitrusberry")
+    assert consistent(held, known), (
+        "the set that holds the berry it just ate was ruled out")
+    empty = a_set("archaludon", "stamina", watched, None)
+    assert not consistent(empty, known), (
+        "and a set holding nothing is not what we watched")

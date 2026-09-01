@@ -323,7 +323,10 @@ def consistent(candidate: PokemonSet, known) -> bool:
             return False
     if not set(known.moves).issubset(candidate.moves):
         return False
-    if known.item_known and known.item != candidate.item:
+    # What it was, not what is left of it. A Pokemon that has eaten its Sitrus
+    # Berry holds nothing, and matching on that would throw away every set built
+    # around the berry -- which is to say the set we just identified.
+    if known.item_known and (known.consumed_item or known.item) != candidate.item:
         return False
     if known.ability_known and known.ability != candidate.ability:
         return False

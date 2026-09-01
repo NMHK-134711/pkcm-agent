@@ -578,6 +578,8 @@ ENGINE_SIDE_VOLATILES = {
     "ingrain": "conditions.is_grounded and tactics, which refuses the switch",
     "abilitysuppressed": "effects.Context.ability_of",
     "trapped": "state.legal_actions",
+    "cudchew": "abilities._cud_chew_residual, which eats the stored berry again",
+    "statdropped": "moves._lash_out, which doubles its power for one turn after",
     "choicelock": "state.legal_actions",
     "lockedmove": "state.legal_actions and tactics.start_locked_move",
     "twoturn": "state.legal_actions and tactics.finish_charging",
@@ -931,3 +933,584 @@ def test_a_called_move_aims_where_it_would_have_aimed(dex, config):
     cast(ctx, dex, "sleeptalk")
     assert state.sides[1].hp[0] < theirs, "it should hit the opponent"
     assert state.sides[0].hp[0] == ours, "and not itself"
+
+
+def _self_boost_position(dex, species, moves, seed=5):
+    from pkcm.engine.actions import Action
+    from pkcm.engine.battle import step
+    from pkcm.engine.pokemon import PokemonSet
+    from pkcm.engine.state import BattleConfig, new_battle
+
+    def one(name, ability, used, item=None, sp=(0,) * 6, nature="serious"):
+        return PokemonSet(species=name, ability=ability, moves=tuple(used),
+                          item=item, nature=nature, sp=sp)
+
+    config = BattleConfig(dex=dex, regulation=dex.regulation("m_b"),
+                          battle_format="singles")
+    filler = [one(name, "__none__", ("tackle",))
+              for name in ("pikachu", "alakazam", "machamp")]
+    ours = [one(species, "__none__", moves, "focussash",
+                (2, 32, 0, 0, 0, 32), "jolly")] + filler[:2]
+    theirs = [one("snorlax", "thickfat", ("bodyslam", "crunch", "rest", "curse"),
+                  "leftovers", (32, 32, 2, 0, 0, 0), "adamant")] + filler[:2]
+    state = new_battle(config, (tuple(ours + filler), tuple(theirs + filler)),
+                       seed=seed)
+    return step(state, Action.select(0, 1, 2), Action.select(0, 1, 2))[0]
+
+
+def test_scale_shot_trades_defence_for_speed(dex):
+    """hk found this in a real game. ``selfBoost`` is a different field from
+    ``self`` and nothing read it, so Scale Shot did its damage and moved no
+    stat at all -- a silent failure, since the move still looks like it worked.
+
+    Champions' own dex: 2~5회 연속으로 공격한다. 자신의 방어를 1단계
+    떨어뜨리고 스피드를 1단계 올린다.
+    """
+    from pkcm.engine.actions import Action
+    from pkcm.engine.battle import step
+    from pkcm.engine.state import BOOST_STATS
+
+    state = _self_boost_position(
+        dex, "garchomp", ("scaleshot", "dragonclaw", "firefang", "stoneedge"))
+    slot = state.sides[0].active[0]
+    assert state.sides[0].boosts[slot] == [0] * len(state.sides[0].boosts[slot])
+
+    state, events = step(state, Action.move(0), Action.move(2))
+    boosts = state.sides[0].boosts[slot]
+    assert boosts[BOOST_STATS.index("def")] == -1, "Defence did not drop"
+    assert boosts[BOOST_STATS.index("spe")] == 1, "Speed did not rise"
+    assert boosts[BOOST_STATS.index("spd")] == 0, "Special Defence is not part of this move"
+
+
+def test_the_self_boost_lands_once_however_many_times_it_hit(dex):
+    """The reason it is its own field rather than ``self``, which applies per
+    hit: five hits must still be one stage of Defence, not five."""
+    from pkcm.engine.actions import Action
+    from pkcm.engine.battle import step
+    from pkcm.engine.state import BOOST_STATS
+
+    seen = set()
+    for seed in range(12):
+        state = _self_boost_position(
+            dex, "garchomp",
+            ("scaleshot", "dragonclaw", "firefang", "stoneedge"), seed=seed)
+        slot = state.sides[0].active[0]
+        state, events = step(state, Action.move(0), Action.move(2))
+        hits = next((e.amount for e in events if e.kind == "multi_hit"), 1)
+        seen.add(hits)
+        assert state.sides[0].boosts[slot][BOOST_STATS.index("def")] == -1, (
+            f"{hits} hits dropped Defence more than one stage")
+        assert state.sides[0].boosts[slot][BOOST_STATS.index("spe")] == 1
+    assert len(seen) > 1, "the hit count never varied; the test proved nothing"
+
+
+def test_clanging_scales_costs_defence(dex):
+    """The other move in M-B carrying the field, and a single-hit one -- so it
+    also shows the fix is not something about the multi-hit loop."""
+    from pkcm.engine.actions import Action
+    from pkcm.engine.battle import step
+    from pkcm.engine.state import BOOST_STATS
+
+    state = _self_boost_position(
+        dex, "hydreigon",
+        ("clangingscales", "darkpulse", "flamethrower", "roost"))
+    slot = state.sides[0].active[0]
+    state, _ = step(state, Action.move(0), Action.move(2))
+    assert state.sides[0].boosts[slot][BOOST_STATS.index("def")] == -1
+
+
+def _spin_position(dex, species, moves, seed=5):
+    """A spinner standing in every hazard, seeded and bound, against a target
+    that will not put itself to sleep."""
+    from pkcm.engine.actions import Action
+    from pkcm.engine.battle import step
+    from pkcm.engine.pokemon import PokemonSet
+    from pkcm.engine.state import BattleConfig, new_battle
+
+    def one(name, ability, used, item=None, sp=(0,) * 6, nature="serious"):
+        return PokemonSet(species=name, ability=ability, moves=tuple(used),
+                          item=item, nature=nature, sp=sp)
+
+    config = BattleConfig(dex=dex, regulation=dex.regulation("m_b"),
+                          battle_format="singles")
+    filler = [one(name, "__none__", ("tackle",))
+              for name in ("pikachu", "alakazam", "machamp")]
+    ours = [one(species, "__none__", moves, "leftovers",
+                (32, 32, 0, 0, 0, 2), "impish")] + filler[:2]
+    theirs = [one("snorlax", "thickfat", ("bodyslam",), "leftovers",
+                  (32, 0, 32, 0, 0, 0), "impish")] + filler[:2]
+    state = new_battle(config, (tuple(ours + filler), tuple(theirs + filler)),
+                       seed=seed)
+    state, _ = step(state, Action.select(0, 1, 2), Action.select(0, 1, 2))
+
+    slot = state.sides[0].active[0]
+    state.sides[0].conditions.update({"stealthrock": 1, "spikes": 2,
+                                      "toxicspikes": 1, "stickyweb": 1})
+    state.sides[0].volatiles[slot]["leechseed"] = {}
+    state.sides[0].volatiles[slot]["partiallytrapped"] = {"turns": 3,
+                                                          "move": "firespin"}
+    state.sides[0].volatiles[slot]["trapped"] = {}
+    state.sides[1].conditions.update({"stealthrock": 1, "spikes": 1})
+    return state, slot
+
+
+def test_rapid_spin_clears_its_own_side_and_keeps_its_damage(dex):
+    """hk asked whether the damage-plus-effect moves do the effect half.
+
+    Nothing in the move data says any of the clearing -- the +1 Speed rides in
+    as a secondary, so the move looked like it was working -- and there was no
+    handler, so a spin was damage and nothing else.
+
+    Champions: 자신의 바인드, 씨뿌리기 상태와 같은 편 필드의 압정뿌리기,
+    독압정, 끈적끈적네트, 스텔스록 상태를 해제한다. 자신의 스피드를 1단계 올린다.
+    """
+    from pkcm.engine.actions import Action
+    from pkcm.engine.battle import step
+    from pkcm.engine.state import BOOST_STATS
+
+    state, slot = _spin_position(
+        dex, "corviknight", ("rapidspin", "bravebird", "roost", "ironhead"))
+    state, events = step(state, Action.move(0), Action.move(0))
+
+    assert not state.sides[0].conditions, "our hazards did not go"
+    volatiles = state.sides[0].volatiles[slot]
+    assert "leechseed" not in volatiles
+    assert "partiallytrapped" not in volatiles and "trapped" not in volatiles
+    assert any(e.kind == "damage" for e in events), "and it still hit"
+    assert state.sides[0].boosts[slot][BOOST_STATS.index("spe")] == 1
+
+
+def test_a_spin_is_not_a_defog(dex):
+    """Defog takes the opponent's hazards as well; a spin does not. Clearing
+    both sides would quietly turn every spinner into a Defog."""
+    from pkcm.engine.actions import Action
+    from pkcm.engine.battle import step
+
+    state, _ = _spin_position(
+        dex, "corviknight", ("rapidspin", "bravebird", "roost", "ironhead"))
+    before = dict(state.sides[1].conditions)
+    state, _ = step(state, Action.move(0), Action.move(0))
+    assert dict(state.sides[1].conditions) == before, (
+        "the opponent's hazards were swept too")
+
+
+def test_mortal_spin_clears_and_poisons(dex):
+    """The same clearing on the other spinner, whose extra is a status rather
+    than a boost -- so this also says the fix is not about the Speed."""
+    from pkcm.engine.actions import Action
+    from pkcm.engine.battle import step
+
+    state, slot = _spin_position(
+        dex, "glimmora", ("mortalspin", "powergem", "sludgewave", "earthpower"))
+    state, _ = step(state, Action.move(0), Action.move(0))
+
+    assert not state.sides[0].conditions
+    assert "leechseed" not in state.sides[0].volatiles[slot]
+    theirs = state.sides[1]
+    assert theirs.status[theirs.active[0]] == "psn"
+
+
+def test_a_spin_does_not_free_a_pokemon_from_shadow_tag(dex):
+    """``trapped`` comes from binding moves, from Mean Look and from Shadow
+    Tag, and a spin frees from the first only -- so it goes only alongside the
+    ``partiallytrapped`` a binding move sets with it."""
+    from pkcm.engine.actions import Action
+    from pkcm.engine.battle import step
+
+    state, slot = _spin_position(
+        dex, "corviknight", ("rapidspin", "bravebird", "roost", "ironhead"))
+    # An ability's hold, with no binding move under it.
+    state.sides[0].volatiles[slot].pop("partiallytrapped")
+    state.sides[0].volatiles[slot]["trapped"] = {"by": (1, 0)}
+    state, _ = step(state, Action.move(0), Action.move(0))
+    assert "trapped" in state.sides[0].volatiles[slot], (
+        "a spin freed a Pokemon from an ability that traps")
+
+
+def _duel(dex, ours, theirs, seed=5):
+    from pkcm.engine.actions import Action
+    from pkcm.engine.battle import step
+    from pkcm.engine.pokemon import PokemonSet
+    from pkcm.engine.state import BattleConfig, new_battle
+
+    config = BattleConfig(dex=dex, regulation=dex.regulation("m_b"),
+                          battle_format="singles")
+    filler = [PokemonSet(species=name, ability="__none__", moves=("tackle",),
+                         item=None, nature="serious", sp=(0,) * 6)
+              for name in ("pikachu", "alakazam", "machamp")]
+    state = new_battle(config, (tuple([ours] + filler[:2] + filler),
+                                tuple([theirs] + filler[:2] + filler)),
+                       seed=seed)
+    return step(state, Action.select(0, 1, 2), Action.select(0, 1, 2))[0]
+
+
+def _mon(species, ability, moves, item=None, sp=(0,) * 6, nature="serious"):
+    from pkcm.engine.pokemon import PokemonSet
+
+    return PokemonSet(species=species, ability=ability, moves=tuple(moves),
+                      item=item, nature=nature, sp=sp)
+
+
+def _thief_user(item):
+    return _mon("clefable", "magicguard",
+                ("knockoff", "thief", "bugbite", "moonblast"),
+                item, (32, 30, 0, 0, 0, 0), "impish")
+
+
+def _holder(item, ability="thickfat", moves=("bodyslam",)):
+    return _mon("snorlax", ability, moves, item, (32, 0, 32, 0, 0, 0), "impish")
+
+
+def test_knock_off_takes_the_item_and_hits_harder_for_it(dex):
+    """Champions: 상대가 도구를 지니고 있으면 위력이 1.5배가 된다. 상대의
+    도구를 없앤다. Neither half existed."""
+    from pkcm.engine.actions import Action
+    from pkcm.engine.battle import step
+
+    state = _duel(dex, _thief_user("rockyhelmet"), _holder("leftovers"))
+    slot = state.sides[1].active[0]
+    assert state.item_id(1, slot) == "leftovers"
+    state, with_item = step(state, Action.move(0), Action.move(0))
+    assert state.item_id(1, slot) is None, "the item stayed on"
+    hit = next(e.amount for e in with_item if e.kind == "damage")
+
+    bare = _duel(dex, _thief_user("rockyhelmet"), _holder(None))
+    bare, without = step(bare, Action.move(0), Action.move(0))
+    assert hit > next(e.amount for e in without if e.kind == "damage"), (
+        "the 1.5x for holding an item is missing")
+
+
+def test_sticky_hold_keeps_the_item_through_all_of_them(dex):
+    """Champions: 지니고 있는 도구를 상대에게 빼앗기거나 잃어버리지 않는다.
+    It guards this whole family, so it is checked once and tested on each."""
+    from pkcm.engine.actions import Action
+    from pkcm.engine.battle import step
+
+    for index in (0, 1, 2):          # Knock Off, Thief, Bug Bite
+        state = _duel(dex, _thief_user(None),
+                      _holder("sitrusberry", ability="stickyhold"))
+        slot = state.sides[1].active[0]
+        state, _ = step(state, Action.move(index), Action.move(0))
+        assert state.item_id(1, slot) == "sitrusberry", (
+            f"move index {index} got past Sticky Hold")
+
+
+def test_thief_steals_only_with_empty_hands(dex):
+    """Champions: 자신이 도구를 지니고 있지 않은 경우 상대의 도구를 빼앗는다.
+
+    Both conditions are easy to drop and both matter. Holding anything at all
+    means no steal, not steal-if-it-is-better.
+    """
+    from pkcm.engine.actions import Action
+    from pkcm.engine.battle import step
+
+    state = _duel(dex, _thief_user(None), _holder("leftovers"))
+    us, them = state.sides[0].active[0], state.sides[1].active[0]
+    state, _ = step(state, Action.move(1), Action.move(0))
+    assert state.item_id(0, us) == "leftovers", "empty-handed, so it steals"
+    assert state.item_id(1, them) is None
+
+    state = _duel(dex, _thief_user("rockyhelmet"), _holder("leftovers"))
+    us, them = state.sides[0].active[0], state.sides[1].active[0]
+    state, _ = step(state, Action.move(1), Action.move(0))
+    assert state.item_id(0, us) == "rockyhelmet", "holding, so it does not"
+    assert state.item_id(1, them) == "leftovers"
+
+
+def test_thief_on_an_empty_handed_target_is_not_a_failure(dex):
+    """It just does its damage. Nothing to announce."""
+    from pkcm.engine.actions import Action
+    from pkcm.engine.battle import step
+
+    state = _duel(dex, _thief_user(None), _holder(None))
+    state, events = step(state, Action.move(1), Action.move(0))
+    assert any(e.kind == "damage" for e in events)
+
+
+def test_bug_bite_eats_their_berry_and_we_get_the_effect(dex):
+    """Champions: 상대가 나무열매를 지니고 있으면 그 나무열매를 대신 먹고
+    자신이 효과를 받는다.
+
+    The effect lands on *us*, which is why berries needed their trigger split
+    from their effect for Cud Chew -- eating somebody else's Sitrus heals us
+    whatever our own HP is doing.
+    """
+    from pkcm.engine.actions import Action
+    from pkcm.engine.battle import step
+
+    state = _duel(dex, _thief_user("rockyhelmet"),
+                  _holder("sitrusberry", moves=("curse",)))
+    us, them = state.sides[0].active[0], state.sides[1].active[0]
+    state.sides[0].hp[us] = int(state.pokemon(0, us).max_hp * 0.4)
+    before = state.sides[0].hp[us]
+
+    state, _ = step(state, Action.move(2), Action.move(0))
+    assert state.item_id(1, them) is None, "their berry is gone"
+    assert state.sides[0].hp[us] > before, "and we got the heal"
+
+
+def test_bug_bite_does_nothing_to_an_item_that_is_not_a_berry(dex):
+    from pkcm.engine.actions import Action
+    from pkcm.engine.battle import step
+
+    state = _duel(dex, _thief_user("rockyhelmet"),
+                  _holder("leftovers", moves=("curse",)))
+    them = state.sides[1].active[0]
+    state, _ = step(state, Action.move(2), Action.move(0))
+    assert state.item_id(1, them) == "leftovers"
+
+
+def test_ice_spinner_ends_the_terrain(dex):
+    """Champions: 필드를 해제한다."""
+    from pkcm.engine.actions import Action
+    from pkcm.engine.battle import step
+
+    state = _duel(dex,
+                  _mon("starmie", "naturalcure",
+                       ("icespinner", "psychic", "quickattack", "recover"),
+                       "focussash", (2, 32, 0, 0, 0, 32), "jolly"),
+                  _holder("leftovers", moves=("curse",)))
+    state.field.terrain = "electricterrain"
+    state.field.terrain_turns = 5
+    state, _ = step(state, Action.move(0), Action.move(0))
+    assert state.field.terrain is None
+
+
+def test_raging_bull_breaks_screens_and_leaves_hazards(dex):
+    """Champions: 상대 필드의 리플렉터, 빛의장막, 오로라베일 상태를 해제하고
+    공격한다. Screens only -- this is not a Defog either."""
+    from pkcm.engine.actions import Action
+    from pkcm.engine.battle import step
+
+    state = _duel(dex,
+                  _mon("taurospaldeacombat", "intimidate",
+                       ("ragingbull", "closecombat", "bodyslam", "earthquake"),
+                       "focussash", (2, 32, 0, 0, 0, 32), "jolly"),
+                  _holder("leftovers", moves=("curse",)))
+    state.sides[1].conditions.update({"reflect": 5, "lightscreen": 5,
+                                      "stealthrock": 1})
+    state, _ = step(state, Action.move(0), Action.move(0))
+    assert dict(state.sides[1].conditions) == {"stealthrock": 1}
+
+
+def test_fell_stinger_pays_out_only_on_the_knockout(dex):
+    """Champions: 이 기술로 상대를 쓰러뜨리면 공격이 3단계 올라간다."""
+    from pkcm.engine.actions import Action
+    from pkcm.engine.battle import step
+
+    attacker = _mon("meowscarada", "protean",
+                    ("fellstinger", "uturn", "tripleaxel", "flowertrick"),
+                    "focussash", (2, 32, 0, 0, 0, 32), "jolly")
+    frail = _mon("pikachu", "static", ("tackle",), None)
+
+    state = _duel(dex, attacker, frail)
+    us, them = state.sides[0].active[0], state.sides[1].active[0]
+    state.sides[1].hp[them] = 3
+    state, _ = step(state, Action.move(0), Action.move(0))
+    assert state.sides[1].is_fainted(them)
+    assert state.sides[0].boosts[us][0] == 3
+
+    survives = _duel(dex, attacker, _holder("leftovers", moves=("curse",)))
+    us = survives.sides[0].active[0]
+    survives, _ = step(survives, Action.move(0), Action.move(0))
+    assert not survives.sides[1].is_fainted(survives.sides[1].active[0])
+    assert survives.sides[0].boosts[us][0] == 0, "it paid out without a KO"
+
+
+def test_meteor_beam_pays_its_boost_on_the_charge_turn(dex):
+    """Champions: 사용한 턴에 차지 상태가 되어 다음 턴에 공격한다. 사용한 턴에
+    자신의 특수공격을 1단계 올린다. The charge worked; the boost did not."""
+    from pkcm.engine.actions import Action
+    from pkcm.engine.battle import step
+    from pkcm.engine.state import BOOST_STATS
+
+    state = _duel(dex,
+                  _mon("glimmora", "toxicdebris",
+                       ("meteorbeam", "powergem", "sludgewave", "earthpower"),
+                       "focussash", (0, 0, 0, 32, 2, 32), "modest"),
+                  _holder("leftovers", moves=("curse",)))
+    us = state.sides[0].active[0]
+    state, _ = step(state, Action.move(0), Action.move(0))
+    assert "twoturn" in state.sides[0].volatiles[us], "it should be charging"
+    assert state.sides[0].boosts[us][BOOST_STATS.index("spa")] == 1
+
+
+def test_electro_shot_skips_the_charge_in_rain_and_still_pays(dex):
+    """Champions: 비 상태인 경우 차지 상태를 생략하고 바로 공격할 수 있다.
+    사용한 턴에 자신의 특수공격을 1단계 올린다.
+
+    "사용한 턴에" is the turn it is used, which is this one whether or not the
+    charge is skipped.
+    """
+    from pkcm.engine.actions import Action
+    from pkcm.engine.battle import step
+    from pkcm.engine.state import BOOST_STATS
+
+    state = _duel(dex,
+                  _mon("archaludon", "stamina",
+                       ("electroshot", "flashcannon", "bodypress", "thunderwave"),
+                       "focussash", (0, 0, 0, 32, 2, 32), "modest"),
+                  _holder("leftovers", moves=("curse",)))
+    us = state.sides[0].active[0]
+    state.field.weather = "raindance"
+    state.field.weather_turns = 5
+    state, events = step(state, Action.move(0), Action.move(0))
+
+    assert "twoturn" not in state.sides[0].volatiles[us], "rain skips the charge"
+    assert any(e.kind == "damage" for e in events), "and it fires the same turn"
+    assert state.sides[0].boosts[us][BOOST_STATS.index("spa")] == 1
+
+
+def test_solar_beam_fires_at_once_in_sun_and_charges_otherwise(dex):
+    """Found while implementing the others, and the same gap: Champions says
+    쾌청 상태인 경우 차지 상태를 생략하고 바로 공격할 수 있다, and nothing here
+    knew it -- so a Solar Beam in its own sun still spent a turn winding up."""
+    from pkcm.engine.actions import Action
+    from pkcm.engine.battle import step
+
+    def fire(weather):
+        state = _duel(dex,
+                      _mon("meganium", "overgrow",
+                           ("solarbeam", "gigadrain", "synthesis", "bodyslam"),
+                           "focussash", (0, 0, 0, 32, 2, 32), "modest"),
+                      _holder("leftovers", moves=("curse",)))
+        if weather:
+            state.field.weather = weather
+            state.field.weather_turns = 5
+        us = state.sides[0].active[0]
+        state, events = step(state, Action.move(0), Action.move(0))
+        return ("twoturn" in state.sides[0].volatiles[us],
+                next((e.amount for e in events if e.kind == "damage"), None))
+
+    charging, damage = fire("sunnyday")
+    assert not charging and damage, "sun should let it go at once"
+    assert fire(None)[0], "clear skies still charge"
+    assert fire("sandstorm")[0], "and so does anything else"
+
+
+def test_solar_beam_is_halved_in_the_wrong_weather(dex):
+    """Champions: 다른 날씨인 경우 위력이 1/2이 된다. Other weather, not no
+    weather -- clear skies leave it alone."""
+    from pkcm.engine.moves import VARIABLE_POWER
+    from pkcm.engine.state import BattleConfig, new_battle
+    from pkcm.engine.pokemon import PokemonSet
+
+    config = BattleConfig(dex=dex, regulation=dex.regulation("m_b"),
+                          battle_format="singles")
+    team = tuple(PokemonSet(species=name, ability="__none__",
+                            moves=("solarbeam",), item=None, nature="serious",
+                            sp=(0,) * 6)
+                 for name in ("meganium", "pikachu", "alakazam", "machamp",
+                              "snorlax", "clefable"))
+    state = new_battle(config, (team, team), seed=1)
+
+    class Ctx:
+        pass
+
+    ctx = Ctx()
+    ctx.state = state
+    move = dex.moves["solarbeam"]
+    power = VARIABLE_POWER["solarbeam"]
+    assert power(ctx, (0, 0), (1, 0), move) == move.base_power, "clear skies"
+    state.field.weather = "sunnyday"
+    assert power(ctx, (0, 0), (1, 0), move) == move.base_power, "its own sun"
+    state.field.weather = "sandstorm"
+    assert power(ctx, (0, 0), (1, 0), move) == move.base_power // 2
+
+
+def test_stored_power_counts_only_the_raised_stages(dex):
+    """Champions: 자신의 올라간 능력 변화 1단계당 이 기술의 위력이 20씩
+    올라간다. A Pokemon that has been dropped still swings at twenty."""
+    from pkcm.engine.actions import Action
+    from pkcm.engine.battle import step
+    from pkcm.engine.state import BOOST_STATS
+
+    def hit(**stages):
+        state = _duel(dex,
+                      _mon("gengar", "cursedbody",
+                           ("storedpower", "shadowball", "sludgewave", "calmmind"),
+                           "focussash", (0, 0, 0, 32, 2, 32), "modest"),
+                      _holder("leftovers", moves=("curse",)))
+        us = state.sides[0].active[0]
+        for stat, stage in stages.items():
+            state.sides[0].boosts[us][BOOST_STATS.index(stat)] = stage
+        state, events = step(state, Action.move(0), Action.move(0))
+        return next(e.amount for e in events if e.kind == "damage")
+
+    # Defence and Speed, not Special Attack: a raised Special Attack lifts the
+    # damage through the stat itself, so it cannot tell the power formula from
+    # nothing at all. My first draft measured that and passed either way.
+    flat = hit()
+    assert hit(**{"def": 2}) > flat, "two raised stages must hit harder"
+    assert hit(**{"def": 2, "spe": 2}) > hit(**{"def": 2}), "and four harder still"
+    assert hit(**{"def": -2}) == flat, "a dropped stage is not counted"
+
+
+def test_lash_out_doubles_after_being_dropped_this_turn(dex):
+    """Champions: 사용한 턴 동안 자신의 능력이 떨어진 경우 위력이 2배가 된다.
+
+    The user has to be slower than whatever drops it, or the drop lands after
+    the move and there is nothing to double -- which is the honest reading of
+    "사용한 턴 동안" and also how it was checked.
+    """
+    from pkcm.engine.actions import Action
+    from pkcm.engine.battle import step
+
+    def hit(their_move):
+        state = _duel(
+            dex,
+            _mon("conkeldurr", "guts",
+                 ("lashout", "drainpunch", "machpunch", "bulkup"),
+                 "focussash", (32, 32, 2, 0, 0, 0), "brave"),
+            _mon("clefable", "magicguard",
+                 (their_move, "moonblast", "softboiled", "stealthrock"),
+                 "leftovers", (32, 30, 0, 0, 0, 32), "timid"))
+        state, events = step(state, Action.move(0), Action.move(0))
+        return next(e.amount for e in events if e.kind == "damage")
+
+    # Screech drops our Defence, which changes nothing about our damage except
+    # through Lash Out itself.
+    assert hit("screech") > hit("softboiled") * 1.5, (
+        "being dropped first did not double it")
+
+
+def test_pollen_puff_heals_a_partner_instead_of_hitting_it(dex):
+    """Champions: 같은 편에게 사용하면 데미지를 주는 대신 최대 HP의 1/2만큼
+    같은 편의 HP를 회복한다. Before this it damaged its own partner."""
+    from pkcm.engine.actions import Action, TARGET_ALLY
+    from pkcm.engine.battle import step
+    from pkcm.engine.pokemon import PokemonSet
+    from pkcm.engine.state import BattleConfig, new_battle
+
+    config = BattleConfig(dex=dex, regulation=dex.regulation("m_b"),
+                          battle_format="doubles")
+    filler = [PokemonSet(species=name, ability="__none__", moves=("tackle",),
+                         item=None, nature="serious", sp=(0,) * 6)
+              for name in ("pikachu", "alakazam", "machamp")]
+    ours = [_mon("volcarona", "flamebody",
+                 ("pollenpuff", "fierydance", "quiverdance", "morningsun"),
+                 "focussash", (4, 0, 0, 30, 0, 32), "modest"),
+            _mon("corviknight", "pressure",
+                 ("bravebird", "bodypress", "roost", "ironhead"),
+                 "leftovers", (32, 0, 32, 0, 2, 0), "impish")]
+    theirs = [_holder("leftovers", moves=("curse",)),
+              _mon("clefable", "magicguard", ("softboiled",), "rockyhelmet",
+                   (32, 30, 0, 0, 0, 0), "bold")]
+    state = new_battle(config, (tuple(ours + filler + filler[:1]),
+                                tuple(theirs + filler + filler[:1])), seed=5)
+    state, _ = step(state, Action.select(0, 1, 2, 3), Action.select(0, 1, 2, 3))
+
+    ally = state.sides[0].active[1]
+    maximum = state.pokemon(0, ally).max_hp
+    state.sides[0].hp[ally] = int(maximum * 0.4)
+    before = state.sides[0].hp[ally]
+    # The partner attacks rather than using Roost: with Roost it heals itself
+    # half and the test passes whatever Pollen Puff did, which is how my first
+    # two drafts passed without the fix at all.
+    state, _ = step(state,
+                    (Action.move(0, target=TARGET_ALLY), Action.move(3)),
+                    (Action.move(0), Action.move(0)))
+    # Half its maximum, not merely "more than before" -- it is also holding
+    # Leftovers.
+    assert state.sides[0].hp[ally] - before >= maximum * 0.4, (
+        "it did not heal the partner for half")

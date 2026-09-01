@@ -214,6 +214,14 @@ register("volatile", "stall", name="Stall")
 
 register("volatile", "trapped", name="Trapped")
 
+#: Cud Chew's memory of the berry it ate, until the end of the next turn.
+#: Cleared by switching out, which is right: leaving the field ends it.
+register("volatile", "cudchew", name="Cud Chew")
+
+#: Set by ``mutate.boost`` whenever a stage goes down, so Lash Out can ask
+#: whether it happened this turn. Bookkeeping, not a condition anyone sees.
+register("volatile", "statdropped", name="Stat dropped")
+
 
 def _disabled_expires(ctx, ref, **_):
     data = ctx.state.sides[ref[0]].volatiles[ref[1]].get("disabled")

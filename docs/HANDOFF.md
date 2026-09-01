@@ -403,3 +403,44 @@ python -m venv .venv && .venv/Scripts/python.exe -m pip install -e ".[rl,dev]" j
   `scripts/build_champions_learnsets.py` → `data/champions/learnsets.json`.
   **클로즈는 그 위에 별도로 적용된다** — 표는 "게임이 가르치는가", 클로즈는 "포맷이
   허용하는가"로 다른 질문이다 (지금 남은 클로즈는 종족·도구·회피뿐이다).
+
+---
+
+## 미완: `coach` 브랜치를 새 히스토리 위로 옮기기
+
+**2026-09-01에 `main`의 커밋 메시지를 전부 재작성했다** (공동저자 트레일러 제거,
+117커밋). 코드는 한 바이트도 안 바뀌었지만 **모든 해시가 바뀌었고**, 이미
+force push 했다.
+
+`origin/coach`는 재작성 **전** 히스토리 위에 있다. 그래서 지금 그대로 머지하면
+같은 커밋이 두 벌 들어온다. 옮겨야 한다.
+
+`coach`에만 있는 커밋 12개 (실게임 코치 — 화면 캡처·OCR·조언):
+
+```
+scripts/coach.py, coach.html          게임 옆에서 돌리는 코치
+scripts/calibrate.py, calibrate.html  화면 좌표 보정
+src/pkcm/live/screen.py               윈도우 캡처 + HP 측정 + Windows OCR
+src/pkcm/live/mirror.py               읽은 화면을 배틀 상태로 복원
+src/pkcm/live/ocr.ps1
+tests/test_live.py, test_screen.py    605줄
+```
+
+능력치 수정(되새김질·수확)과 조이기 버그 수정도 그 안에 있다.
+
+### 옮기는 법
+
+개인 PC의 `coach`에 커밋 안 한 작업이 없는지 **먼저 확인**하고:
+
+```bash
+git fetch origin
+git checkout -b coach origin/coach
+git rebase --onto main 9431d7d coach
+```
+
+`9431d7d`는 재작성 전 `main`의 끝이다. 그 뒤 12개만 새 `main` 위로 올라간다.
+rebase가 커밋을 새로 쓰므로 트레일러도 같이 지우려면 `--exec`로 메시지를 손보거나,
+끝나고 `git filter-branch --msg-filter`를 한 번 더 돌리면 된다.
+
+`backup-before-trailer-strip` 브랜치에 재작성 전 `main`이 남아 있다.
+`coach`를 옮기고 확인이 끝나면 지워도 된다.

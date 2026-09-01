@@ -63,11 +63,22 @@ from pkcm.engine.pokemon import PokemonSet
 _SOURCE = "ranker"
 
 
+#: The pools this can draw from.
+#:
+#: ``"imported"`` is the twenty parties this project started with, and it is
+#: here to price the transcribed ones. Belief is worth eighteen points and the
+#: shuffle test says all of it comes from the snapshot being *real*, so a
+#: snapshot that grew from 42 species to 54 should be worth something -- but
+#: more sets per species also spreads the candidates, and narrowing by watched
+#: moves gets harder as the pool widens. That is a measurement, not a deduction.
+POOLS = ("ranker", "imported", "invented")
+
+
 def use_pool(source: str) -> None:
     """Switch the pool. ``sets_by_species`` is cached, so this clears it."""
     global _SOURCE
-    if source not in ("ranker", "invented"):
-        raise ValueError(f"unknown belief pool {source!r}")
+    if source not in POOLS:
+        raise ValueError(f"unknown belief pool {source!r}; expected {POOLS}")
     _SOURCE = source
     sets_by_species.cache_clear()
 
@@ -75,13 +86,15 @@ def use_pool(source: str) -> None:
 @lru_cache(maxsize=1)
 def sets_by_species() -> dict[str, tuple[PokemonSet, ...]]:
     """The sets the belief draws from, grouped by species."""
-    from pkcm.engine.legality import ranker_slots
+    from pkcm.engine.legality import PARTIES_PATH, ranker_slots
 
+    slots = (ranker_slots() if _SOURCE != "imported"
+             else ranker_slots(str(PARTIES_PATH)))
     grouped: dict[str, list[PokemonSet]] = defaultdict(list)
-    for pokemon in ranker_slots():
+    for pokemon in slots:
         grouped[pokemon.species].append(pokemon)
     real = {species: tuple(found) for species, found in grouped.items()}
-    return real if _SOURCE == "ranker" else _invented_like(real)
+    return real if _SOURCE != "invented" else _invented_like(real)
 
 
 def _invented_like(real: dict[str, tuple[PokemonSet, ...]]

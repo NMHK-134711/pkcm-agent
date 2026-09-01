@@ -40,7 +40,7 @@ def main() -> int:
                         help="side B's teams, when they should differ. Both "
                              "seatings are played, so this stays fair")
     parser.add_argument("--belief-pool", default="ranker",
-                        choices=("ranker", "invented"),
+                        choices=("ranker", "imported", "invented"),
                         help="which sets the belief draws from. ``invented`` "
                              "keeps the pool's shape -- same species, same "
                              "count each -- and fills it with legal sets "

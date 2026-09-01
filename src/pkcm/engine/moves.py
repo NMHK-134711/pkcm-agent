@@ -408,14 +408,26 @@ def compute_damage(
     else:
         attack_stat, defense_stat = Stat.SPA, Stat.SPD
 
-    attack = effective_stat(ctx, attacker, attack_stat, move=move, opponent=defender)
+    # A few moves read a stat their category does not say. Body Press swings
+    # with the user's Defense, Foul Play with the *target's* Attack, and the
+    # Psyshock family lands on Defense while staying Special (so Special
+    # Defense boosts do nothing and a burned attacker still deals full
+    # damage). The dex spells all three out; the formula just has to listen.
+    override = move.raw.get("overrideOffensiveStat")
+    if override:
+        attack_stat = _STAT_BY_NAME[override]
+    if move.raw.get("overrideDefensiveStat"):
+        defense_stat = _STAT_BY_NAME[move.raw["overrideDefensiveStat"]]
+    striker = defender if move.raw.get("overrideOffensivePokemon") == "target" else attacker
+
+    attack = effective_stat(ctx, striker, attack_stat, move=move, opponent=defender)
     defense = effective_stat(ctx, defender, defense_stat, move=move, opponent=attacker)
 
     # A critical hit ignores the defender's positive stages and the attacker's
     # negative ones -- it recomputes without the stages that would have helped
     # the defender or hurt the attacker.
     if crit:
-        attack = max(attack, _unstaged(ctx, attacker, attack_stat, move, defender, True))
+        attack = max(attack, _unstaged(ctx, striker, attack_stat, move, defender, True))
         defense = min(defense, _unstaged(ctx, defender, defense_stat, move, attacker, False))
 
     damage = damage_formula(
@@ -433,6 +445,11 @@ def compute_damage(
     damage = fx.modify(ctx, "modify_damage", damage, defender, scope="all",
                        attacker=attacker, defender=defender, move=move, crit=crit)
     return max(1, int(damage)), effectiveness
+
+
+#: How the dex names stats in its override fields.
+_STAT_BY_NAME = {"atk": Stat.ATK, "def": Stat.DEF, "spa": Stat.SPA,
+                 "spd": Stat.SPD, "spe": Stat.SPE}
 
 
 def _unstaged(ctx: Context, ref: Ref, stat: Stat, move, opponent: Ref, keep_positive: bool) -> int:
@@ -882,6 +899,12 @@ def _apply_damaging_move(ctx: Context, attacker: Ref, defender: Ref, move) -> bo
             move.hit_index = hit_number
         crit = rolls_crit(ctx, attacker, defender, move)
         any_crit = any_crit or crit
+        # Judged before the number even exists: a Focus Sash fires inside
+        # ``compute_damage``'s modify hooks and spends itself doing it, so a
+        # check made any later finds no item and calls the truncated number
+        # clean. It is not, and it once struck the true set off the pool for
+        # a Moonblast the sash had quietly shaved from 194 to 184.
+        clean = hits == 1 and _hit_is_recordable(ctx, attacker, defender, move, crit)
         damage, effectiveness = compute_damage(ctx, attacker, defender, move, crit)
         if getattr(move, "parental_bond", False) and hit_number > 0:
             damage = max(1, chain_modify(damage, X0_25))
@@ -889,6 +912,8 @@ def _apply_damaging_move(ctx: Context, attacker: Ref, defender: Ref, move) -> bo
             ctx.emit(ev.immune(defender[0], defender[1], move.id))
             return False
         dealt = _deal_or_break_substitute(ctx, attacker, defender, move, damage, effectiveness, crit)
+        if clean and dealt > 0:
+            _record_hit(ctx, attacker, defender, move, dealt)
         total += dealt
 
     if hits > 1:
@@ -951,6 +976,129 @@ def _after_effects(ctx: Context, attacker: Ref, defender: Ref, move, landed: boo
 
     if move.raw.get("selfSwitch") and landed:
         tactics.self_switch(ctx, attacker)
+
+
+#: The events whose handlers change what the analytic damage formula says.
+#: ``modify_move`` belongs here even though it never touches a number
+#: directly: Pixilate rewrites Hyper Voice's *type*, which rewrites STAB and
+#: effectiveness, and a Sylveon priced as throwing Normal at a Dragon was
+#: struck off the pool five times in a hundred and twenty battles before this
+#: line existed.
+_DAMAGE_EVENTS = frozenset({"modify_damage", "modify_base_power",
+                            "modify_stat", "modify_boosted_stat",
+                            "modify_effectiveness", "modify_attack",
+                            "modify_move"})
+
+#: Attacker items whose effect the belief pricer reproduces exactly, so a hit
+#: through them is still invertible. Everything else that touches damage
+#: silences the recorder.
+PRICED_ITEMS = frozenset({
+    "lifeorb", "expertbelt",
+    "blackglasses", "spelltag", "mysticwater", "fairyfeather", "charcoal",
+    "miracleseed", "magnet", "sharpbeak", "softsand", "silkscarf",
+    "hardstone", "silverpowder", "dragonfang", "metalcoat", "twistedspoon",
+    "nevermeltice", "poisonbarb", "blackbelt",
+})
+
+
+def _touches_damage(kind: str, effect_id) -> bool:
+    from pkcm.engine.effects import lookup
+
+    effect = lookup(kind, effect_id)
+    return effect is not None and bool(_DAMAGE_EVENTS & set(effect.handlers))
+
+
+#: How many hits the ledger keeps. Oldest fall off; late hits carry the most
+#: current information anyway, and the cap keeps clones cheap.
+OBSERVED_HITS_CAP = 24
+
+
+def _hit_is_recordable(ctx: Context, attacker: Ref, defender: Ref,
+                       move: Move, crit: bool) -> bool:
+    """Whether the analytic formula is the whole story of this hit.
+
+    Judged **before** the damage is applied, because the things that falsify
+    the formula can consume themselves in the act -- a Focus Sash has already
+    left the item slot by the time the number exists. The belief inverts the
+    formula to eliminate candidate sets, and a hit it cannot price must not
+    be allowed to eliminate anyone; the check errs toward silence, since a
+    skipped clean hit costs one observation and a recorded dirty one costs
+    the pool its true set.
+    """
+    state = ctx.state
+    if crit or getattr(move, "spread", False):
+        return False
+    if state.field.weather is not None or state.field.terrain is not None:
+        return False
+    if move.raw.get("basePowerCallback") or move.raw.get("multihit") \
+            or move.raw.get("damage") or move.id in VARIABLE_POWER:
+        return False
+    # Body Press, Foul Play, the Psyshock family: the stat they read is not
+    # the one the pricer would use, so their numbers stay out of the ledger.
+    if move.raw.get("overrideOffensiveStat") \
+            or move.raw.get("overrideOffensivePokemon") \
+            or move.raw.get("overrideDefensiveStat"):
+        return False
+    physical = move.category == "Physical"
+    attack_boost = "atk" if physical else "spa"
+    defense_boost = "def" if physical else "spd"
+    if state.sides[attacker[0]].boost(attacker[1], attack_boost):
+        return False
+    if state.sides[defender[0]].boost(defender[1], defense_boost):
+        return False
+    if physical and state.sides[attacker[0]].status[attacker[1]] == "brn":
+        return False
+    screens = state.sides[defender[0]].conditions
+    if "reflect" in screens or "lightscreen" in screens or "auroraveil" in screens:
+        return False
+    # Anything in force on either side whose handlers can touch the number --
+    # an ability like Multiscale, an item, a volatile like Charge -- and the
+    # analytic formula is no longer the whole story. Asked of the registry
+    # rather than written down as a list, so implementing a new modifier
+    # cannot quietly leave this check behind. The attacker items the pricer
+    # reproduces exactly stay recordable.
+    if _touches_damage("ability", ctx.ability_of(attacker)):
+        return False
+    if _touches_damage("ability", ctx.ability_of(defender)):
+        return False
+    if _touches_damage("item", ctx.item_of(defender)):
+        return False
+    attacker_item = ctx.item_of(attacker)
+    if attacker_item not in PRICED_ITEMS and _touches_damage("item", attacker_item):
+        return False
+    for holder in (attacker, defender):
+        for name in state.sides[holder[0]].volatiles[holder[1]]:
+            if _touches_damage("volatile", name):
+                return False
+    return True
+
+
+def _record_hit(ctx: Context, attacker: Ref, defender: Ref,
+                move: Move, dealt: int) -> None:
+    state = ctx.state
+    entry = (
+        defender[0], defender[1],
+        attacker[0], attacker[1],
+        state.species_id(*attacker),        # the forme that actually swung
+        move.id,
+        dealt,
+        # A knockout truncates: ``apply_damage`` returns what the HP bar
+        # could absorb, not what the formula rolled. The number is then a
+        # floor -- the roll was *at least* this -- and the pricer has to test
+        # it as one, or every finishing blow eliminates its own attacker.
+        state.sides[defender[0]].hp[defender[1]] == 0,
+        # The defender as it stood when the hit landed. Snapshotted here, not
+        # at observation time: a defender that Mega Evolves afterwards keeps
+        # its old bulk in the ledger, because that is the bulk the number
+        # answers to.
+        state.species_id(*defender),
+        tuple(state.stats(*defender)),
+        tuple(state.types(*defender)),
+    )
+    kept = state.observed_hits
+    if len(kept) >= OBSERVED_HITS_CAP:
+        kept = kept[1:]
+    state.observed_hits = kept + (entry,)
 
 
 def _deal_or_break_substitute(

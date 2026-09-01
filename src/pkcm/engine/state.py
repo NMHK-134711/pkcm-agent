@@ -293,6 +293,21 @@ class BattleState:
     #: structure rather than a field per mechanic is what stops Transform from
     #: needing a second pass through the whole engine later.
     overrides: tuple[list[dict[str, Any]], list[dict[str, Any]]] = ((), ())  # type: ignore[assignment]
+    #: Clean hits, as both players saw them land. Everything in an entry is
+    #: public at the moment it happens: the attacker's forme is on the field,
+    #: the move was announced, and the damage is the defender's own HP moving
+    #: -- exact for the defender, a fraction for everyone else, which is why
+    #: the *observation* only hands a player the hits their own Pokemon took.
+    #:
+    #: "Clean" means the analytic damage formula prices it: no crit, no
+    #: weather, no screens, no burn, no stat stages on either relevant stat,
+    #: single hit, no substitute in the way. Anything else never enters the
+    #: ledger -- a dirty hit is not wrong information, it is information this
+    #: model cannot invert, and recording it would poison the narrowing.
+    #:
+    #: A tuple, shared across clones until a new hit copies it. Capped so a
+    #: stall war cannot grow every clone in the search tree.
+    observed_hits: tuple = ()
 
     def clone(self) -> "BattleState":
         return BattleState(
@@ -313,6 +328,7 @@ class BattleState:
                 [dict(slot) for slot in self.overrides[0]],
                 [dict(slot) for slot in self.overrides[1]],
             ),
+            observed_hits=self.observed_hits,
         )
 
     # -- lookups ----------------------------------------------------------- #

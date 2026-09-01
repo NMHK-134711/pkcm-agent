@@ -463,3 +463,72 @@ def test_belly_drum_lands_on_six_and_not_past_it(dex):
         "Belly Drum no longer assigns the cap outright; if it now adds stages "
         "it has to go through mutate.boost so the clamp applies")
     assert BOOST_INDEX["atk"] == 0
+
+
+# --------------------------------------------------------------------------- #
+# Moves that read a different stat than their category says
+# --------------------------------------------------------------------------- #
+
+
+def _damage_to(state, side=1):
+    hp = state.sides[side].hp[0]
+    maximum = state.pokemon(side, 0).max_hp
+    return maximum - hp
+
+
+def test_body_press_reads_defense_not_attack(dex, config):
+    """Corviknight's whole design: Bulk Up raises Defense, Body Press swings
+    with it. Priced off Attack, the pool's five Bulk Up Corviknight sets are
+    all playing a different game than the one the ranker built."""
+    from pkcm.engine.moves import compute_damage
+
+    state = build(config, a_set("corviknight", ("bodypress",)),
+                  a_set("snorlax", ("tackle",)))
+    ctx = make_context(state)
+    plain, _ = compute_damage(ctx, RED, BLUE, dex.moves["bodypress"], crit=False)
+
+    # Two stages of Defense must move Body Press the way two stages of Attack
+    # move Tackle: doubled, before rolls.
+    mutate.boost(ctx, RED, {"def": 2})
+    boosted, _ = compute_damage(ctx, RED, BLUE, dex.moves["bodypress"], crit=False)
+    assert boosted > int(plain * 1.7), (plain, boosted)
+
+    # ...and Attack stages must not touch it at all. The roll is drawn per
+    # call, so allow the 85-100 spread and nothing more.
+    mutate.boost(ctx, RED, {"atk": 6})
+    still, _ = compute_damage(ctx, RED, BLUE, dex.moves["bodypress"], crit=False)
+    assert still <= int(boosted * 100 / 85) + 1, (boosted, still)
+
+
+def test_psyshock_hits_the_physical_wall_on_its_defense(dex, config):
+    """A special move that targets Defense. Against Snorlax (base 65 Defense,
+    110 Special Defense) it must out-damage Psychic despite ten less power:
+    the stat ratio is 110/65 = 1.69 against a power ratio of 90/80 = 1.13,
+    so anything much past 1.2x says the right stat is being read. Computed
+    off Special Defense it would come out *under* Psychic instead."""
+    from pkcm.engine.moves import compute_damage
+
+    state = build(config, a_set("alakazam", ("psyshock", "psychic")),
+                  a_set("snorlax", ("tackle",)))
+    ctx = make_context(state)
+    shock = max(compute_damage(ctx, RED, BLUE, dex.moves["psyshock"], crit=False)[0]
+                for _ in range(6))
+    psychic = max(compute_damage(ctx, RED, BLUE, dex.moves["psychic"], crit=False)[0]
+                  for _ in range(6))
+    assert shock > psychic * 1.2, (shock, psychic)
+
+
+def test_foul_play_swings_with_the_targets_attack(dex, config):
+    """Foul Play reads the target's Attack, boosts included. A target that has
+    Sworded twice must take about twice the hit."""
+    from pkcm.engine.moves import compute_damage
+
+    state = build(config, a_set("umbreon", ("foulplay",)),
+                  a_set("garchomp", ("swordsdance",)))
+    ctx = make_context(state)
+    plain = max(compute_damage(ctx, RED, BLUE, dex.moves["foulplay"], crit=False)[0]
+                for _ in range(6))
+    mutate.boost(ctx, BLUE, {"atk": 2})
+    boosted = max(compute_damage(ctx, RED, BLUE, dex.moves["foulplay"], crit=False)[0]
+                  for _ in range(6))
+    assert boosted > int(plain * 1.7), (plain, boosted)

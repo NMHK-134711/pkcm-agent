@@ -319,51 +319,120 @@ def effects_on_field(state: BattleState) -> Iterator[Effect]:
             yield room
 
 
+#: (ability, item, status, volatiles) -> {event: ((effect, handler), ...)}.
+#:
+#: What one Pokemon carries changes a handful of times per battle; which event
+#: is being asked about changes tens of thousands of times per decision. So the
+#: expensive walk -- five REGISTRY lookups and a ``handlers.get`` per effect --
+#: is done once per *combination* and every later ask is one dict lookup.
+#: Profiled before this existed, the walk was 13% of a self-play second.
+#:
+#: Global rather than per-state on purpose: the search clones states by the
+#: thousand, and a memo living on the state would start cold in every clone.
+#: The key is only ids, never objects, so a clone hits the same entries.
+#:
+#: Safe to build lazily because ``REGISTRY`` is finished at import time --
+#: ``register`` calls and the two Lightning Rod handler patches all run before
+#: the first battle asks anything. Ordering inside an entry is the walk order
+#: exactly (ability, item, status, volatiles in insertion order), which the
+#: caller's stable sort by priority depends on for its tie-break.
+_SELF_MEMO: dict[tuple, dict[str, tuple]] = {}
+_SIDE_MEMO: dict[tuple, dict[str, tuple]] = {}
+_FIELD_MEMO: dict[tuple, dict[str, tuple]] = {}
+
+
+def _fold(table: dict[str, list], effect: "Effect") -> None:
+    for event, handler in effect.handlers.items():
+        table.setdefault(event, []).append((effect, handler))
+
+
+def _build_table(memo: dict, key: tuple, kinds) -> dict[str, tuple]:
+    table: dict[str, list] = {}
+    for kind, name in kinds:
+        effect = lookup(kind, name)
+        if effect is not None:
+            _fold(table, effect)
+    frozen = {event: tuple(rows) for event, rows in table.items()}
+    memo[key] = frozen
+    return frozen
+
+
+def _self_table_for(ctx: "Context", ref: Ref) -> dict[str, tuple]:
+    """The event table for what this Pokemon carries right now.
+
+    Suppression and Magic Room are folded into the key -- a suppressed ability
+    keys as ``None`` and shares its entry with genuinely having none.
+    """
+    state = ctx.state
+    side = state.sides[ref[0]]
+    slot = ref[1]
+    key = (
+        ctx.ability_of(ref),
+        ctx.item_of(ref),
+        side.status[slot] if slot < len(side.status) else None,
+        tuple(side.volatiles[slot]) if slot < len(side.volatiles) else (),
+    )
+    found = _SELF_MEMO.get(key)
+    if found is not None:
+        return found
+    return _build_table(_SELF_MEMO, key,
+                        (("ability", key[0]), ("item", key[1]),
+                         ("status", key[2]),
+                         *(("volatile", name) for name in key[3])))
+
+
 def _relevant(ctx: "Context", event: str, ref: Ref,
               scope: str) -> list[tuple[Ref, "Effect", Any]]:
-    """``_ordered(_gather(...))`` without the list in the middle.
+    """Everything with a handler for this event, in gathering order.
 
-    The two-step version builds every effect attached to the Pokemon, its
-    partner, its side and the field -- a list of tuples -- and then throws away
-    everything that has no handler for this event. Almost every event has none
-    or one. Profiled over one decision that was 72,661 gathers feeding 279,370
-    generator resumptions, to run a few thousand handlers.
-
-    So the filter moves inside the loops and nothing is allocated for an effect
-    that is not going to run. The handler itself is carried out rather than its
-    key, which saves the caller a dict lookup as well.
-
-    The order is the two-step version's exactly: self, partner, side, field,
-    then a stable sort by priority. ``_gather`` and ``_ordered`` are kept below
-    -- they say what the rule is far more clearly than this does, and a spike
-    hooks ``_ordered`` to record which handlers ever fire.
+    The order is the two-step version of old exactly: self, partner, side,
+    field, then a stable sort by priority. ``effects_on`` and friends are kept
+    above -- they state the rule far more clearly than a memo table does, and
+    the tests that pin this function against them read like the rule.
     """
+    state = ctx.state
     found: list[tuple[Ref, "Effect", Any]] = []
-    for effect in effects_on(ctx, ref):
-        handler = effect.handlers.get(event)
-        if handler is not None:
+
+    rows = _self_table_for(ctx, ref).get(event)
+    if rows:
+        for effect, handler in rows:
             found.append((ref, effect, handler))
 
-    partner = ctx.state.ally(ref)
+    partner = state.ally(ref)
     if partner is not None:
         # A partner's effect answers to ``ally_<event>`` and to nothing else,
         # so an ability without an ally variant stays silent about its partner.
-        ally_event = ALLY_PREFIX + event
-        for effect in effects_on(ctx, partner):
-            handler = effect.handlers.get(ally_event)
-            if handler is not None:
+        rows = _self_table_for(ctx, partner).get(ALLY_PREFIX + event)
+        if rows:
+            for effect, handler in rows:
                 found.append((partner, effect, handler))
 
     if scope in ("side", "all"):
-        for effect in effects_on_side(ctx.state, ref[0]):
-            handler = effect.handlers.get(event)
-            if handler is not None:
-                found.append((ref, effect, handler))
+        conditions = state.sides[ref[0]].conditions
+        if conditions:
+            key = tuple(conditions)
+            table = _SIDE_MEMO.get(key)
+            if table is None:
+                table = _build_table(_SIDE_MEMO, key,
+                                     tuple(("side", name) for name in key))
+            rows = table.get(event)
+            if rows:
+                for effect, handler in rows:
+                    found.append((ref, effect, handler))
 
     if scope == "all":
-        for effect in effects_on_field(ctx.state):
-            handler = effect.handlers.get(event)
-            if handler is not None:
+        field_state = state.field
+        key = (field_state.weather, field_state.terrain,
+               tuple(field_state.rooms))
+        table = _FIELD_MEMO.get(key)
+        if table is None:
+            table = _build_table(
+                _FIELD_MEMO, key,
+                (("weather", key[0]), ("terrain", key[1]),
+                 *(("room", name) for name in key[2])))
+        rows = table.get(event)
+        if rows:
+            for effect, handler in rows:
                 found.append((ref, effect, handler))
 
     if len(found) > 1:

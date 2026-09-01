@@ -87,6 +87,17 @@ class KnownPokemon:
     #: How many turns we have watched this status last. Public for both sides,
     #: and the only handle we have on how much longer *theirs* will go.
     status_elapsed: int | None = None
+    #: Clean hits this Pokemon landed on *our* side: tuples of
+    #: ``(move_id, damage, lethal, attacker_forme, defender_stats,
+    #: defender_types)``. ``lethal`` flags a knockout, whose number is a floor
+    #: rather than an exact roll; ``attacker_forme`` is the forme that swung,
+    #: which for a stone-holder is not always the forme standing there now.
+    #: Only filled for the opponent's Pokemon, and only with hits whose damage
+    #: we read off our own HP bar -- an exact integer. The defender snapshot is
+    #: ours to give: it is our own set. ``pkcm.envs.belief`` inverts the damage
+    #: formula over these to eliminate candidate sets, which is what a person
+    #: does the moment a hit lands harder than a bulky spread allows.
+    hits_on_us: tuple = ()
 
     @property
     def revealed(self) -> bool:
@@ -233,6 +244,35 @@ def _own_view(state: BattleState, side: int, slot: int) -> KnownPokemon:
     )
 
 
+def _hits_by(state: BattleState, attacker_side: int, attacker_slot: int,
+             observer: int) -> tuple:
+    """The clean hits one foe landed on the observer, priced-ready.
+
+    The damage integers are exact because the HP that moved was the
+    observer's own. The defender snapshot -- species, exact stats, live types
+    -- is the observer's own set, theirs to hand to the pricer. The forme in
+    the ledger entry is folded away here: the belief re-derives each
+    candidate's forme from its item, and the KnownPokemon's ``species_id``
+    already names what was seen on the field.
+    """
+    found = []
+    for entry in state.observed_hits:
+        (d_side, _d_slot, a_side, a_slot, forme, move_id, dealt, lethal,
+         _d_species, d_stats, d_types) = entry
+        if a_side != attacker_side or a_slot != attacker_slot:
+            continue
+        if d_side != observer:
+            continue
+        # Both snapshots were taken by the engine at the moment the hit landed
+        # -- reading the state now would lie about anyone who changed forme
+        # since. The attacker's forme rides along per hit for the same reason:
+        # a number thrown before Mega Evolving answers to base stats however
+        # the attacker looks now. ``lethal`` marks a truncated number: a
+        # knockout shows what the HP bar absorbed, not what was rolled.
+        found.append((move_id, dealt, lethal, forme, d_stats, d_types))
+    return tuple(found)
+
+
 def _foe_view(state: BattleState, side: int, slot: int) -> KnownPokemon:
     """The opponent, with everything unannounced left as ``None``.
 
@@ -258,6 +298,7 @@ def _foe_view(state: BattleState, side: int, slot: int) -> KnownPokemon:
         ability=state.ability_id(side, slot) if slot in seen.abilities else None,
         ability_known=slot in seen.abilities,
         status_elapsed=_elapsed(state, side, slot),
+        hits_on_us=_hits_by(state, side, slot, observer=1 - side),
     )
 
 

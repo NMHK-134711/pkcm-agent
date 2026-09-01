@@ -121,17 +121,37 @@ class DamageEstimate:
         return not self.guaranteed_ko and self.ko_chance >= 0.5
 
 
+#: (base damage, stab, effectiveness) -> the sixteen rolls. See
+#: ``rolls_against``; cleared wholesale if it ever grows past what any real
+#: run produces, which only an adversarial input would.
+_ROLLS_CACHE: dict[tuple, tuple[int, ...]] = {}
+
+
+#: (species_id, stat index) -> bracket. Pure in everything but the dex, and
+#: the dex never changes inside a process -- while the matchup grid asks for
+#: the same three hundred answers a quarter-million times per profile run,
+#: paying an enum construction on each. Small forever: species times six.
+_BRACKET_CACHE: dict[tuple[str, int], tuple[int, int]] = {}
+
+
 def defensive_bracket(dex: Dex, species_id: str, stat: Stat) -> tuple[int, int]:
     """The least and most a species could have in one stat.
 
     Public: base stats are in the dex, and the SP and nature limits are the
     format's. Nothing about the specific Pokemon in front of us is used.
     """
-    base = dex.species[species_id].base_stats[stat]
-    if stat is Stat.HP:
-        return base + 75, base + 75 + SP_CAP
-    return ((base + 20) * HINDER_NATURE // 100,
-            (base + 20 + SP_CAP) * BOOST_NATURE // 100)
+    index = int(stat)
+    found = _BRACKET_CACHE.get((species_id, index))
+    if found is not None:
+        return found
+    base = dex.species[species_id].base_stats[index]
+    if index == 0:                                   # Stat.HP
+        bracket = (base + 75, base + 75 + SP_CAP)
+    else:
+        bracket = ((base + 20) * HINDER_NATURE // 100,
+                   (base + 20 + SP_CAP) * BOOST_NATURE // 100)
+    _BRACKET_CACHE[(species_id, index)] = bracket
+    return bracket
 
 
 def midpoint(dex: Dex, species_id: str, stat: Stat | int) -> int:
@@ -142,7 +162,7 @@ def midpoint(dex: Dex, species_id: str, stat: Stat | int) -> int:
     as well as a ``Stat`` so callers outside this module need not import the
     enum to ask about the opponent's bulk.
     """
-    low, high = defensive_bracket(dex, species_id, Stat(stat))
+    low, high = defensive_bracket(dex, species_id, stat)  # type: ignore[arg-type]
     return (low + high) // 2
 
 
@@ -216,13 +236,23 @@ def estimate_damage(
         return None
 
     def rolls_against(defense: int, crit: bool = False) -> tuple[int, ...]:
-        # The base is the same for all sixteen rolls, so it is computed once.
+        # The base is the same for all sixteen rolls, so it is computed once --
+        # and the sixteen are the same for every (base, stab, effectiveness)
+        # this process ever sees, so they are computed once too. The matchup
+        # grid re-asks the same few hundred combinations at every leaf.
         base = damage_base(power=power, attack=attack, defense=defense,
                            crit=crit, spread=spread)
-        return tuple(
-            damage_from_base(base, roll, stab=stab, effectiveness=effectiveness)
-            for roll in range(DAMAGE_ROLL_LOW, DAMAGE_ROLL_HIGH + 1)
-        )
+        key = (base, stab, effectiveness)
+        found = _ROLLS_CACHE.get(key)
+        if found is None:
+            if len(_ROLLS_CACHE) > 65536:
+                _ROLLS_CACHE.clear()
+            found = _ROLLS_CACHE[key] = tuple(
+                damage_from_base(base, roll, stab=stab,
+                                 effectiveness=effectiveness)
+                for roll in range(DAMAGE_ROLL_LOW, DAMAGE_ROLL_HIGH + 1)
+            )
+        return found
 
     defense_mid = (defense_low + defense_high) // 2
     hp_mid = (hp_low + hp_high) // 2

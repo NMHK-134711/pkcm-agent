@@ -126,6 +126,152 @@ def _invented_like(real: dict[str, tuple[PokemonSet, ...]]
     return invented
 
 
+#: Flat item multipliers the pricer understands -- and it understands them by
+#: calling the engine's own ``chain_modify`` with the engine's own constants,
+#: because "1.3" is not what Life Orb does. Life Orb is 5325/4096ths rounded
+#: half up, and pricing it as a float floor put the number 99 outside a roll
+#: table whose engine really rolled 99. Anything not here prices as 1.0, and
+#: the fallback in ``candidates`` keeps an unmodeled modifier from ever
+#: emptying the pool. Choice Band and Specs do not exist in Champions.
+#: Lowercase on purpose: the dex speaks lowercase types, and the first draft
+#: of this table said "Ghost" -- so Spell Tag priced as nothing and the true
+#: Aegislash was struck off by a hit it really threw. The invariant test
+#: (tests/test_damage_inference.py) is what caught it.
+_POWER_ITEMS = {
+    "blackglasses": "dark", "spelltag": "ghost", "mysticwater": "water",
+    "fairyfeather": "fairy", "charcoal": "fire", "miracleseed": "grass",
+    "magnet": "electric", "sharpbeak": "flying", "softsand": "ground",
+    "silkscarf": "normal", "hardstone": "rock", "silverpowder": "bug",
+    "dragonfang": "dragon", "metalcoat": "steel", "twistedspoon": "psychic",
+    "nevermeltice": "ice", "poisonbarb": "poison", "blackbelt": "fighting",
+}
+_ROLL_LOW, _ROLL_HIGH = 85, 100
+
+
+def _hit_rolls(candidate: PokemonSet, forme_seen: str, move_id: str,
+               defender_stats, defender_types) -> tuple[int, ...] | None:
+    """The sixteen damages this candidate could have rolled, or ``None``.
+
+    ``None`` means "cannot price", never "impossible" -- an unpriceable hit
+    must not eliminate anyone. Impossible is an empty membership test by the
+    caller. The forme check is real information though: a candidate whose item
+    is not the stone the seen Mega requires could not have been the attacker.
+    """
+    from pkcm.data.dex import load_dex
+    from pkcm.engine.moves import (X1_2, X1_3, chain_modify, damage_base,
+                                   damage_from_base)
+    from pkcm.envs.analysis import fought_as
+
+    dex = load_dex()
+    move = dex.moves.get(move_id)
+    if move is None or not move.base_power or move.is_status:
+        return None
+    from pkcm.engine.moves import VARIABLE_POWER, _touches_damage
+
+    if move.raw.get("basePowerCallback") or move.raw.get("multihit") \
+            or move.raw.get("damage") or move.id in VARIABLE_POWER:
+        return None
+    # Body Press and friends read a stat this formula does not. The recorder
+    # keeps their hits out of the ledger; this guard keeps the pricer honest
+    # should one arrive anyway.
+    if move.raw.get("overrideOffensiveStat") \
+            or move.raw.get("overrideOffensivePokemon") \
+            or move.raw.get("overrideDefensiveStat"):
+        return None
+
+    # Price the forme that was actually on the field when the hit landed --
+    # per hit, not per Pokemon. A stone-holder that had not Mega Evolved yet
+    # swings with its base stats, and pricing it as the Mega it will become
+    # eliminated Floette-Eternal for a Draining Kiss it genuinely threw.
+    seen = dex.species.get(forme_seen)
+    if seen is None:
+        return None
+    if seen.is_mega:
+        # A Mega is only reachable through its stone, so the forme doubles as
+        # an item test: a candidate holding anything else is struck off.
+        forme, stats, types = fought_as(dex, candidate.species, candidate.item,
+                                        candidate.ability, candidate.sp,
+                                        candidate.nature)
+        if forme != forme_seen:
+            return ()
+        fighting_ability = dex.species[forme].abilities[0]
+    elif seen.base_species == dex.species[candidate.species].base_species:
+        # The forme that swung, whatever moved it there -- Aegislash attacks
+        # from Blade, a stone-holder before Mega Evolving attacks from base --
+        # priced with that forme's base stats under the candidate's spread.
+        from pkcm.engine.stats import compute_stats, get_nature
+
+        stats = tuple(compute_stats(seen.base_stats, candidate.sp,
+                                    get_nature(candidate.nature)))
+        types = seen.types
+        fighting_ability = candidate.ability
+    else:
+        return ()          # a forme this species line does not contain
+
+    # A candidate whose ability rewrites damage prices differently than this
+    # formula says. ``fought_as`` models the doubled-Attack pair exactly, so
+    # those stay priceable; any other damage-touching ability makes the hit
+    # unreadable *for this candidate* -- unreadable, not impossible, so the
+    # candidate survives rather than being wrongly struck off.
+    if fighting_ability not in ("hugepower", "purepower") \
+            and _touches_damage("ability", fighting_ability):
+        return None
+    if fighting_ability in ("hugepower", "purepower") \
+            and forme_seen == candidate.species:
+        stats = tuple(value * 2 if index == 1 else value
+                      for index, value in enumerate(stats))
+
+    effectiveness = dex.type_chart.multiplier(move.type, tuple(defender_types))
+    if effectiveness == 0:
+        return None        # the hit landed, so this pricing is wrong somewhere
+
+    physical = move.category == "Physical"
+    attack = stats[1] if physical else stats[3]
+    defense = defender_stats[2] if physical else defender_stats[4]
+
+    item = candidate.item
+    power = move.base_power
+    if _POWER_ITEMS.get(item) == move.type:
+        power = chain_modify(power, X1_2)
+
+    stab = move.type in types
+    base = damage_base(power=power, attack=attack, defense=defense,
+                       crit=False, spread=False)
+    rolls = []
+    for roll in range(_ROLL_LOW, _ROLL_HIGH + 1):
+        damage = damage_from_base(base, roll, stab=stab,
+                                  effectiveness=effectiveness)
+        if item == "lifeorb":
+            damage = chain_modify(damage, X1_3)
+        elif item == "expertbelt" and effectiveness > 1:
+            damage = chain_modify(damage, X1_2)
+        rolls.append(max(1, damage))
+    return tuple(rolls)
+
+
+def survives_hits(candidate: PokemonSet, known) -> bool:
+    """Could this set have thrown every number we watched land?
+
+    A lethal hit is a floor, not an exact roll -- the knockout truncated it --
+    so it asks only that some roll reaches the number. Everything else must
+    be rolled exactly.
+    """
+    for move_id, damage, lethal, attacker_forme, defender_stats, \
+            defender_types in getattr(known, "hits_on_us", ()):
+        # The ledger's forme, not the current one: a hit thrown before Mega
+        # Evolving answers to base stats however the attacker looks now.
+        rolls = _hit_rolls(candidate, attacker_forme, move_id,
+                           defender_stats, defender_types)
+        if rolls is None:
+            continue
+        if lethal:
+            if max(rolls) < damage:
+                return False
+        elif damage not in rolls:
+            return False
+    return True
+
+
 def consistent(candidate: PokemonSet, known) -> bool:
     """Could this set be the thing we have been watching?
 
@@ -135,7 +281,21 @@ def consistent(candidate: PokemonSet, known) -> bool:
     candidate that holds one.
     """
     if known.species_id is not None and candidate.species != known.species_id:
-        return False
+        # A Mega on the field is still the base set on the roster. Requiring
+        # the ids to match verbatim emptied the pool the moment an opponent
+        # Mega Evolved -- and from there to the end of the battle the
+        # determinizer fell back to uniform random, for the species the whole
+        # team was built around. Seeing the Mega also *reveals* the item: only
+        # one stone gets there, so a candidate holding anything else is out.
+        from pkcm.data.dex import load_dex
+
+        dex = load_dex()
+        seen = dex.species.get(known.species_id)
+        if seen is None or not seen.is_mega \
+                or seen.base_species != candidate.species:
+            return False
+        if seen.required_item and candidate.item != seen.required_item:
+            return False
     if not set(known.moves).issubset(candidate.moves):
         return False
     if known.item_known and known.item != candidate.item:
@@ -146,11 +306,33 @@ def consistent(candidate: PokemonSet, known) -> bool:
 
 
 def candidates(species_id: str, known) -> tuple[PokemonSet, ...]:
-    """The ranker sets for this species that fit what we have seen."""
+    """The ranker sets for this species that fit what we have seen.
+
+    Two passes. Moves, item and ability first -- those are hard facts. Then
+    the damage numbers, **with a fallback**: if every remaining candidate
+    fails the numbers, the numbers are ignored for this draw. That is the
+    guard against the pricer's blind spots -- an ability multiplier it does
+    not model would otherwise empty the pool and take the true set with it.
+    Measured offline, one clean number eliminates 35.6% of move-compatible
+    rivals and three leave 2.4 standing, so the filter earns its place; the
+    fallback just keeps it honest about what it cannot price.
+    """
     pool = sets_by_species().get(species_id)
     if not pool:
+        # A Mega Evolved opponent asks under its Mega id; the pool files sets
+        # under the base species it registered as.
+        from pkcm.data.dex import load_dex
+
+        seen = load_dex().species.get(species_id)
+        if seen is not None and seen.is_mega:
+            pool = sets_by_species().get(seen.base_species)
+    if not pool:
         return ()
-    return tuple(one for one in pool if consistent(one, known))
+    watched = tuple(one for one in pool if consistent(one, known))
+    if not watched or not getattr(known, "hits_on_us", ()):
+        return watched
+    priced = tuple(one for one in watched if survives_hits(one, known))
+    return priced or watched
 
 
 def sample(species_id: str, known, cursor) -> PokemonSet | None:

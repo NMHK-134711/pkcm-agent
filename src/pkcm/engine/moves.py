@@ -236,6 +236,20 @@ MOVE_PRECONDITIONS: dict[str, Callable[[Context, Ref, Move], str | None]] = {
 }
 
 
+def _knock_off_power(ctx: Context, attacker: Ref, defender: Ref, move) -> int:
+    """Champions: 상대가 도구를 지니고 있으면 위력이 1.5배가 된다.
+
+    Asked before the damage is rolled, and the item is taken off after it --
+    so this reads the item while it is still there, which is the order the
+    move is written in.
+    """
+    from pkcm.engine.moveeffects import _holds_removable
+
+    if _holds_removable(ctx, defender) is None:
+        return move.base_power
+    return chain_modify(move.base_power, X1_5)
+
+
 #: Moves whose base power depends on the battle rather than on a constant.
 VARIABLE_POWER: dict[str, Callable[[Context, Ref, Ref, Move], int]] = {
     "expandingforce": _boosted_on("psychicterrain", X1_5),
@@ -247,6 +261,7 @@ VARIABLE_POWER: dict[str, Callable[[Context, Ref, Ref, Move], int]] = {
     "heavyslam": _relative_weight,
     "heatcrash": _relative_weight,
     "gyroball": _gyro_ball,
+    "knockoff": _knock_off_power,
     "electroball": _electro_ball,
     "flail": _low_hp_scaling,
     "reversal": _low_hp_scaling,

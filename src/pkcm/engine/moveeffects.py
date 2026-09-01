@@ -722,6 +722,112 @@ def _trick(ctx, user, target, move) -> bool:
     return True
 
 
+def _holds_removable(ctx, target) -> str | None:
+    """The target's item, if it can be taken off it.
+
+    Champions on Sticky Hold: 지니고 있는 도구를 상대에게 빼앗기거나
+    잃어버리지 않는다. It guards this whole family, and it is checked here
+    rather than in five places.
+    """
+    if ctx.state.ability_id(*target) == "stickyhold":
+        return None
+    return ctx.state.item_id(*target)
+
+
+@special("knockoff")
+def _knock_off(ctx, user, target, move) -> bool:
+    """Champions: 상대가 도구를 지니고 있으면 위력이 1.5배가 된다. 상대의
+    도구를 없앤다.
+
+    The power half is in ``moves.VARIABLE_POWER``, because it has to be known
+    before the damage is rolled and this runs after it.
+    """
+    item = _holds_removable(ctx, target)
+    if item is None:
+        return False
+    mutate.consume_item(ctx, target, move.id)
+    return True
+
+
+@special("thief", "covet")
+def _steal_item(ctx, user, target, move) -> bool:
+    """Champions, for both: 자신이 도구를 지니고 있지 않은 경우 상대의 도구를
+    빼앗는다.
+
+    Both conditions matter and both are easy to drop. Holding anything at all
+    means no steal -- not "steal if it is better" -- and a target holding
+    nothing is not a failure worth announcing, the move simply did its damage.
+    """
+    if ctx.state.item_id(*user) is not None:
+        return False
+    item = _holds_removable(ctx, target)
+    if item is None:
+        return False
+    # Off them and onto us, rather than consumed: it is the same item.
+    ctx.state.set_override(target[0], target[1], "item", None, permanent=True)
+    ctx.state.set_override(user[0], user[1], "item", item, permanent=True)
+    ctx.emit(Event("item_stolen", side=user[0], slot=user[1], detail=item))
+    return True
+
+
+@special("bugbite", "pluck")
+def _eat_their_berry(ctx, user, target, move) -> bool:
+    """Champions: 상대가 나무열매를 지니고 있으면 그 나무열매를 대신 먹고
+    자신이 효과를 받는다.
+
+    The effect lands on *us* -- which is why berries needed their trigger and
+    their effect separated for Cud Chew, and why this can reuse it: eating a
+    Sitrus Berry off somebody else heals us whatever our own HP is doing.
+    """
+    from pkcm.engine.items import eat_berry
+
+    item = _holds_removable(ctx, target)
+    if item is None or not ctx.state.config.dex.items[item].raw.get("isBerry"):
+        return False
+    mutate.consume_item(ctx, target, move.id)
+    return eat_berry(ctx, user, item)
+
+
+@special("icespinner")
+def _ice_spinner(ctx, user, target, move) -> bool:
+    """Champions: 필드를 해제한다."""
+    if ctx.state.field.terrain is None:
+        return False
+    ended = ctx.state.field.terrain
+    ctx.state.field.terrain = None
+    ctx.state.field.terrain_turns = 0
+    ctx.emit(Event("terrain_end", detail=ended))
+    return True
+
+
+@special("ragingbull")
+def _raging_bull(ctx, user, target, move) -> bool:
+    """Champions: 상대 필드의 리플렉터, 빛의장막, 오로라베일 상태를 해제하고
+    공격한다.
+
+    Screens only. The hazards stay -- this is not a Defog either.
+    """
+    conditions = ctx.state.sides[target[0]].conditions
+    broke = False
+    for name in SCREENS:
+        if conditions.pop(name, None) is not None:
+            broke = True
+            ctx.emit(Event("side_condition_end", side=target[0], detail=name))
+    return broke
+
+
+@special("fellstinger")
+def _fell_stinger(ctx, user, target, move) -> bool:
+    """Champions: 이 기술로 상대를 쓰러뜨리면 공격이 3단계 올라간다.
+
+    Runs from ``_after_effects`` once the damage has landed, so "did it knock
+    the target out" is a question the state can already answer.
+    """
+    if not ctx.state.sides[target[0]].is_fainted(target[1]):
+        return False
+    return bool(boost(ctx, user, {"atk": 3}, source=user))
+
+
 @special("corrosivegas")
 def _corrosive_gas(ctx, user, target, move) -> bool:
     if ctx.state.item_id(*target) is None:

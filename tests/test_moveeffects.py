@@ -1124,3 +1124,193 @@ def test_a_spin_does_not_free_a_pokemon_from_shadow_tag(dex):
     state, _ = step(state, Action.move(0), Action.move(0))
     assert "trapped" in state.sides[0].volatiles[slot], (
         "a spin freed a Pokemon from an ability that traps")
+
+
+def _duel(dex, ours, theirs, seed=5):
+    from pkcm.engine.actions import Action
+    from pkcm.engine.battle import step
+    from pkcm.engine.pokemon import PokemonSet
+    from pkcm.engine.state import BattleConfig, new_battle
+
+    config = BattleConfig(dex=dex, regulation=dex.regulation("m_b"),
+                          battle_format="singles")
+    filler = [PokemonSet(species=name, ability="__none__", moves=("tackle",),
+                         item=None, nature="serious", sp=(0,) * 6)
+              for name in ("pikachu", "alakazam", "machamp")]
+    state = new_battle(config, (tuple([ours] + filler[:2] + filler),
+                                tuple([theirs] + filler[:2] + filler)),
+                       seed=seed)
+    return step(state, Action.select(0, 1, 2), Action.select(0, 1, 2))[0]
+
+
+def _mon(species, ability, moves, item=None, sp=(0,) * 6, nature="serious"):
+    from pkcm.engine.pokemon import PokemonSet
+
+    return PokemonSet(species=species, ability=ability, moves=tuple(moves),
+                      item=item, nature=nature, sp=sp)
+
+
+def _thief_user(item):
+    return _mon("clefable", "magicguard",
+                ("knockoff", "thief", "bugbite", "moonblast"),
+                item, (32, 30, 0, 0, 0, 0), "impish")
+
+
+def _holder(item, ability="thickfat", moves=("bodyslam",)):
+    return _mon("snorlax", ability, moves, item, (32, 0, 32, 0, 0, 0), "impish")
+
+
+def test_knock_off_takes_the_item_and_hits_harder_for_it(dex):
+    """Champions: 상대가 도구를 지니고 있으면 위력이 1.5배가 된다. 상대의
+    도구를 없앤다. Neither half existed."""
+    from pkcm.engine.actions import Action
+    from pkcm.engine.battle import step
+
+    state = _duel(dex, _thief_user("rockyhelmet"), _holder("leftovers"))
+    slot = state.sides[1].active[0]
+    assert state.item_id(1, slot) == "leftovers"
+    state, with_item = step(state, Action.move(0), Action.move(0))
+    assert state.item_id(1, slot) is None, "the item stayed on"
+    hit = next(e.amount for e in with_item if e.kind == "damage")
+
+    bare = _duel(dex, _thief_user("rockyhelmet"), _holder(None))
+    bare, without = step(bare, Action.move(0), Action.move(0))
+    assert hit > next(e.amount for e in without if e.kind == "damage"), (
+        "the 1.5x for holding an item is missing")
+
+
+def test_sticky_hold_keeps_the_item_through_all_of_them(dex):
+    """Champions: 지니고 있는 도구를 상대에게 빼앗기거나 잃어버리지 않는다.
+    It guards this whole family, so it is checked once and tested on each."""
+    from pkcm.engine.actions import Action
+    from pkcm.engine.battle import step
+
+    for index in (0, 1, 2):          # Knock Off, Thief, Bug Bite
+        state = _duel(dex, _thief_user(None),
+                      _holder("sitrusberry", ability="stickyhold"))
+        slot = state.sides[1].active[0]
+        state, _ = step(state, Action.move(index), Action.move(0))
+        assert state.item_id(1, slot) == "sitrusberry", (
+            f"move index {index} got past Sticky Hold")
+
+
+def test_thief_steals_only_with_empty_hands(dex):
+    """Champions: 자신이 도구를 지니고 있지 않은 경우 상대의 도구를 빼앗는다.
+
+    Both conditions are easy to drop and both matter. Holding anything at all
+    means no steal, not steal-if-it-is-better.
+    """
+    from pkcm.engine.actions import Action
+    from pkcm.engine.battle import step
+
+    state = _duel(dex, _thief_user(None), _holder("leftovers"))
+    us, them = state.sides[0].active[0], state.sides[1].active[0]
+    state, _ = step(state, Action.move(1), Action.move(0))
+    assert state.item_id(0, us) == "leftovers", "empty-handed, so it steals"
+    assert state.item_id(1, them) is None
+
+    state = _duel(dex, _thief_user("rockyhelmet"), _holder("leftovers"))
+    us, them = state.sides[0].active[0], state.sides[1].active[0]
+    state, _ = step(state, Action.move(1), Action.move(0))
+    assert state.item_id(0, us) == "rockyhelmet", "holding, so it does not"
+    assert state.item_id(1, them) == "leftovers"
+
+
+def test_thief_on_an_empty_handed_target_is_not_a_failure(dex):
+    """It just does its damage. Nothing to announce."""
+    from pkcm.engine.actions import Action
+    from pkcm.engine.battle import step
+
+    state = _duel(dex, _thief_user(None), _holder(None))
+    state, events = step(state, Action.move(1), Action.move(0))
+    assert any(e.kind == "damage" for e in events)
+
+
+def test_bug_bite_eats_their_berry_and_we_get_the_effect(dex):
+    """Champions: 상대가 나무열매를 지니고 있으면 그 나무열매를 대신 먹고
+    자신이 효과를 받는다.
+
+    The effect lands on *us*, which is why berries needed their trigger split
+    from their effect for Cud Chew -- eating somebody else's Sitrus heals us
+    whatever our own HP is doing.
+    """
+    from pkcm.engine.actions import Action
+    from pkcm.engine.battle import step
+
+    state = _duel(dex, _thief_user("rockyhelmet"),
+                  _holder("sitrusberry", moves=("curse",)))
+    us, them = state.sides[0].active[0], state.sides[1].active[0]
+    state.sides[0].hp[us] = int(state.pokemon(0, us).max_hp * 0.4)
+    before = state.sides[0].hp[us]
+
+    state, _ = step(state, Action.move(2), Action.move(0))
+    assert state.item_id(1, them) is None, "their berry is gone"
+    assert state.sides[0].hp[us] > before, "and we got the heal"
+
+
+def test_bug_bite_does_nothing_to_an_item_that_is_not_a_berry(dex):
+    from pkcm.engine.actions import Action
+    from pkcm.engine.battle import step
+
+    state = _duel(dex, _thief_user("rockyhelmet"),
+                  _holder("leftovers", moves=("curse",)))
+    them = state.sides[1].active[0]
+    state, _ = step(state, Action.move(2), Action.move(0))
+    assert state.item_id(1, them) == "leftovers"
+
+
+def test_ice_spinner_ends_the_terrain(dex):
+    """Champions: 필드를 해제한다."""
+    from pkcm.engine.actions import Action
+    from pkcm.engine.battle import step
+
+    state = _duel(dex,
+                  _mon("starmie", "naturalcure",
+                       ("icespinner", "psychic", "quickattack", "recover"),
+                       "focussash", (2, 32, 0, 0, 0, 32), "jolly"),
+                  _holder("leftovers", moves=("curse",)))
+    state.field.terrain = "electricterrain"
+    state.field.terrain_turns = 5
+    state, _ = step(state, Action.move(0), Action.move(0))
+    assert state.field.terrain is None
+
+
+def test_raging_bull_breaks_screens_and_leaves_hazards(dex):
+    """Champions: 상대 필드의 리플렉터, 빛의장막, 오로라베일 상태를 해제하고
+    공격한다. Screens only -- this is not a Defog either."""
+    from pkcm.engine.actions import Action
+    from pkcm.engine.battle import step
+
+    state = _duel(dex,
+                  _mon("taurospaldeacombat", "intimidate",
+                       ("ragingbull", "closecombat", "bodyslam", "earthquake"),
+                       "focussash", (2, 32, 0, 0, 0, 32), "jolly"),
+                  _holder("leftovers", moves=("curse",)))
+    state.sides[1].conditions.update({"reflect": 5, "lightscreen": 5,
+                                      "stealthrock": 1})
+    state, _ = step(state, Action.move(0), Action.move(0))
+    assert dict(state.sides[1].conditions) == {"stealthrock": 1}
+
+
+def test_fell_stinger_pays_out_only_on_the_knockout(dex):
+    """Champions: 이 기술로 상대를 쓰러뜨리면 공격이 3단계 올라간다."""
+    from pkcm.engine.actions import Action
+    from pkcm.engine.battle import step
+
+    attacker = _mon("meowscarada", "protean",
+                    ("fellstinger", "uturn", "tripleaxel", "flowertrick"),
+                    "focussash", (2, 32, 0, 0, 0, 32), "jolly")
+    frail = _mon("pikachu", "static", ("tackle",), None)
+
+    state = _duel(dex, attacker, frail)
+    us, them = state.sides[0].active[0], state.sides[1].active[0]
+    state.sides[1].hp[them] = 3
+    state, _ = step(state, Action.move(0), Action.move(0))
+    assert state.sides[1].is_fainted(them)
+    assert state.sides[0].boosts[us][0] == 3
+
+    survives = _duel(dex, attacker, _holder("leftovers", moves=("curse",)))
+    us = survives.sides[0].active[0]
+    survives, _ = step(survives, Action.move(0), Action.move(0))
+    assert not survives.sides[1].is_fainted(survives.sides[1].active[0])
+    assert survives.sides[0].boosts[us][0] == 0, "it paid out without a KO"

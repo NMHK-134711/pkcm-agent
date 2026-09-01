@@ -256,6 +256,95 @@ VARIABLE_POWER: dict[str, Callable[[Context, Ref, Ref, Move], int]] = {
 }
 
 
+def _doubled_when(condition):
+    def compute(ctx: Context, attacker: Ref, defender: Ref, move: Move) -> int:
+        return move.base_power * 2 if condition(ctx, attacker, defender) else move.base_power
+
+    return compute
+
+
+def _boost_counting(base: int, per: int):
+    """Stored Power and Power Trip: the user's positive stages, priced."""
+    def compute(ctx: Context, attacker: Ref, defender: Ref, move: Move) -> int:
+        stages = sum(max(0, value)
+                     for value in ctx.state.sides[attacker[0]].boosts[attacker[1]])
+        return base + per * stages
+
+    return compute
+
+
+def _hp_scaled(top: int):
+    """Eruption and Water Spout: full power only at full health."""
+    def compute(ctx: Context, attacker: Ref, defender: Ref, move: Move) -> int:
+        return max(1, top * mutate.current_hp(ctx.state, attacker)
+                   // mutate.max_hp(ctx.state, attacker))
+
+    return compute
+
+
+def _was_hit_by_target(ctx: Context, attacker: Ref, defender: Ref) -> bool:
+    ledger = ctx.state.sides[attacker[0]].volatiles[attacker[1]].get("hurtthisturn")
+    return bool(ledger) and ledger.get("source") == defender
+
+
+def _target_took_damage(ctx: Context, attacker: Ref, defender: Ref) -> bool:
+    return bool(ctx.state.sides[defender[0]].volatiles[defender[1]].get("hurtthisturn"))
+
+
+def _target_already_moved(ctx: Context, attacker: Ref, defender: Ref) -> bool:
+    return defender in ctx.acted
+
+
+def _target_statused(ctx: Context, attacker: Ref, defender: Ref) -> bool:
+    return ctx.state.sides[defender[0]].status[defender[1]] is not None
+
+
+def _own_last_move_failed(ctx: Context, attacker: Ref, defender: Ref) -> bool:
+    return bool(ctx.state.sides[attacker[0]].volatiles[attacker[1]].get("lastmovefailed"))
+
+
+def _no_held_item(ctx: Context, attacker: Ref, defender: Ref) -> bool:
+    return ctx.state.item_id(*attacker) is None
+
+
+def _fallen_allies(ctx: Context, attacker: Ref, defender: Ref, move: Move) -> int:
+    """Last Respects: +50 for every brought party member lying down."""
+    side = ctx.state.sides[attacker[0]]
+    fallen = sum(1 for hp in side.hp if hp <= 0)
+    return move.base_power + 50 * fallen
+
+
+def _triple_axel(ctx: Context, attacker: Ref, defender: Ref, move: Move) -> int:
+    """20, then 40, then 60. The hit loop stamps ``hit_index`` for us."""
+    return 20 * (getattr(move, "hit_index", 0) + 1)
+
+
+def _rage_fist(ctx: Context, attacker: Ref, defender: Ref, move: Move) -> int:
+    """+50 for each hit taken, capped at six, surviving switches."""
+    side = ctx.state.sides[attacker[0]]
+    taken = min(6, side.status_data[attacker[1]].get("timeshit", 0))
+    return move.base_power + 50 * taken
+
+
+VARIABLE_POWER.update({
+    "hex": _doubled_when(_target_statused),
+    "infernalparade": _doubled_when(_target_statused),
+    "avalanche": _doubled_when(_was_hit_by_target),
+    "assurance": _doubled_when(_target_took_damage),
+    "payback": _doubled_when(_target_already_moved),
+    "stompingtantrum": _doubled_when(_own_last_move_failed),
+    "temperflare": _doubled_when(_own_last_move_failed),
+    "acrobatics": _doubled_when(_no_held_item),
+    "storedpower": _boost_counting(20, 20),
+    "powertrip": _boost_counting(20, 20),
+    "eruption": _hp_scaled(150),
+    "waterspout": _hp_scaled(150),
+    "lastrespects": _fallen_allies,
+    "tripleaxel": _triple_axel,
+    "ragefist": _rage_fist,
+})
+
+
 def base_power(ctx: Context, attacker: Ref, defender: Ref, move) -> int:
     from pkcm.engine import moveeffects
 
@@ -421,7 +510,19 @@ def compute_damage(
     striker = defender if move.raw.get("overrideOffensivePokemon") == "target" else attacker
 
     attack = effective_stat(ctx, striker, attack_stat, move=move, opponent=defender)
-    defense = effective_stat(ctx, defender, defense_stat, move=move, opponent=attacker)
+    if move.raw.get("ignoreDefensive"):
+        # Sacred Sword and Darkest Lariat read the raw stat: no stages, in
+        # either direction. The hooks still run -- an ability multiplier is
+        # not a stage.
+        raw_value = fx.modify(ctx, "modify_stat",
+                              mutate.raw_stat(ctx.state, defender, defense_stat),
+                              defender, stat=defense_stat, move=move,
+                              opponent=attacker)
+        defense = max(1, int(fx.modify(ctx, "modify_boosted_stat", raw_value,
+                                       defender, stat=defense_stat, move=move,
+                                       opponent=attacker)))
+    else:
+        defense = effective_stat(ctx, defender, defense_stat, move=move, opponent=attacker)
 
     # A critical hit ignores the defender's positive stages and the attacker's
     # negative ones -- it recomputes without the stages that would have helped
@@ -482,9 +583,11 @@ def connects(ctx: Context, attacker: Ref, defender: Ref, move: Move) -> bool:
         return True
 
     accuracy = _both_sides(ctx, "modify_accuracy", float(move.accuracy), attacker, defender, move)
+    evasion = (0 if move.raw.get("ignoreEvasion")
+               else ctx.state.sides[defender[0]].boost(defender[1], "evasion"))
     stage = (
         ctx.state.sides[attacker[0]].boost(attacker[1], "accuracy")
-        - ctx.state.sides[defender[0]].boost(defender[1], "evasion")
+        - evasion
     )
     stage = max(-6, min(6, stage))
     accuracy *= stage_multiplier(stage, accuracy_like=True)
@@ -699,6 +802,7 @@ def use_move(
         reason = refusal(ctx, attacker, move)
         if reason is not None:
             ctx.emit(Event("move_failed", side=attacker[0], move=move.id, detail=reason))
+            _note_move_failed(ctx, attacker, True)
             return
 
     if move_index is not None:
@@ -752,6 +856,7 @@ def use_move(
 
     if not targets:
         ctx.emit(Event("move_failed", side=attacker[0], move=move.id, detail="no target"))
+        _note_move_failed(ctx, attacker, True)
         return
 
     # A spread move that finds only one target does full damage. The count is
@@ -830,8 +935,20 @@ def _resolve(
         ctx.emit(ev.immune(defender[0], defender[1], move.id))
         return
 
+    # Steel Beam pays its half-max-HP cost for swinging at all -- hit or
+    # miss -- once a target was in front of it.
+    if move.raw.get("mindBlownRecoil") and move.category != "Status":
+        apply_damage(ctx, attacker, (mutate.max_hp(ctx.state, attacker) + 1) // 2,
+                     "recoil", detail=move.id)
+
     if targets_opponent and not connects(ctx, attacker, defender, move):
         ctx.emit(ev.missed(attacker[0], attacker[1], move.id))
+        # High Jump Kick's gamble: missing costs half the user's own HP.
+        if move.raw.get("hasCrashDamage"):
+            ctx.emit(Event("crash", side=attacker[0], slot=attacker[1], move=move.id))
+            apply_damage(ctx, attacker, (mutate.max_hp(ctx.state, attacker) + 1) // 2,
+                         "recoil", detail="crash")
+        _note_move_failed(ctx, attacker, True)
         return
 
     if move.category == "Status":
@@ -839,8 +956,20 @@ def _resolve(
     else:
         landed = _apply_damaging_move(ctx, attacker, defender, move)
 
+    _note_move_failed(ctx, attacker, not landed)
     if landed:
         _apply_self_effects(ctx, attacker, move)
+
+
+def _note_move_failed(ctx: Context, ref: Ref, failed: bool) -> None:
+    """The one bit Stomping Tantrum and Temper Flare ask about.
+
+    An approximation of Showdown's ``pokemonLastMoveFailed``: set when the
+    move missed, was blocked, or reported failure; cleared when it landed.
+    The early exits in ``use_move`` (no target, precondition refusals) set it
+    too, at their own emit sites.
+    """
+    ctx.state.sides[ref[0]].volatiles[ref[1]]["lastmovefailed"] = failed
 
 
 def _clear_flinch(ctx: Context, ref: Ref) -> None:
@@ -895,8 +1024,17 @@ def _apply_damaging_move(ctx: Context, attacker: Ref, defender: Ref, move) -> bo
     for hit_number in range(hits):
         if ctx.state.sides[defender[0]].hp[defender[1]] <= 0:
             break
-        if hasattr(move, "hit_index"):
-            move.hit_index = hit_number
+        # ``move`` is the per-use ActiveMove, so the index is ours to set.
+        # Beat Up reads it to pick whose Attack swings; Triple Axel reads it
+        # to ramp its power.
+        move.hit_index = hit_number
+        # Triple Axel and Population Bomb roll accuracy for every hit, not
+        # once for the lot -- the second miss ends the move, keeping whatever
+        # already landed.
+        if hit_number > 0 and move.raw.get("multiaccuracy") \
+                and not connects(ctx, attacker, defender, move):
+            ctx.emit(ev.missed(attacker[0], attacker[1], move.id))
+            break
         crit = rolls_crit(ctx, attacker, defender, move)
         any_crit = any_crit or crit
         # Judged before the number even exists: a Focus Sash fires inside
@@ -937,6 +1075,15 @@ def _apply_damaging_move(ctx: Context, attacker: Ref, defender: Ref, move) -> bo
     _apply_drain(ctx, attacker, move, total)
     _apply_recoil(ctx, attacker, move, total)
     if total:
+        # Scale Shot's whole point (+1 Spe, -1 Def after it lands) sat unread
+        # in the data while ten Garchomp sets in the pool were built on it.
+        declared = move.raw.get("selfBoost")
+        if declared and declared.get("boosts"):
+            mutate.boost(ctx, attacker, dict(declared["boosts"]), source=attacker)
+        # Scald and friends thaw whoever they hit.
+        if move.raw.get("thawsTarget") \
+                and ctx.state.sides[defender[0]].status[defender[1]] == "frz":
+            mutate.cure_status(ctx, defender)
         _apply_secondaries(ctx, attacker, defender, move)
         if "partiallytrapped" in _volatile_names(move):
             tactics.start_trapping(ctx, defender, move)

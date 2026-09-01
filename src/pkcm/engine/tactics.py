@@ -41,6 +41,10 @@ def record_hit(ctx: Context, ref: Ref, attacker: Ref, move, damage: int) -> None
     ledger[move.category] = ledger.get(move.category, 0) + damage
     ledger["last"] = damage
     ledger["source"] = attacker
+    # Rage Fist counts hits taken across the whole battle, switches included,
+    # which is why this lives in status_data rather than the volatiles.
+    counters = ctx.state.sides[ref[0]].status_data[ref[1]]
+    counters["timeshit"] = counters.get("timeshit", 0) + 1
 
 
 def counter_damage(ctx: Context, attacker: Ref, defender: Ref, move: Move) -> int | None:

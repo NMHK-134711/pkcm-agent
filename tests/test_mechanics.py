@@ -532,3 +532,144 @@ def test_foul_play_swings_with_the_targets_attack(dex, config):
     boosted = max(compute_damage(ctx, RED, BLUE, dex.moves["foulplay"], crit=False)[0]
                   for _ in range(6))
     assert boosted > int(plain * 1.7), (plain, boosted)
+
+
+# --------------------------------------------------------------------------- #
+# The audit of 2026-09-01: behaviors the data declared and nothing read
+# --------------------------------------------------------------------------- #
+
+
+def test_scale_shot_pays_and_earns_its_stages(dex, config):
+    """+1 Spe / -1 Def after it lands -- the reason ten Garchomp sets run it."""
+    state = build(config, a_set("garchomp", ("scaleshot",)), a_set("snorlax", ("tackle",)))
+    ctx = make_context(state)
+    cast(ctx, dex, "scaleshot")
+    assert state.sides[0].boost(0, "spe") == 1
+    assert state.sides[0].boost(0, "def") == -1
+
+
+def test_hex_doubles_into_a_status(dex, config):
+    from pkcm.engine.moves import VARIABLE_POWER
+
+    state = build(config, a_set("gengar", ("hex",)), a_set("snorlax", ("tackle",)))
+    ctx = make_context(state)
+    plain = VARIABLE_POWER["hex"](ctx, RED, BLUE, dex.moves["hex"])
+    state.sides[1].status[0] = "brn"
+    doubled = VARIABLE_POWER["hex"](ctx, RED, BLUE, dex.moves["hex"])
+    assert doubled == plain * 2 == 130
+
+
+def test_stored_power_prices_every_stage(dex, config):
+    from pkcm.engine.moves import VARIABLE_POWER
+
+    state = build(config, a_set("clefable", ("storedpower", "calmmind")),
+                  a_set("snorlax", ("tackle",)))
+    ctx = make_context(state)
+    assert VARIABLE_POWER["storedpower"](ctx, RED, BLUE, dex.moves["storedpower"]) == 20
+    cast(ctx, dex, "calmmind")
+    cast(ctx, dex, "calmmind")
+    # +2 SpA and +2 SpD is four stages: 20 + 4 * 20.
+    assert VARIABLE_POWER["storedpower"](ctx, RED, BLUE, dex.moves["storedpower"]) == 100
+
+
+def test_avalanche_doubles_after_taking_the_hit(dex, config):
+    from pkcm.engine.moves import VARIABLE_POWER
+
+    state = build(config, a_set("snorlax", ("tackle",)), a_set("garchomp", ("avalanche",)))
+    ctx = make_context(state)
+    move = dex.moves["avalanche"]
+    assert VARIABLE_POWER["avalanche"](ctx, BLUE, RED, move) == move.base_power
+    cast(ctx, dex, "tackle", attacker=RED, defender=BLUE)
+    assert VARIABLE_POWER["avalanche"](ctx, BLUE, RED, move) == move.base_power * 2
+
+
+def test_last_respects_counts_the_fallen(dex, config):
+    from pkcm.engine.moves import VARIABLE_POWER
+
+    state = build(config, a_set("basculegion", ("lastrespects",)),
+                  a_set("snorlax", ("tackle",)))
+    ctx = make_context(state)
+    move = dex.moves["lastrespects"]
+    assert VARIABLE_POWER["lastrespects"](ctx, RED, BLUE, move) == 50
+    state.sides[0].hp[1] = 0
+    state.sides[0].hp[2] = 0
+    assert VARIABLE_POWER["lastrespects"](ctx, RED, BLUE, move) == 150
+
+
+def test_sacred_sword_walks_past_the_stages(dex, config):
+    from pkcm.engine.moves import compute_damage
+
+    state = build(config, a_set("samurotthisui", ("sacredsword",)),
+                  a_set("snorlax", ("tackle",)))
+    ctx = make_context(state)
+    before = max(compute_damage(ctx, RED, BLUE, dex.moves["sacredsword"], crit=False)[0]
+                 for _ in range(6))
+    mutate.boost(ctx, BLUE, {"def": 6})
+    after = max(compute_damage(ctx, RED, BLUE, dex.moves["sacredsword"], crit=False)[0]
+                for _ in range(6))
+    # +6 Defense would quarter it; ignored, only the rolls separate the two.
+    assert after > before * 0.8, (before, after)
+
+
+def test_triple_axel_climbs(dex, config):
+    from pkcm.engine.moves import VARIABLE_POWER
+
+    state = build(config, a_set("meowscarada", ("tripleaxel",)),
+                  a_set("snorlax", ("tackle",)))
+    ctx = make_context(state)
+    from types import SimpleNamespace
+
+    powers = [VARIABLE_POWER["tripleaxel"](ctx, RED, BLUE,
+                                           SimpleNamespace(hit_index=index))
+              for index in range(3)]   # what the hit loop stamps per hit
+    assert powers == [20, 40, 60]
+
+
+def test_scald_thaws_what_it_hits(dex, config):
+    state = build(config, a_set("milotic", ("scald",)), a_set("snorlax", ("tackle",)))
+    ctx = make_context(state)
+    state.sides[1].status[0] = "frz"
+    cast(ctx, dex, "scald")
+    assert state.sides[1].status[0] != "frz"
+
+
+def test_acrobatics_doubles_empty_handed(dex, config):
+    from pkcm.engine.moves import VARIABLE_POWER
+
+    state = build(config, a_set("gyarados", ("acrobatics",)), a_set("snorlax", ("tackle",)))
+    ctx = make_context(state)
+    move = dex.moves["acrobatics"]
+    assert VARIABLE_POWER["acrobatics"](ctx, RED, BLUE, move) == move.base_power * 2
+
+
+def test_temper_flare_reads_the_failure_flag(dex, config):
+    from pkcm.engine.moves import VARIABLE_POWER
+
+    state = build(config, a_set("garchomp", ("temperflare",)), a_set("snorlax", ("tackle",)))
+    ctx = make_context(state)
+    move = dex.moves["temperflare"]
+    assert VARIABLE_POWER["temperflare"](ctx, RED, BLUE, move) == move.base_power
+    state.sides[0].volatiles[0]["lastmovefailed"] = True
+    assert VARIABLE_POWER["temperflare"](ctx, RED, BLUE, move) == move.base_power * 2
+
+
+def test_steel_beam_pays_in_blood(dex, config):
+    state = build(config, a_set("archaludon", ("steelbeam",)), a_set("snorlax", ("tackle",)))
+    ctx = make_context(state)
+    full = state.sides[0].hp[0]
+    cast(ctx, dex, "steelbeam")
+    assert state.sides[0].hp[0] <= full - full // 2 + 1, "half the user's max HP"
+
+
+def test_a_crash_move_that_misses_hurts_its_user(dex, config):
+    state = build(config, a_set("meowscarada", ("highjumpkick",)),
+                  a_set("snorlax", ("tackle",)))
+    ctx = make_context(state)
+    mutate.boost(ctx, BLUE, {"evasion": 6})
+    full = state.sides[0].hp[0]
+    for _ in range(12):
+        cast(ctx, dex, "highjumpkick")
+        if any(e.kind == "crash" for e in ctx.log):
+            break
+    assert any(e.kind == "crash" for e in ctx.log), "no miss in twelve casts at +6 evasion?"
+    assert state.sides[0].hp[0] < full

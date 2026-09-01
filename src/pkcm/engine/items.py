@@ -404,6 +404,37 @@ RESIST_BERRIES = {
 }
 
 
+#: What a berry *does*, apart from the condition that makes it fire.
+#:
+#: Cud Chew eats one again a turn later and Harvest grows it back, and neither
+#: of them re-asks the question that made it fire the first time -- Champions'
+#: own dex says 되새김질 is "같은 나무열매를 한 번 더 먹는다", which is an eat
+#: and not a check. So the two halves have to be separable.
+#:
+#: Resist berries are absent on purpose: their effect is a damage modifier on
+#: the hit that triggered them, so there is nothing to re-apply at end of turn.
+BERRY_EFFECTS: dict[str, Any] = {}
+
+
+def berry_effect(berry: str):
+    """Register the effect half, and hand it back for the trigger half to use."""
+    def keep(effect):
+        BERRY_EFFECTS[berry] = effect
+        return effect
+
+    return keep
+
+
+def eat_berry(ctx: Context, ref: Ref, berry: str) -> bool:
+    """Apply a berry's effect without it being held. Cud Chew's whole job."""
+    effect = BERRY_EFFECTS.get(berry)
+    if effect is None:
+        return False
+    used(ctx, ref, berry)
+    effect(ctx, ref)
+    return True
+
+
 def _resist_berry(berry_type: str, berry: str):
     def handler(ctx, ref, value, attacker, defender, move, **_):
         from pkcm.engine.moves import type_effectiveness
@@ -435,12 +466,16 @@ STATUS_BERRIES = {
 
 
 def _status_berry(status: str, berry: str):
+    @berry_effect(berry)
+    def effect(ctx, ref):
+        mutate.cure_status(ctx, ref)
+
     def handler(ctx, ref, **_):
         current = ctx.state.sides[ref[0]].status[ref[1]]
         if current != status and not (status == "psn" and current == "tox"):
             return
         used(ctx, ref, berry)
-        mutate.cure_status(ctx, ref)
+        effect(ctx, ref)
         consume_item(ctx, ref, berry)
 
     return handler
@@ -450,26 +485,35 @@ for _berry, _status in STATUS_BERRIES.items():
     register("item", _berry, name=_berry.title(), update=_status_berry(_status, _berry))
 
 
+@berry_effect("lumberry")
+def _lum_effect(ctx, ref):
+    mutate.cure_status(ctx, ref)
+    if ctx.state.sides[ref[0]].has_volatile(ref[1], "confusion"):
+        mutate.remove_volatile(ctx, ref, "confusion")
+
+
 def _lum_berry(ctx, ref, **_):
     side = ctx.state.sides[ref[0]]
-    confused = side.has_volatile(ref[1], "confusion")
-    if side.status[ref[1]] is None and not confused:
+    if side.status[ref[1]] is None and not side.has_volatile(ref[1], "confusion"):
         return
     used(ctx, ref, "lumberry")
-    mutate.cure_status(ctx, ref)
-    if confused:
-        mutate.remove_volatile(ctx, ref, "confusion")
+    _lum_effect(ctx, ref)
     consume_item(ctx, ref, "lumberry")
 
 
 register("item", "lumberry", name="Lum Berry", update=_lum_berry)
 
 
+@berry_effect("persimberry")
+def _persim_effect(ctx, ref):
+    mutate.remove_volatile(ctx, ref, "confusion")
+
+
 def _persim_berry(ctx, ref, **_):
     if not ctx.state.sides[ref[0]].has_volatile(ref[1], "confusion"):
         return
     used(ctx, ref, "persimberry")
-    mutate.remove_volatile(ctx, ref, "confusion")
+    _persim_effect(ctx, ref)
     consume_item(ctx, ref, "persimberry")
 
 
@@ -477,12 +521,16 @@ register("item", "persimberry", name="Persim Berry", update=_persim_berry)
 
 
 def _healing_berry(berry: str, amount, threshold: int = 2):
+    @berry_effect(berry)
+    def effect(ctx, ref):
+        heal(ctx, ref, amount(mutate.max_hp(ctx.state, ref)), reason=berry)
+
     def handler(ctx, ref, **_):
         total = mutate.max_hp(ctx.state, ref)
         if mutate.current_hp(ctx.state, ref) * threshold > total:
             return
         used(ctx, ref, berry)
-        heal(ctx, ref, amount(total), reason=berry)
+        effect(ctx, ref)
         consume_item(ctx, ref, berry)
 
     return handler
@@ -494,14 +542,22 @@ register("item", "sitrusberry", name="Sitrus Berry",
          update=_healing_berry("sitrusberry", lambda total: max(1, total // 4)))
 
 
-def _leppa_berry(ctx, ref, **_):
+@berry_effect("leppaberry")
+def _leppa_effect(ctx, ref):
     side = ctx.state.sides[ref[0]]
     for index, remaining in enumerate(side.pp[ref[1]]):
         if remaining == 0:
-            used(ctx, ref, "leppaberry")
             side.pp[ref[1]][index] = 10
-            consume_item(ctx, ref, "leppaberry")
             return
+
+
+def _leppa_berry(ctx, ref, **_):
+    side = ctx.state.sides[ref[0]]
+    if 0 not in side.pp[ref[1]]:
+        return
+    used(ctx, ref, "leppaberry")
+    _leppa_effect(ctx, ref)
+    consume_item(ctx, ref, "leppaberry")
 
 
 register("item", "leppaberry", name="Leppa Berry", update=_leppa_berry)

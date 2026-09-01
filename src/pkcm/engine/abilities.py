@@ -1603,7 +1603,10 @@ def _traps_the_opponent(ability: str, condition=None):
         for target in _foes_of(ctx, ref):
             if condition is not None and not condition(ctx, target):
                 continue
-            mutate.add_volatile(ctx, target, "trapped", source=ref)
+            # ``by`` is what makes the hold releasable. ``source`` is only
+            # shown to the try_volatile check and is not kept, so without this
+            # the flag outlives whoever set it -- see ``state._is_trapped``.
+            mutate.add_volatile(ctx, target, "trapped", source=ref, by=ref)
 
     return handler
 
@@ -2028,11 +2031,91 @@ for _name in SINGLES_INERT:
         register("ability", _name, name=_name.title())
 
 
+# --------------------------------------------------------------------------- #
+# Berries, after they have been eaten
+# --------------------------------------------------------------------------- #
+#
+# Both of these are why "used it up" has to be a different state from "holds
+# nothing", and both come straight from the Champions dex rather than from
+# memory of the main series:
+#
+#   되새김질  나무열매를 먹으면, 다음 턴 종료 시 같은 나무열매를 한 번 더 먹는다.
+#   수확      사용한 나무열매를 턴 종료 시 50% 확률로 만들어 낸다.
+#             쾌청 상태일 때는 반드시 만들어 낸다.
+#
+# They are legal here: Cud Chew is on Farigiraf and all three Paldean Tauros,
+# Harvest on Tropius.
+
+
+def _is_berry(ctx, item: str | None) -> bool:
+    return bool(item) and bool(ctx.state.config.dex.items[item].raw.get("isBerry"))
+
+
+def _cud_chew_ate(ctx, ref, item=None, **_):
+    """Remember the berry. The re-eat is a turn away, so it has to be stored.
+
+    A second berry replaces the first: the ability tracks one, and the dex
+    says *the* berry it ate, singular.
+    """
+    if not _is_berry(ctx, item):
+        return
+    mutate.remove_volatile(ctx, ref, "cudchew", quiet=True)
+    mutate.add_volatile(ctx, ref, "cudchew", berry=item, turn=ctx.state.turn)
+
+
+def _cud_chew_residual(ctx, ref, **_):
+    """End of the *next* turn, which is why the turn it was eaten is stored.
+
+    ``state.turn`` is incremented at the top of the turn and residuals run at
+    the bottom of the same one, so the turn it was eaten on sees an equal
+    number here and has to do nothing.
+    """
+    from pkcm.engine.items import eat_berry
+
+    stored = mutate.volatile(ctx.state, ref, "cudchew")
+    if stored is None or ctx.state.turn <= stored.get("turn", 0):
+        return
+    mutate.remove_volatile(ctx, ref, "cudchew", quiet=True)
+    announce(ctx, ref, "cudchew")
+    eat_berry(ctx, ref, stored["berry"])
+
+
+register("ability", "cudchew", name="Cud Chew",
+         after_use_item=_cud_chew_ate, residual=_cud_chew_residual)
+
+
+def _harvest(ctx, ref, **_):
+    """Grow the spent berry back. Certain in harsh sunlight, else even money.
+
+    "Spent" is the engine's own shape for it -- the item overridden to None
+    while the set keeps the original -- which is what Recycle reads and what
+    ``Observation`` now carries as ``consumed_item``.
+    """
+    state = ctx.state
+    if state.item_id(*ref) is not None:
+        return
+    override = state.override(*ref)
+    if "item" not in override:
+        return                      # nothing was ever spent
+    original = state.pokemon(*ref).item
+    if not _is_berry(ctx, original):
+        return
+    sunny = state.field.weather in ("sunnyday", "desolateland")
+    if not sunny and not ctx.cursor.chance(50, 100):
+        return
+    announce(ctx, ref, "harvest")
+    state.set_override(ref[0], ref[1], "item", original, permanent=True)
+    ctx.emit(Event("item_restored", side=ref[0], slot=ref[1], detail=original))
+
+
+register("ability", "harvest", name="Harvest", residual=_harvest)
+
+
 #: Abilities that do nothing in a battle at all -- registering them keeps the
 #: coverage report honest, because "implemented as nothing" is not "forgotten".
 INERT = frozenset({
     "honeygather", "pickup", "runaway", "ballfetch", "cheekpouch", "gluttony",
-    "klutz", "stall", "pickpocket", "magician", "harvest", "unburden",
+    "klutz", "stall", "pickpocket", "magician", "unburden",
     "earlybird", "rattled",
     "aftermath", "damp", "aromaveil", "flowerveil", "suctioncups",
 })

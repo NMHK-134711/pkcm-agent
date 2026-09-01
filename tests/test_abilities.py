@@ -546,7 +546,7 @@ def test_only_item_abilities_remain(dex):
         for ability in dex.species[species_id].abilities
     }
     missing = roster - set(registered("ability"))
-    assert missing == {"cudchew", "ripen", "stickyhold"}, (
+    assert missing == {"ripen", "stickyhold"}, (
         f"expected only the held-item abilities to be pending, got {sorted(missing)}"
     )
 
@@ -771,3 +771,138 @@ def test_magic_bounce_does_not_reflect_an_ability(dex, config):
     fx.notify(ctx, "switch_in", RED)
     assert state.sides[1].boost(0, "atk") < 0, "the drop lands"
     assert state.sides[0].boost(0, "atk") == 0, "and does not come back"
+
+
+def _berry_position(dex, ours, theirs, seed=5):
+    from pkcm.engine.actions import Action
+    from pkcm.engine.battle import step
+    from pkcm.engine.pokemon import PokemonSet
+    from pkcm.engine.state import BattleConfig, new_battle
+
+    config = BattleConfig(dex=dex, regulation=dex.regulation("m_b"),
+                          battle_format="singles")
+    filler = [PokemonSet(species=name, ability="__none__", moves=("tackle",),
+                         item=None, nature="serious", sp=(0,) * 6)
+              for name in ("pikachu", "alakazam", "machamp")]
+    state = new_battle(config, (tuple(list(ours) + filler),
+                                tuple(list(theirs) + filler)), seed=seed)
+    return step(state, Action.select(0, 1, 2), Action.select(0, 1, 2))[0]
+
+
+def _a_set(species, ability, moves, item=None, sp=(0,) * 6, nature="serious"):
+    from pkcm.engine.pokemon import PokemonSet
+
+    return PokemonSet(species=species, ability=ability, moves=tuple(moves),
+                      item=item, nature=nature, sp=sp)
+
+
+def test_cud_chew_eats_the_same_berry_at_the_end_of_the_next_turn(dex):
+    """Champions' dex, verbatim: 나무열매를 먹으면, 다음 턴 종료 시 같은
+    나무열매를 한 번 더 먹는다. Not the same turn -- the next one."""
+    from pkcm.engine.actions import Action
+    from pkcm.engine.battle import step
+
+    ours = [_a_set("farigiraf", "cudchew", ("psychic", "crunch", "rest", "yawn"),
+                   "sitrusberry", (32, 0, 0, 30, 4, 0), "modest")]
+    # A harmless attacker: the point is what happens at the end of two turns,
+    # and Farigiraf has to live through both of them to show it.
+    theirs = [_a_set("snorlax", "thickfat", ("tackle",), None,
+                     (32, 0, 32, 0, 2, 0), "impish")]
+    state = _berry_position(dex, ours, theirs)
+    slot = state.sides[0].active[0]
+    state.sides[0].hp[slot] = int(state.pokemon(0, slot).max_hp * 0.45)
+
+    # Yawn both turns: nothing may faint, on either side, or the end of turn
+    # that is under test never arrives.
+    state, events = step(state, Action.move(3), Action.move(0))
+    assert state.item_id(0, slot) is None, "the berry was eaten"
+    assert state.sides[0].has_volatile(slot, "cudchew"), (
+        "it has to be remembered; the re-eat is a turn away")
+    assert not any(e.kind == "ability" and e.detail == "cudchew"
+                   for e in events), "not on the turn it was eaten"
+
+    before = state.sides[0].hp[slot]
+    state, events = step(state, Action.move(3), Action.move(0))
+    assert any(e.kind == "ability" and e.detail == "cudchew" for e in events), (
+        "the end of the next turn is when it eats it again")
+    assert not state.sides[0].has_volatile(slot, "cudchew"), "and only once"
+    assert state.item_id(0, slot) is None, (
+        "Cud Chew eats it again; it does not give it back")
+    assert state.sides[0].hp[slot] > before, "the second Sitrus healed it"
+
+
+def test_cud_chew_forgets_the_berry_when_it_leaves_the_field(dex):
+    from pkcm.engine.actions import Action
+    from pkcm.engine.battle import step
+
+    ours = [_a_set("farigiraf", "cudchew", ("psychic", "crunch", "rest", "yawn"),
+                   "sitrusberry", (32, 0, 0, 30, 4, 0), "modest"),
+            _a_set("corviknight", "pressure",
+                   ("bravebird", "bodypress", "roost", "ironhead"),
+                   "leftovers", (32, 0, 32, 0, 2, 0), "impish"),
+            _a_set("primarina", "torrent",
+                   ("moonblast", "surf", "psychic", "calmmind"),
+                   "sitrusberry", (4, 0, 0, 32, 30, 0), "modest")]
+    theirs = [_a_set("snorlax", "thickfat", ("tackle",), None,
+                     (32, 0, 32, 0, 2, 0), "impish")]
+    state = _berry_position(dex, ours, theirs)
+    slot = state.sides[0].active[0]
+    state.sides[0].hp[slot] = int(state.pokemon(0, slot).max_hp * 0.45)
+    state, _ = step(state, Action.move(3), Action.move(0))
+    assert state.sides[0].has_volatile(slot, "cudchew")
+
+    state, events = step(state, Action.switch(1), Action.move(0))
+    assert not state.sides[0].has_volatile(slot, "cudchew"), (
+        "leaving the field ends it")
+    assert not any(e.kind == "ability" and e.detail == "cudchew"
+                   for e in events)
+
+
+def test_harvest_grows_the_berry_back_and_only_a_spent_one(dex):
+    """Champions' dex: 사용한 나무열매를 턴 종료 시 50% 확률로 만들어 낸다.
+    쾌청 상태일 때는 반드시 만들어 낸다. The sun is the certain half, so that
+    is the half a test can assert without leaning on a roll.
+
+    The berry comes back and is then eaten again in the same end of turn while
+    the holder is still under half, which is the Harvest loop working rather
+    than a double-trigger: ``item_restored`` is the event under test.
+    """
+    from pkcm.engine.actions import Action
+    from pkcm.engine.battle import step
+
+    ours = [_a_set("tropius", "harvest",
+                   ("airslash", "gigadrain", "sunnyday", "synthesis"),
+                   "sitrusberry", (32, 0, 0, 30, 4, 0), "modest")]
+    theirs = [_a_set("pikachu", "static", ("tackle",), None, (0,) * 6)]
+    state = _berry_position(dex, ours, theirs)
+    slot = state.sides[0].active[0]
+
+    state, events = step(state, Action.move(2), Action.move(0))
+    assert state.field.weather == "sunnyday"
+    assert not any(e.kind == "item_restored" for e in events), (
+        "nothing has been spent, so there is nothing to grow back")
+
+    state.sides[0].hp[slot] = int(state.pokemon(0, slot).max_hp * 0.45)
+    state, events = step(state, Action.move(0), Action.move(0))
+    assert any(e.kind == "item_restored" and e.detail == "sitrusberry"
+               for e in events), (
+        "the sun makes the regrowth certain, and it did not happen")
+
+
+def test_harvest_grows_back_nothing_when_nothing_was_spent(dex):
+    """It reads the engine's own shape for a spent item -- overridden to None
+    with the set keeping the original -- so a Pokemon that simply holds nothing
+    must not have one invented for it."""
+    from pkcm.engine.actions import Action
+    from pkcm.engine.battle import step
+
+    ours = [_a_set("tropius", "harvest",
+                   ("airslash", "gigadrain", "sunnyday", "synthesis"),
+                   None, (32, 0, 0, 30, 4, 0), "modest")]
+    theirs = [_a_set("pikachu", "static", ("tackle",), None, (0,) * 6)]
+    state = _berry_position(dex, ours, theirs)
+    slot = state.sides[0].active[0]
+    state, _ = step(state, Action.move(2), Action.move(0))
+    state, events = step(state, Action.move(0), Action.move(0))
+    assert not any(e.kind == "item_restored" for e in events)
+    assert state.item_id(0, slot) is None

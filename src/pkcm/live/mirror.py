@@ -1,0 +1,449 @@
+"""The real game, mirrored closely enough for the search to run on it.
+
+The search needs a ``BattleState``. A real game gives us an opponent whose six
+we can read off team preview and nothing else -- no spreads, no items, no moves
+until they are used, and not even which three they brought until they walk out.
+
+The trick is that **the search never reads this state's opponent.** ``MCTS``
+takes ``Observation.of(state, us)`` and then ``determinize``s it, and
+determinize resamples every hidden field of theirs from ``state.revealed``. So
+the opponent's half of this state is a *placeholder*: it exists to give the
+engine something to step, and its secrets are thrown away before any thinking
+happens. What matters is that the placeholder is consistent with what has
+actually been seen, and that is what this class maintains.
+
+Three things arrive from outside, because only the person watching the screen
+knows them:
+
+* **What the opponent did.** ``report`` takes a move or a switch and rewrites
+  the placeholder so the engine can step it -- teaching it a move it did not
+  have, or swapping an unrevealed slot for the Pokemon that actually appeared.
+* **How much HP is left.** Our own damage rolls are not theirs, so after every
+  step the numbers are wrong by a little and sometimes by a lot. ``observe``
+  overwrites them with what the bars say.
+* **Status.** Same reason, and it is one word.
+
+Drift is not an error case here, it is the normal case. The design goal is that
+correcting it costs a couple of keystrokes rather than a re-entry.
+"""
+
+from __future__ import annotations
+
+from dataclasses import dataclass, field
+
+from pkcm.data.dex import Dex
+from pkcm.engine.actions import Action
+from pkcm.engine.battle import step
+from pkcm.engine.pokemon import (
+    MAX_MOVES,
+    PokemonSet,
+    Team,
+    compile_team,
+    max_pp,
+)
+from pkcm.engine.rng import Rng, RngCursor
+from pkcm.engine.state import (
+    BattleConfig,
+    BattleState,
+    Phase,
+    legal_actions,
+    new_battle,
+)
+
+
+US, THEM = 0, 1
+
+
+class MirrorError(Exception):
+    """The report cannot be reconciled with the game we think we are watching."""
+
+
+@dataclass
+class Mirror:
+    """One live game, ours to advise on and theirs to tell us about."""
+
+    config: BattleConfig
+    state: BattleState
+    cursor: RngCursor
+    #: Their registered six, in the order they were entered. Indexes
+    #: ``state.parties[THEM]``.
+    their_six: tuple[str, ...]
+    log: list[str] = field(default_factory=list)
+
+    # -- starting ----------------------------------------------------------- #
+
+    @staticmethod
+    def begin(dex: Dex, regulation, our_team: Team, their_six,
+              battle_format: str = "singles", seed: int = 0) -> "Mirror":
+        """A game at team preview, with their six as read off the screen.
+
+        Their sets are placeholders drawn from the ranker pool where it knows
+        the species, because a plausible placeholder makes the mirrored damage
+        roughly right and every point it is right by is a correction the person
+        at the keyboard does not have to type. It is never used as knowledge --
+        see the module docstring.
+        """
+        config = BattleConfig(dex=dex, regulation=regulation,
+                              battle_format=battle_format)
+        cursor = Rng.from_seed(seed).cursor()
+        their_six = tuple(their_six)
+        registered = config.registered
+        if len(their_six) != registered:
+            raise MirrorError(
+                f"team preview shows {registered} Pokemon, got {len(their_six)}")
+        for species in their_six:
+            if species not in dex.species:
+                raise MirrorError(f"no such species: {species!r}")
+
+        their_team = tuple(_placeholder(dex, species, cursor)
+                           for species in their_six)
+        state = new_battle(config, (tuple(our_team), their_team), seed=seed)
+        return Mirror(config=config, state=state, cursor=cursor,
+                      their_six=their_six)
+
+    # -- reading ------------------------------------------------------------ #
+
+    @property
+    def phase(self) -> Phase:
+        return self.state.phase
+
+    @property
+    def finished(self) -> bool:
+        return self.state.finished
+
+    def our_options(self) -> tuple[Action, ...]:
+        return legal_actions(self.state, US)
+
+    def their_slot_of(self, species_id: str) -> int:
+        """Which of their registered six this species is, by id."""
+        try:
+            return self.their_six.index(species_id)
+        except ValueError:
+            raise MirrorError(
+                f"{species_id} is not one of the six they registered") from None
+
+    def advise(self, search) -> object:
+        """What the search would play here. Returns its ``Result``."""
+        return search.choose(self.state, US, self.cursor)
+
+    # -- the person at the keyboard ----------------------------------------- #
+
+    def their_lead(self, species_id: str) -> None:
+        """Who they led with, which is all preview tells us about their three.
+
+        The other two are placeholders -- unrevealed slots that ``report`` will
+        swap for whatever actually walks out. The search does not care: it
+        resamples the unrevealed ones from their registered six anyway.
+        """
+        if self.state.phase is not Phase.TEAM_PREVIEW:
+            raise MirrorError("their lead is only chosen at team preview")
+        lead = self.their_slot_of(species_id)
+        rest = [slot for slot in range(len(self.their_six)) if slot != lead]
+        self._their_selection = (lead, *rest[:self.config.brought - 1])
+
+    def choose_ours(self, order) -> None:
+        """Our three, in the order we are bringing them."""
+        self._our_selection = tuple(order)
+
+    def open(self) -> None:
+        """Submit both team-preview picks and start the battle."""
+        ours = getattr(self, "_our_selection", None)
+        theirs = getattr(self, "_their_selection", None)
+        if ours is None or theirs is None:
+            raise MirrorError("both leads have to be entered before the battle "
+                              "can open")
+        self._step(Action.select(*ours), Action.select(*theirs))
+
+    def report_move(self, move_id: str, mega: bool = False) -> Action:
+        """Their active used this move. Teaches it if we had not seen it.
+
+        ``mega`` says they Mega Evolved on the way, which needs the stone put
+        on the placeholder first -- see ``_give_stone``.
+        """
+        slot = self._their_active_slot()
+        index = self._teach(slot, move_id)
+        if mega:
+            self._give_stone(slot)
+        return Action.move(index, mega=mega)
+
+    def report_switch(self, species_id: str) -> Action:
+        """They switched to this species, revealing it if it is new."""
+        return Action.switch(self._reveal(species_id))
+
+    def report_ability(self, ability_id: str, slot: int | None = None) -> None:
+        """Their ability announced itself -- Intimidate, Pressure, a weather.
+
+        Worth more than the display suggests: ``belief.consistent`` filters the
+        ranker pool on ``ability_known``, so one of these can cut the set of
+        Pokemon the search thinks it might be facing to a handful.
+
+        Applied *before* the turn is stepped, because the ones that announce
+        themselves mostly do it by doing something -- Intimidate is a -1 on our
+        Attack, and the engine can only apply that if it knows about it when
+        the switch happens.
+        """
+        from pkcm.engine.legality import registrable_abilities
+
+        dex = self.config.dex
+        if ability_id not in dex.abilities:
+            raise MirrorError(f"그런 특성이 없습니다: {ability_id!r}")
+        slot = self._their_active_slot() if slot is None else slot
+        party_index = self.state.sides[THEM].selection[slot]
+        pokemon = self.state.parties[THEM][party_index]
+        allowed = registrable_abilities(pokemon.species)
+        if allowed and ability_id not in allowed:
+            raise MirrorError(
+                f"{pokemon.species.name}는 {dex.abilities[ability_id].name}을 "
+                f"가질 수 없습니다 — 가능한 것: {', '.join(allowed)}")
+        self._rewrite(party_index, ability=ability_id)
+        self.state.revealed[THEM].abilities.add(slot)
+
+    def report_item(self, item_id: str, slot: int | None = None,
+                    consumed: bool = False) -> None:
+        """Their held item was shown -- used, eaten, knocked off, Frisked.
+
+        Same payoff as ``report_ability``: the belief pool filters on
+        ``item_known``, and an item is often the most identifying thing about a
+        set. Choice Scarf and Leftovers say what the whole spread is for.
+
+        ``consumed`` takes it away, which is what actually happened to a berry.
+        The set keeps it and the override says it is spent -- the same shape the
+        engine uses, and the same one Recycle reads to give it back. The
+        observation carries it as ``consumed_item``, so knowing they *ate* a
+        Sitrus Berry still narrows the pool to sets that hold one, while the
+        search stops letting them eat it twice.
+        """
+        from pkcm.engine.items import champions_items
+
+        if item_id not in champions_items():
+            raise MirrorError(f"챔피언스에 없는 도구입니다: {item_id!r}")
+        slot = self._their_active_slot() if slot is None else slot
+        party_index = self.state.sides[THEM].selection[slot]
+        self._rewrite(party_index, item=item_id)
+        if consumed:
+            self.state.set_override(THEM, slot, "item", None, permanent=True)
+        self.state.revealed[THEM].items.add(slot)
+
+    def report_our_item(self, consumed: bool = True, item_id: str | None = None,
+                        slot: int | None = None) -> None:
+        """Our own item went, or was swapped for another one.
+
+        There is nothing to reveal here -- our set is not a guess. The only
+        thing the screen can say that the mirror does not already know is
+        *when* it went, and that matters because our damage rolls are not the
+        game's: the engine eats a Sitrus Berry a turn early or a turn late, and
+        from then on it is planning for a Pokemon holding something it no
+        longer has. A Focus Sash the search still thinks is there is a turn
+        spent on a line that does not exist.
+
+        ``item_id`` is for the cases where it did not vanish but changed hands
+        -- Trick, Switcheroo, Symbiosis.
+        """
+        side = self.state.sides[US]
+        if slot is None:
+            if not side.active or side.active[0] < 0:
+                raise MirrorError("우리 쪽에 나와 있는 포켓몬이 없습니다")
+            slot = side.active[0]
+        if item_id is not None:
+            from pkcm.engine.items import champions_items
+
+            if item_id not in champions_items():
+                raise MirrorError(f"챔피언스에 없는 도구입니다: {item_id!r}")
+            self._rewrite(side.selection[slot], US, item=item_id)
+        if consumed:
+            self.state.set_override(US, slot, "item", None, permanent=True)
+        elif item_id is not None:
+            # Handed a new one: it is held, so any earlier "spent" mark goes.
+            self.state.set_override(US, slot, "item", item_id, permanent=True)
+
+    def our_item(self, slot: int | None = None) -> str | None:
+        """What our active is holding right now, for the page to label a box."""
+        side = self.state.sides[US]
+        if slot is None:
+            if not side.active or side.active[0] < 0:
+                return None
+            slot = side.active[0]
+        return self.state.item_id(US, slot)
+
+    def advance(self, ours: Action, theirs: Action) -> list:
+        """Play the turn both sides committed to. Returns the engine's events."""
+        return self._step(ours, theirs)
+
+    def observe(self, side: int, hp_fraction: float | None = None,
+                status: str | None = ..., position: int = 0) -> None:
+        """Overwrite the active's HP and status with what the screen shows.
+
+        **This is the correction, and it is the point.** Our damage roll is not
+        the game's, our guess at their spread is not their spread, and after two
+        exchanges the mirrored HP can be out by a third. Everything downstream --
+        the search's leaf value most of all -- is reading these numbers.
+
+        ``hp_fraction`` is what the bar shows, in 0..1. ``status`` defaults to
+        leaving it alone; pass ``None`` explicitly to clear one.
+        """
+        side_state = self.state.sides[side]
+        if position >= len(side_state.active):
+            raise MirrorError(f"side {side} has no position {position}")
+        slot = side_state.active[position]
+        if slot < 0:
+            raise MirrorError(f"nobody is standing in position {position}")
+        if hp_fraction is not None:
+            maximum = self.state.pokemon(side, slot).max_hp
+            # Never round a living Pokemon down to fainted: the bar shows a
+            # sliver at 1% and the engine would call the battle over.
+            hp = max(1, round(maximum * hp_fraction)) if hp_fraction > 0 else 0
+            side_state.hp[slot] = min(maximum, hp)
+        if status is not ...:
+            side_state.status[slot] = status
+            if status is None:
+                side_state.status_data[slot] = {}
+                self.state.revealed[side].status_since.pop(slot, None)
+            else:
+                self.state.revealed[side].status_since.setdefault(
+                    slot, self.state.turn)
+
+    # -- keeping the placeholder honest -------------------------------------- #
+
+    def _their_active_slot(self) -> int:
+        side = self.state.sides[THEM]
+        if not side.active or side.active[0] < 0:
+            raise MirrorError("they have nobody on the field")
+        return side.active[0]
+
+    def _teach(self, slot: int, move_id: str) -> int:
+        """Put a move on their placeholder, and say which index it landed at.
+
+        A placeholder's four moves are a guess. When the guess is wrong the
+        engine cannot step the turn at all, so the watched move replaces one we
+        have *not* watched -- never one we have, because those are facts.
+        """
+        dex = self.config.dex
+        if move_id not in dex.moves:
+            raise MirrorError(f"no such move: {move_id!r}")
+        party_index = self.state.sides[THEM].selection[slot]
+        pokemon = self.state.parties[THEM][party_index]
+        existing = [move.id for move in pokemon.moves]
+        if move_id in existing:
+            return existing.index(move_id)
+
+        watched = self.state.revealed[THEM].moves_of(slot)
+        spare = next((index for index, move in enumerate(existing)
+                      if move not in watched), None)
+        if spare is None:
+            raise MirrorError(
+                f"they have already shown {MAX_MOVES} moves on this Pokemon "
+                f"and now a {move_id}; one of the reports must be wrong")
+        moves = list(existing)
+        moves[spare] = move_id
+        self._rewrite(party_index, moves=tuple(moves))
+        # PP is per brought slot and indexed the same way.
+        self.state.sides[THEM].pp[slot][spare] = max_pp(dex.moves[move_id].pp)
+        return spare
+
+    def _give_stone(self, slot: int) -> None:
+        """They Mega Evolved, so they were holding the stone all along.
+
+        ``determinize`` deliberately never hands an *unrevealed* Pokemon a Mega
+        Stone: one that never fires would have the search planning around a
+        Mega Evolution that cannot happen. That is the right default and it is
+        exactly why this has to be said out loud when one does fire -- the
+        placeholder is holding something else, and the engine will not run the
+        turn otherwise.
+
+        After this the forme change is a fact like any other: the state's
+        override carries the Mega's species, so the observation reports it and
+        every later determinization builds on it.
+        """
+        if self.state.mega_used[THEM]:
+            raise MirrorError("상대는 이미 메가진화를 썼습니다")
+        from pkcm.engine.legality import mega_stone_for
+
+        party_index = self.state.sides[THEM].selection[slot]
+        pokemon = self.state.parties[THEM][party_index]
+        stone = mega_stone_for(self.config.dex, self.config.regulation,
+                               pokemon.species.id)
+        if stone is None:
+            raise MirrorError(
+                f"{pokemon.species.name}에는 메가진화가 없습니다")
+        self._rewrite(party_index, item=stone)
+
+    def _reveal(self, species_id: str) -> int:
+        """Their brought-party slot for this species, inventing one if needed.
+
+        Preview says which six they registered, never which three they bring,
+        so two of their three start as arbitrary picks. The first time one of
+        those is contradicted by a Pokemon actually walking out, the unrevealed
+        placeholder is swapped for the real species. Only slots that have never
+        been on the field may be swapped -- one that has is a fact.
+        """
+        side = self.state.sides[THEM]
+        registered = self.their_slot_of(species_id)
+        for slot, party_index in enumerate(side.selection):
+            if party_index == registered:
+                return slot
+
+        seen = self.state.revealed[THEM].species
+        spare = next((slot for slot in range(len(side.selection))
+                      if slot not in seen), None)
+        if spare is None:
+            raise MirrorError(
+                f"they have already shown {len(side.selection)} Pokemon and "
+                f"now a {species_id}; one of the reports must be wrong")
+        selection = list(side.selection)
+        selection[spare] = registered
+        side.selection = tuple(selection)
+        # The slot was never on the field, so its per-slot arrays are still at
+        # their opening values -- except HP, which is sized to the old species.
+        side.hp[spare] = self.state.pokemon(THEM, spare).max_hp
+        side.pp[spare] = [max_pp(move.pp)
+                          for move in self.state.pokemon(THEM, spare).moves]
+        return spare
+
+    def _rewrite(self, party_index: int, side: int = THEM, **changes) -> None:
+        """Replace one registered set, keeping everything else."""
+        old = self.state.parties[side][party_index]
+        built = compile_team(self.config.dex,
+                             (_replace_set(old.set, **changes),))[0]
+        parties = list(self.state.parties)
+        theirs = list(parties[side])
+        theirs[party_index] = built
+        parties[side] = tuple(theirs)
+        self.state.parties = tuple(parties)
+
+    def _step(self, ours: Action, theirs: Action) -> list:
+        self.state, events = step(self.state, ours, theirs)
+        return events
+
+
+def _replace_set(pokemon_set: PokemonSet, **changes) -> PokemonSet:
+    from dataclasses import replace
+
+    return replace(pokemon_set, **changes)
+
+
+def _placeholder(dex: Dex, species_id: str, cursor: RngCursor) -> PokemonSet:
+    """A plausible set for a species we know nothing else about.
+
+    From the ranker pool when it has one, because that is a set a person built
+    and its damage will be in the right neighbourhood. Otherwise a legal
+    fallback: the species' first ability, whatever it can learn, no item.
+    """
+    from pkcm.engine.legality import learnable_moves, registrable_abilities
+    from pkcm.envs.belief import sets_by_species
+
+    pool = sets_by_species().get(species_id)
+    if pool:
+        return pool[cursor.between(0, len(pool) - 1)]
+
+    species = dex.species[species_id]
+    learnable = sorted(learnable_moves(dex, species_id))
+    moves = tuple(learnable[:MAX_MOVES]) or ("struggle",)
+    abilities = registrable_abilities(species)
+    return PokemonSet(
+        species=species_id,
+        ability=abilities[0] if abilities else "__none__",
+        moves=moves,
+        item=None,
+        nature="serious",
+        sp=(11, 11, 11, 11, 11, 11),
+    )

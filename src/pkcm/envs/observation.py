@@ -87,6 +87,11 @@ class KnownPokemon:
     #: How many turns we have watched this status last. Public for both sides,
     #: and the only handle we have on how much longer *theirs* will go.
     status_elapsed: int | None = None
+    #: What it has already used up, when we watched that happen. ``item`` is
+    #: what it holds *now*, which after a berry is nothing -- and collapsing the
+    #: two throws away the most identifying thing about a set. Harvest and
+    #: Recycle are why the difference is mechanical and not only informational.
+    consumed_item: str | None = None
 
     @property
     def revealed(self) -> bool:
@@ -225,6 +230,7 @@ def _own_view(state: BattleState, side: int, slot: int) -> KnownPokemon:
         pp=tuple(side_state.pp[slot]),
         item=state.item_id(side, slot),
         item_known=True,
+        consumed_item=_consumed(state, side, slot),
         ability=state.ability_id(side, slot),
         ability_known=True,
         stats=tuple(state.stats(side, slot)),
@@ -255,10 +261,25 @@ def _foe_view(state: BattleState, side: int, slot: int) -> KnownPokemon:
         pp=None,
         item=state.item_id(side, slot) if slot in seen.items else None,
         item_known=slot in seen.items,
+        consumed_item=_consumed(state, side, slot) if slot in seen.items else None,
         ability=state.ability_id(side, slot) if slot in seen.abilities else None,
         ability_known=slot in seen.abilities,
         status_elapsed=_elapsed(state, side, slot),
     )
+
+
+def _consumed(state: BattleState, side: int, slot: int) -> str | None:
+    """The item this one used up, if it has used one.
+
+    The engine marks a spent item by overriding it to ``None`` while the set
+    keeps the original -- which is exactly what Recycle reads to give it back.
+    Reading it the same way here means an opponent that ate its Sitrus Berry
+    stops looking, to the belief, like an opponent known to hold nothing.
+    """
+    override = state.override(side, slot)
+    if "item" in override and override["item"] is None:
+        return state.pokemon(side, slot).item
+    return None
 
 
 def _elapsed(state: BattleState, side: int, slot: int) -> int | None:
@@ -365,7 +386,10 @@ def determinize(observation: Observation, truth: BattleState,
             ability = options[cursor.between(0, len(options) - 1)]
 
         if known.item_known:
-            item = known.item
+            # The set holds what it started with; the cloned overrides below
+            # still say it has been spent, so the determinization ends up in
+            # exactly the state the real battle is in.
+            item = known.consumed_item or known.item
         else:
             item = _sample_item(dex, cursor, taken_items)
             if item is not None:

@@ -128,7 +128,10 @@ def generate(config: SelfPlayConfig, battles: int, seed: int = 0,
             yield play_one(dex, config, one)
         return
 
-    if not gpu_server:
+    # The first loop iteration plays on the handcrafted prior alone -- no
+    # checkpoint, no network, nothing for a server to serve. Standing one up
+    # anyway crashed on torch.load(None) the first time this ran for real.
+    if not gpu_server or config.checkpoint is None:
         # Unordered: a battle that ends quickly should not wait behind a long
         # one, and nothing downstream cares which order they arrive in.
         yield from map_unordered(_play, seeds, initializer=_start_worker,

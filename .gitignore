@@ -58,6 +58,18 @@ runs/pilot43/*
 # compare against.
 !runs/tournament_*.json
 
+# ...and the judge logs, for the same reason: a measurement that changed a
+# deployment decision is worth more than the disk it takes, and the next
+# person to ask "is the network still worth it" needs the old answer.
+!runs/judge_*.log
+
+# Recordings of real games. hk drops these in the working tree to review a
+# match; a 300 MB video is not a thing to carry in the history, and GitHub
+# refuses it anyway.
+*.mp4
+*.mkv
+*.mov
+
 # Showdown TypeScript sources, used as the mechanics reference
 # (regenerate with: python scripts/fetch_showdown_source.py)
 data/reference/

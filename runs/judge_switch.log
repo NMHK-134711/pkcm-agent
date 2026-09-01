@@ -1,0 +1,13 @@
+search(switch=0.4) vs search(switch=0.0) | 200 matches | ranker teams | 19 workers
+  21/200  21-21  ~258s left
+  50/200  47-52  ~181s left
+  77/200  73-80  ~146s left
+  108/200  110-105  ~104s left
+  138/200  137-138  ~69s left
+  172/200  175-168  ~30s left
+  199/200  202-194  ~1s left
+  200/200  203-195  ~0s left
+
+  203-195 (2 drawn) over 398 decided games
+  51.0% [46.1%, 55.9%]
+  not separable from the handcrafted search.

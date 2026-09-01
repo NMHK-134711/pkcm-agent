@@ -240,6 +240,20 @@ def bootstrap_targets(samples: list[Sample], n_step: int) -> list[Sample]:
 _EVALUATOR: tuple | None = None
 
 
+#: A stand-in network handed to this process by the GPU inference server.
+#: Set by the pool initializer before the first battle; ``None`` means build
+#: the network locally on the CPU, which is the default and the common case.
+_REMOTE_NET = None
+
+
+def use_remote_net(net) -> None:
+    """Give this process's evaluators the server's network. The evaluator
+    cache is dropped so the next build picks it up."""
+    global _REMOTE_NET, _EVALUATOR
+    _REMOTE_NET = net
+    _EVALUATOR = None
+
+
 def _evaluator(dex: Dex, config: SelfPlayConfig):
     global _EVALUATOR
     if config.checkpoint is None:
@@ -271,6 +285,11 @@ def _evaluator(dex: Dex, config: SelfPlayConfig):
         action_space_size(battle_config.registered, battle_config.brought),
         SCALAR_SIZE, device="cpu", trust=config.trust,
         trust_prior=config.trust_prior, trust_value=config.trust_value)
+    if _REMOTE_NET is not None:
+        # The evaluator keeps its cache, its trust blend and its tables; only
+        # the forward pass moves to the server. ``RemoteNet.evaluate`` has the
+        # same signature, so nothing downstream can tell.
+        built.net = _REMOTE_NET
     _EVALUATOR = (config.checkpoint, config.trust, config.trust_prior,
                   config.trust_value, id(dex), built)
     return built

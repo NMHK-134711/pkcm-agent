@@ -156,6 +156,15 @@ def main() -> int:
                              "recombines the imported pkmnchamps parties; "
                              "37.5%% of random Pokemon carry no same-type "
                              "attack at all, against 4.9%% of those")
+    parser.add_argument("--gpu-server", action="store_true",
+                        help="serve every worker's forward passes from one "
+                             "GPU process. Not for speed -- the forward is "
+                             "~6%% of a self-play second -- but for budget: "
+                             "the GPU's time is flat in batch size, so a "
+                             "bigger leaf_batch and simulation count become "
+                             "affordable at the same wall clock. GPU and CPU "
+                             "matmuls round differently, so runs are only "
+                             "comparable by win rate, never game-for-game")
     parser.add_argument("--foe-teams", default=None, type=parse_team_source,
                         help="the opponent's distribution, when it should "
                              "differ from ours. ``--teams parties:7 "
@@ -402,7 +411,8 @@ def main() -> int:
         beat = started
         for done, batch in enumerate(generate(
                 selfplay, args.battles,
-                seed=args.seed + iteration * 10000, workers=workers), 1):
+                seed=args.seed + iteration * 10000, workers=workers,
+                gpu_server=args.gpu_server), 1):
             fresh.extend(batch)
             beat = _heartbeat(done, args.battles, "self-play", started, beat)
         played = time.perf_counter() - started

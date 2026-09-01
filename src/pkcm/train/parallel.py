@@ -31,7 +31,7 @@ _DEX: Dex | None = None
 _CONFIG: SelfPlayConfig | None = None
 
 
-def _start_worker(config: SelfPlayConfig) -> None:
+def _start_worker(config: SelfPlayConfig, remote=None) -> None:
     global _DEX, _CONFIG
     _DEX = load_dex()
     _CONFIG = config
@@ -39,6 +39,17 @@ def _start_worker(config: SelfPlayConfig) -> None:
     # its own threads inside each worker oversubscribes and slows everything.
     os.environ.setdefault("OMP_NUM_THREADS", "1")
     os.environ.setdefault("MKL_NUM_THREADS", "1")
+    if remote is not None:
+        from pkcm.train.inference import RemoteNet
+        from pkcm.train.samples import use_remote_net
+
+        # Every worker gets the same initargs, so ownership of a reply queue
+        # cannot be assigned by argument. Each worker claims an index off a
+        # queue the parent pre-filled instead -- one pop, one queue, no two
+        # workers ever waiting on the same channel.
+        requests, replies, claims = remote
+        mine = claims.get(timeout=30)
+        use_remote_net(RemoteNet(requests, replies[mine], mine))
 
 
 def _play(seed: int) -> list[Sample]:
@@ -101,7 +112,8 @@ def map_unordered(task, items, *, initializer, initargs, workers: int,
 
 
 def generate(config: SelfPlayConfig, battles: int, seed: int = 0,
-             workers: int | None = None) -> Iterator[list[Sample]]:
+             workers: int | None = None,
+             gpu_server: bool = False) -> Iterator[list[Sample]]:
     """Play ``battles`` self-play games, yielding each one's samples as it lands.
 
     Yields per battle rather than returning a list so a caller can write to a
@@ -116,10 +128,45 @@ def generate(config: SelfPlayConfig, battles: int, seed: int = 0,
             yield play_one(dex, config, one)
         return
 
-    # Unordered: a battle that ends quickly should not wait behind a long one,
-    # and nothing downstream cares which order they arrive in.
-    yield from map_unordered(_play, seeds, initializer=_start_worker,
-                             initargs=(config,), workers=count, what="battle")
+    if not gpu_server:
+        # Unordered: a battle that ends quickly should not wait behind a long
+        # one, and nothing downstream cares which order they arrive in.
+        yield from map_unordered(_play, seeds, initializer=_start_worker,
+                                 initargs=(config,), workers=count,
+                                 what="battle")
+        return
+
+    # One GPU process serves every worker's forward passes. Reply-queue
+    # ownership is claimed by each worker off a pre-filled queue, because
+    # ``map_unordered`` hands every worker identical initargs and two workers
+    # waiting on one channel would swap answers. Retry pools claim fresh
+    # queues from the same over-provisioned set; the server itself holds no
+    # per-battle state.
+    from pkcm.envs.encoding import SCALAR_SIZE, action_space_size
+    from pkcm.engine.state import BattleConfig
+    from pkcm.train.inference import InferencePool, ServerConfig
+
+    dex = load_dex()
+    battle_config = BattleConfig(dex=dex,
+                                 regulation=dex.regulation(config.regulation),
+                                 battle_format=config.battle_format)
+    server = ServerConfig(
+        checkpoint=config.checkpoint,
+        action_space=action_space_size(battle_config.registered,
+                                       battle_config.brought),
+        scalar_size=SCALAR_SIZE)
+    # Enough reply queues for every pool the retry loop might ever build.
+    import multiprocessing as mp
+
+    spawn = mp.get_context("spawn")
+    with InferencePool(server, workers=count * 4) as pool:
+        claims = spawn.Queue()
+        for index in range(pool.workers):
+            claims.put(index)
+        yield from map_unordered(
+            _play, seeds, initializer=_start_worker,
+            initargs=(config, (pool.requests, pool.replies, claims)),
+            workers=count, what="battle")
 
 
 def quick(config: SelfPlayConfig, battles: int, **kwargs) -> list[Sample]:

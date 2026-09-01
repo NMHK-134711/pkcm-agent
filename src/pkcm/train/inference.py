@@ -184,6 +184,14 @@ class InferencePool:
         """The stand-in one worker should hold. Pickles cleanly into spawn."""
         return RemoteNet(self._requests, self._replies[worker], worker)
 
+    @property
+    def requests(self):
+        return self._requests
+
+    @property
+    def replies(self):
+        return self._replies
+
     def stop(self, timeout: float = 10.0) -> None:
         self._stop.set()
         if self._process.pid is None:

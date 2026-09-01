@@ -1163,16 +1163,14 @@ def _apply_damaging_move(ctx: Context, attacker: Ref, defender: Ref, move) -> bo
     _apply_drain(ctx, attacker, move, total)
     _apply_recoil(ctx, attacker, move, total)
     if total:
-        # Scale Shot's whole point (+1 Spe, -1 Def after it lands) sat unread
-        # in the data while ten Garchomp sets in the pool were built on it.
-        declared = move.raw.get("selfBoost")
-        if declared and declared.get("boosts"):
-            mutate.boost(ctx, attacker, dict(declared["boosts"]), source=attacker)
         # Scald and friends thaw whoever they hit.
         if move.raw.get("thawsTarget") \
                 and ctx.state.sides[defender[0]].status[defender[1]] == "frz":
             mutate.cure_status(ctx, defender)
         _apply_secondaries(ctx, attacker, defender, move)
+        # Both machines fixed Scale Shot's unread selfBoost on the same day;
+        # the merge briefly applied it twice and dropped Garchomp two stages
+        # of Defence per use. One implementation stays -- the named one.
         _apply_self_boost(ctx, attacker, move)
         if "partiallytrapped" in _volatile_names(move):
             tactics.start_trapping(ctx, defender, move)

@@ -73,10 +73,27 @@ LAYERED = frozenset({"spikes", "toxicspikes", "stealthrock", "stickyweb"})
 
 US, THEM = 0, 1
 
-#: The parties runs/curriculum4 was trained on. Off them the same
-#: network scores 42.7% [37.9, 47.6] against the handcrafted search --
-#: separably worse -- so this is worth a warning rather than a default.
-TRAINED_ON = frozenset({7, 10, 14, 17})
+#: Which parties each shipped network was trained on, by the name in its path.
+#:
+#: These are specialists and the specialisation is the point: off its own
+#: parties curriculum4 scores 42.7% [37.9, 47.6] against the handcrafted
+#: search -- separably *worse* than no network at all. pilot43 is narrower
+#: still, one network for one team. So a mismatch is worth saying out loud
+#: rather than silently making the advice worse.
+TRAINED_ON = {
+    "pilot43": frozenset({43}),
+    "curriculum4": frozenset({7, 10, 14, 17}),
+}
+
+
+def trained_on(checkpoint: str | None) -> frozenset[int] | None:
+    """The parties this checkpoint was trained on, if we know it."""
+    if not checkpoint:
+        return None
+    for name, parties in TRAINED_ON.items():
+        if name in checkpoint.replace("\\", "/"):
+            return parties
+    return None
 
 
 class Coach:
@@ -494,18 +511,18 @@ def main() -> int:
 
     parser = argparse.ArgumentParser(description=__doc__,
                                      formatter_class=argparse.RawDescriptionHelpFormatter)
-    parser.add_argument("--party", type=int, default=7,
+    parser.add_argument("--party", type=int, default=43,
                         help="which imported party we are playing; "
-                             "scripts/tournament.py prints the indices. 7 is "
-                             "where runs/profile_curriculum4.json measured the "
-                             "trained network strongest (74.0%%)")
+                             "scripts/tournament.py prints the indices. 43 is "
+                             "the round robin's only team separably above the "
+                             "field, and what runs/pilot43 was specialised on")
     parser.add_argument("--checkpoint", default=None,
                         help="a trained network for the prior and leaf value, "
-                             "e.g. runs/curriculum4/best.pt. It is stronger "
-                             "than the handcrafted search only on the parties "
-                             "it was trained on (7, 17, 10, 14) and separably "
-                             "weaker off them -- so pass it with --party in "
-                             "that set, and leave it off otherwise")
+                             "e.g. runs/pilot43/best.pt. Every one of these is "
+                             "a specialist and separably *weaker* than the "
+                             "handcrafted search off the parties it trained "
+                             "on -- so pass it with a --party it knows, and "
+                             "leave it off otherwise")
     parser.add_argument("--trust", type=float, default=1.0)
     parser.add_argument("--search-iterations", type=int, default=None,
                         help="defaults to the deploy budget. A real turn timer "
@@ -527,10 +544,14 @@ def main() -> int:
     print(f"탐색: {args.search_iterations} iterations"
           + (f" + 망 {args.checkpoint}" if args.checkpoint
              else " (손으로 짠 탐색)"))
-    if args.checkpoint and args.party not in TRAINED_ON:
-        print(f"  경고: 이 망은 파티 {sorted(TRAINED_ON)} 에서만 탐색보다 "
-              f"강하다고 측정됐습니다. 파티 {args.party} 에서는 "
-              f"--checkpoint 없이 쓰는 쪽이 나을 수 있습니다.")
+    known = trained_on(args.checkpoint)
+    if known is not None and args.party not in known:
+        print(f"  경고: 이 망은 파티 {sorted(known)} 에서 학습됐습니다. "
+              f"파티 {args.party} 에서는 손으로 짠 탐색보다 약하다고 측정됐으니 "
+              f"--checkpoint 없이 쓰는 쪽이 낫습니다.")
+    elif args.checkpoint and known is None:
+        print("  참고: 이 체크포인트가 어느 파티에서 학습됐는지 모릅니다 — "
+              "coach.TRAINED_ON 에 없습니다.")
     address = f"http://127.0.0.1:{args.port}"
     server = ThreadingHTTPServer(("127.0.0.1", args.port), Handler)
     print(f"열림: {address}   (Ctrl+C로 종료)")

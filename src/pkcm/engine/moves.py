@@ -913,6 +913,7 @@ def _apply_damaging_move(ctx: Context, attacker: Ref, defender: Ref, move) -> bo
     _apply_recoil(ctx, attacker, move, total)
     if total:
         _apply_secondaries(ctx, attacker, defender, move)
+        _apply_self_boost(ctx, attacker, move)
         if "partiallytrapped" in _volatile_names(move):
             tactics.start_trapping(ctx, defender, move)
     _after_effects(ctx, attacker, defender, move, landed=bool(total))
@@ -1210,6 +1211,23 @@ def _apply_self_effects(ctx: Context, attacker: Ref, move) -> None:
         mutate.boost(ctx, attacker, payload["boosts"], source=attacker)
     if payload.get("volatileStatus") and payload["volatileStatus"] not in TACTICS_MANAGED_VOLATILES:
         mutate.add_volatile(ctx, attacker, payload["volatileStatus"])
+
+
+def _apply_self_boost(ctx: Context, attacker: Ref, move) -> None:
+    """``selfBoost: {boosts}`` -- once, after the last hit, if the move landed.
+
+    A separate field from ``self`` and nothing here read it, so two moves in
+    M-B changed no stat at all: Scale Shot never traded Defence for Speed, and
+    Clanging Scales cost nothing to use. Both are silent failures -- the move
+    does its damage and the stat simply does not move.
+
+    Its own field because of *when* it lands. ``self`` applies per hit and
+    ``selfBoost`` applies once at the end, which is the difference between
+    Scale Shot dropping one stage of Defence and dropping five.
+    """
+    payload = move.raw.get("selfBoost")
+    if isinstance(payload, dict) and payload.get("boosts"):
+        mutate.boost(ctx, attacker, payload["boosts"], source=attacker)
 
 
 def _apply_secondaries(ctx: Context, attacker: Ref, defender: Ref, move) -> None:

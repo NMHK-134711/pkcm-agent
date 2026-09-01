@@ -1108,6 +1108,40 @@ register("volatile", "helpinghand", name="Helping Hand",
 HAZARD_ON_HIT = {"ceaselessedge": "spikes", "stoneaxe": "stealthrock"}
 
 
+@special("rapidspin", "mortalspin")
+def _spin_free(ctx, user, target, move) -> bool:
+    """Champions, for both:
+
+        자신의 바인드, 씨뿌리기 상태와 같은 편 필드의 압정뿌리기, 독압정,
+        끈적끈적네트, 스텔스록 상태를 해제한다.
+
+    Nothing in the move data says any of this -- the speed boost rides in as a
+    secondary and the poison as a status, so both of those already worked and
+    the moves looked like they were doing their job. The clearing is script in
+    the reference implementation and there was no handler here, so a spin was
+    damage and nothing else.
+
+    Runs from ``_after_effects``, which for a damaging move happens once the
+    damage has landed, so the damage is untouched.
+
+    **Our own side only.** Defog takes the opponent's hazards too; a spin does
+    not, and clearing theirs would quietly turn every spinner into a Defog.
+    """
+    side = ctx.state.sides[user[0]]
+    for name in HAZARDS:
+        if side.conditions.pop(name, None) is not None:
+            ctx.emit(Event("side_condition_end", side=user[0], detail=name))
+
+    mutate.remove_volatile(ctx, user, "leechseed")
+    # Binding moves only. ``trapped`` also comes from Shadow Tag and from Mean
+    # Look, and a spin frees from neither -- so it goes only alongside the
+    # ``partiallytrapped`` that a binding move sets with it.
+    if mutate.volatile(ctx.state, user, "partiallytrapped") is not None:
+        mutate.remove_volatile(ctx, user, "partiallytrapped")
+        mutate.remove_volatile(ctx, user, "trapped", quiet=True)
+    return True
+
+
 @special("ceaselessedge", "stoneaxe")
 def _hazard_on_hit(ctx, user, target, move) -> bool:
     from pkcm.engine.conditions import add_side_condition

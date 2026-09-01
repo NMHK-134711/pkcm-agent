@@ -932,3 +932,195 @@ def test_a_called_move_aims_where_it_would_have_aimed(dex, config):
     cast(ctx, dex, "sleeptalk")
     assert state.sides[1].hp[0] < theirs, "it should hit the opponent"
     assert state.sides[0].hp[0] == ours, "and not itself"
+
+
+def _self_boost_position(dex, species, moves, seed=5):
+    from pkcm.engine.actions import Action
+    from pkcm.engine.battle import step
+    from pkcm.engine.pokemon import PokemonSet
+    from pkcm.engine.state import BattleConfig, new_battle
+
+    def one(name, ability, used, item=None, sp=(0,) * 6, nature="serious"):
+        return PokemonSet(species=name, ability=ability, moves=tuple(used),
+                          item=item, nature=nature, sp=sp)
+
+    config = BattleConfig(dex=dex, regulation=dex.regulation("m_b"),
+                          battle_format="singles")
+    filler = [one(name, "__none__", ("tackle",))
+              for name in ("pikachu", "alakazam", "machamp")]
+    ours = [one(species, "__none__", moves, "focussash",
+                (2, 32, 0, 0, 0, 32), "jolly")] + filler[:2]
+    theirs = [one("snorlax", "thickfat", ("bodyslam", "crunch", "rest", "curse"),
+                  "leftovers", (32, 32, 2, 0, 0, 0), "adamant")] + filler[:2]
+    state = new_battle(config, (tuple(ours + filler), tuple(theirs + filler)),
+                       seed=seed)
+    return step(state, Action.select(0, 1, 2), Action.select(0, 1, 2))[0]
+
+
+def test_scale_shot_trades_defence_for_speed(dex):
+    """hk found this in a real game. ``selfBoost`` is a different field from
+    ``self`` and nothing read it, so Scale Shot did its damage and moved no
+    stat at all -- a silent failure, since the move still looks like it worked.
+
+    Champions' own dex: 2~5회 연속으로 공격한다. 자신의 방어를 1단계
+    떨어뜨리고 스피드를 1단계 올린다.
+    """
+    from pkcm.engine.actions import Action
+    from pkcm.engine.battle import step
+    from pkcm.engine.state import BOOST_STATS
+
+    state = _self_boost_position(
+        dex, "garchomp", ("scaleshot", "dragonclaw", "firefang", "stoneedge"))
+    slot = state.sides[0].active[0]
+    assert state.sides[0].boosts[slot] == [0] * len(state.sides[0].boosts[slot])
+
+    state, events = step(state, Action.move(0), Action.move(2))
+    boosts = state.sides[0].boosts[slot]
+    assert boosts[BOOST_STATS.index("def")] == -1, "Defence did not drop"
+    assert boosts[BOOST_STATS.index("spe")] == 1, "Speed did not rise"
+    assert boosts[BOOST_STATS.index("spd")] == 0, "Special Defence is not part of this move"
+
+
+def test_the_self_boost_lands_once_however_many_times_it_hit(dex):
+    """The reason it is its own field rather than ``self``, which applies per
+    hit: five hits must still be one stage of Defence, not five."""
+    from pkcm.engine.actions import Action
+    from pkcm.engine.battle import step
+    from pkcm.engine.state import BOOST_STATS
+
+    seen = set()
+    for seed in range(12):
+        state = _self_boost_position(
+            dex, "garchomp",
+            ("scaleshot", "dragonclaw", "firefang", "stoneedge"), seed=seed)
+        slot = state.sides[0].active[0]
+        state, events = step(state, Action.move(0), Action.move(2))
+        hits = next((e.amount for e in events if e.kind == "multi_hit"), 1)
+        seen.add(hits)
+        assert state.sides[0].boosts[slot][BOOST_STATS.index("def")] == -1, (
+            f"{hits} hits dropped Defence more than one stage")
+        assert state.sides[0].boosts[slot][BOOST_STATS.index("spe")] == 1
+    assert len(seen) > 1, "the hit count never varied; the test proved nothing"
+
+
+def test_clanging_scales_costs_defence(dex):
+    """The other move in M-B carrying the field, and a single-hit one -- so it
+    also shows the fix is not something about the multi-hit loop."""
+    from pkcm.engine.actions import Action
+    from pkcm.engine.battle import step
+    from pkcm.engine.state import BOOST_STATS
+
+    state = _self_boost_position(
+        dex, "hydreigon",
+        ("clangingscales", "darkpulse", "flamethrower", "roost"))
+    slot = state.sides[0].active[0]
+    state, _ = step(state, Action.move(0), Action.move(2))
+    assert state.sides[0].boosts[slot][BOOST_STATS.index("def")] == -1
+
+
+def _spin_position(dex, species, moves, seed=5):
+    """A spinner standing in every hazard, seeded and bound, against a target
+    that will not put itself to sleep."""
+    from pkcm.engine.actions import Action
+    from pkcm.engine.battle import step
+    from pkcm.engine.pokemon import PokemonSet
+    from pkcm.engine.state import BattleConfig, new_battle
+
+    def one(name, ability, used, item=None, sp=(0,) * 6, nature="serious"):
+        return PokemonSet(species=name, ability=ability, moves=tuple(used),
+                          item=item, nature=nature, sp=sp)
+
+    config = BattleConfig(dex=dex, regulation=dex.regulation("m_b"),
+                          battle_format="singles")
+    filler = [one(name, "__none__", ("tackle",))
+              for name in ("pikachu", "alakazam", "machamp")]
+    ours = [one(species, "__none__", moves, "leftovers",
+                (32, 32, 0, 0, 0, 2), "impish")] + filler[:2]
+    theirs = [one("snorlax", "thickfat", ("bodyslam",), "leftovers",
+                  (32, 0, 32, 0, 0, 0), "impish")] + filler[:2]
+    state = new_battle(config, (tuple(ours + filler), tuple(theirs + filler)),
+                       seed=seed)
+    state, _ = step(state, Action.select(0, 1, 2), Action.select(0, 1, 2))
+
+    slot = state.sides[0].active[0]
+    state.sides[0].conditions.update({"stealthrock": 1, "spikes": 2,
+                                      "toxicspikes": 1, "stickyweb": 1})
+    state.sides[0].volatiles[slot]["leechseed"] = {}
+    state.sides[0].volatiles[slot]["partiallytrapped"] = {"turns": 3,
+                                                          "move": "firespin"}
+    state.sides[0].volatiles[slot]["trapped"] = {}
+    state.sides[1].conditions.update({"stealthrock": 1, "spikes": 1})
+    return state, slot
+
+
+def test_rapid_spin_clears_its_own_side_and_keeps_its_damage(dex):
+    """hk asked whether the damage-plus-effect moves do the effect half.
+
+    Nothing in the move data says any of the clearing -- the +1 Speed rides in
+    as a secondary, so the move looked like it was working -- and there was no
+    handler, so a spin was damage and nothing else.
+
+    Champions: 자신의 바인드, 씨뿌리기 상태와 같은 편 필드의 압정뿌리기,
+    독압정, 끈적끈적네트, 스텔스록 상태를 해제한다. 자신의 스피드를 1단계 올린다.
+    """
+    from pkcm.engine.actions import Action
+    from pkcm.engine.battle import step
+    from pkcm.engine.state import BOOST_STATS
+
+    state, slot = _spin_position(
+        dex, "corviknight", ("rapidspin", "bravebird", "roost", "ironhead"))
+    state, events = step(state, Action.move(0), Action.move(0))
+
+    assert not state.sides[0].conditions, "our hazards did not go"
+    volatiles = state.sides[0].volatiles[slot]
+    assert "leechseed" not in volatiles
+    assert "partiallytrapped" not in volatiles and "trapped" not in volatiles
+    assert any(e.kind == "damage" for e in events), "and it still hit"
+    assert state.sides[0].boosts[slot][BOOST_STATS.index("spe")] == 1
+
+
+def test_a_spin_is_not_a_defog(dex):
+    """Defog takes the opponent's hazards as well; a spin does not. Clearing
+    both sides would quietly turn every spinner into a Defog."""
+    from pkcm.engine.actions import Action
+    from pkcm.engine.battle import step
+
+    state, _ = _spin_position(
+        dex, "corviknight", ("rapidspin", "bravebird", "roost", "ironhead"))
+    before = dict(state.sides[1].conditions)
+    state, _ = step(state, Action.move(0), Action.move(0))
+    assert dict(state.sides[1].conditions) == before, (
+        "the opponent's hazards were swept too")
+
+
+def test_mortal_spin_clears_and_poisons(dex):
+    """The same clearing on the other spinner, whose extra is a status rather
+    than a boost -- so this also says the fix is not about the Speed."""
+    from pkcm.engine.actions import Action
+    from pkcm.engine.battle import step
+
+    state, slot = _spin_position(
+        dex, "glimmora", ("mortalspin", "powergem", "sludgewave", "earthpower"))
+    state, _ = step(state, Action.move(0), Action.move(0))
+
+    assert not state.sides[0].conditions
+    assert "leechseed" not in state.sides[0].volatiles[slot]
+    theirs = state.sides[1]
+    assert theirs.status[theirs.active[0]] == "psn"
+
+
+def test_a_spin_does_not_free_a_pokemon_from_shadow_tag(dex):
+    """``trapped`` comes from binding moves, from Mean Look and from Shadow
+    Tag, and a spin frees from the first only -- so it goes only alongside the
+    ``partiallytrapped`` a binding move sets with it."""
+    from pkcm.engine.actions import Action
+    from pkcm.engine.battle import step
+
+    state, slot = _spin_position(
+        dex, "corviknight", ("rapidspin", "bravebird", "roost", "ironhead"))
+    # An ability's hold, with no binding move under it.
+    state.sides[0].volatiles[slot].pop("partiallytrapped")
+    state.sides[0].volatiles[slot]["trapped"] = {"by": (1, 0)}
+    state, _ = step(state, Action.move(0), Action.move(0))
+    assert "trapped" in state.sides[0].volatiles[slot], (
+        "a spin freed a Pokemon from an ability that traps")

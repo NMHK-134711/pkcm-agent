@@ -58,6 +58,10 @@ runs/pilot43/*
 # compare against.
 !runs/tournament_*.json
 
+# ...and the damage-inference A/B, which answered the same question twice
+# (once pre-skin-modeling, once on the fixed engine) with the same number.
+!runs/damage_inference_ab.json
+
 # ...and the judge logs, for the same reason: a measurement that changed a
 # deployment decision is worth more than the disk it takes, and the next
 # person to ask "is the network still worth it" needs the old answer.

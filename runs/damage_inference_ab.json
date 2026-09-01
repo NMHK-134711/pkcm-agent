@@ -1,0 +1,28 @@
+{
+  "question": "does pricing observed damage numbers into the belief win games?",
+  "design": "two judge runs vs the same no-belief handcrafted search, --team-seed 7, --teams parties (46), 400 matches each; the only difference is PKCM_NO_HIT_PRICING on the OFF run. Engine at 7e38dc5 (stat overrides, conditional powers, cute charm all in; pricer models the skin family exactly).",
+  "off": {
+    "wins": 537,
+    "losses": 257,
+    "draws": 6,
+    "rate": 0.676,
+    "ci": [
+      0.643,
+      0.708
+    ]
+  },
+  "on": {
+    "wins": 542,
+    "losses": 252,
+    "draws": 6,
+    "rate": 0.683,
+    "ci": [
+      0.649,
+      0.714
+    ]
+  },
+  "difference_pp": 0.7,
+  "detectable_pp": 4.7,
+  "verdict": "not separable, same as the pre-skin +1.2pp run. The narrowing is real offline (3.96 -> 2.91 candidates) but rarely changes the chosen action at 800 sims.",
+  "date": "2026-09-02"
+}

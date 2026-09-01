@@ -1001,6 +1001,18 @@ PRICED_ITEMS = frozenset({
 })
 
 
+#: Attacker abilities the belief pricer reproduces exactly, so their hits are
+#: still invertible and stay in the ledger. The doubled-Attack pair is flat;
+#: the skin family rewrites a move's type (and power) deterministically --
+#: Liquid Voice Primarina and Pixilate Sylveon are built around exactly these
+#: moves, and silencing them threw away the observations that identify them.
+PRICED_ATTACKER_ABILITIES = frozenset({
+    "hugepower", "purepower",
+    "pixilate", "refrigerate", "aerilate", "galvanize", "dragonize",
+    "normalize", "liquidvoice",
+})
+
+
 def _touches_damage(kind: str, effect_id) -> bool:
     from pkcm.engine.effects import lookup
 
@@ -1057,7 +1069,8 @@ def _hit_is_recordable(ctx: Context, attacker: Ref, defender: Ref,
     # rather than written down as a list, so implementing a new modifier
     # cannot quietly leave this check behind. The attacker items the pricer
     # reproduces exactly stay recordable.
-    if _touches_damage("ability", ctx.ability_of(attacker)):
+    attacker_ability = ctx.ability_of(attacker)
+    if attacker_ability not in PRICED_ATTACKER_ABILITIES             and _touches_damage("ability", attacker_ability):
         return False
     if _touches_damage("ability", ctx.ability_of(defender)):
         return False

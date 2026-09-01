@@ -147,6 +147,12 @@ _POWER_ITEMS = {
 }
 _ROLL_LOW, _ROLL_HIGH = 85, 100
 
+#: The skin family, exactly as the engine's ``_ate`` handlers write it: a
+#: Normal-type damaging move takes the ability's type and 4915/4096ths of its
+#: power. Liquid Voice retypes sound moves to Water and boosts nothing.
+_ATE = {"pixilate": "fairy", "refrigerate": "ice", "aerilate": "flying",
+        "galvanize": "electric", "dragonize": "dragon"}
+
 
 def _hit_rolls(candidate: PokemonSet, forme_seen: str, move_id: str,
                defender_stats, defender_types) -> tuple[int, ...] | None:
@@ -209,11 +215,13 @@ def _hit_rolls(candidate: PokemonSet, forme_seen: str, move_id: str,
         return ()          # a forme this species line does not contain
 
     # A candidate whose ability rewrites damage prices differently than this
-    # formula says. ``fought_as`` models the doubled-Attack pair exactly, so
-    # those stay priceable; any other damage-touching ability makes the hit
+    # formula says. The doubled-Attack pair and the skin family are modeled
+    # exactly below; any other damage-touching ability makes the hit
     # unreadable *for this candidate* -- unreadable, not impossible, so the
     # candidate survives rather than being wrongly struck off.
-    if fighting_ability not in ("hugepower", "purepower") \
+    from pkcm.engine.moves import PRICED_ATTACKER_ABILITIES
+
+    if fighting_ability not in PRICED_ATTACKER_ABILITIES \
             and _touches_damage("ability", fighting_ability):
         return None
     if fighting_ability in ("hugepower", "purepower") \
@@ -221,7 +229,25 @@ def _hit_rolls(candidate: PokemonSet, forme_seen: str, move_id: str,
         stats = tuple(value * 2 if index == 1 else value
                       for index, value in enumerate(stats))
 
-    effectiveness = dex.type_chart.multiplier(move.type, tuple(defender_types))
+    # The skin family rewrites the move before anything else looks at it, the
+    # way the engine's modify_move hook does -- so STAB, effectiveness and
+    # the type-boost items below all see the rewritten move. This is also
+    # where damage inference starts identifying *abilities*: a Liquid Voice
+    # Primarina and a Torrent one throw visibly different Hyper Voices.
+    move_type = move.type
+    power = move.base_power
+    if fighting_ability in _ATE:
+        if move_type == "normal" and move.category != "Status":
+            move_type = _ATE[fighting_ability]
+            power = chain_modify(power, X1_2)
+    elif fighting_ability == "normalize":
+        if move_type != "normal" and move.category != "Status":
+            move_type = "normal"
+            power = chain_modify(power, X1_2)
+    elif fighting_ability == "liquidvoice" and "sound" in move.flags:
+        move_type = "water"
+
+    effectiveness = dex.type_chart.multiplier(move_type, tuple(defender_types))
     if effectiveness == 0:
         return None        # the hit landed, so this pricing is wrong somewhere
 
@@ -230,11 +256,10 @@ def _hit_rolls(candidate: PokemonSet, forme_seen: str, move_id: str,
     defense = defender_stats[2] if physical else defender_stats[4]
 
     item = candidate.item
-    power = move.base_power
-    if _POWER_ITEMS.get(item) == move.type:
+    if _POWER_ITEMS.get(item) == move_type:
         power = chain_modify(power, X1_2)
 
-    stab = move.type in types
+    stab = move_type in types
     base = damage_base(power=power, attack=attack, defense=defense,
                        crit=False, spread=False)
     rolls = []

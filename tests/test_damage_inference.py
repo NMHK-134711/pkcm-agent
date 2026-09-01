@@ -128,3 +128,40 @@ def test_hits_are_ours_alone(dex, config):
             assert handed == expected
         return
     pytest.skip("no clean hits landed in these seeds")
+
+
+def test_the_skin_family_is_priced_not_silenced(dex, config):
+    """hk's objection, kept as a test: party 43's own Primarina runs Liquid
+    Voice, and Mega Gardevoir's whole doubles game is a skinned Hyper Voice.
+    Silencing modify_move abilities threw those observations away. Priced
+    instead, the number identifies the *ability*: the same Hyper Voice into
+    the same wall lands in disjoint ranges."""
+    from pkcm.engine.legality import PokemonSet
+    from pkcm.envs.belief import _hit_rolls
+
+    defender_stats = (200, 100, 120, 100, 120, 100)
+
+    liquid = PokemonSet(species="primarina", ability="liquidvoice",
+                        moves=("hypervoice",), nature="modest",
+                        sp=(0, 0, 0, 32, 0, 0), item=None)
+    rolls = _hit_rolls(liquid, "primarina", "hypervoice",
+                       defender_stats, ("fire", "ground"))
+    assert rolls, "Liquid Voice must be priceable"
+    # Water into fire/ground is 2x with STAB; a Normal-typed reading of the
+    # same move is neutral and unboosted, under a third of this.
+    assert min(rolls) > 300
+
+    pixilate = PokemonSet(species="sylveon", ability="pixilate",
+                          moves=("hypervoice",), nature="modest",
+                          sp=(0, 0, 0, 32, 0, 0), item=None)
+    plain = PokemonSet(species="sylveon", ability="cutecharm",
+                       moves=("hypervoice",), nature="modest",
+                       sp=(0, 0, 0, 32, 0, 0), item=None)
+    into_dragon = ("dragon", "ground")
+    fairy_rolls = _hit_rolls(pixilate, "sylveon", "hypervoice",
+                             defender_stats, into_dragon)
+    normal_rolls = _hit_rolls(plain, "sylveon", "hypervoice",
+                              defender_stats, into_dragon)
+    assert fairy_rolls and normal_rolls
+    assert min(fairy_rolls) > max(normal_rolls) * 2, (
+        "one observed integer should separate Pixilate from a plain ability")

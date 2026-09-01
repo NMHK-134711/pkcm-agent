@@ -407,6 +407,38 @@ def _encore(ctx, user, target, move) -> bool:
 register("volatile", "encore", name="Encore", residual=_encore_locks)
 
 
+def _known_gender(ctx, ref) -> str | None:
+    """M or F, or ``None`` for everything this cannot tell apart.
+
+    ``'N'`` is the dex's genderless marker. A bare ``None`` means the set never
+    said, which is true of every imported ranker set -- they carry
+    ``"gender": null`` -- so Attract fails against them. That is the safe
+    direction, and it is a real gap: the game assigns a gender by species ratio
+    and this engine has nowhere to do that, because a set is a team's identity
+    and rolling a gender into it would change what the belief pool samples.
+    """
+    gender = ctx.state.gender(*ref)
+    return gender if gender in ("M", "F") else None
+
+
+@special("attract")
+def _attract(ctx, user, target, move) -> bool:
+    """Champions: 상대를 헤롱헤롱 상태로 만든다. 성별이 같거나 불명인
+    상대에게는 실패한다.
+
+    The volatile was implemented and listed as implemented, and the move never
+    applied it: ``attract`` sits in ``TACTICS_MANAGED_VOLATILES``, so the
+    generic status path skips it on the understanding that a hand-written
+    handler supplies what the data cannot -- and there was no handler. The
+    gender rule is exactly what the data cannot say, which is why it belongs
+    here.
+    """
+    mine, theirs = _known_gender(ctx, user), _known_gender(ctx, target)
+    if mine is None or theirs is None or mine == theirs:
+        return _fail(ctx, user, "same gender or genderless")
+    return mutate.add_volatile(ctx, target, "attract", source=user)
+
+
 @special("disable")
 def _disable(ctx, user, target, move) -> bool:
     last = _volatiles(ctx, target).get("lastmove")

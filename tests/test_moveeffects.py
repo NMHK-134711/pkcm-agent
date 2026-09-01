@@ -1514,3 +1514,48 @@ def test_pollen_puff_heals_a_partner_instead_of_hitting_it(dex):
     # Leftovers.
     assert state.sides[0].hp[ally] - before >= maximum * 0.4, (
         "it did not heal the partner for half")
+
+
+def test_attract_needs_opposite_and_known_genders(dex):
+    """Champions: 상대를 헤롱헤롱 상태로 만든다. 성별이 같거나 불명인 상대에게는
+    실패한다.
+
+    Found by widening the effect sweep. The volatile was implemented, listed as
+    implemented, and never applied: ``attract`` is in TACTICS_MANAGED_VOLATILES,
+    so the generic status path skips it on the understanding that a hand-written
+    handler supplies what the data cannot -- and there was no handler.
+
+    A set that never recorded a gender counts as unknown and so fails. Every
+    imported ranker set is in that position, which is a real gap and not this
+    move's to close: the game assigns a gender by species ratio and a set is a
+    team's identity, so rolling one in would change what the belief samples.
+    """
+    from pkcm.engine.actions import Action
+    from pkcm.engine.battle import step
+    from pkcm.engine.pokemon import PokemonSet
+    from pkcm.engine.state import BattleConfig, new_battle
+
+    def one(species, moves, gender=None):
+        return PokemonSet(species=species, ability="__none__",
+                          moves=tuple(moves), item=None, nature="serious",
+                          sp=(0,) * 6, gender=gender)
+
+    config = BattleConfig(dex=dex, regulation=dex.regulation("m_b"),
+                          battle_format="singles")
+    filler = [one(name, ("tackle",))
+              for name in ("pikachu", "alakazam", "machamp")]
+
+    def lands(user, target):
+        state = new_battle(config, (tuple([user] + filler),
+                                    tuple([target] + filler)), seed=11)
+        state, _ = step(state, Action.select(0, 1, 2), Action.select(0, 1, 2))
+        state, _ = step(state, Action.move(0), Action.move(0))
+        slot = state.sides[1].active[0]
+        return "attract" in state.sides[1].volatiles[slot]
+
+    male = one("nidoking", ("attract", "tackle"), "M")
+    assert lands(male, one("nidoqueen", ("tackle",), "F"))
+    assert not lands(male, one("tyranitar", ("tackle",), "M")), "same gender"
+    assert not lands(male, one("magnezone", ("tackle",))), "genderless"
+    assert not lands(one("snorlax", ("attract", "tackle")),
+                     one("nidoqueen", ("tackle",), "F")), "our gender unknown"

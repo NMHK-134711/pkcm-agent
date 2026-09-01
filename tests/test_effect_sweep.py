@@ -35,7 +35,9 @@ DEFENDER_CHOICES = ("snorlax", "garchomp", "milotic", "gengar", "archaludon",
                     "dragonite", "clefable")
 
 #: Verified in the doubles test below; the singles harness has no ally.
-ALLY_TARGET = {"coaching", "aromaticmist", "helpinghand"}
+# adjacentAlly moves: a singles cast has no ally to aim at. Verified in
+# doubles by test_ally_target_moves_boost_the_ally_in_doubles below.
+ALLY_TARGET = {"coaching", "aromaticmist", "helpinghand", "dragoncheer"}
 
 
 @pytest.fixture(scope="module")
@@ -77,6 +79,21 @@ def declared_effects(move):
     self_block = raw.get("self")
     if isinstance(self_block, dict) and self_block.get("boosts"):
         promised.append(("self", "boosts", self_block["boosts"]))
+    # selfBoost is its own field, applied once after the last hit rather than
+    # per hit. Leaving it out left the sweep blind to exactly the bug that
+    # started this audit: Scale Shot dealt its damage and moved no stat, and a
+    # sweep that says it checks every declared effect passed anyway.
+    self_boost = raw.get("selfBoost")
+    if isinstance(self_boost, dict) and self_boost.get("boosts"):
+        promised.append(("self", "boosts", self_boost["boosts"]))
+    # Unconditional status and volatiles, which only counted inside a
+    # secondary before -- so Thunder Wave declared nothing the sweep could see.
+    if raw.get("status"):
+        where = "self" if raw.get("target") in SELF_TARGETS else "target"
+        promised.append((where, "status", raw["status"]))
+    if raw.get("volatileStatus"):
+        where = "self" if raw.get("target") in SELF_TARGETS else "target"
+        promised.append((where, "volatile", raw["volatileStatus"]))
     for secondary in filter(None, [raw.get("secondary"),
                                    *(raw.get("secondaries") or ())]):
         if secondary.get("status"):
@@ -112,6 +129,16 @@ def test_every_declared_effect_happens(dex, config):
         if m.raw.get("callsMove"):
             skip_reasons[m.id] = "calls another move"
 
+    # Moves whose declared effect needs something a single cast cannot set up,
+    # each verified under its real condition in tests/test_mechanics.py and
+    # tests/test_moveeffects.py rather than waved through.
+    conditional = {
+        "curse": "Ghost users get the volatile; others boost instead",
+        "disable": "needs a last move, and stores it as 'disabled'",
+        "encore": "needs the target to have moved",
+        "attract": "needs opposite, known genders",
+    }
+
     failures, skipped, clean = [], [], 0
     for move_id in moves:
         move = dex.moves.get(move_id)
@@ -123,6 +150,9 @@ def test_every_declared_effect_happens(dex, config):
             continue
         if move_id in skip_reasons or move_id in ALLY_TARGET:
             skipped.append((move_id, skip_reasons.get(move_id, "ally target")))
+            continue
+        if move_id in conditional:
+            skipped.append((move_id, conditional[move_id]))
             continue
 
         wanted_status = next((p for w, k, p in promised if k == "status"), None)

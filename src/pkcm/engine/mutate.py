@@ -242,6 +242,12 @@ def boost(ctx: Context, ref: Ref, changes: dict[str, int], source: Ref | None = 
 
         side.boosts[slot][index] = after
         applied[name] = after - before
+        if applied[name] < 0:
+            # Lash Out asks whether this one has been dropped *this turn*, and
+            # the answer has to be recorded where the drop happens. Set rather
+            # than added, because it is bookkeeping and not a condition anyone
+            # announces; it goes when the Pokemon leaves, which is right.
+            side.volatiles[slot]["statdropped"] = {"turn": ctx.state.turn}
         ctx.emit(
             Event("boost", side=side_index, slot=slot, detail=name,
                   amount=after - before, hp=after)

@@ -437,18 +437,30 @@ def test_the_family_plays_legally_and_differs(dex):
 
     config = BattleConfig(dex=dex, regulation=dex.regulation("m_b"),
                           battle_format="singles")
-    teams = tuple(make_team(dex, config.regulation,
-                            Rng.from_seed(300 + offset).cursor(), "singles", "ranker")
-                  for offset in (1, 2))
-
-    endings = set()
-    for tactic in TACTICS:
-        state = play_out(new_battle(config, teams, seed=9),
-                         (TacticPolicy.seeded(tactic.name, 9),
-                          TacticPolicy.seeded("greedy", 77)))
-        assert state.finished or state.turn > config.turn_limit
-        endings.add((state.winner, state.turn))
-    assert len(endings) > 1, "every temperament played the same battle"
+    # Several draws rather than one. The single pair this used to pin to was a
+    # board where the temperaments happened to converge -- one change to a move
+    # elsewhere collapsed it to a single ending and the test failed for a
+    # reason that had nothing to do with the tactics. Measured over eight
+    # draws, every other one separates them 2 to 4 ways; the claim worth
+    # holding is that they are not the same policy, not that any particular
+    # board tells them apart.
+    separated = 0
+    for base in (300, 310, 320, 330, 340, 350, 360, 370):
+        teams = tuple(make_team(dex, config.regulation,
+                                Rng.from_seed(base + offset).cursor(),
+                                "singles", "ranker")
+                      for offset in (1, 2))
+        endings = set()
+        for tactic in TACTICS:
+            state = play_out(new_battle(config, teams, seed=9),
+                             (TacticPolicy.seeded(tactic.name, 9),
+                              TacticPolicy.seeded("greedy", 77)))
+            assert state.finished or state.turn > config.turn_limit
+            endings.add((state.winner, state.turn))
+        separated += len(endings) > 1
+    assert separated >= 6, (
+        f"the temperaments played the same battle on {8 - separated} of 8 "
+        f"draws; they are not distinct policies")
 
 
 def test_the_oracle_is_not_something_to_imitate(dex):

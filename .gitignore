@@ -47,6 +47,19 @@ runs/pilot43/*
 !runs/pilot43/best.pt
 !runs/pilot43/history.json
 
+# ...and the curves of the runs that failed on the fixed engine. No network
+# is kept (nothing was promoted; best.pt is imitate8 again), but eight gates
+# that all landed under 50% are the measurement the next diagnosis starts
+# from, and the 800-sim control is only readable next to them.
+!runs/curriculum_v2/
+runs/curriculum_v2/*
+!runs/curriculum_v2/history.json
+!runs/curriculum_v2/summary.json
+!runs/curriculum_v2_800/
+runs/curriculum_v2_800/*
+!runs/curriculum_v2_800/history.json
+!runs/curriculum_v2_800/summary.json
+
 # ...and the party profiles, measurements like the tournament ones.
 !runs/profile_*.json
 !runs/head_to_head_*.json

@@ -62,6 +62,11 @@ runs/pilot43/*
 # (once pre-skin-modeling, once on the fixed engine) with the same number.
 !runs/damage_inference_ab.json
 
+# ...and the GPU-server throughput bench, one file per machine: the same
+# script gave 1.38x on the personal PC and 0.93x on the lab, and both numbers
+# are needed to explain why the flag is on for one and off for the other.
+!runs/gpu_server_throughput*.json
+
 # ...and the judge logs, for the same reason: a measurement that changed a
 # deployment decision is worth more than the disk it takes, and the next
 # person to ask "is the network still worth it" needs the old answer.

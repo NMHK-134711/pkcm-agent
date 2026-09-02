@@ -1,0 +1,32 @@
+[
+  {
+    "config": "cpu16",
+    "gpu_server": false,
+    "leaf_batch": 16,
+    "battles": 40,
+    "samples": 891,
+    "seconds": 686.9,
+    "s_per_battle": 17.17,
+    "battles_per_s": 0.0582
+  },
+  {
+    "config": "gpu16",
+    "gpu_server": true,
+    "leaf_batch": 16,
+    "battles": 40,
+    "samples": 902,
+    "seconds": 740.2,
+    "s_per_battle": 18.51,
+    "battles_per_s": 0.054
+  },
+  {
+    "config": "gpu64",
+    "gpu_server": true,
+    "leaf_batch": 64,
+    "battles": 40,
+    "samples": 977,
+    "seconds": 766.3,
+    "s_per_battle": 19.16,
+    "battles_per_s": 0.0522
+  }
+]

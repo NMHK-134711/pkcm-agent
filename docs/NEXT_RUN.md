@@ -14,6 +14,26 @@
 > 참고: GPU 서버는 개인PC 1.38배 / 랩실 0.93배 — 기계별로 다르게 켠다
 > (`runs/gpu_server_throughput*.json`).
 
+> **밤사이 진단 결론과 v3 결정 (2026-09-03, 노션 §17.5–17.8)** — 대조군 800도 0/8,
+> `--foe-teams` 없는 복제 두 개(시드 0·1)는 0/8과 i6·i7 늦은 승격. 반면 curriculum4의
+> 파티 10·14·17·7은 같은 고쳐진 엔진에서 i2·i5·i6 승격. 탐색 신호·타깃 노이즈·게이트
+> 가시성은 전부 정상. **원인은 파티 세트**: v2 상위 4는 39가 나머지를 지배해(39-43 8-0,
+> 39-14 7-1) 프리뷰에서 결판나는 대진이 많고, 결정 국면이 25~30% 적으며, 게이트가
+> 50%로 눌립니다. 내부 6대진 평균 |p−0.5|: 39·43·14·42 = 0.271, 10·14·17·7 = 0.137.
+>
+> | 후보 세트 | 내부 편향 | 최대 | v2 순위 |
+> |---|---|---|---|
+> | 39·43·14·42 (v2 상위 4) | 0.271 | 0.500 | 1·2·3·4 |
+> | **43·14·42·10** (39→10) | **0.137** | 0.250 | 2·3·4·6 |
+> | 43·42·37·10 | 0.074 | 0.250 | 2·4·5·6 |
+> | 10·14·17·7 (curriculum4) | 0.137 | 0.250 | 6·3·18·17 |
+>
+> hk 결정: **43·14·42·10**으로 `runs/curriculum_v3`(랩실, 09-03 09:27 시작), 변수는
+> 파티 세트 하나만. 선정 규칙은 "상위 N"이 아니라 "상위 K 안에서 내부 편향 최소"로
+> 교체 — `scripts/pick_curriculum.py`. 별도 사실: 탐색 대비 이득이 59→52~55%로 준
+> 것은 망이 아니라 탐색이 세진 것(고쳐진 규칙으로 롤아웃)이며, 모든 망이 옛 규칙의
+> imitate8 사전확률을 들고 있어 imitate8 재생성이 다음 후보입니다.
+
 엔진 수정(바디프레스 계열·조건부 위력 17종·메가 후 belief) 이후의
 46파티 라운드로빈 v2에서 자동 선정됨. 선정 규칙: **v2 승률 상위 4** —
 규칙이 단순한 것은 의도이며, 근거는 아래 표가 전부다.
@@ -57,7 +77,7 @@ git pull
 ```bash
 python scripts/train_loop.py --init runs/imitate8/net.pt --iterations 8 \
     --battles 250 --search-iterations 800 --evaluate-every 2 \
-    --evaluate-battles 60 --teams parties:39,43,14,42 --foe-teams parties \
+    --evaluate-battles 60 --teams parties:43,14,42,10 \
     --hidden 512 --blocks 4 --workers 12 --bootstrap-weight 1 \
     --root-noise 0.25 --sample-turns 12 --gate 200 --train-steps 256 \
     --learning-rate 3e-4 --out runs/curriculum_v2 --name curriculum_v2
@@ -71,9 +91,11 @@ python scripts/train_loop.py --init runs/imitate8/net.pt --iterations 8 \
 
 주의:
 - `--workers`는 개인 PC 물리 코어 수에 맞추세요.
-- `--foe-teams parties`는 상대를 46파티 전체에서 뽑습니다.
+- `--foe-teams`는 **쓰지 않습니다.** curriculum4는 양쪽이 4파티에서 뽑았고(16대진),
+  `--foe-teams parties`를 끼운 것은 이 문서의 오기였습니다(4×46=184대진, §3의 팀 공간
+  벽을 도로 엶). 다만 재발성만으로는 실패가 설명되지 않았습니다 — 아래 결정 블록 참조.
 - 끝나면 400게임 판정: `python scripts/judge.py runs/curriculum_v2/best.pt \
-    --teams parties:39,43,14,42 --matches 200`
+    --teams parties:43,14,42,10 --matches 200`
 
 **대안 (미검증, 관심 있으면)** — 새 1위(39) 단독 + 3200시뮬 선생 + GPU 서버:
 

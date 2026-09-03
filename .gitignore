@@ -29,6 +29,14 @@ runs/imitate8/*
 !runs/imitate8/net.pt
 !runs/imitate8/summary.json
 
+# ...and its successor, distilled on the fixed engine and the 46-party pool.
+# Ninety minutes of handcrafted search on twenty cores; the same argument as
+# imitate8's, and the two are only comparable if both are here.
+!runs/imitate9/
+runs/imitate9/*
+!runs/imitate9/net.pt
+!runs/imitate9/summary.json
+
 # ...and the agent people are meant to be able to play. curriculum4 is the first
 # network in this project measured separably stronger than the handcrafted
 # search -- 59.4% [54.5%, 64.2%] over 397 games on the four parties it trained

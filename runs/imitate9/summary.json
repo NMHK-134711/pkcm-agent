@@ -1,0 +1,19 @@
+{
+  "battles": 60000,
+  "preview_battles": 400000,
+  "samples": 2105787,
+  "played_samples": 1305787,
+  "seconds": 5487.6,
+  "value_baseline": 0.0795,
+  "policy_entropy_floor": 1.9761,
+  "policy_loss": 1.9973,
+  "value_loss": 0.0004,
+  "value_mae": 0.0094,
+  "val_policy_loss": 1.9857,
+  "val_value_mae": 0.0048,
+  "val_battles": 46000.0,
+  "arena_win_rate": 0.4545,
+  "arena_ci_low": 0.4062,
+  "arena_ci_high": 0.5038,
+  "arena_separable": 0.0
+}

@@ -59,6 +59,10 @@ runs/curriculum_v2/*
 runs/curriculum_v2_800/*
 !runs/curriculum_v2_800/history.json
 !runs/curriculum_v2_800/summary.json
+!runs/curriculum_v2_true/
+runs/curriculum_v2_true/*
+!runs/curriculum_v2_true/history.json
+!runs/curriculum_v2_true/summary.json
 
 # ...and the party profiles, measurements like the tournament ones.
 !runs/profile_*.json

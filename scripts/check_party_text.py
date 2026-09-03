@@ -416,32 +416,26 @@ def audit(dex, regulation, slot: dict, shown: list[int] | None) -> list[str]:
     return said
 
 
-def main() -> int:
-    for stream in (sys.stdout, sys.stderr):
-        try:
-            stream.reconfigure(encoding="utf-8", errors="replace")
-        except (AttributeError, ValueError):
-            pass
+def build_parties(directory: Path, battle_format: str = "singles",
+                  dex=None) -> tuple[list[dict], dict[str, list[str]], list[str]]:
+    """Every numbered ``.txt`` in ``directory``, parsed into the importer's shape.
 
-    parser = argparse.ArgumentParser(
-        allow_abbrev=False, description=__doc__,
-        formatter_class=argparse.RawDescriptionHelpFormatter)
-    parser.add_argument("directory", type=Path)
-    parser.add_argument("--format", default="singles", choices=("singles", "doubles"))
-    parser.add_argument("--json", type=Path, default=None,
-                        help="write the parties that pass, in the importer's shape")
-    args = parser.parse_args()
-
-    dex = load_dex()
+    Returns ``(parties, notes, natureless)``: the parties that parsed to six
+    Pokemon, the audit notes keyed by file name (empty list means clean), and
+    the stems that carried no nature. This is the whole of what ``--json``
+    writes, pulled out so a test can regenerate ``parties_hand.json`` from the
+    text and diff it -- the text was corrected twice by hand against the real
+    game while the JSON the engine reads stayed stale, and every run in
+    between played the old set.
+    """
+    dex = dex or load_dex()
     regulation = dex.regulation("m_b")
     tables = Tables(dex)
 
-    files = sorted(p for p in args.directory.glob("*.txt")
+    files = sorted(p for p in directory.glob("*.txt")
                    if re.fullmatch(r"\d+", p.stem))
-    print(f"{len(files)} hand-entered files in {args.directory.as_posix()}\n")
-
-    clean = 0
     parties: list[dict] = []
+    all_notes: dict[str, list[str]] = {}
     natureless: list[str] = []
     for path in files:
         text = path.read_text("utf-8")
@@ -477,7 +471,7 @@ def main() -> int:
                                     nature=one["nature"] or "serious",
                                     sp=tuple(one["sp"]))
                          for one in built)
-            for line in team_errors(dex, regulation, team, args.format):
+            for line in team_errors(dex, regulation, team, battle_format):
                 notes.append(f"  team: {line}")
             parties.append({
                 "id": path.stem, "title": f"pokedb {path.stem}",
@@ -486,16 +480,39 @@ def main() -> int:
                           "nature": one.nature, "sp": list(one.sp)}
                          for one in team],
             })
+        all_notes[path.name] = notes
+    return parties, all_notes, natureless
 
+
+def main() -> int:
+    for stream in (sys.stdout, sys.stderr):
+        try:
+            stream.reconfigure(encoding="utf-8", errors="replace")
+        except (AttributeError, ValueError):
+            pass
+
+    parser = argparse.ArgumentParser(
+        allow_abbrev=False, description=__doc__,
+        formatter_class=argparse.RawDescriptionHelpFormatter)
+    parser.add_argument("directory", type=Path)
+    parser.add_argument("--format", default="singles", choices=("singles", "doubles"))
+    parser.add_argument("--json", type=Path, default=None,
+                        help="write the parties that pass, in the importer's shape")
+    args = parser.parse_args()
+
+    parties, all_notes, natureless = build_parties(args.directory, args.format)
+    print(f"{len(all_notes)} hand-entered files in {args.directory.as_posix()}\n")
+    clean = 0
+    for name, notes in all_notes.items():
         if notes:
-            print(path.name)
+            print(name)
             for line in notes:
                 print(line)
             print()
         else:
             clean += 1
 
-    print(f"  {clean} clean, {len(files) - clean} with something to look at")
+    print(f"  {clean} clean, {len(all_notes) - clean} with something to look at")
     if natureless:
         print(f"  {len(natureless)} carry no nature and were recorded neutral: "
               f"{', '.join(natureless)}")

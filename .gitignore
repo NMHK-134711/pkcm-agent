@@ -101,3 +101,21 @@ runs/curriculum_v2_true/*
 data/reference/
 scratch_*.py
 data/selfplay/
+
+# 2026-09-03 personal PC: the runs that settled where the fixed-engine failures
+# came from. curriculum4_fixed is the first promoted network on the fixed engine.
+!runs/policy_only_v2/
+runs/policy_only_v2/*
+!runs/policy_only_v2/history.json
+!runs/curriculum_v2_true_pc/
+runs/curriculum_v2_true_pc/*
+!runs/curriculum_v2_true_pc/history.json
+!runs/curriculum_v2_true_pc/summary.json
+!runs/curriculum4_fixed/
+runs/curriculum4_fixed/*
+!runs/curriculum4_fixed/best.pt
+!runs/curriculum4_fixed/history.json
+!runs/curriculum4_fixed/summary.json
+!runs/noise_floor_fixed.json
+!runs/search_vs_prior_*.json
+!runs/gate_*.log

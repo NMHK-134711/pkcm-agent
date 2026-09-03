@@ -1,0 +1,20 @@
+[
+  {
+    "iteration": 0,
+    "trust": 1.0,
+    "fresh_samples": 5856,
+    "buffer": 5856,
+    "rehearsal_samples": 0,
+    "gate/win_rate": 0.5164,
+    "gate/promoted": 0.0,
+    "battles_per_second": 1.847,
+    "selfplay_seconds": 135.3,
+    "train_seconds": 4.4,
+    "loss/policy_loss": 1.5161,
+    "loss/value_loss": 0.2834,
+    "loss/value_mae": 0.3978,
+    "val/policy_loss": 1.5744,
+    "val/value_mae": 0.7871,
+    "val/battles": 25.0
+  }
+]

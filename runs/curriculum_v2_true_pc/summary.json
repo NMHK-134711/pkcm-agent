@@ -1,0 +1,7 @@
+{
+  "iterations": 8,
+  "final_buffer": 40000,
+  "final_policy_loss": 1.3944,
+  "final_value_mae": 0.3177,
+  "final_win_rate_vs_search": 0.5508
+}

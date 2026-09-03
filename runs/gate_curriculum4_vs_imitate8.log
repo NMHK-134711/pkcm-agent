@@ -1,0 +1,8 @@
+### GATE-BLINDNESS START 06:17 ###
+A=runs/curriculum4/best.pt
+B=runs/imitate8/net.pt
+teams=parties:10,14,17,7 both sides | 200 matches | 19 workers
+
+A vs B: 224-174 (2 drawn) over 398 decided games
+A win rate 56.3% [51.4%, 61.1%]  (730s)
+### DONE 06:29 exit=0 ###

@@ -1,0 +1,22 @@
+search(800 sims, branch=24, eval=material, net) vs search(800 sims, branch=24, eval=material, net) | 200 matches | parties:43 teams | 19 workers
+  1/200  0-2  ~7680s left
+  15/200  17-13  ~884s left
+  25/200  28-22  ~713s left
+  37/200  39-35  ~587s left
+  47/200  51-43  ~546s left
+  63/200  68-58  ~430s left
+  71/200  80-62  ~415s left
+  85/200  89-81  ~359s left
+  97/200  99-95  ~315s left
+  113/200  117-109  ~252s left
+  122/200  125-119  ~229s left
+  137/200  142-132  ~180s left
+  151/200  154-148  ~137s left
+  163/200  164-162  ~104s left
+  177/200  181-173  ~64s left
+  191/200  194-188  ~25s left
+  200/200  203-196  ~0s left
+
+  203-196 (1 drawn) over 399 decided games
+  50.9% [46.0%, 55.8%]
+  not separable from side B.

@@ -464,7 +464,12 @@ def main() -> int:
                     iterations=args.gate_search_iterations,
                     determinizations=max(4, args.gate_search_iterations // 20),
                     leaf_batch=args.leaf_batch),
-                trust=1.0)
+                # The per-head overrides have to reach the gate too, or a run
+                # that holds the value head out of self-play (--trust-value 0)
+                # still lets that head decide promotion. Found setting up the
+                # policy-only run; the verified recipe passes neither flag.
+                trust=1.0, trust_prior=args.trust_prior,
+                trust_value=args.trust_value)
             tally = Record()
             started = time.perf_counter()
             for one in gate_play(gate_config, args.gate, workers):

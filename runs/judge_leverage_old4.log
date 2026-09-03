@@ -1,0 +1,29 @@
+### LEVERAGE old4 START 06:50 ###
+search(3200 sims, branch=24, eval=material) vs search(800 sims, branch=24, eval=material) | 200 matches | parties:10,14,17,7 teams | 19 workers
+  1/200  1-1  ~6774s left
+  13/200  13-13  ~929s left
+  23/200  26-20  ~738s left
+  31/200  33-29  ~703s left
+  41/200  45-37  ~627s left
+  54/200  53-55  ~532s left
+  65/200  65-65  ~480s left
+  75/200  75-75  ~438s left
+  84/200  87-81  ~409s left
+  96/200  103-89  ~354s left
+  103/200  110-96  ~337s left
+  115/200  127-103  ~287s left
+  124/200  139-109  ~259s left
+  132/200  147-117  ~233s left
+  145/200  163-125  ~183s left
+  156/200  177-133  ~145s left
+  166/200  188-142  ~111s left
+  177/200  202-150  ~76s left
+  186/200  212-158  ~46s left
+  196/200  225-165  ~13s left
+  199/200  229-167  ~3s left
+  200/200  231-167  ~0s left
+
+  231-167 (2 drawn) over 398 decided games
+  58.0% [53.1%, 62.8%]
+  stronger than the handcrafted search.
+### DONE 07:03 exit=0 ###

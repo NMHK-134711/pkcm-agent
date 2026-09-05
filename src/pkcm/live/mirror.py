@@ -293,6 +293,8 @@ class Mirror:
             # sliver at 1% and the engine would call the battle over.
             hp = max(1, round(maximum * hp_fraction)) if hp_fraction > 0 else 0
             side_state.hp[slot] = min(maximum, hp)
+            if side_state.hp[slot] > 0:
+                self._unfaint(side, position)
         if status is not ...:
             side_state.status[slot] = status
             if status is None:
@@ -301,6 +303,28 @@ class Mirror:
             else:
                 self.state.revealed[side].status_since.setdefault(
                     slot, self.state.turn)
+
+    def _unfaint(self, side: int, position: int) -> None:
+        """Take back a faint the mirror invented.
+
+        Our damage roll is not the game's, so the engine sometimes kills a
+        Pokemon the screen still shows standing, and the correction that puts
+        its HP back is not enough on its own. The step has already written
+        everything that followed from the faint: the side owes a replacement
+        and the phase says so. Leave that in place and the page offers
+        switches and nothing else -- which is precisely the turn the person
+        needs to type in, the one where they ignored the advice and won.
+
+        Only the bookkeeping is undone. Anything the turn actually did stands.
+        """
+        side_state = self.state.sides[side]
+        if position < len(side_state.must_switch):
+            side_state.must_switch[position] = False
+        if any(s.owes_switch() for s in self.state.sides):
+            return
+        if self.state.phase in (Phase.FORCED_SWITCH, Phase.FINISHED):
+            self.state.phase = Phase.BATTLE
+            self.state.winner = None
 
     # -- keeping the placeholder honest -------------------------------------- #
 

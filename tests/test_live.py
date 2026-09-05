@@ -399,3 +399,46 @@ def test_reporting_our_item_lands_on_whoever_is_out(dex, our_team):
     assert mirror.state.item_id(0, after) is None
     assert mirror.state.item_id(0, 0) == "focussash", (
         "the one that left still has its own")
+
+
+def test_correcting_hp_takes_back_a_faint_the_mirror_invented(dex, our_team):
+    """The mirror's roll is not the game's, and sometimes it kills someone the
+    screen still shows standing.
+
+    This happened in a real game: the engine's Earthquake took Gengar to zero
+    and the game's did not. Putting the HP back is not enough on its own,
+    because the step has already written what followed -- the side owes a
+    replacement, the phase says FORCED_SWITCH, and the page then offers
+    switches and nothing else. That was the exact turn the person needed to
+    type in an attack, and could not.
+    """
+    mirror = open_battle(a_mirror(dex, our_team), ours=(3, 1, 2))
+    side = mirror.state.sides[0]
+    slot = side.active[0]
+    side.hp[slot] = 0
+    side.must_switch[0] = True
+    mirror.state.phase = Phase.FORCED_SWITCH
+
+    mirror.observe(0, hp_fraction=0.01)
+
+    assert side.hp[slot] == 1, "a sliver on the bar is one hit point, not none"
+    assert not side.owes_switch(), "nobody owes a replacement any more"
+    assert mirror.phase is Phase.BATTLE
+    assert any(action.kind is not action.kind.SWITCH
+               for action in mirror.our_options()), "attacks are offered again"
+
+
+def test_a_correction_leaves_a_real_faint_alone(dex, our_team):
+    """Only the reviving correction undoes anything. A side that genuinely owes
+    a switch keeps owing it, and a correction on the other side does not clear
+    it either."""
+    mirror = open_battle(a_mirror(dex, our_team), ours=(3, 1, 2))
+    ours = mirror.state.sides[0]
+    ours.hp[ours.active[0]] = 0
+    ours.must_switch[0] = True
+    mirror.state.phase = Phase.FORCED_SWITCH
+
+    mirror.observe(1, hp_fraction=0.5)
+
+    assert mirror.phase is Phase.FORCED_SWITCH, "their HP says nothing about ours"
+    assert ours.owes_switch()

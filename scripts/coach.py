@@ -485,6 +485,7 @@ def _routes(coach: Coach, path: str, query: dict) -> None:
         # HP that was true -- and no way to tell from the page which of the two
         # to play. There is one number that matters and it is the one on the
         # screen, so it is entered with the turn.
+        _spent(coach, query, landing)
         _correct(coach, query)
         coach.gamelog.write("turn", lambda: dict(
             turn=turn_before,
@@ -502,6 +503,7 @@ def _routes(coach: Coach, path: str, query: dict) -> None:
         return
     if path == "/observe":
         _learned(coach, query, None)
+        _spent(coach, query, None)
         _correct(coach, query)
         coach.gamelog.write("observe", lambda: dict(
             learned=_learned_fields(query), corrections=_correction_fields(query),
@@ -539,15 +541,33 @@ def _correction_fields(query: dict) -> dict:
 
 
 def _learned(coach: Coach, query: dict, slot: int | None) -> None:
-    """Anything new about either set, from the turn we just watched."""
+    """What the turn showed about either set's identity.
+
+    Applied *before* the turn is played, because identity is what the turn
+    is played with: an Intimidate on the way in, a Life Orb on the damage.
+    What the turn used up is not identity -- see ``_spent``.
+    """
     ability = (query.get("their_ability") or [""])[0].strip()
     if ability:
         coach.mirror.report_ability(ability, slot)
     item = (query.get("their_item") or [""])[0].strip()
     if item:
-        coach.mirror.report_item(
-            item, slot,
-            consumed=query.get("their_item_used", ["0"])[0] == "1")
+        coach.mirror.report_item(item, slot)
+
+
+def _spent(coach: Coach, query: dict, slot: int | None) -> None:
+    """Items the turn used up, applied after the turn has been played.
+
+    This ran with the rest of the report, before the step, and that is the
+    wrong order for a consumable: the box is ticked because the item fired,
+    so taking it away first means it fires in the game and not in the
+    mirror. A Focus Sash removed a moment early is a Gengar the mirror kills
+    and the screen does not, and from there the mirror is asking for a
+    replacement while the person is still holding a live Pokemon.
+    """
+    item = (query.get("their_item") or [""])[0].strip()
+    if item and query.get("their_item_used", ["0"])[0] == "1":
+        coach.mirror.report_item(item, slot, consumed=True)
     # Ours is not a guess, so the only thing to say about it is that it went.
     if query.get("our_item_used", ["0"])[0] == "1":
         coach.mirror.report_our_item(consumed=True)

@@ -292,7 +292,10 @@ def _quick_claw(ctx, ref, value, move, **_):
     return None
 
 
-register("item", "quickclaw", name="Quick Claw", modify_priority=_quick_claw)
+#: To the front of its own bracket, not out of it: Quick Claw has never let
+#: anything beat an Extreme Speed.
+register("item", "quickclaw", name="Quick Claw",
+         modify_fractional_priority=_quick_claw)
 
 
 def _iron_ball(ctx, ref, value, **kwargs):

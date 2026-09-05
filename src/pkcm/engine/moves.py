@@ -217,6 +217,34 @@ MOVE_PRIORITY: dict[str, Callable[[Context, Ref, int], int]] = {
 }
 
 
+def effective_priority(ctx: Context, ref: Ref, move: Move) -> int:
+    """This move's priority in this user's hands, on this field.
+
+    ``battle._priority`` orders the turn with it, and Upper Hand asks it about
+    somebody else's move -- so it lives here, next to the table it reads,
+    rather than in either caller.
+    """
+    priority = move.priority
+    # The move's own rule first: Prankster adds to whatever Grassy Glide made.
+    field_rule = MOVE_PRIORITY.get(move.id)
+    if field_rule is not None:
+        priority = field_rule(ctx, ref, priority)
+    return fx.modify(ctx, "modify_priority", priority, ref, scope="self", move=move)
+
+
+def fractional_priority(ctx: Context, ref: Ref, move: Move) -> int:
+    """Where this user sits inside its priority bracket.
+
+    Separate from ``effective_priority`` because that is the distinction the
+    game makes: a Quick Claw moves you to the front of your own bracket, and
+    does not put you ahead of an Aqua Jet. Adding to the priority proper did
+    exactly that, and Stall -- which is meant to put Sableye at the back --
+    did nothing at all.
+    """
+    return fx.modify(ctx, "modify_fractional_priority", 0, ref,
+                     scope="self", move=move)
+
+
 def _needs_terrain(ctx: Context, ref: Ref, move: Move) -> str | None:
     return "no terrain" if ctx.state.field.terrain is None else None
 
@@ -236,24 +264,27 @@ MOVE_PRECONDITIONS: dict[str, Callable[[Context, Ref, Move], str | None]] = {
 }
 
 
-def _chosen_move(ctx: Context, ref: Ref) -> Move | None:
-    """The move this Pokemon picked for the turn, if it picked one.
+def _chosen_action(ctx: Context, ref: Ref):
+    """What this Pokemon picked for the turn, if the turn has choices at all.
 
-    ``None`` covers switching, passing, and a turn whose choices are not on
-    the state at all -- ``use_move`` is also called outside a turn, by tests
-    and by Instruct.
+    ``None`` covers a Pokemon on the bench and a turn whose choices are not on
+    the state -- ``use_move`` is also called outside a turn, by tests and by
+    Instruct.
     """
     state = ctx.state
     position = state.sides[ref[0]].position_of(ref[1])
     if position is None or not state.turn_actions:
         return None
     actions = state.turn_actions[ref[0]]
-    if position >= len(actions):
+    return actions[position] if position < len(actions) else None
+
+
+def _chosen_move(ctx: Context, ref: Ref) -> Move | None:
+    """The move this Pokemon picked, or ``None`` if it is doing anything else."""
+    action = _chosen_action(ctx, ref)
+    if action is None or action.kind is not ActionKind.MOVE:
         return None
-    action = actions[position]
-    if action.kind is not ActionKind.MOVE:
-        return None
-    moves = state.moves(*ref)
+    moves = ctx.state.moves(*ref)
     # Out of range is Struggle, which is an attack like any other.
     return moves[action.index] if action.index < len(moves) else None
 
@@ -261,6 +292,17 @@ def _chosen_move(ctx: Context, ref: Ref) -> Move | None:
 def _has_yet_to_move(ctx: Context, ref: Ref) -> bool:
     position = ctx.state.sides[ref[0]].position_of(ref[1])
     return position is not None and (ref[0], position) in ctx.state.turn_queue
+
+
+def _reads_the_turn(ctx: Context) -> bool:
+    """Whether there is a turn to read at all.
+
+    ``use_move`` is also called outside the queue -- by tests, by Instruct,
+    by Magic Bounce. A condition about what the target picked has no answer
+    there, and refusing on no evidence would quietly break every one of those
+    callers. So these refusals abstain rather than fail.
+    """
+    return bool(ctx.state.turn_actions)
 
 
 def _sucker_punch_refusal(ctx: Context, attacker: Ref, defender: Ref,
@@ -277,6 +319,8 @@ def _sucker_punch_refusal(ctx: Context, attacker: Ref, defender: Ref,
     always landed, which is a different and much better move, and the search
     has been using it on Kingambit and Mawile as if it were free.
     """
+    if not _reads_the_turn(ctx):
+        return None
     chosen = _chosen_move(ctx, defender)
     if chosen is None or chosen.category == "Status":
         # Asked first so that a target who switched out reads as one that was
@@ -287,13 +331,73 @@ def _sucker_punch_refusal(ctx: Context, attacker: Ref, defender: Ref,
     return None
 
 
-#: Moves that refuse once they can see what the target is doing this turn.
-#: Separate from ``MOVE_PRECONDITIONS`` because the answer depends on the
-#: target, which is not settled until the move has picked one -- and because
-#: these fail *after* the move was used, so they cost their PP.
-MOVE_TARGET_PRECONDITIONS: dict[
+def _upper_hand_refusal(ctx: Context, attacker: Ref, defender: Ref,
+                        move: Move) -> str | None:
+    """Upper Hand only interrupts a priority attack.
+
+    Narrower than Sucker Punch: the target has to be attacking *and* to have
+    picked something that moves early. Against a plain attack it does nothing,
+    and the engine was landing it on everything.
+    """
+    if not _reads_the_turn(ctx):
+        return None
+    chosen = _chosen_move(ctx, defender)
+    if chosen is None or chosen.category == "Status":
+        return "target is not attacking"
+    if effective_priority(ctx, defender, chosen) <= 0:
+        return "target is not moving first"
+    if not _has_yet_to_move(ctx, defender):
+        return "target has already moved"
+    return None
+
+
+def _first_turn_out(ctx: Context, attacker: Ref, defender: Ref,
+                    move: Move) -> str | None:
+    """Fake Out and First Impression work on the turn their user arrived.
+
+    Both are priced as if that were true -- a free flinch, ninety power at +2
+    -- and the engine let them run every turn, which makes each of them one of
+    the best moves in the game rather than an opening.
+
+    The count is of move actions taken since arriving, and this move's own has
+    already been counted by the time this runs, so one is the first.
+    """
+    taken = ctx.state.sides[attacker[0]].volatiles[attacker[1]].get("moveactions", 0)
+    return None if taken <= 1 else "not the turn it came in"
+
+
+def _snore_refusal(ctx: Context, attacker: Ref, defender: Ref,
+                   move: Move) -> str | None:
+    """The whole point of Snore is that it is the one move sleep allows."""
+    asleep = ctx.state.sides[attacker[0]].status[attacker[1]] == "slp"
+    return None if asleep else "user is awake"
+
+
+def _last_resort_refusal(ctx: Context, attacker: Ref, defender: Ref,
+                         move: Move) -> str | None:
+    """Last Resort waits for every other move to have been used once."""
+    others = [one.id for one in ctx.state.moves(*attacker) if one.id != move.id]
+    if not others:
+        return "nothing else to run out of"
+    used = ctx.state.sides[attacker[0]].volatiles[attacker[1]].get("movesused", ())
+    if any(one not in used for one in others):
+        return "still has moves it has not used"
+    return None
+
+
+#: Refusals that cannot be answered before the move is under way -- because
+#: they read the turn's order, or what the target picked, or how many moves
+#: the user has taken since it arrived. Unlike ``MOVE_PRECONDITIONS`` these
+#: run after the move was used, so a refusal still costs its PP, which is what
+#: happens in the game.
+LATE_REFUSALS: dict[
     str, Callable[[Context, Ref, Ref, Move], str | None]] = {
     "suckerpunch": _sucker_punch_refusal,
+    "upperhand": _upper_hand_refusal,
+    "fakeout": _first_turn_out,
+    "firstimpression": _first_turn_out,
+    "snore": _snore_refusal,
+    "lastresort": _last_resort_refusal,
 }
 
 
@@ -942,7 +1046,17 @@ def use_move(
     ctx.emit(ev.move_used(attacker[0], attacker[1], ctx.state.species_id(*attacker), move.id))
     _clear_flinch(ctx, attacker)
     if move_index is not None:
-        side.volatiles[attacker[1]]["lastmove"] = move.id
+        volatiles = side.volatiles[attacker[1]]
+        volatiles["lastmove"] = move.id
+        # Two counters that reset when the Pokemon leaves the field, which is
+        # what clear_on_switch_out already does to everything here. Kept as a
+        # count and a tuple rather than a set: ``state.copy`` copies each
+        # slot's dict shallowly, so a mutable value would be shared between a
+        # determinization and the position it came from.
+        volatiles["moveactions"] = volatiles.get("moveactions", 0) + 1
+        used = volatiles.get("movesused", ())
+        if move.id not in used:
+            volatiles["movesused"] = used + (move.id,)
         fx.notify(ctx, "commit_move", attacker, scope="self",
                   move=move, move_index=move_index)
 
@@ -1050,7 +1164,7 @@ def _resolve(
         ctx.emit(Event("move_failed", side=attacker[0], move=move.id, detail="no target"))
         return
 
-    refusal = MOVE_TARGET_PRECONDITIONS.get(move.id)
+    refusal = LATE_REFUSALS.get(move.id)
     if targets_opponent and refusal is not None:
         reason = refusal(ctx, attacker, defender, move)
         if reason is not None:

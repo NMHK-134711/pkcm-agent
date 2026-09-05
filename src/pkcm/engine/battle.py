@@ -441,10 +441,16 @@ def _by_speed(ctx: Context, actors: list[Actor]) -> list[Actor]:
 
 
 def _move_order(ctx: Context, choices: Choices, actors: list[Actor]) -> list[Actor]:
-    """Priority first, then Speed. Trick Room reverses Speed but not priority."""
-    def key(actor: Actor) -> tuple[int, int]:
-        priority = _priority(ctx, actor, _action_for(choices, *actor))
-        return (priority, _speed_key(ctx, actor))
+    """Priority, then position within the bracket, then Speed.
+
+    Trick Room reverses Speed and neither of the other two: a Quick Claw still
+    moves first under it, and Stall still moves last.
+    """
+    def key(actor: Actor) -> tuple[int, int, int]:
+        action = _action_for(choices, *actor)
+        return (_priority(ctx, actor, action),
+                _fractional_priority(ctx, actor, action),
+                _speed_key(ctx, actor))
 
     return _order_by(ctx, actors, key)
 
@@ -455,14 +461,16 @@ def _priority(ctx: Context, actor: Actor, action: Action) -> int:
     if slot < 0:
         return 0
     move = _chosen_move(ctx.state, actor, action)
-    priority = move.priority
-    # Moves whose own priority reads the field -- Grassy Glide. Asked before the
-    # ability and item hooks, because Prankster adds to whatever this returns.
-    field_rule = mv.MOVE_PRIORITY.get(move.id)
-    if field_rule is not None:
-        priority = field_rule(ctx, (player, slot), priority)
-    return fx.modify(ctx, "modify_priority", priority, (player, slot),
-                     scope="self", move=move)
+    return mv.effective_priority(ctx, (player, slot), move)
+
+
+def _fractional_priority(ctx: Context, actor: Actor, action: Action) -> int:
+    player, position = actor
+    slot = ctx.state.sides[player].active[position]
+    if slot < 0:
+        return 0
+    move = _chosen_move(ctx.state, actor, action)
+    return mv.fractional_priority(ctx, (player, slot), move)
 
 
 def _chosen_move(state: BattleState, actor: Actor, action: Action) -> Move:

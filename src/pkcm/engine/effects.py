@@ -72,6 +72,13 @@ EVENTS: dict[str, str] = {
     "modify_stat": "ref, stat -- raw stat before stat stages",
     "modify_boosted_stat": "ref, stat -- stat after stat stages",
     "modify_priority": "ref, move -- move priority",
+    "modify_fractional_priority": (
+        "ref, move -- order *within* a priority bracket. Showdown's "
+        "fractionalPriority. Quick Claw and Quick Draw move their holder to "
+        "the front of its own bracket and Stall to the back; none of them "
+        "moves it into another bracket, which is what adding to "
+        "modify_priority did."
+    ),
     "modify_accuracy": "ref, target, move -- percentage chance to hit",
     "modify_base_power": (
         "attacker, defender, move -- the move's power before the damage formula. "

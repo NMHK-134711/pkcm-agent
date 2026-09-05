@@ -137,6 +137,7 @@ def test_every_declared_effect_happens(dex, config):
         "disable": "needs a last move, and stores it as 'disabled'",
         "encore": "needs the target to have moved",
         "attract": "needs opposite, known genders",
+        "snore": "needs its user asleep",
     }
 
     failures, skipped, clean = [], [], 0

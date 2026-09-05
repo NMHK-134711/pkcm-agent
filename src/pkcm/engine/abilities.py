@@ -1590,7 +1590,20 @@ def _quick_draw(ctx, ref, value, move, **_):
     return None
 
 
-register("ability", "quickdraw", name="Quick Draw", modify_priority=_quick_draw)
+register("ability", "quickdraw", name="Quick Draw",
+         modify_fractional_priority=_quick_draw)
+
+
+def _stall(ctx, ref, value, move, **_):
+    """Sableye's drawback: last in its bracket, whatever its Speed says.
+
+    It was registered with no handler at all, so the engine ran Sableye at its
+    own Speed -- a straight upgrade over the ability the game gives it.
+    """
+    return value - 1
+
+
+register("ability", "stall", name="Stall", modify_fractional_priority=_stall)
 
 
 def _traps_the_opponent(ability: str, condition=None):
@@ -2115,7 +2128,7 @@ register("ability", "harvest", name="Harvest", residual=_harvest)
 #: coverage report honest, because "implemented as nothing" is not "forgotten".
 INERT = frozenset({
     "honeygather", "pickup", "runaway", "ballfetch", "cheekpouch", "gluttony",
-    "klutz", "stall", "pickpocket", "magician", "unburden",
+    "klutz", "pickpocket", "magician", "unburden",
     "earlybird", "rattled",
     "aftermath", "damp", "aromaveil", "flowerveil", "suctioncups",
 })

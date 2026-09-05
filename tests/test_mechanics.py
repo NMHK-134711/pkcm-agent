@@ -738,3 +738,163 @@ def test_a_failed_sucker_punch_still_costs_its_pp(config):
     state, _ = step(state, Action.move(0), Action.move(0))
 
     assert state.sides[0].pp[0][0] == before - 1
+
+
+# --------------------------------------------------------------------------- #
+# The rest of the family: conditions Showdown keeps in handler code, which the
+# data-driven audit in ``move_support`` cannot see. Every one of these made its
+# move strictly better than the game's version.
+# --------------------------------------------------------------------------- #
+
+
+def _turn(config, red, blue, ours=0, theirs=0, warmup=0):
+    state = build(config, red, blue)
+    for _ in range(warmup):
+        state, _ = step(state, Action.move(1), Action.move(theirs))
+    state, events = step(state, Action.move(ours), Action.move(theirs))
+    return state, [(e.kind, getattr(e, "detail", None)) for e in events]
+
+
+def test_fake_out_only_works_on_the_turn_it_came_in(config):
+    """A free flinch every turn is one of the best moves in the game. It is
+    supposed to be an opening."""
+    user = a_set("kangaskhan", ("fakeout", "tackle"), sp=(0, 32, 0, 0, 0, 32))
+    foe = a_set("snorlax", ("rest",))
+
+    _, first = _turn(config, user, foe)
+    _, later = _turn(config, user, foe, warmup=1)
+
+    assert ("cant_move", "flinch") in first, "it works the turn it arrives"
+    assert ("move_failed", "not the turn it came in") in later
+
+
+def test_first_impression_only_works_on_the_turn_it_came_in(config):
+    user = a_set("golisopod", ("firstimpression", "tackle"), sp=(0, 32, 0, 0, 0, 32))
+    foe = a_set("snorlax", ("rest",))
+
+    _, first = _turn(config, user, foe)
+    _, later = _turn(config, user, foe, warmup=1)
+
+    assert ("damage", None) in first, "ninety power at +2, once"
+    assert ("move_failed", "not the turn it came in") in later
+
+
+def test_upper_hand_only_interrupts_a_priority_attack(config):
+    """Narrower than Sucker Punch: the target has to be moving early, not just
+    attacking."""
+    user = a_set("hitmonchan", ("upperhand", "tackle"), sp=(0, 32, 0, 0, 0, 32))
+    foe = a_set("snorlax", ("tackle", "quickattack"))
+
+    _, plain = _turn(config, user, foe, theirs=0)
+    _, priority = _turn(config, user, foe, theirs=1)
+
+    assert ("move_failed", "target is not moving first") in plain
+    assert ("damage", None) in priority
+
+
+def test_snore_needs_its_user_asleep(config):
+    user = a_set("snorlax", ("snore", "tackle"), sp=(0, 32, 0, 0, 0, 32))
+    foe = a_set("pikachu", ("rest",))
+
+    state = build(config, user, foe)
+    _, awake = step(state, Action.move(0), Action.move(0))
+    assert ("move_failed", "user is awake") in \
+        [(e.kind, getattr(e, "detail", None)) for e in awake]
+
+    state = build(config, user, foe)
+    state.sides[0].status[0] = "slp"
+    state.sides[0].status_data[0] = {"sleep": 3}
+    _, asleep = step(state, Action.move(0), Action.move(0))
+    assert ("damage", None) in \
+        [(e.kind, getattr(e, "detail", None)) for e in asleep]
+
+
+def test_last_resort_waits_for_every_other_move(config):
+    user = a_set("zangoose", ("lastresort", "tackle"), sp=(0, 32, 0, 0, 0, 32))
+    foe = a_set("snorlax", ("rest",))
+
+    _, straight_away = _turn(config, user, foe)
+    _, after_tackle = _turn(config, user, foe, warmup=1)
+
+    assert ("move_failed", "still has moves it has not used") in straight_away
+    assert ("damage", None) in after_tackle
+
+
+def test_the_counters_reset_when_the_user_leaves_the_field(config):
+    """Both conditions are per-visit: Fake Out works again after a switch, and
+    Last Resort has to earn it again."""
+    user = a_set("kangaskhan", ("fakeout", "tackle"), sp=(0, 32, 0, 0, 0, 32))
+    state = build(config, user, a_set("snorlax", ("rest",)))
+    state, _ = step(state, Action.move(1), Action.move(0))     # tackle, so it has moved
+    state, _ = step(state, Action.switch(1), Action.move(0))
+    state, _ = step(state, Action.switch(0), Action.move(0))
+
+    _, events = step(state, Action.move(0), Action.move(0))
+
+    assert ("cant_move", "flinch") in \
+        [(e.kind, getattr(e, "detail", None)) for e in events]
+
+
+# --------------------------------------------------------------------------- #
+# Order inside a priority bracket
+# --------------------------------------------------------------------------- #
+
+
+class _SureThing:
+    """The real cursor with every chance roll succeeding."""
+
+    def __init__(self, inner):
+        self._inner = inner
+
+    def chance(self, num, den):
+        return True
+
+    def __getattr__(self, name):
+        return getattr(self._inner, name)
+
+
+def _order(config, red, blue, red_move=0, blue_move=0, sure=False):
+    """Who is named first in the turn's move_used events."""
+    from pkcm.engine.battle import make_context, _move_order, _actors
+
+    state = build(config, red, blue)
+    ctx = make_context(state)
+    if sure:
+        ctx.cursor = _SureThing(ctx.cursor)
+    choices = ((Action.move(red_move),), (Action.move(blue_move),))
+    return _move_order(ctx, choices, _actors(state))[0][0]
+
+
+def test_stall_moves_last_inside_its_bracket(config):
+    """Sableye's drawback ability was in the inert list -- registered as doing
+    nothing -- so the engine ran it at its own Speed, which is a straight
+    upgrade over the ability the game gives it."""
+    quick = a_set("sableye", ("tackle",), ability="stall", sp=(0, 0, 0, 0, 0, 32))
+    slow = a_set("snorlax", ("tackle",), sp=(0, 0, 0, 0, 0, 0))
+
+    assert _order(config, quick, slow) == 1, "the slower Snorlax goes first"
+
+    without = a_set("sableye", ("tackle",), ability="keeneye", sp=(0, 0, 0, 0, 0, 32))
+    assert _order(config, without, slow) == 0, "and without Stall it does not"
+
+
+def test_stall_does_not_drop_out_of_its_bracket(config):
+    """Last in its bracket, not last overall: a Sucker Punch still beats a
+    Tackle."""
+    staller = a_set("sableye", ("suckerpunch", "tackle"), ability="stall",
+                    sp=(0, 0, 0, 0, 0, 0))
+    faster = a_set("snorlax", ("tackle",), sp=(0, 0, 0, 0, 0, 32))
+
+    assert _order(config, staller, faster) == 0
+
+
+def test_quick_claw_does_not_beat_a_priority_move(config):
+    """It moves its holder to the front of its own bracket. It was adding to
+    the priority itself, which let a Tackle go before an Aqua Jet."""
+    holder = a_set("snorlax", ("tackle",), item="quickclaw", sp=(0, 0, 0, 0, 0, 0))
+    priority_user = a_set("pikachu", ("quickattack", "tackle"), sp=(0, 0, 0, 0, 0, 32))
+
+    assert _order(config, holder, priority_user, blue_move=0, sure=True) == 1, \
+        "Quick Attack is a bracket above, and a Quick Claw does not reach it"
+    assert _order(config, holder, priority_user, blue_move=1, sure=True) == 0, \
+        "in the same bracket it does move first, slower or not"

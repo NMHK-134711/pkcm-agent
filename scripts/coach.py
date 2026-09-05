@@ -165,6 +165,7 @@ class Coach:
         self.sprites = self._sprite_map()
         self.search = MCTS(
             SearchConfig(iterations=args.search_iterations,
+                         preview_iterations=args.preview_iterations,
                          determinizations=max(4, args.search_iterations // 20)),
             evaluator=self._evaluator())
         self.our_party = ranker_parties()[args.party]
@@ -721,11 +722,19 @@ def main() -> int:
     parser.add_argument("--format", default="singles", choices=("singles", "doubles"))
     parser.add_argument("--seed", type=int, default=0)
     parser.add_argument("--port", type=int, default=8761)
+    parser.add_argument("--preview-iterations", type=int, default=None,
+                        help="simulations for the team preview alone. Defaults "
+                             "to four times --search-iterations, which is worth "
+                             "2.3 points and costs about a tenth of a battle "
+                             "(see SearchConfig.preview_iterations). Pass the "
+                             "same number as --search-iterations to turn it off")
     parser.add_argument("--no-browser", action="store_true")
     parser.add_argument("--log-dir", default="runs/live",
                         help="where real games are recorded, one JSONL per "
                              "day (DESIGN.md §6 D). Relative to the repo")
     args = parser.parse_args()
+    if args.preview_iterations is None:
+        args.preview_iterations = args.search_iterations * 4
 
     if args.search_iterations is None:
         from pkcm.search.mcts import DEPLOY_ITERATIONS

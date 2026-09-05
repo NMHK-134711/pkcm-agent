@@ -55,6 +55,11 @@ def main() -> int:
                         help="comma-separated party indices. Default is all "
                              "of them")
     parser.add_argument("--search-iterations", type=int, default=800)
+    parser.add_argument("--preview-iterations", type=int, default=None,
+                        help="simulations for the team preview alone, on both "
+                             "sides. Off by default so a re-run reproduces an "
+                             "earlier one; worth setting when the question is "
+                             "which party is best under the agent as deployed")
     parser.add_argument("--checkpoint", default=None,
                         help="a saved network for the prior and leaf value, "
                              "on both sides")
@@ -85,6 +90,7 @@ def main() -> int:
         battle_format=args.format, checkpoint=args.checkpoint,
         trust=args.trust,
         search=SearchConfig(iterations=iterations,
+                            preview_iterations=args.preview_iterations,
                             determinizations=max(4, iterations // 20)))
     schedule = fixtures(entrants, args.repeats)
     workers = args.workers if args.workers is not None else default_workers()

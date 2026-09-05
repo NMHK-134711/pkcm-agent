@@ -930,3 +930,22 @@ def test_a_berry_eaten_in_play_is_still_a_clue(dex):
     empty = a_set("archaludon", "stamina", watched, None)
     assert not consistent(empty, known), (
         "and a set holding nothing is not what we watched")
+
+
+def test_the_preview_can_be_given_its_own_budget(dex):
+    """Worth 2.3 points measured, and it must land on that node and no other.
+
+    The preview is the largest single choice in the game and one node out of
+    thirty-odd, so paying four times for it costs about a tenth of a battle.
+    Spending that everywhere would be a different and much slower agent.
+    """
+    from pkcm.search.mcts import MCTS
+    from pkcm.search import SearchConfig
+
+    search = MCTS(SearchConfig(iterations=200, preview_iterations=800))
+    assert search.choose(preview(dex), 0).iterations == 800
+    assert search.choose(battle(dex), 0).iterations == 200, "an ordinary turn is untouched"
+
+    plain = MCTS(SearchConfig(iterations=200))
+    assert plain.choose(preview(dex), 0).iterations == 200, (
+        "left unset it changes nothing, so an earlier measurement still reproduces")

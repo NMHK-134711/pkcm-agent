@@ -201,6 +201,29 @@ class SearchConfig:
     #: Cap on how many joint actions a node considers. Doubles can offer a few
     #: hundred and a node that expands all of them learns nothing about any.
     max_branching: int = 24
+    #: Simulations at the team preview, when that should differ from the rest
+    #: of the game. ``None`` spends ``iterations`` there like anywhere else.
+    #:
+    #: **Worth 2.3 points, measured.** The preview is one node in a game of
+    #: thirty-odd decisions and the largest single choice in it, so four times
+    #: its budget costs about a tenth of a battle. Four runs of 4000 games,
+    #: everything else identical (``runs/preview_budget_800x4.json`` and the
+    #: three ``preview_branching`` files):
+    #:
+    #:     preview budget x4      52.3% [50.8, 53.9]  separable
+    #:     preview shortlist 120  45.0% [43.5, 46.6]  separable, the wrong way
+    #:     preview shortlist  48  48.0% [46.5, 49.6]  separable, the wrong way
+    #:     preview shortlist  12  50.4% [48.8, 51.9]  not separable
+    #:
+    #: Widening the shortlist instead is monotonically worse and stays worse
+    #: at 3200, so it is not that the budget was thin: a bad ordering in the
+    #: candidate set collects visits, and a noisy estimate off those visits
+    #: sometimes takes the argmax. Narrowing does nothing, which puts
+    #: ``max_branching`` on a flat part of its curve rather than at an optimum.
+    #:
+    #: Left at ``None`` so nothing already measured changes underneath itself.
+    #: ``scripts/coach.py`` and ``scripts/tournament.py`` both set it.
+    preview_iterations: int | None = None
     #: How much a switch's matchup against what is standing there moves its
     #: prior. **Off, because it was measured and it does nothing.**
     #:
@@ -442,16 +465,23 @@ class MCTS:
         if self.config.root_noise > 0:
             self._add_root_noise(root, draw)
         bounds = MinMax()
-        per_draw = max(1, self.config.iterations // max(1, self.config.determinizations))
+        # The preview may be worth more thinking than an ordinary turn; see
+        # ``preview_iterations``. Everything below reads this rather than the
+        # config, so the two budgets cannot drift apart.
+        budget = self.config.iterations
+        if (self.config.preview_iterations is not None
+                and state.phase is Phase.TEAM_PREVIEW):
+            budget = self.config.preview_iterations
+        per_draw = max(1, budget // max(1, self.config.determinizations))
         # Batching needs a network to batch for. The heuristic is microseconds;
         # collecting it into batches would only add the virtual-loss diffusion
         # and buy nothing.
         batch = self.config.leaf_batch if self.evaluator is not None else 1
         done = 0
-        while done < self.config.iterations:
+        while done < budget:
             sampled = determinize(observation, state, draw,
                                   self.config.belief)
-            left = min(per_draw, self.config.iterations - done)
+            left = min(per_draw, budget - done)
             while left > 0:
                 if batch > 1:
                     ran = self._simulate_batch(sampled, root, player, draw,

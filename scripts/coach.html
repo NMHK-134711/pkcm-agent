@@ -133,6 +133,7 @@ function monCard(m, view) {
   if (m.status) marks.push(m.status);
   m.boosts.forEach(b => marks.push(`${b.name}${b.value > 0 ? "+" : ""}${b.value}`));
   if (m.item) marks.push(`@${m.item}`);
+  if (m.ability) marks.push(m.ability);
   if (m.moves.length) marks.push(m.moves.join(", "));
   const cls = ["mon"];
   if (m.active) cls.push("on");
@@ -142,6 +143,8 @@ function monCard(m, view) {
     <div class="who">${m.ko}</div>
     ${m.fainted ? `<div class="meta">기절</div>` : hpbar(m.hp)}
     <div class="meta">${m.fainted ? "" : m.hp + "%"} ${marks.join(" · ")}</div>
+    ${m.assumed_ability ? `<div class="meta" style="color:#b26b00">특성 가정: ${
+      m.assumed_ability} — 다르면 아래 4번에 입력</div>` : ""}
   </div></div>`;
 }
 

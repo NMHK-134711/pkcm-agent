@@ -371,6 +371,16 @@ class Coach:
                        for index, value in enumerate(known.boosts) if value],
             "moves": [self.names.move(m) for m in known.moves],
             "item": self.names.item(known.item) if known.item_known else None,
+            "ability": self.names.ability(known.ability) if known.ability_known else None,
+            # What the mirror is running on when nobody has said. Their
+            # placeholder still needs *an* ability to step the turn, and that
+            # guess quietly changes the game being simulated -- an invented
+            # Intimidate drops our Attack, an ability that is not Rock Head
+            # puts recoil on a Head Smash that took none. Shown so it can be
+            # argued with, rather than found later in a log.
+            "assumed_ability": (
+                None if known.ability_known or side == US or species is None
+                else self.names.ability(self.mirror.state.ability_id(side, known.slot))),
         }
 
     def active_name(self, side: int) -> str:

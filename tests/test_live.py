@@ -492,3 +492,36 @@ def test_a_faint_and_its_undo_round_trip(dex, our_team):
     assert not mirror.state.sides[0].owes_switch()
     kinds = {action.kind for action in mirror.our_options()}
     assert Action.move(0).kind in kinds, "attacks are back"
+
+
+def test_the_placeholders_ability_is_not_a_fact_about_them(dex, our_team):
+    """The leak that made a real game unreadable.
+
+    The engine marks an ability revealed when it announces itself, which is
+    right in a real battle and wrong here, because the announcement came from
+    a set we invented. Their Hisuian Arcanine was drawn with Intimidate, so
+    the observation said its ability was *known* to be Intimidate -- and
+    ``belief.consistent`` filters the ranker pool on exactly that field. The
+    one in the game had Rock Head.
+    """
+    mirror = open_battle(a_mirror(dex, our_team))
+    for known in Observation.of(mirror.state, 0).foe:
+        assert known.ability is None, "their ability is not ours to invent"
+        assert not known.ability_known
+        assert known.item is None and not known.item_known
+
+
+def test_what_the_person_reported_survives_the_next_turn(dex, our_team):
+    """The other side of it: a scrub that took the real reports with it would
+    be worse than the leak."""
+    mirror = open_battle(a_mirror(dex, our_team))
+    mirror.report_ability("cursedbody")
+    mirror.report_item("lifeorb")
+    slot = mirror.state.sides[1].active[0]
+
+    mirror.advance(Action.move(0), mirror.report_move("shadowball"))
+
+    known = next(k for k in Observation.of(mirror.state, 0).foe
+                 if k.slot == slot)
+    assert known.ability == "cursedbody" and known.ability_known
+    assert known.item == "lifeorb" and known.item_known

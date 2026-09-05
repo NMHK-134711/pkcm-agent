@@ -69,6 +69,10 @@ class Mirror:
     #: ``state.parties[THEM]``.
     their_six: tuple[str, ...]
     log: list[str] = field(default_factory=list)
+    #: Their slots whose ability and item the *person* has reported. Nothing
+    #: else may count as known about them -- see ``_forget_what_we_made_up``.
+    told_abilities: set[int] = field(default_factory=set)
+    told_items: set[int] = field(default_factory=set)
 
     # -- starting ----------------------------------------------------------- #
 
@@ -196,6 +200,7 @@ class Mirror:
                 f"{pokemon.species.name}는 {dex.abilities[ability_id].name}을 "
                 f"가질 수 없습니다 — 가능한 것: {', '.join(allowed)}")
         self._rewrite(party_index, ability=ability_id)
+        self.told_abilities.add(slot)
         self.state.revealed[THEM].abilities.add(slot)
 
     def report_item(self, item_id: str, slot: int | None = None,
@@ -222,6 +227,7 @@ class Mirror:
         self._rewrite(party_index, item=item_id)
         if consumed:
             self.state.set_override(THEM, slot, "item", None, permanent=True)
+        self.told_items.add(slot)
         self.state.revealed[THEM].items.add(slot)
 
     def report_our_item(self, consumed: bool = True, item_id: str | None = None,
@@ -468,7 +474,30 @@ class Mirror:
 
     def _step(self, ours: Action, theirs: Action) -> list:
         self.state, events = step(self.state, ours, theirs)
+        self._forget_what_we_made_up()
         return events
+
+    def _forget_what_we_made_up(self) -> None:
+        """Their placeholder's ability and item are ours, not theirs.
+
+        The engine marks an ability revealed when it announces itself, which is
+        right for a real battle and wrong here: the announcement came from a
+        set we invented. A Hisuian Arcanine placeholder drawn with Intimidate
+        drops our Attack on the way in, and from then on the observation says
+        its ability is *known* to be Intimidate -- so ``belief.consistent``
+        filters the pool down to Intimidate sets and the search plans against
+        a Pokemon nobody has seen. The one in the game had Rock Head.
+
+        The same goes for an item that fires on its own, a Leftovers tick or a
+        berry. So after every step, what is known about them is exactly what
+        the person said and nothing the placeholder did.
+
+        Their moves and species are safe and stay: the mirror only ever plays
+        the action it was told they played.
+        """
+        revealed = self.state.revealed[THEM]
+        revealed.abilities = set(self.told_abilities)
+        revealed.items = set(self.told_items)
 
 
 def _replace_set(pokemon_set: PokemonSet, **changes) -> PokemonSet:

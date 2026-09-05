@@ -131,3 +131,7 @@ runs/curriculum4_fixed/*
 !runs/noise_floor_fixed.json
 !runs/search_vs_prior_*.json
 !runs/gate_*.log
+
+# real games through the coach (DESIGN.md 6 D)
+!runs/live/
+!runs/live/*.jsonl

@@ -29,6 +29,7 @@ from __future__ import annotations
 import argparse
 import json
 import sys
+import time
 import threading
 import webbrowser
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
@@ -96,6 +97,61 @@ def trained_on(checkpoint: str | None) -> frozenset[int] | None:
     return None
 
 
+class GameLog:
+    """One JSON line per thing that happened in a real game, appended to
+    ``runs/live/<date>.jsonl``.
+
+    This is the data DESIGN.md §6 calls D: every number this project has is
+    search against search on its own parties, and a real opponent is a
+    different distribution. Each record carries the game id and a timestamp;
+    ``begin`` carries the sets, ``turn`` what was seen and played, ``end``
+    who won and why. Writing is wrapped so a logging fault can never cost a
+    live game -- the advice on screen matters more than the record of it.
+    """
+
+    def __init__(self, directory: Path) -> None:
+        self.directory = directory
+        self.game_id: str | None = None
+        self.error: str | None = None
+
+    def start(self) -> str:
+        self.game_id = time.strftime("%Y%m%d-%H%M%S")
+        return self.game_id
+
+    def write(self, kind: str, builder) -> None:
+        """``builder`` is a zero-argument callable returning the record's
+        fields; it runs inside the guard, so a bad field cannot escape."""
+        if self.game_id is None:
+            return
+        try:
+            fields = builder()
+            self.directory.mkdir(parents=True, exist_ok=True)
+            path = self.directory / f"{self.game_id[:8]}.jsonl"
+            record = {"ts": time.strftime("%Y-%m-%dT%H:%M:%S"),
+                      "game": self.game_id, "kind": kind, **fields}
+            with path.open("a", encoding="utf-8") as handle:
+                handle.write(json.dumps(record, ensure_ascii=False, default=str) + "\n")
+        except Exception as error:  # noqa: BLE001 - never break a live game
+            self.error = f"{type(error).__name__}: {error}"
+
+
+def _encode_choice(choice) -> str:
+    """A Choice is a tuple of Actions; join their codes."""
+    return "+".join(_encode(action) for action in choice)
+
+
+def _known_raw(known) -> dict:
+    """A Pokemon as the observation has it, ids not labels, for the record."""
+    return {"slot": known.slot, "species": known.species_id,
+            "active": known.position is not None, "fainted": known.fainted,
+            "hp": round(known.hp_fraction, 3), "status": known.status,
+            "boosts": list(known.boosts), "moves": list(known.moves),
+            "item": known.item, "item_known": known.item_known,
+            "ability": known.ability, "ability_known": known.ability_known,
+            "hits_on_us": [list(h) if isinstance(h, (tuple, list)) else h
+                           for h in getattr(known, "hits_on_us", ())]}
+
+
 class Coach:
     """One live game being advised on."""
 
@@ -114,6 +170,7 @@ class Coach:
         self.our_party = ranker_parties()[args.party]
         self.lookup = self._lookup()
         self.mirror: Mirror | None = None
+        self.gamelog = GameLog(ROOT / args.log_dir)
         self.log: list[str] = []
         self.advice: dict | None = None
         self.error: str | None = None
@@ -178,6 +235,26 @@ class Coach:
                                    seed=self.args.seed)
         self.log = [f"상대 등록: {', '.join(self.names.species(s) for s in six)}"]
         self.advice = None
+        self.gamelog.start()
+        self.gamelog.write("begin", lambda: dict(
+            party=self.args.party, party_title=self.our_party.title,
+            our_team=[{"species": m.species, "item": m.item, "ability": m.ability,
+                       "moves": list(m.moves), "nature": m.nature, "sp": list(m.sp)}
+                      for m in self.our_party.team],
+            their_six=list(six), format=self.args.format, seed=self.args.seed,
+            search_iterations=self.args.search_iterations,
+            checkpoint=self.args.checkpoint))
+
+    def snapshot(self) -> dict:
+        """The state as the record wants it: ids, both sides, phase, turn."""
+        observation = Observation.of(self.mirror.state, US)
+        return {"phase": self.mirror.phase.name, "turn": self.mirror.state.turn,
+                "finished": self.mirror.finished, "winner": self.mirror.state.winner,
+                "ours": [_known_raw(k) for k in observation.own],
+                "theirs": [_known_raw(k) for k in observation.foe],
+                "field": self._field(),
+                "our_conditions": [list(c) for c in observation.own_conditions],
+                "their_conditions": [list(c) for c in observation.foe_conditions]}
 
     def think(self) -> None:
         """Ask the search what to play here."""
@@ -201,6 +278,12 @@ class Coach:
                          "share": round(share, 3)}
                         for choice, share in ranked[:5] if share > 0.005],
         }
+        self.gamelog.write("advice", lambda: dict(
+            turn=self.mirror.state.turn, phase=self.mirror.phase.name,
+            best=self._describe(result.action), best_code=_encode_choice(result.action),
+            value=round(getattr(result, "value", 0.0), 4),
+            distribution=[[_encode_choice(choice), round(share, 4)]
+                          for choice, share in ranked if share > 0.001]))
 
     def _describe(self, choice) -> str:
         action = choice[0]
@@ -228,11 +311,12 @@ class Coach:
                                range(len(self.our_party.team))]},
             "lookup": self.lookup,
             "log": self.log[-40:],
-            "error": self.error,
+            "error": self.error or self.gamelog.error,
             "advice": self.advice,
             "started": self.mirror is not None,
         }
         self.error = None
+        self.gamelog.error = None
         if self.mirror is None:
             return payload
 
@@ -369,6 +453,10 @@ def _routes(coach: Coach, path: str, query: dict) -> None:
         coach.log.append(
             f"선봉: 우리 {coach.names.species(coach.our_party.team[mirror.state.sides[US].selection[0]].species)}"
             f" / 상대 {coach.names.species(query['lead'][0])}")
+        coach.gamelog.write("open", lambda: dict(
+            our_pick=[int(v) for v in query.get("pick", [])],
+            our_lead=coach.our_party.team[mirror.state.sides[US].selection[0]].species,
+            their_lead=query["lead"][0]))
         return
     if path == "/turn":
         ours = _decode(query["ours"][0])
@@ -387,8 +475,10 @@ def _routes(coach: Coach, path: str, query: dict) -> None:
         # leaving.
         landing = theirs.index if theirs.kind is ActionKind.SWITCH else None
         _learned(coach, query, landing)
+        turn_before = mirror.state.turn
         events = mirror.advance(ours, theirs)
-        coach.log.extend(coach.renderer.render_log(events).splitlines())
+        lines = coach.renderer.render_log(events).splitlines()
+        coach.log.extend(lines)
         # The correction rides along with the turn rather than following it.
         # Two buttons meant the first one produced advice computed on HP the
         # engine had guessed, and the second produced different advice on the
@@ -396,12 +486,56 @@ def _routes(coach: Coach, path: str, query: dict) -> None:
         # to play. There is one number that matters and it is the one on the
         # screen, so it is entered with the turn.
         _correct(coach, query)
+        coach.gamelog.write("turn", lambda: dict(
+            turn=turn_before,
+            ours={"code": query["ours"][0], "label": coach._describe((ours,))},
+            theirs={"switch": (query.get("their_switch") or [None])[0],
+                    "move": (query.get("their_move") or [None])[0],
+                    "mega": query.get("their_mega", ["0"])[0] == "1",
+                    "pass": theirs.kind is ActionKind.PASS},
+            learned=_learned_fields(query), corrections=_correction_fields(query),
+            events=lines, after=coach.snapshot()))
+        if mirror.finished:
+            coach.gamelog.write("end", lambda: dict(
+                result={0: "win", 1: "loss"}.get(mirror.state.winner, "draw"),
+                reason="engine", turns=mirror.state.turn))
         return
     if path == "/observe":
         _learned(coach, query, None)
         _correct(coach, query)
+        coach.gamelog.write("observe", lambda: dict(
+            learned=_learned_fields(query), corrections=_correction_fields(query),
+            after=coach.snapshot()))
+        return
+    if path == "/end":
+        # The person's verdict, for games the engine did not see end: a
+        # forfeit, a timer, a disconnect. Recorded, not enforced.
+        result = (query.get("result") or ["unknown"])[0]
+        coach.gamelog.write("end", lambda: dict(
+            result=result, reason=(query.get("reason") or ["manual"])[0],
+            turns=mirror.state.turn, after=coach.snapshot()))
+        coach.log.append(f"결과 기록: {result}")
         return
     raise MirrorError(f"알 수 없는 요청: {path}")
+
+
+def _learned_fields(query: dict) -> dict:
+    return {"their_ability": (query.get("their_ability") or [""])[0].strip() or None,
+            "their_item": (query.get("their_item") or [""])[0].strip() or None,
+            "their_item_used": query.get("their_item_used", ["0"])[0] == "1",
+            "our_item_used": query.get("our_item_used", ["0"])[0] == "1"}
+
+
+def _correction_fields(query: dict) -> dict:
+    out = {}
+    for side in ("our", "their"):
+        hp = query.get(f"{side}_hp")
+        status = query.get(f"{side}_status")
+        if hp:
+            out[f"{side}_hp"] = float(hp[0])
+        if status is not None:
+            out[f"{side}_status"] = status[0] or None
+    return out
 
 
 def _learned(coach: Coach, query: dict, slot: int | None) -> None:
@@ -532,6 +666,9 @@ def main() -> int:
     parser.add_argument("--seed", type=int, default=0)
     parser.add_argument("--port", type=int, default=8761)
     parser.add_argument("--no-browser", action="store_true")
+    parser.add_argument("--log-dir", default="runs/live",
+                        help="where real games are recorded, one JSONL per "
+                             "day (DESIGN.md §6 D). Relative to the repo")
     args = parser.parse_args()
 
     if args.search_iterations is None:

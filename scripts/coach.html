@@ -84,6 +84,11 @@
     <span class="muted" id="status">불러오는 중…</span>
     <span style="flex:1"></span>
     <button id="restart">새 배틀</button>
+    <span style="margin-left:12px; font-size:12px">결과
+      <select id="endResult"><option value="win">승</option><option value="loss">패</option><option value="draw">무</option></select>
+      <select id="endReason"><option value="manual">직접 기록</option><option value="forfeit">항복</option><option value="timer">시간</option><option value="disconnect">접속 끊김</option></select>
+      <button id="endGame" style="font-size:12px; padding:2px 8px">기록</button>
+    </span>
   </header>
   <div id="app"></div>
   <div class="log" id="log"></div>
@@ -414,6 +419,8 @@ function bindBattle() {
     call("/turn?" + parts.concat(corrections()).join("&"));
   };
   $("fix").onclick = () => call("/observe?" + corrections().join("&"));
+  const endButton = $("endGame");
+  if (endButton) endButton.onclick = () => call("/end?result=" + $("endResult").value + "&reason=" + $("endReason").value);
   $("ourAct").onchange = refreshLabels;
   if ($("theirAct")) $("theirAct").oninput = refreshLabels;
   refreshLabels();

@@ -299,7 +299,8 @@ function screenBattle() {
     ${datalist("dl-acts", (V.lookup.moves || []).concat(V.their_six))}
     <div class="row two">
       <div><label id="ourHpLabel"></label>
-        <input id="ourHp" type="number" min="0" max="100" value="${ourActive.hp}"></div>
+        <input id="ourHp" type="number" min="0" step="1"
+               value="${ourActive.hp_now === null ? ourActive.hp : ourActive.hp_now}"></div>
       <div><label id="theirHpLabel"></label>
         <input id="theirHp" type="number" min="0" max="100" value="${theirActive.hp}"></div>
     </div>
@@ -374,19 +375,30 @@ function refreshLabels() {
     theirs: now.theirs !== V.theirs.find(m => m.active),
   };
   const mark = (who) => who ? "  ← 교체로 나온 포켓몬" : "";
-  $("ourHpLabel").textContent =
-    `3. 턴이 끝난 뒤 ${now.ours.ko} HP %${mark(switching.ours)}`;
+  // Ours is the number on the screen, out of a maximum we know exactly.
+  $("ourHpLabel").textContent = now.ours.max_hp
+    ? `3. 턴이 끝난 뒤 ${now.ours.ko} HP  / ${now.ours.max_hp}${mark(switching.ours)}`
+    : `3. 턴이 끝난 뒤 ${now.ours.ko} HP %${mark(switching.ours)}`;
   $("theirHpLabel").textContent =
     `3. 턴이 끝난 뒤 ${now.theirs.ko} HP %${mark(switching.theirs)}`;
   $("ourStatusLabel").textContent = `${now.ours.ko} 상태이상`;
   $("theirStatusLabel").textContent = `${now.theirs.ko} 상태이상`;
   // The pre-filled number belongs to whoever the label now names.
-  if (switching.ours) $("ourHp").value = now.ours.hp;
+  if (switching.ours) {
+    $("ourHp").value = now.ours.hp_now === null ? now.ours.hp : now.ours.hp_now;
+    $("ourHp").max = now.ours.max_hp || 100;
+  }
   if (switching.theirs) $("theirHp").value = now.theirs.hp;
 }
 
 function corrections() {
-  const parts = ["our_hp=" + $("ourHp").value, "their_hp=" + $("theirHp").value,
+  // Sent as 101/177 so the server never has to guess whether a number is
+  // hit points or a percentage. Theirs stays a percentage: a health bar is
+  // all the game shows of it.
+  const ourMax = (arriving().ours || {}).max_hp;
+  const ourHp = ourMax ? $("ourHp").value + "/" + ourMax : $("ourHp").value;
+  const parts = ["our_hp=" + encodeURIComponent(ourHp),
+                 "their_hp=" + $("theirHp").value,
                  "our_status=" + $("ourStatus").value,
                  "their_status=" + $("theirStatus").value];
   // These narrow what the search believes it is facing, so they are worth more

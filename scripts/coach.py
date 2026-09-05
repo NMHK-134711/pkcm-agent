@@ -371,6 +371,14 @@ class Coach:
                        for index, value in enumerate(known.boosts) if value],
             "moves": [self.names.move(m) for m in known.moves],
             "item": self.names.item(known.item) if known.item_known else None,
+            # Our own maximum is a fact, so the page can ask for the number
+            # the game actually shows -- 101/177 -- instead of making someone
+            # work out 57% on a calculator between turns. Theirs is a
+            # placeholder's maximum and would be a lie, so it is not sent.
+            "max_hp": (self.mirror.state.pokemon(side, known.slot).max_hp
+                       if side == US and species else None),
+            "hp_now": (self.mirror.state.sides[side].hp[known.slot]
+                       if side == US and species else None),
             "ability": self.names.ability(known.ability) if known.ability_known else None,
             # What the mirror is running on when nobody has said. Their
             # placeholder still needs *an* ability to step the turn, and that
@@ -538,13 +546,31 @@ def _learned_fields(query: dict) -> dict:
             "our_item_used": query.get("our_item_used", ["0"])[0] == "1"}
 
 
+def _hp_fraction(text: str) -> float:
+    """What the person typed, as a fraction of full health.
+
+    Two forms. ``101/177`` is what the game prints for our own Pokemon and is
+    exact. A bare number is a percentage, which is all their health bar ever
+    tells us.
+    """
+    text = text.strip()
+    if "/" in text:
+        current, _, maximum = text.partition("/")
+        top, bottom = float(current), float(maximum)
+        if bottom <= 0:
+            raise MirrorError(f"최대 HP가 이상합니다: {text!r}")
+        return max(0.0, min(1.0, top / bottom))
+    return max(0.0, min(1.0, float(text) / 100))
+
+
 def _correction_fields(query: dict) -> dict:
     out = {}
     for side in ("our", "their"):
         hp = query.get(f"{side}_hp")
         status = query.get(f"{side}_status")
-        if hp:
-            out[f"{side}_hp"] = float(hp[0])
+        if hp and hp[0].strip():
+            out[f"{side}_hp"] = hp[0].strip()
+            out[f"{side}_hp_fraction"] = round(_hp_fraction(hp[0]), 4)
         if status is not None:
             out[f"{side}_status"] = status[0] or None
     return out
@@ -588,11 +614,11 @@ def _correct(coach: Coach, query: dict) -> None:
     for side_name, side in (("our", US), ("their", THEM)):
         hp = query.get(f"{side_name}_hp")
         status = query.get(f"{side_name}_status")
-        if not hp and status is None:
+        if (not hp or not hp[0].strip()) and status is None:
             continue
         coach.mirror.observe(
             side,
-            hp_fraction=float(hp[0]) / 100 if hp else None,
+            hp_fraction=_hp_fraction(hp[0]) if hp and hp[0].strip() else None,
             status=(status[0] or None) if status is not None else ...)
 
 

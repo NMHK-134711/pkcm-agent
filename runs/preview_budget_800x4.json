@@ -1,0 +1,15 @@
+{
+ "iterations": 800,
+ "multiplier": 4,
+ "preview_iterations": 3200,
+ "teams": "ranker",
+ "matches": 2000,
+ "wins": 2081,
+ "losses": 1897,
+ "draws": 22,
+ "rate": 0.5231,
+ "low": 0.5076,
+ "high": 0.5386,
+ "separable": true,
+ "minutes": 39.5
+}

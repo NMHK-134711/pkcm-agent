@@ -139,3 +139,4 @@ runs/curriculum4_fixed/*
 # the team preview measurements (docs/DESIGN.md 6, stage 1)
 !runs/preview_truncation.json
 !runs/preview_branching_*.json
+!runs/preview_budget_*.json

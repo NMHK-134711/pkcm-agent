@@ -1,0 +1,15 @@
+{
+ "iterations": 800,
+ "branching_wide": 48,
+ "branching_narrow": 24,
+ "teams": "ranker",
+ "matches": 2000,
+ "wins": 1907,
+ "losses": 2065,
+ "draws": 28,
+ "rate": 0.4801,
+ "low": 0.4646,
+ "high": 0.4957,
+ "separable": true,
+ "minutes": 35.3
+}

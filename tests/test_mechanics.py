@@ -820,6 +820,41 @@ def test_last_resort_waits_for_every_other_move(config):
     assert ("damage", None) in after_tackle
 
 
+def test_fake_out_into_last_resort_off_two_moves(config):
+    """The line the pair of conditions exists for.
+
+    Mega Kangaskhan carrying nothing but Fake Out and Last Resort: the Fake
+    Out opens, and having been used it is the only other move Last Resort was
+    waiting on, so from the second turn Last Resort is live. Both halves have
+    to be right for this to work and for it not to work a turn early.
+    """
+    user = a_set("kangaskhan", ("fakeout", "lastresort"), ability="scrappy",
+                 item="kangaskhanite", sp=(0, 32, 0, 0, 0, 32))
+    state = build(config, user, a_set("snorlax", ("rest",)))
+
+    state, opening = step(state, Action.move(0, mega=True), Action.move(0))
+    marks = [(e.kind, getattr(e, "detail", None)) for e in opening]
+    assert ("cant_move", "flinch") in marks, "Fake Out opens"
+    assert not [d for kind, d in marks if kind == "move_failed"]
+
+    state, second = step(state, Action.move(1), Action.move(0))
+    marks = [(e.kind, getattr(e, "detail", None)) for e in second]
+    assert ("damage", None) in marks, "and Last Resort is live from here"
+    assert not [d for kind, d in marks if kind == "move_failed"]
+
+
+def test_last_resort_alone_has_nothing_to_wait_for(config):
+    """One move and it is Last Resort: it never comes on, rather than always
+    being on."""
+    user = a_set("zangoose", ("lastresort",), sp=(0, 32, 0, 0, 0, 32))
+    state = build(config, user, a_set("snorlax", ("rest",)))
+
+    _, events = step(state, Action.move(0), Action.move(0))
+
+    assert ("move_failed", "nothing else to run out of") in \
+        [(e.kind, getattr(e, "detail", None)) for e in events]
+
+
 def test_the_counters_reset_when_the_user_leaves_the_field(config):
     """Both conditions are per-visit: Fake Out works again after a switch, and
     Last Resort has to earn it again."""

@@ -22,7 +22,7 @@ from pkcm.engine import mutate
 from pkcm.engine.effects import Context, Ref
 from pkcm.engine.events import Event
 from pkcm.engine.mutate import apply_damage, effective_stat, heal, stage_multiplier
-from pkcm.engine.actions import TARGET_ALLY, TARGET_SELF
+from pkcm.engine.actions import TARGET_ALLY, TARGET_SELF, ActionKind
 from pkcm.engine.state import imprisoned_moves
 
 LEVEL = 50
@@ -233,6 +233,67 @@ def _needs_own_type(type_name: str):
 MOVE_PRECONDITIONS: dict[str, Callable[[Context, Ref, Move], str | None]] = {
     "steelroller": _needs_terrain,
     "burnup": _needs_own_type("Fire"),
+}
+
+
+def _chosen_move(ctx: Context, ref: Ref) -> Move | None:
+    """The move this Pokemon picked for the turn, if it picked one.
+
+    ``None`` covers switching, passing, and a turn whose choices are not on
+    the state at all -- ``use_move`` is also called outside a turn, by tests
+    and by Instruct.
+    """
+    state = ctx.state
+    position = state.sides[ref[0]].position_of(ref[1])
+    if position is None or not state.turn_actions:
+        return None
+    actions = state.turn_actions[ref[0]]
+    if position >= len(actions):
+        return None
+    action = actions[position]
+    if action.kind is not ActionKind.MOVE:
+        return None
+    moves = state.moves(*ref)
+    # Out of range is Struggle, which is an attack like any other.
+    return moves[action.index] if action.index < len(moves) else None
+
+
+def _has_yet_to_move(ctx: Context, ref: Ref) -> bool:
+    position = ctx.state.sides[ref[0]].position_of(ref[1])
+    return position is not None and (ref[0], position) in ctx.state.turn_queue
+
+
+def _sucker_punch_refusal(ctx: Context, attacker: Ref, defender: Ref,
+                          move: Move) -> str | None:
+    """Sucker Punch reads the target's intent, and is wrong as often as right.
+
+    It fails unless the target has yet to move this turn *and* what it picked
+    is an attack. Against Aqua Jet -- equal priority, and the faster Pokemon
+    goes first -- the target has already moved by the time this runs, so it
+    fails. That is most of what the move is: a guess that loses to priority,
+    to switches, and to any status move.
+
+    The engine had none of this. Sucker Punch was 70 base power at +1 that
+    always landed, which is a different and much better move, and the search
+    has been using it on Kingambit and Mawile as if it were free.
+    """
+    chosen = _chosen_move(ctx, defender)
+    if chosen is None or chosen.category == "Status":
+        # Asked first so that a target who switched out reads as one that was
+        # never attacking, rather than as one that moved.
+        return "target is not attacking"
+    if not _has_yet_to_move(ctx, defender):
+        return "target has already moved"
+    return None
+
+
+#: Moves that refuse once they can see what the target is doing this turn.
+#: Separate from ``MOVE_PRECONDITIONS`` because the answer depends on the
+#: target, which is not settled until the move has picked one -- and because
+#: these fail *after* the move was used, so they cost their PP.
+MOVE_TARGET_PRECONDITIONS: dict[
+    str, Callable[[Context, Ref, Ref, Move], str | None]] = {
+    "suckerpunch": _sucker_punch_refusal,
 }
 
 
@@ -988,6 +1049,15 @@ def _resolve(
     if targets_opponent and ctx.state.sides[defender[0]].hp[defender[1]] <= 0:
         ctx.emit(Event("move_failed", side=attacker[0], move=move.id, detail="no target"))
         return
+
+    refusal = MOVE_TARGET_PRECONDITIONS.get(move.id)
+    if targets_opponent and refusal is not None:
+        reason = refusal(ctx, attacker, defender, move)
+        if reason is not None:
+            ctx.emit(Event("move_failed", side=attacker[0], move=move.id,
+                           detail=reason))
+            _note_move_failed(ctx, attacker, True)
+            return
 
     if targets_opponent and not fx.allows(
         ctx, "try_hit", defender, attacker=attacker, defender=defender, move=move

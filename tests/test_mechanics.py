@@ -673,3 +673,68 @@ def test_a_crash_move_that_misses_hurts_its_user(dex, config):
             break
     assert any(e.kind == "crash" for e in ctx.log), "no miss in twelve casts at +6 evasion?"
     assert state.sides[0].hp[0] < full
+
+
+# --------------------------------------------------------------------------- #
+# Sucker Punch
+# --------------------------------------------------------------------------- #
+
+
+def _sucker_turn(config, their_moves, their_index, their_sp):
+    """One turn of Mawile's Sucker Punch into whatever Primarina picked."""
+    ours = a_set("mawile", ("suckerpunch", "swordsdance"), sp=(0, 32, 0, 0, 0, 0))
+    theirs = a_set("primarina", their_moves, sp=their_sp)
+    state = build(config, ours, theirs)
+    _, events = step(state, Action.move(0), Action.move(their_index))
+    return [(e.kind, getattr(e, "detail", None)) for e in events]
+
+
+def test_sucker_punch_loses_to_an_equal_priority_move(config):
+    """Reported from a real game, and the reason it was unplayable there.
+
+    Aqua Jet is +1 like Sucker Punch, so Speed breaks the tie and the faster
+    Primarina moves first. By the time Sucker Punch runs its target has
+    already gone, which is exactly when the move does nothing. The engine had
+    it landing every time -- 70 base power at +1 that never fails is a much
+    better move than the one in the game.
+    """
+    events = _sucker_turn(config, ("aquajet", "moonblast"), 0, (0, 0, 0, 0, 0, 32))
+    assert ("move_failed", "target has already moved") in events
+
+
+def test_sucker_punch_fails_against_a_status_move(config):
+    """Whoever is faster: the target has to be attacking."""
+    events = _sucker_turn(config, ("calmmind", "moonblast"), 0, (0, 0, 0, 0, 0, 0))
+    assert ("move_failed", "target is not attacking") in events
+
+
+def test_sucker_punch_fails_against_a_switch(config):
+    ours = a_set("mawile", ("suckerpunch", "swordsdance"), sp=(0, 32, 0, 0, 0, 0))
+    theirs = a_set("primarina", ("moonblast", "aquajet"))
+    state = build(config, ours, theirs)
+
+    _, events = step(state, Action.move(0), Action.switch(1))
+
+    assert ("move_failed", "target is not attacking") in \
+        [(e.kind, getattr(e, "detail", None)) for e in events]
+
+
+def test_sucker_punch_still_lands_on_a_slower_attacker(config):
+    """The other half. A move that always failed would be as wrong as one that
+    always landed."""
+    events = _sucker_turn(config, ("moonblast", "aquajet"), 0, (0, 0, 0, 0, 0, 0))
+    kinds = [kind for kind, _ in events]
+    assert "damage" in kinds
+    assert not [d for kind, d in events if kind == "move_failed"]
+
+
+def test_a_failed_sucker_punch_still_costs_its_pp(config):
+    """It fails after being used, not before -- the same as in the game."""
+    ours = a_set("mawile", ("suckerpunch", "swordsdance"), sp=(0, 32, 0, 0, 0, 0))
+    theirs = a_set("primarina", ("calmmind", "moonblast"))
+    state = build(config, ours, theirs)
+    before = state.sides[0].pp[0][0]
+
+    state, _ = step(state, Action.move(0), Action.move(0))
+
+    assert state.sides[0].pp[0][0] == before - 1

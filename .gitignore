@@ -135,3 +135,7 @@ runs/curriculum4_fixed/*
 # real games through the coach (DESIGN.md 6 D)
 !runs/live/
 !runs/live/*.jsonl
+
+# the team preview measurements (docs/DESIGN.md 6, stage 1)
+!runs/preview_truncation.json
+!runs/preview_branching_*.json

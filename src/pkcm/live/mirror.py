@@ -295,6 +295,8 @@ class Mirror:
             side_state.hp[slot] = min(maximum, hp)
             if side_state.hp[slot] > 0:
                 self._unfaint(side, position)
+            else:
+                self._faint(side, position)
         if status is not ...:
             side_state.status[slot] = status
             if status is None:
@@ -303,6 +305,36 @@ class Mirror:
             else:
                 self.state.revealed[side].status_since.setdefault(
                     slot, self.state.turn)
+
+    def _faint(self, side: int, position: int) -> None:
+        """Finish a faint the mirror did not reach.
+
+        The other half of ``_unfaint``, and the commoner one: their roll was
+        bigger than ours, or their set hits harder than the placeholder we
+        guessed, and a Pokemon the mirror still has standing is gone. Putting
+        the HP at zero is not enough by itself, because the step is what
+        normally writes what follows -- the side owes a replacement and the
+        phase says so. Without that the page offers a dead Pokemon's moves,
+        or nothing at all, and there is no way to tell it who came in.
+        """
+        state = self.state
+        side_state = state.sides[side]
+        if state.phase in (Phase.TEAM_PREVIEW, Phase.FINISHED):
+            return
+        standing = set(side_state.active)
+        bench = [s for s in side_state.living_slots() if s not in standing]
+        if bench:
+            if position < len(side_state.must_switch):
+                side_state.must_switch[position] = True
+            # A turn stopped halfway for a U-turn is still owed the rest of
+            # itself, so record the debt without rewriting that phase.
+            if state.phase is Phase.BATTLE:
+                state.phase = Phase.FORCED_SWITCH
+        elif side_state.has_lost():
+            # Nothing left to send. The engine only calls a battle at the end
+            # of a step, so say it here.
+            state.phase = Phase.FINISHED
+            state.winner = 1 - side
 
     def _unfaint(self, side: int, position: int) -> None:
         """Take back a faint the mirror invented.

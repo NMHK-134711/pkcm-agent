@@ -442,3 +442,53 @@ def test_a_correction_leaves_a_real_faint_alone(dex, our_team):
 
     assert mirror.phase is Phase.FORCED_SWITCH, "their HP says nothing about ours"
     assert ours.owes_switch()
+
+
+def test_correcting_hp_to_zero_finishes_a_faint_the_mirror_missed(dex, our_team):
+    """The other half, and the commoner one.
+
+    From a real game: Head Smash knocked Primarina out in one, the mirror's
+    roll left it on 24 of 177, and the correction that put it at zero was the
+    only thing that happened. The side never owed a replacement, so the page
+    offered a dead Pokemon's moves and there was no way to say who came in.
+    """
+    mirror = open_battle(a_mirror(dex, our_team))
+    side = mirror.state.sides[0]
+    assert mirror.phase is Phase.BATTLE
+
+    mirror.observe(0, hp_fraction=0.0)
+
+    assert side.hp[side.active[0]] == 0
+    assert side.owes_switch(), "the side owes a replacement"
+    assert mirror.phase is Phase.FORCED_SWITCH
+    kinds = {action.kind for action in mirror.our_options()}
+    assert kinds == {Action.switch(0).kind}, "switches, and only switches"
+
+
+def test_the_last_one_falling_ends_the_battle(dex, our_team):
+    """With nothing left to send, the correction ends it rather than asking
+    for a replacement that does not exist."""
+    mirror = open_battle(a_mirror(dex, our_team))
+    side = mirror.state.sides[0]
+    for slot in side.living_slots():
+        if slot != side.active[0]:
+            side.hp[slot] = 0
+
+    mirror.observe(0, hp_fraction=0.0)
+
+    assert mirror.finished
+    assert mirror.state.winner == 1, "the side that still has someone standing"
+
+
+def test_a_faint_and_its_undo_round_trip(dex, our_team):
+    """Mistyping the HP and fixing it must not stick the battle either way."""
+    mirror = open_battle(a_mirror(dex, our_team))
+    mirror.observe(0, hp_fraction=0.0)
+    assert mirror.phase is Phase.FORCED_SWITCH
+
+    mirror.observe(0, hp_fraction=0.4)
+
+    assert mirror.phase is Phase.BATTLE
+    assert not mirror.state.sides[0].owes_switch()
+    kinds = {action.kind for action in mirror.our_options()}
+    assert Action.move(0).kind in kinds, "attacks are back"

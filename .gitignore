@@ -140,3 +140,6 @@ runs/curriculum4_fixed/*
 !runs/preview_truncation.json
 !runs/preview_branching_*.json
 !runs/preview_budget_*.json
+
+# usage collected from pokedb (scripts/fetch_usage.py)
+!data/champions/usage_m*_singles.json

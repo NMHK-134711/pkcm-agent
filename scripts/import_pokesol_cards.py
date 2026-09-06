@@ -98,8 +98,14 @@ def cards(page: str) -> list[dict]:
 
 
 def identify(card, dex, regulation, items_by_id, abilities_by_id) -> list[str]:
-    """Which of our species this card could be. One entry means solved."""
-    moves = [items for items in card["move_ids"]]
+    """Which of our species this card could be. One entry means solved.
+
+    ``items_by_id`` has to be pokesol's own numbering for the Mega Stone
+    shortcut to fire. It was pokedb's for a while, which is a different table,
+    so no stone was ever recognised and every Mega-holding card fell through to
+    being identified by an ability that belongs to the Mega -- 96 articles held
+    for want of a Gengar or a Garchomp the card was plainly naming.
+    """
     item = items_by_id.get(str(card["item_id"]))
 
     # A Mega Stone names its holder and nothing else can hold it.
@@ -151,7 +157,13 @@ def main() -> int:
     dex = load_dex()
     regulation = dex.regulation(args.regulation)
     species_rows, moves_by_id, items_by_id, abilities_by_id = tables()
-    natures = sorted(NATURES)
+    # pokesol's own item numbering, learned by an earlier run of this script.
+    # Absent on the first run, which is why it takes two to settle.
+    learned_items = ROOT / "data" / "champions" / "pokesol_items.json"
+    if learned_items.exists():
+        table = json.loads(learned_items.read_text(encoding="utf-8"))
+        items_by_id = {ident: row["id"] for ident, row in table.items()}
+        print(f"using {len(items_by_id)} learned pokesol item ids")
 
     index = {a["url"]: a for a in
              json.loads(Path(args.index).read_text(encoding="utf-8"))["articles"]}
@@ -194,12 +206,12 @@ def main() -> int:
     # species, so once the species are matched the numbers are too.
     item_votes: dict[str, Counter] = {}
     kept, held = [], []
-    stats = {"cards": 0, "identified": 0, "ambiguous": 0}
+    stats = {"cards": 0, "identified": 0, "ambiguous": 0, "by_elimination": 0}
     for path in files:
         page = path.read_text(encoding="utf-8", errors="replace")
         url = by_slug.get(path.name)
         row = index.get(url or "")
-        found, found_item, problems = {}, {}, []
+        found, found_item, problems, spare = {}, {}, [], []
         for card in cards(page):
             stats["cards"] += 1
             names = [moves_by_id.get(str(one), "") if one is not None else ""
@@ -214,14 +226,23 @@ def main() -> int:
                 known = by_pokesol_id.get(card["pokemon_id"])
                 if known is None or (options and known not in options):
                     stats["ambiguous"] += 1
+                    spare.append(card)
                     continue
                 options = [known]
             stats["identified"] += 1
             name = options[0]
             nature = NATURE_BY_ID.get(int(card["nature_id"] or 0), "serious")
+            # The card names the ability the Pokemon fights with, which for
+            # a Mega is the Mega's. The set registers the base, and the base
+            # cannot hold Shadow Tag -- so an ability it may not take falls
+            # back to one it may.
+            ability = abilities_by_id.get(str(card["_base_ability"]), "__none__")
+            allowed = registrable_abilities(dex.species[name]) or ()
+            if allowed and ability not in allowed:
+                ability = allowed[0]
             found[name] = PokemonSet(
                 species=name,
-                ability=abilities_by_id.get(str(card["_base_ability"]), "__none__"),
+                ability=ability,
                 moves=tuple(card["_move_names"]),
                 item=items_by_id.get(str(card["item_id"])),
                 nature=nature,
@@ -246,7 +267,10 @@ def main() -> int:
                 # base holding the stone either way, so the prefix is what we
                 # want. Getting this wrong silently held 183 of 241 parties
                 # looking for a species that does not exist.
-                slug = match["slug"].split("-mega-")[0]
+                # pokedb spells a Mega either as floette-mega or as
+                # metagross-mega-metagross, so both shapes have to fold to the
+                # base -- and the base is what registers, holding the stone.
+                slug = re.sub(r"-mega(-.*)?$", "", match["slug"])
                 name = slug.replace("-", "")
                 if name not in dex.species:
                     name = slug
@@ -255,9 +279,35 @@ def main() -> int:
                 base = dex.species[name]
                 if base.is_mega and base.base_species:
                     name = base.base_species
+                # Folding a forme can land on one the regulation does not
+                # allow: Mega Floette is legal, plain Floette is not, and only
+                # Floette-Eternal is registrable. Take the legal sibling.
+                if name not in regulation.legal_species:
+                    kin = [one for one in regulation.legal_species
+                           if not dex.species[one].is_mega
+                           and dex.species[one].dex_num == base.dex_num]
+                    if len(kin) == 1:
+                        name = kin[0]
                 want.append(name)
-            team = [found[name] for name in want if name in found]
             missing = [name for name in want if name not in found]
+            # One species left over and one card left over is not a guess: the
+            # index says the party is these six, the cards account for five,
+            # and the last card is the last species. The learnset still has to
+            # agree, so a card that could not be that Pokemon is left alone.
+            if len(missing) == 1 and len(spare) == 1:
+                card, name = spare[0], missing[0]
+                if {english(mv) for mv in card["_move_names"]} <= learnable_moves(dex, name):
+                    found[name] = PokemonSet(
+                        species=name,
+                        ability=abilities_by_id.get(str(card["_base_ability"]), "__none__"),
+                        moves=tuple(card["_move_names"]),
+                        item=items_by_id.get(str(card["item_id"])),
+                        nature=NATURE_BY_ID.get(int(card["nature_id"] or 0), "serious"),
+                        sp=tuple(int(card["evs"].get(key, 0)) for key in EV_ORDER))
+                    found_item[name] = card["item_id"]
+                    stats["by_elimination"] += 1
+                    missing = []
+            team = [found[name] for name in want if name in found]
             if missing:
                 problems.append(f"no card for {', '.join(missing)}")
 
@@ -315,7 +365,8 @@ def main() -> int:
         json.dumps({"parties": kept, "held": held}, ensure_ascii=False, indent=1),
         encoding="utf-8")
     print(f"articles {len(files)}   cards {stats['cards']}   "
-          f"identified {stats['identified']}   ambiguous {stats['ambiguous']}")
+          f"identified {stats['identified']}   ambiguous {stats['ambiguous']}   "
+          f"by elimination {stats['by_elimination']}")
     print(f"clean parties {len(kept)}   held {len(held)}   -> {args.out}")
     reasons = {}
     for record in held:

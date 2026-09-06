@@ -54,6 +54,12 @@ def main() -> int:
     parser.add_argument("--entrants", default=None,
                         help="comma-separated party indices. Default is all "
                              "of them")
+    parser.add_argument("--parties", default=None,
+                        help="a party file to run instead of the committed "
+                             "archive. data/champions/parties_field.json is "
+                             "the 253 built from the hand parties and the "
+                             "pokesol imports, covering 98.5% of the ladder's "
+                             "slots against the archive's 82.3%")
     parser.add_argument("--search-iterations", type=int, default=800)
     parser.add_argument("--preview-iterations", type=int, default=None,
                         help="simulations for the team preview alone, on both "
@@ -73,7 +79,7 @@ def main() -> int:
                         help="also print who beat whom")
     args = parser.parse_args()
 
-    parties = ranker_parties()
+    parties = ranker_parties(args.parties)
     if args.entrants:
         entrants = tuple(int(one) for one in args.entrants.split(","))
         for one in entrants:
@@ -88,7 +94,7 @@ def main() -> int:
     iterations = args.search_iterations
     config = TournamentConfig(
         battle_format=args.format, checkpoint=args.checkpoint,
-        trust=args.trust,
+        trust=args.trust, parties=args.parties,
         search=SearchConfig(iterations=iterations,
                             preview_iterations=args.preview_iterations,
                             determinizations=max(4, iterations // 20)))
@@ -102,17 +108,51 @@ def main() -> int:
     print(f"each party plays {2 * args.repeats * (len(entrants) - 1)} games",
           flush=True)
 
+    # A 253-party round robin is 31,878 fixtures and days of wall clock, and
+    # holding every result in memory until the end means a crash at hour
+    # thirty-nine costs thirty-nine hours. Each fixture is appended to a JSONL
+    # beside the output as it lands, and a rerun with the same --out skips what
+    # is already in it. The seeds come from the fixture, so a resumed run plays
+    # exactly the games the interrupted one would have.
+    progress = Path(args.out).with_suffix(".jsonl") if args.out else None
+    done: dict[tuple[int, int, int], Result] = {}
+    if progress and progress.exists():
+        for line in progress.read_text(encoding="utf-8").splitlines():
+            if not line.strip():
+                continue
+            row = json.loads(line)
+            done[(row["a"], row["b"], row["repeat"])] = Result(
+                row["a"], row["b"], row["a_wins"], row["b_wins"], row["draws"])
+        print(f"resuming: {len(done)} fixtures already played", flush=True)
+
+    remaining = [one for one in schedule if tuple(one) not in done]
+    results: list[Result] = list(done.values())
     started = beat = time.perf_counter()
-    results: list[Result] = []
-    for one in stream(config, schedule, workers):
-        results.append(one)
-        now = time.perf_counter()
-        if now - beat >= 30.0 or len(results) == len(schedule):
-            rate = len(results) / max(now - started, 1e-9)
-            left = (len(schedule) - len(results)) / rate
-            print(f"  {len(results)}/{len(schedule)} fixtures  ~{left:.0f}s left",
-                  flush=True)
-            beat = now
+    handle = progress.open("a", encoding="utf-8") if progress else None
+    try:
+        for index, one in enumerate(stream(config, remaining, workers), 1):
+            results.append(one)
+            if handle:
+                # Which repeat this was is not on the Result, and the pair is
+                # enough to line it up again: fixtures are generated in order,
+                # so the nth sighting of a pair is its nth repeat.
+                seen = sum(1 for r in results
+                           if (r.a, r.b) == (one.a, one.b)) - 1
+                handle.write(json.dumps({
+                    "a": one.a, "b": one.b, "repeat": seen,
+                    "a_wins": one.a_wins, "b_wins": one.b_wins,
+                    "draws": one.draws}) + "\n")
+                handle.flush()
+            now = time.perf_counter()
+            if now - beat >= 30.0 or index == len(remaining):
+                rate = index / max(now - started, 1e-9)
+                left = (len(remaining) - index) / rate
+                print(f"  {len(results)}/{len(schedule)} fixtures  "
+                      f"~{left / 3600:.1f}h left", flush=True)
+                beat = now
+    finally:
+        if handle:
+            handle.close()
 
     rows = standings(results, entrants)
     if args.out:

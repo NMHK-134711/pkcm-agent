@@ -15,7 +15,7 @@
   "agreement": 1.0,
   "id": "scopelens",
   "name_ja": "ピントレンズ",
-  "seen": 6
+  "seen": 7
  },
  "120": {
   "agreement": 1.0,
@@ -45,7 +45,7 @@
   "agreement": 1.0,
   "id": "sitrusberry",
   "name_ja": "オボンのみ",
-  "seen": 154
+  "seen": 156
  },
  "141": {
   "agreement": 1.0,
@@ -123,7 +123,7 @@
   "agreement": 1.0,
   "id": "blastoisinite",
   "name_ja": "カメックスナイト",
-  "seen": 19
+  "seen": 20
  },
  "191": {
   "agreement": 1.0,
@@ -159,13 +159,13 @@
   "agreement": 1.0,
   "id": "kangaskhanite",
   "name_ja": "ガルーラナイト",
-  "seen": 3
+  "seen": 4
  },
  "198": {
   "agreement": 1.0,
   "id": "starminite",
   "name_ja": "スターミナイト",
-  "seen": 9
+  "seen": 10
  },
  "199": {
   "agreement": 1.0,
@@ -201,7 +201,7 @@
   "agreement": 1.0,
   "id": "focussash",
   "name_ja": "きあいのタスキ",
-  "seen": 122
+  "seen": 124
  },
  "211": {
   "agreement": 1.0,
@@ -225,7 +225,7 @@
   "agreement": 1.0,
   "id": "blazikenite",
   "name_ja": "バシャーモナイト",
-  "seen": 17
+  "seen": 18
  },
  "216": {
   "agreement": 1.0,
@@ -255,7 +255,7 @@
   "agreement": 1.0,
   "id": "metagrossite",
   "name_ja": "メタグロスナイト",
-  "seen": 21
+  "seen": 22
  },
  "235": {
   "agreement": 1.0,
@@ -375,7 +375,7 @@
   "agreement": 1.0,
   "id": "widelens",
   "name_ja": "こうかくレンズ",
-  "seen": 5
+  "seen": 6
  },
  "37": {
   "agreement": 1.0,
@@ -399,7 +399,7 @@
   "agreement": 1.0,
   "id": "whiteherb",
   "name_ja": "しろいハーブ",
-  "seen": 13
+  "seen": 14
  },
  "50": {
   "agreement": 1.0,
@@ -417,7 +417,7 @@
   "agreement": 1.0,
   "id": "leftovers",
   "name_ja": "たべのこし",
-  "seen": 150
+  "seen": 152
  },
  "67": {
   "agreement": 1.0,
@@ -447,7 +447,7 @@
   "agreement": 1.0,
   "id": "lifeorb",
   "name_ja": "いのちのたま",
-  "seen": 77
+  "seen": 79
  },
  "95": {
   "agreement": 1.0,

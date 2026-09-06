@@ -1,0 +1,11 @@
+{
+ "_note": "Held pokesol articles hk has already ruled on. They stay out of runs/held_articles.md so the list is only work that is left, and stay here so nothing re-surfaces them.",
+ "https://pokesol.app/u/nostaso/articles/81de83062a387ff0": {
+  "verdict": "author slip",
+  "detail": "The Sinistcha card stores Electro Shot where the article's own text says Matcha Gotcha. hk read the article: the set is Matcha Gotcha / Strength Sap / Curse / Trick Room. The other three move ids match ours exactly, so the numbering is sound and the editor pick is wrong."
+ },
+ "https://pokesol.app/u/zimen531/articles/2b3ea9658222d96c": {
+  "verdict": "author slip",
+  "detail": "Greninja carrying Sludge Bomb, which it cannot learn. hk: the move is Sludge Wave, and the writer picked the wrong one."
+ }
+}

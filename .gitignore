@@ -148,3 +148,4 @@ runs/curriculum4_fixed/*
 !data/champions/articles.json
 !data/champions/pokesol_species.json
 !data/champions/pokesol_items.json
+!data/champions/held_adjudicated.json

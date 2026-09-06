@@ -73,32 +73,33 @@ def registrable_abilities(species) -> tuple[str, ...]:
 
 
 def clause_violation(move) -> str | None:
-    """What the format refuses to let a team carry.
+    """What the format refuses to let a team carry. Nothing, as it turns out.
 
-    ``mods/champions/rulesets.ts`` lists Sleep Moves Clause, OHKO Clause and
-    Evasion Clause in its ``standard`` ruleset, and this used to enforce all
-    three. **Two of them are not in the game.**
+    ``mods/champions/rulesets.ts`` listed Sleep Moves Clause, OHKO Clause and
+    Evasion Clause in its ``standard`` ruleset, and this enforced all three.
+    **None of them is in the game**, and they came off one at a time as the
+    evidence arrived.
 
-    hk confirmed Sleep Powder is usable, and the ladder archive agrees at a
-    scale that is hard to argue with: of 113 ranker parties from 2400-2800,
-    **eleven carry a sleep move** -- Sleep Powder ten times and Hypnosis once --
-    and three carry a one-hit-KO move (Fissure, Horn Drill, Guillotine). Those
-    are teams that were actually played.
+    Sleep and OHKO went first: hk confirmed Sleep Powder is usable and the
+    ladder archive settled it at scale -- of 113 ranker parties rated 2400 to
+    2800, eleven carried a sleep move and three a one-hit-KO move.
 
-    So the Showdown mod is describing a ruleset the game does not run, and
-    docs/HANDOFF.md's note that "Hypnosis and Sing are in the table and cannot
-    go on a team" was our inference from it rather than an observation.
+    Evasion Clause stayed longer than it should have, on the argument that no
+    archive party used an evasion move and that removing a ban on no evidence
+    is how a format quietly stops being the format. That was the wrong shape
+    of caution. The ban itself had no evidence either: it was a line in
+    somebody else's format file, kept because nothing had yet contradicted it,
+    when two of its three neighbours had already been shown false. Then the
+    811th article turned up an Overqwil holding Minimize at rank 840 on the
+    real ladder, and hk confirmed the format has no evasion clause at all.
 
-    Evasion Clause stays: nothing in the archive uses an evasion move, which is
-    no evidence either way, and removing a ban on no evidence is how a format
-    quietly stops being the format.
+    **The lesson is about the source, not the clause.** All three bans came
+    from the same Showdown mod, all three were wrong, and Showdown is a
+    mechanics reference here rather than a rules authority -- see
+    ``test_sleep_and_ohko_moves_are_allowed_on_a_team``. A rule needs a
+    Champions source behind it. This function is kept, empty, because the
+    shape of "what the format refuses" is worth a place to put a real one.
     """
-    boosts = move.raw.get("boosts") or {}
-    if boosts.get("evasion", 0) > 0:
-        return "evasion clause"
-    secondary = move.raw.get("secondary") or {}
-    if (secondary.get("self") or {}).get("boosts", {}).get("evasion", 0) > 0:
-        return "evasion clause"
     return None
 
 

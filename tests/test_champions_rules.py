@@ -144,27 +144,20 @@ def test_a_frozen_pokemon_always_thaws_within_three_attempts(dex):
 # --------------------------------------------------------------------------- #
 
 
-@pytest.mark.parametrize(
-    "move_id,clause",
-    [
-        ("doubleteam", "evasion clause"),
-        ("minimize", "evasion clause"),
-    ],
-)
-def test_banned_move_categories(dex, move_id, clause):
-    assert clause_violation(dex.moves[move_id]) == clause
-
-
 @pytest.mark.parametrize("move_id", ["spore", "hypnosis", "sing", "sheercold",
-                                     "fissure", "horndrill"])
+                                     "fissure", "horndrill", "minimize",
+                                     "doubleteam"])
 def test_sleep_and_ohko_moves_are_allowed_on_a_team(dex, move_id):
     """Showdown's champions mod claims otherwise, and the game disagrees.
 
-    ``mods/champions/rulesets.ts`` lists Sleep Moves Clause and OHKO Clause in
-    its ``standard`` ruleset, and we enforced both. hk confirmed Sleep Powder
-    is usable, and the ladder archive settles it at scale: of 113 ranker
-    parties rated 2400-2800, **eleven carry a sleep move** (Sleep Powder ten
-    times, Hypnosis once) and three carry a one-hit-KO move.
+    ``mods/champions/rulesets.ts`` lists Sleep Moves Clause, OHKO Clause and
+    Evasion Clause in its ``standard`` ruleset, and we enforced all three. Not
+    one of them is real. hk confirmed Sleep Powder is usable and the ladder
+    archive settles those two at scale: of 113 ranker parties rated 2400-2800,
+    **eleven carry a sleep move** (Sleep Powder ten times, Hypnosis once) and
+    three carry a one-hit-KO move. Evasion took longer only because no archive
+    party happened to use one -- until an Overqwil with Minimize turned up at
+    rank 840, and hk confirmed the format has no such clause.
 
     **Showdown is a mechanics reference, not a rules source.** It runs its own
     ruleset, and where the two differ the game wins -- so a rule needs a
@@ -178,11 +171,13 @@ def test_ordinary_moves_pass_the_clauses(dex):
         assert clause_violation(dex.moves[move_id]) is None
 
 
-def test_a_banned_move_makes_a_set_illegal(dex, regulation):
-    bad = PokemonSet(species="clefable", ability="cutecharm",
-                     moves=("moonblast", "minimize"))
-    errors = set_errors(dex, regulation, bad)
-    assert any("evasion clause" in e for e in errors), errors
+def test_an_evasion_move_is_a_legal_thing_to_carry(dex, regulation):
+    """The ban was ours, taken from a format file that is not this format."""
+    # Overqwil is the one that found this: rank 840 on the real ladder,
+    # carrying Minimize, held by an import that thought it could not.
+    fine = PokemonSet(species="overqwil", ability="swiftswim",
+                      moves=("barbbarrage", "minimize"))
+    assert not set_errors(dex, regulation, fine), set_errors(dex, regulation, fine)
 
 
 def test_a_removed_move_makes_a_set_illegal(dex, regulation):
@@ -253,21 +248,23 @@ def test_the_table_also_adds_what_the_union_missed(dex):
     assert "sing" in clefable
 
 
-def test_clauses_still_apply_on_top_of_the_table(dex):
-    """Taught and allowed are different questions, and the table answers one.
+def test_what_the_table_teaches_is_what_a_team_may_carry(dex):
+    """There is no clause left to sit between the two.
 
-    Minimize is on plenty of rows; the evasion clause keeps it off every team.
-    Hypnosis used to be the example here, back when we banned it.
+    This test used to assert the opposite -- that Minimize is on plenty of rows
+    and the evasion clause keeps it off every team. Every ban we had came from
+    Showdown's mod and every one of them was wrong, so the gap it was
+    describing is gone.
     """
     from pkcm.engine.legality import champions_learnsets, learnable_moves
 
     table = champions_learnsets()
     teaches = [s for s, moves in table.items() if "minimize" in moves]
-    assert teaches, "the table should carry banned moves too"
+    assert teaches, "the table carries Minimize"
     checked = 0
     for species in teaches:
         if species in dex.species:
-            assert "minimize" not in learnable_moves(dex, species)
+            assert "minimize" in learnable_moves(dex, species)
             checked += 1
             if checked == 5:
                 break

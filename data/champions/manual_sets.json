@@ -128,5 +128,43 @@
  },
  "https://pokesol.app/u/sypk/articles/fdc793f61981bf39": {
   "_unavailable": "rank 497; the builder says the Aegislash was thrown in because a Steel type was wanted and was never tuned -- \"use anything\". There is no set to take."
+ },
+ "https://pokesol.app/u/subasuba_poke/articles/b85a7376930a0418": {
+  "ditto": {
+   "ability": "imposter",
+   "item": "choicescarf",
+   "moves": [
+    "transform"
+   ],
+   "nature": "serious",
+   "sp": [
+    32,
+    0,
+    0,
+    0,
+    0,
+    0
+   ],
+   "note": "rank 641; hk read it -- a Choice Scarf Ditto, not the Focus Sash kind the other three run"
+  }
+ },
+ "https://pokesol.app/u/aonoyu09/articles/0139bf4f99f97225": {
+  "ditto": {
+   "ability": "imposter",
+   "item": "choicescarf",
+   "moves": [
+    "transform"
+   ],
+   "nature": "serious",
+   "sp": [
+    32,
+    0,
+    0,
+    0,
+    0,
+    0
+   ],
+   "note": "rank 687; hk read it -- a Choice Scarf Ditto, not the Focus Sash kind the other three run"
+  }
  }
 }

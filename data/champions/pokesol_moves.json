@@ -1,0 +1,40 @@
+{
+ "_note": "pokesol numbers moves its own way, as it does items -- pokedb and our own table agree with each other and not with it. These are the ids where they part company, each confirmed by hk reading the article and each checked against the learnset of every species that uses the id. Everything not listed here matched already: of 267 ids seen on cards, 259 were consistent.",
+ "_source": "hk read the articles listed under each entry; the Korean Pokemon wiki's Champions move tables verify what a species may learn.",
+ "905": {
+  "id": "matchagotcha",
+  "name_ja": "シャカシャカほう",
+  "ours_said": "electroshot",
+  "confirmed_by": "Sinistcha, rank 718, pokesol.app/u/nostaso/articles/81de83062a387ff0"
+ },
+ "907": {
+  "id": "electroshot",
+  "name_ja": "エレクトロビーム",
+  "ours_said": "ficklebeam",
+  "confirmed_by": "Archaludon, ranks 23, 70 and 258 -- three articles, so not a writer's slip"
+ },
+ "910": {
+  "id": "psychicnoise",
+  "name_ja": "サイコノイズ",
+  "ours_said": null,
+  "confirmed_by": "Delphox at rank 1 and Gardevoir at rank 38; the other three moves on the rank 1 card match hk's reading exactly"
+ },
+ "919": {
+  "id": "alluringvoice",
+  "name_ja": "みわくのボイス",
+  "ours_said": null,
+  "confirmed_by": "Mega Raichu Y, rank 41, pokesol.app/u/a_p0ke/articles/09df9203a15cb965"
+ },
+ "920": {
+  "id": "temperflare",
+  "name_ja": "やけっぱち",
+  "ours_said": null,
+  "confirmed_by": "Mega Gyarados, rank 22, pokesol.app/u/baniland2525/articles/03642942dd99387d"
+ },
+ "922": {
+  "id": "lightofruin",
+  "name_ja": "はめつのひかり",
+  "ours_said": null,
+  "confirmed_by": "Floette-Eternal, rank 11 and rank 22"
+ }
+}

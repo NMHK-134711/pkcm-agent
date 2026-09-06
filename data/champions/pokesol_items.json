@@ -21,7 +21,7 @@
   "agreement": 1.0,
   "id": "metalcoat",
   "name_ja": "メタルコート",
-  "seen": 1
+  "seen": 2
  },
  "123": {
   "agreement": 1.0,
@@ -39,13 +39,13 @@
   "agreement": 1.0,
   "id": "lumberry",
   "name_ja": "ラムのみ",
-  "seen": 23
+  "seen": 25
  },
  "135": {
   "agreement": 1.0,
   "id": "sitrusberry",
   "name_ja": "オボンのみ",
-  "seen": 136
+  "seen": 148
  },
  "141": {
   "agreement": 1.0,
@@ -87,7 +87,7 @@
   "agreement": 1.0,
   "id": "shucaberry",
   "name_ja": "シュカのみ",
-  "seen": 12
+  "seen": 14
  },
  "153": {
   "agreement": 1.0,
@@ -111,7 +111,7 @@
   "agreement": 1.0,
   "id": "charizarditex",
   "name_ja": "リザードナイトＸ",
-  "seen": 6
+  "seen": 7
  },
  "186": {
   "agreement": 1.0,
@@ -129,7 +129,7 @@
   "agreement": 1.0,
   "id": "raichunitey",
   "name_ja": "ライチュウナイトＹ",
-  "seen": 8
+  "seen": 9
  },
  "192": {
   "agreement": 1.0,
@@ -147,7 +147,7 @@
   "agreement": 1.0,
   "id": "slowbronite",
   "name_ja": "ヤドランナイト",
-  "seen": 8
+  "seen": 9
  },
  "196": {
   "agreement": 1.0,
@@ -177,7 +177,7 @@
   "agreement": 1.0,
   "id": "gyaradosite",
   "name_ja": "ギャラドスナイト",
-  "seen": 22
+  "seen": 26
  },
  "202": {
   "agreement": 1.0,
@@ -189,19 +189,19 @@
   "agreement": 1.0,
   "id": "meganiumite",
   "name_ja": "メガニウムナイト",
-  "seen": 15
+  "seen": 16
  },
  "209": {
   "agreement": 1.0,
   "id": "scizorite",
   "name_ja": "ハッサムナイト",
-  "seen": 7
+  "seen": 8
  },
  "21": {
   "agreement": 1.0,
   "id": "focussash",
   "name_ja": "きあいのタスキ",
-  "seen": 111
+  "seen": 120
  },
  "211": {
   "agreement": 1.0,
@@ -225,7 +225,7 @@
   "agreement": 1.0,
   "id": "blazikenite",
   "name_ja": "バシャーモナイト",
-  "seen": 16
+  "seen": 17
  },
  "216": {
   "agreement": 1.0,
@@ -237,7 +237,7 @@
   "agreement": 1.0,
   "id": "gardevoirite",
   "name_ja": "サーナイトナイト",
-  "seen": 1
+  "seen": 2
  },
  "218": {
   "agreement": 1.0,
@@ -267,7 +267,7 @@
   "agreement": 1.0,
   "id": "lopunnite",
   "name_ja": "ミミロップナイト",
-  "seen": 12
+  "seen": 14
  },
  "239": {
   "agreement": 1.0,
@@ -303,7 +303,7 @@
   "agreement": 1.0,
   "id": "shedshell",
   "name_ja": "きれいなぬけがら",
-  "seen": 1
+  "seen": 2
  },
  "250": {
   "agreement": 1.0,
@@ -315,13 +315,13 @@
   "agreement": 1.0,
   "id": "chesnaughtite",
   "name_ja": "ブリガロナイト",
-  "seen": 7
+  "seen": 8
  },
  "255": {
   "agreement": 1.0,
   "id": "delphoxite",
   "name_ja": "マフォクシナイト",
-  "seen": 40
+  "seen": 42
  },
  "256": {
   "agreement": 1.0,
@@ -333,7 +333,7 @@
   "agreement": 1.0,
   "id": "floettite",
   "name_ja": "フラエッテナイト",
-  "seen": 5
+  "seen": 11
  },
  "262": {
   "agreement": 1.0,
@@ -342,10 +342,10 @@
   "seen": 1
  },
  "272": {
-  "agreement": 0.889,
+  "agreement": 0.909,
   "id": "scovillainite",
   "name_ja": "スコヴィラナイト",
-  "seen": 8
+  "seen": 10
  },
  "273": {
   "agreement": 1.0,
@@ -375,7 +375,7 @@
   "agreement": 1.0,
   "id": "choicescarf",
   "name_ja": "こだわりスカーフ",
-  "seen": 92
+  "seen": 98
  },
  "43": {
   "agreement": 1.0,
@@ -411,7 +411,7 @@
   "agreement": 1.0,
   "id": "leftovers",
   "name_ja": "たべのこし",
-  "seen": 133
+  "seen": 143
  },
  "67": {
   "agreement": 1.0,
@@ -429,19 +429,19 @@
   "agreement": 1.0,
   "id": "spelltag",
   "name_ja": "のろいのおふだ",
-  "seen": 21
+  "seen": 22
  },
  "84": {
   "agreement": 1.0,
   "id": "lightclay",
   "name_ja": "ひかりのねんど",
-  "seen": 21
+  "seen": 23
  },
  "9": {
   "agreement": 1.0,
   "id": "lifeorb",
   "name_ja": "いのちのたま",
-  "seen": 71
+  "seen": 73
  },
  "95": {
   "agreement": 1.0,

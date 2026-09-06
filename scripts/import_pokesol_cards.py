@@ -159,6 +159,18 @@ def main() -> int:
     species_rows, moves_by_id, items_by_id, abilities_by_id = tables()
     # pokesol's own item numbering, learned by an earlier run of this script.
     # Absent on the first run, which is why it takes two to settle.
+    # pokesol numbers moves its own way too. pokedb's Archaludon page keys
+    # Electro Shot at 905 and so does our table; pokesol's cards say 907. The
+    # low ids agreeing was taken for the whole range agreeing, which it was
+    # not, and six ids had to be read off the articles to settle.
+    corrections = ROOT / "data" / "champions" / "pokesol_moves.json"
+    if corrections.exists():
+        fixes = {k: v["id"] for k, v in
+                 json.loads(corrections.read_text(encoding="utf-8")).items()
+                 if not k.startswith("_")}
+        moves_by_id = {**moves_by_id, **fixes}
+        print(f"applying {len(fixes)} corrected pokesol move ids")
+
     learned_items = ROOT / "data" / "champions" / "pokesol_items.json"
     if learned_items.exists():
         table = json.loads(learned_items.read_text(encoding="utf-8"))

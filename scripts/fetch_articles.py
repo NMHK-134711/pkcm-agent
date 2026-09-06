@@ -62,8 +62,11 @@ def parse_page(page: str) -> list[dict]:
         text = strip(card)
         rank = re.search(r"(\d+)\s*[位위]", text)
         rating = re.search(r"\b(\d{3,4})\s*\.?\s*(\d{1,3})\b", text)
-        mons = re.findall(r'dex-(\d{4}-\d{2})-96" title="([^"]*)"', card)
-        items = re.findall(r'item-icon-24 item-(\d+)" title="([^"]*)"', card)
+        # The served HTML puts class and title on separate lines; a page saved
+        # from a browser has them on one, because the DOM was serialised. Both
+        # have to parse or the collector only works on whatever hk saved.
+        mons = re.findall(r'dex-(\d{4}-\d{2})-96"\s*title="([^"]*)"', card)
+        items = re.findall(r'item-icon-24 item-(\d+)"\s*title="([^"]*)"', card)
         out.append({
             "url": url,
             "host": host,

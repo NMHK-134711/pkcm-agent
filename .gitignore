@@ -151,3 +151,4 @@ runs/curriculum4_fixed/*
 !data/champions/held_adjudicated.json
 !data/champions/pokesol_moves.json
 !data/champions/manual_sets.json
+!data/champions/parties_field.json

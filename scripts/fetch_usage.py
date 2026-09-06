@@ -87,17 +87,34 @@ def japanese_tables() -> tuple[dict, dict, dict]:
     return species, moves, items
 
 
-def wanted_keys(species: dict, only_missing: bool) -> list[tuple[str, str, int]]:
-    """(key, japanese name, ladder slots) for the species worth fetching.
+def wanted_keys(species: dict, only_missing: bool,
+                regulation: str = "m_b") -> list[tuple[str, str, int]]:
+    """(key, japanese name, ladder slots) for every species worth fetching.
 
-    Ordered by how much of the ladder they account for, so ``--limit`` takes
-    the ones that matter rather than the ones that sort first.
+    The universe is what the regulation allows -- 235 non-Mega species in M-B,
+    which is exactly the length of the site's own usage ranking. An earlier
+    version took its targets from the 518 ranked teams instead and so stopped
+    at the 138 those happen to contain, which is a cap on coverage dressed up
+    as a list.
+
+    The ranked teams still decide the *order*, since they are where the slot
+    counts come from, so ``--limit`` takes the most played rather than the
+    alphabetically luckiest. Species those teams never show sort last, at
+    zero, which is the right place for them and not a reason to drop them: the
+    floor is a question about the worst matchup, and nothing rare is exempt
+    from being nasty.
+
+    Mega formes are left out. The ranked teams record a Mega as its base
+    species holding the stone, and the base page lists that stone among its
+    items, so the base page already covers it.
     """
     from pkcm.data.dex import load_dex
     from pkcm.engine.legality import ranker_parties
 
     dex = load_dex()
+    allowed = dex.regulation(regulation)
     field = {one.species for party in ranker_parties() for one in party.team}
+
     slots: Counter[str] = Counter()
     label: dict[str, str] = {}
     for season in ("s3", "s4"):
@@ -110,19 +127,38 @@ def wanted_keys(species: dict, only_missing: bool) -> list[tuple[str, str, int]]
                 slots[key] += 1
                 label[key] = one["pokemon"]
 
-    out = []
-    for key, count in slots.most_common():
-        row = species.get(key)
+    by_slug: dict[str, dict] = {}
+    for key, row in species.items():
+        for name in (row["slug"].replace("-", ""), row["slug"]):
+            by_slug.setdefault(name, {**row, "key": key})
+    # Formes whose slug is spelled differently on either side. Lycanroc and
+    # Vivillon are the awkward pair: we carry one id for a species the site
+    # splits by forme or pattern, so they take the one that is played.
+    for ours, theirs in (("basculegionf", "basculegion-female"),
+                         ("meowsticf", "meowstic-female"),
+                         ("taurospaldeacombat", "tauros-paldea-combat-breed"),
+                         ("taurospaldeablaze", "tauros-paldea-blaze-breed"),
+                         ("taurospaldeaaqua", "tauros-paldea-aqua-breed"),
+                         ("lycanroc", "lycanroc-midday"),
+                         ("vivillonfancy", "vivillon")):
+        if ours not in by_slug and theirs in by_slug:
+            by_slug[ours] = by_slug[theirs]
+
+    out, unknown = [], []
+    for name in sorted(allowed.legal_species):
+        if dex.species[name].is_mega:
+            continue
+        if only_missing and name in field:
+            continue
+        row = by_slug.get(name)
         if row is None:
+            unknown.append(name)
             continue
-        our = row["slug"].replace("-", "")
-        if our not in dex.species:
-            our = row["slug"]
-        if our not in dex.species:
-            continue
-        if only_missing and our in field:
-            continue
-        out.append((key, label.get(key, row["nameJa"]), count))
+        key = row["key"]
+        out.append((key, label.get(key, row["nameJa"]), slots.get(key, 0)))
+    if unknown:
+        print(f"no pokedb row for {len(unknown)}: {', '.join(unknown)}")
+    out.sort(key=lambda one: -one[2])
     return out
 
 

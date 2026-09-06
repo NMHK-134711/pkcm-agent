@@ -58,8 +58,8 @@ def main() -> int:
                         help="a party file to run instead of the committed "
                              "archive. data/champions/parties_field.json is "
                              "the 253 built from the hand parties and the "
-                             "pokesol imports, covering 98.5% of the ladder's "
-                             "slots against the archive's 82.3%")
+                             "pokesol imports, covering 98.5%% of the ladder's "
+                             "slots against the archive's 82.3%%")
     parser.add_argument("--search-iterations", type=int, default=800)
     parser.add_argument("--preview-iterations", type=int, default=None,
                         help="simulations for the team preview alone, on both "

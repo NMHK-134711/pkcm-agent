@@ -73,6 +73,12 @@ def main() -> int:
     parser.add_argument("--format", default="singles",
                         choices=("singles", "doubles"))
     parser.add_argument("--workers", type=int, default=None)
+    parser.add_argument("--reverse", action="store_true",
+                        help="walk the schedule from the last fixture back. "
+                             "Two machines sharing one --out through git can "
+                             "then start at opposite ends and meet in the "
+                             "middle, since the seeds come from the fixture "
+                             "rather than its position")
     parser.add_argument("--out", default=None,
                         help="write the fixtures and standings here as JSON")
     parser.add_argument("--matrix", action="store_true",
@@ -126,6 +132,12 @@ def main() -> int:
         print(f"resuming: {len(done)} fixtures already played", flush=True)
 
     remaining = [one for one in schedule if tuple(one) not in done]
+    if args.reverse:
+        # Only the order of play changes. ``play_fixture`` seeds from the
+        # repeat index, so a fixture played from this end is bit-for-bit the
+        # one the other machine would have played, and the two progress files
+        # concatenate. Whoever pulls last skips the overlap where they met.
+        remaining.reverse()
     results: list[Result] = list(done.values())
     started = beat = time.perf_counter()
     handle = progress.open("a", encoding="utf-8") if progress else None

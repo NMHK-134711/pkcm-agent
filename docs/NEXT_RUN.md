@@ -45,7 +45,7 @@ python scripts/tournament.py --parties data/champions/parties_field.json \
 git pull                                   # 상대가 둔 것을 먼저 받는다
 python scripts/tournament.py --parties data/champions/parties_field.json \
     --repeats 2 --search-iterations 800 --preview-iterations 3200 \
-    --workers <물리 코어> --out runs/field_rr_800.json
+    --workers <물리 코어> --out runs/field_rr_800.json   # 랩실은 뒤에 --reverse
 # 넘길 때
 git add runs/field_rr_800.jsonl && git commit -m "field rr: <n> fixtures" && git push
 ```
@@ -53,7 +53,12 @@ git add runs/field_rr_800.jsonl && git commit -m "field rr: <n> fixtures" && git
 - `runs/field_rr_*.jsonl`을 `.gitignore` 예외로 넣었다. 다 차면 5MB쯤.
 - `--parties`·`--repeats`·`--search-iterations`·`--preview-iterations`는 **양쪽이 같아야**
   한다. `--workers`만 기계에 맞춘다.
-- **동시에 돌리지 말 것.** 깨지지는 않지만 둘이 같은 대진을 중복 계산한다.
+- **양 끝에서 동시에 돌린다.** 랩실은 `--reverse`를 붙여 마지막 대진부터 거꾸로
+  올라오고, 개인PC는 그대로 앞에서 내려간다. 둘이 중간에서 만나면 끝이다.
+  개인PC 실측 40대진/분, 랩실 10대진/분이라 만나는 지점은 전체의 80% 근처다.
+  겹치는 구간은 재개 딕셔너리가 `(a, b, repeat)`로 걸러내므로 무해하고, 한쪽이
+  pull하는 순간 사라진다. **`--reverse` 없이 둘이 같이 돌리면 처음부터 통째로
+  중복 계산한다.**
 - 완주하면 `runs/field_rr_800.json`(순위·전체 fixture)이 나온다. 그 전에 중단한
   부분표본은 편향돼 있다 — 대진이 파티 0부터 순서대로 진행되므로 앞 파티만 채워진다.
   중간 결과를 읽어야 할 일이 생기면 시드 고정 셔플로 바꾸면 되고, 이미 둔 대진은

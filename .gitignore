@@ -146,3 +146,5 @@ runs/curriculum4_fixed/*
 
 # collected article index and usage (scripts/fetch_articles.py, fetch_usage.py)
 !data/champions/articles.json
+!data/champions/pokesol_species.json
+!data/champions/pokesol_items.json

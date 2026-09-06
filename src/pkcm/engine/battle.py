@@ -474,11 +474,25 @@ def _fractional_priority(ctx: Context, actor: Actor, action: Action) -> int:
 
 
 def _chosen_move(state: BattleState, actor: Actor, action: Action) -> Move:
+    """The move an action names, or Struggle if this state has no such slot.
+
+    The search builds its options from the real position and plays them out on
+    determinizations of it, and a Pokemon's move count is not always the same
+    in both. Ditto is the one that finds this: it carries a single move and
+    wears four while Transform holds, so an index chosen on one side of that
+    can land past the end on the other. Struggle is what the engine already
+    means by "the slot is not there" -- ``policy._promise`` says so of the same
+    condition -- and it is a great deal better than the IndexError this used to
+    raise five plies into a search.
+    """
     if action.kind is ActionKind.STRUGGLE:
         return state.config.dex.moves[STRUGGLE_ID]
     player, position = actor
     slot = state.sides[player].active[position]
-    return state.moves(player, slot)[action.index]
+    moves = state.moves(player, slot)
+    if action.index >= len(moves):
+        return state.config.dex.moves[STRUGGLE_ID]
+    return moves[action.index]
 
 
 def _use(ctx: Context, player: int, position: int, action: Action) -> None:

@@ -949,3 +949,34 @@ def test_the_preview_can_be_given_its_own_budget(dex):
     plain = MCTS(SearchConfig(iterations=200))
     assert plain.choose(preview(dex), 0).iterations == 200, (
         "left unset it changes nothing, so an earlier measurement still reproduces")
+
+
+def test_an_action_that_does_not_fit_the_determinization_is_not_a_crash(dex):
+    """Ditto found this, and it took a 253-party field to meet one.
+
+    The search builds its options from the real position and plays them out on
+    determinizations of it, and a Pokemon's move count is not the same in both
+    when Transform is involved -- one move on the sheet, four while it holds.
+    An index chosen on one side of that lands past the end on the other, and
+    the engine used to raise five plies into a search.
+    """
+    from pkcm.engine.actions import Action
+    from pkcm.engine.battle import _chosen_move
+    from pkcm.engine.pokemon import PokemonSet
+
+    config = BattleConfig(dex=dex, regulation=dex.regulation("m_b"),
+                          battle_format="singles")
+
+    def one(species, moves):
+        return PokemonSet(species=species, ability="__test__", moves=tuple(moves),
+                          item=None, nature="serious", sp=(0, 0, 0, 0, 0, 0))
+
+    bench = [one(s, ("tackle",)) for s in ("pikachu", "starmie")]
+    ours = (one("ditto", ("transform",)), *bench)
+    theirs = (one("snorlax", ("bodyslam", "rest", "curse", "protect")), *bench)
+    state = new_battle(config, (ours, theirs), seed=3)
+    state = step(state, Action.select(0, 1, 2), Action.select(0, 1, 2))[0]
+
+    assert _chosen_move(state, (0, 0), Action.move(3)).id == "struggle"
+    assert _chosen_move(state, (1, 0), Action.move(3)).id == "protect", (
+        "a slot that is there still resolves to itself")

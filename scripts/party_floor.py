@@ -55,6 +55,12 @@ def main() -> int:
                         help="comma-separated party indices to score. Default "
                              "takes the best --candidates by --shortlist")
     parser.add_argument("--candidates", type=int, default=8)
+    parser.add_argument("--field",
+                        default=str(ROOT / "data" / "champions" / "parties_field.json"),
+                        help="the parties to be scored against, and the ones "
+                             "--entrants indexes into. The 253-party field "
+                             "covers 98.5% of the ladder's slots against the "
+                             "46-party archive's 82.3%")
     parser.add_argument("--shortlist", default="runs/tournament_46_v3.json",
                         help="an earlier round robin, used only to choose who "
                              "is worth scoring. Its games are not reused: it "
@@ -75,7 +81,7 @@ def main() -> int:
     parser.add_argument("--out", default=str(ROOT / "runs/party_floor.json"))
     args = parser.parse_args()
 
-    field = ranker_parties()
+    field = ranker_parties(args.field)
     if args.entrants:
         candidates = [int(one) for one in args.entrants.split(",")]
     else:
@@ -106,6 +112,7 @@ def main() -> int:
     if preview is None:
         preview = args.search_iterations * 4
     config = TournamentConfig(
+        parties=args.field,
         search=SearchConfig(iterations=args.search_iterations,
                             preview_iterations=preview,
                             determinizations=max(4, args.search_iterations // 20)),

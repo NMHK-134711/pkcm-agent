@@ -26,6 +26,39 @@ python scripts/tournament.py --parties data/champions/parties_field.json \
 3200은 §2의 +2.3%p짜리로, "실제로 배포할 에이전트"로 재기 위한 것이다. 쌍당
 4게임은 2게임보다 꼬리 편향이 절반이라서인데, §4를 함께 읽을 것.
 
+### 0b. 두 기계가 번갈아 돈다 — 랩실이 추가 (09-06 16:20)
+
+**랩실 실측이 문서 추정의 2.5배다.** 21게임/분, 남은 시간 101시간. 개인PC 20코어
+106게임/분을 코어 수로만 반절한 40시간 추정에는 코어 자체의 속도 차가 빠져 있었다
+(09-02 실측: 자가대전 기준 개인PC가 3.8배 빠름). 랩실 단독으로는 목요일 저녁이다.
+
+그래서 hk의 결정: **낮에는 랩실, 밤에는 개인PC**로 번갈아 돌리고 GitHub로 주고받는다.
+밤 10시간씩 두 번이면 화요일 아침에 끝난다.
+
+이어받기가 기계를 건너도 성립하는 근거는 `play_fixture`의 `seed = config.seed + repeat`
+— 시드가 스케줄 위치도 기계도 아닌 **대진에서** 나오므로, 어느 쪽이 둔 대진이든 같은
+게임이고 두 조각은 한 측정이다. 재개는 `(a, b, repeat)` 딕셔너리라 중복 줄도 무해하다.
+
+**절차 — 돌리기 전에 반드시 pull.**
+
+```bash
+git pull                                   # 상대가 둔 것을 먼저 받는다
+python scripts/tournament.py --parties data/champions/parties_field.json \
+    --repeats 2 --search-iterations 800 --preview-iterations 3200 \
+    --workers <물리 코어> --out runs/field_rr_800.json
+# 넘길 때
+git add runs/field_rr_800.jsonl && git commit -m "field rr: <n> fixtures" && git push
+```
+
+- `runs/field_rr_*.jsonl`을 `.gitignore` 예외로 넣었다. 다 차면 5MB쯤.
+- `--parties`·`--repeats`·`--search-iterations`·`--preview-iterations`는 **양쪽이 같아야**
+  한다. `--workers`만 기계에 맞춘다.
+- **동시에 돌리지 말 것.** 깨지지는 않지만 둘이 같은 대진을 중복 계산한다.
+- 완주하면 `runs/field_rr_800.json`(순위·전체 fixture)이 나온다. 그 전에 중단한
+  부분표본은 편향돼 있다 — 대진이 파티 0부터 순서대로 진행되므로 앞 파티만 채워진다.
+  중간 결과를 읽어야 할 일이 생기면 시드 고정 셔플로 바꾸면 되고, 이미 둔 대진은
+  그대로 재사용된다.
+
 ## 1. 엔진에서 다섯 가지가 틀려 있었다 — 전부 "실제보다 강한 쪽"
 
 **오늘 이전의 모든 승률 측정은 다른 엔진 위의 숫자다.** hk의 기존 원칙(구엔진은

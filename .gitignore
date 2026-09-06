@@ -81,6 +81,13 @@ runs/curriculum_v3/*
 !runs/head_to_head_*.json
 !runs/mirror*.json
 
+# ...and the field round robin's progress file, which is how the measurement
+# moves between the two machines. 127,512 games is days on either one alone,
+# and the seeds come from the fixture rather than the schedule, so whoever
+# runs next pulls, plays what is missing, and pushes it back. Roughly 5 MB
+# when full.
+!runs/field_rr_*.jsonl
+
 # ...and the tournament results, which are measurements rather than artifacts.
 # 165 KB of counts that cost forty-five minutes on twenty cores, and the next
 # question asked of them ("did the ranking change?") needs the old one to

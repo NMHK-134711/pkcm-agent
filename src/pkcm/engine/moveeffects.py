@@ -1460,12 +1460,12 @@ register("volatile", "imprison", name="Imprison")
 
 def _lock_on_never_misses(ctx, ref, value, attacker, defender, move, **_):
     if ref == attacker and "lockon" in _volatiles(ctx, attacker):
-        return 100.0
+        return True
     return None
 
 
 register("volatile", "lockon", name="Lock-On",
-         modify_accuracy=_lock_on_never_misses, residual=_tick_down("lockon"))
+         never_misses=_lock_on_never_misses, residual=_tick_down("lockon"))
 
 
 def _minimize_doubles_stomping_moves(ctx, ref, value, attacker, defender, move, **_):
@@ -1480,8 +1480,22 @@ MINIMIZE_PUNISHERS = frozenset({
     "maliciousmoonsault",
 })
 
+def _minimize_cannot_dodge_them(ctx, ref, value, attacker, defender, move, **_):
+    """The other half of the same rule, and it was missing.
+
+    A move on this list does double damage to a minimised target *and* cannot
+    miss one. Only the doubling was here, so Body Slam hit a Minimize 63% of
+    the time and hit hard when it did -- which prices Minimize above what the
+    game charges for it.
+    """
+    if ref == defender and move.id in MINIMIZE_PUNISHERS:
+        return True
+    return None
+
+
 register("volatile", "minimize", name="Minimize",
-         modify_base_power=_minimize_doubles_stomping_moves)
+         modify_base_power=_minimize_doubles_stomping_moves,
+         never_misses=_minimize_cannot_dodge_them)
 
 
 # Heal Block's refusal lives in ``mutate.heal``, for the same reason: the

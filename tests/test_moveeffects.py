@@ -459,15 +459,24 @@ def test_minimize_leaves_other_moves_alone(dex, config):
 
 
 def test_lock_on_makes_the_next_move_certain(dex, config):
-    from pkcm.engine.moves import _both_sides
+    """Certain, not "a hundred percent". It used to say the latter through
+    modify_accuracy, which the target's evasion then multiplied down -- so a
+    locked-on Zap Cannon still missed a Minimize."""
+    from pkcm.engine.moves import connects
+    from pkcm.engine.state import BOOST_INDEX
 
     state = build(config, a_set("magnezone", "sturdy", ("lockon", "zapcannon")),
                   a_set("snorlax", "thickfat"))
+    state.sides[1].boosts[0] = list(state.sides[1].boosts[0])
+    state.sides[1].boosts[0][BOOST_INDEX["evasion"]] = 4
     ctx = make_context(state)
     zap = dex.moves["zapcannon"]
-    assert _both_sides(ctx, "modify_accuracy", float(zap.accuracy), RED, BLUE, zap) == 50.0
+    before = sum(connects(ctx, RED, BLUE, zap) for _ in range(200))
+    assert before < 120, before
+
     cast(ctx, dex, "lockon")
-    assert _both_sides(ctx, "modify_accuracy", float(zap.accuracy), RED, BLUE, zap) == 100.0
+    after = sum(connects(ctx, RED, BLUE, zap) for _ in range(200))
+    assert after == 200, after
 
 
 def test_imprison_seals_a_move_the_user_also_knows(dex, config):

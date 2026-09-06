@@ -933,3 +933,61 @@ def test_quick_claw_does_not_beat_a_priority_move(config):
         "Quick Attack is a bracket above, and a Quick Claw does not reach it"
     assert _order(config, holder, priority_user, blue_move=1, sure=True) == 0, \
         "in the same bracket it does move first, slower or not"
+
+
+# --------------------------------------------------------------------------- #
+# Sure hits, which are not the same as a hundred percent
+# --------------------------------------------------------------------------- #
+
+
+def _lands(config, attacker, defender, move_id, evasion, tries=400,
+           minimised=False):
+    from pkcm.engine.battle import make_context
+    from pkcm.engine.moves import connects
+    from pkcm.engine.state import BOOST_INDEX
+
+    state = build(config, attacker, defender)
+    state.sides[1].boosts[0] = list(state.sides[1].boosts[0])
+    state.sides[1].boosts[0][BOOST_INDEX["evasion"]] = evasion
+    if minimised:
+        # The stage and the volatile are different things: Double Team raises
+        # one, Minimize raises both, and it is the volatile that says a Body
+        # Slam cannot miss.
+        state.sides[1].volatiles[0]["minimize"] = True
+    ctx = make_context(state)
+    return sum(connects(ctx, RED, BLUE, ctx.state.config.dex.moves[move_id])
+               for _ in range(tries)), tries
+
+
+def test_no_guard_ignores_evasion(config):
+    """It returned 100 from modify_accuracy, and the evasion stages were then
+    multiplied over the top of it -- so a No Guard Dynamic Punch landed a third
+    of the time against a Minimize. Nothing caught it because the format was
+    thought to ban evasion moves, so nothing ever raised the stage."""
+    hits, tries = _lands(config,
+                         a_set("machamp", ("dynamicpunch",), ability="noguard"),
+                         a_set("pikachu", ("minimize",)), "dynamicpunch", 6)
+    assert hits == tries, f"{hits}/{tries}"
+
+
+def test_a_minimised_target_cannot_dodge_what_flattens_it(config):
+    """Double damage and a sure hit are one rule. Only the damage was here."""
+    hits, tries = _lands(config, a_set("snorlax", ("bodyslam",)),
+                         a_set("pikachu", ("minimize",)), "bodyslam", 4,
+                         minimised=True)
+    assert hits == tries, f"{hits}/{tries}"
+
+    # and something not on the list still has to roll for it
+    misses, tries = _lands(config, a_set("snorlax", ("focusblast",)),
+                           a_set("pikachu", ("minimize",)), "focusblast", 4,
+                           minimised=True)
+    assert misses < tries * 0.6, f"{misses}/{tries}"
+
+
+def test_ordinary_accuracy_still_answers_to_evasion(config):
+    """The sure-hit path must not swallow the ordinary one."""
+    high, tries = _lands(config, a_set("snorlax", ("focusblast",)),
+                         a_set("pikachu", ("tackle",)), "focusblast", 0)
+    low, _ = _lands(config, a_set("snorlax", ("focusblast",)),
+                    a_set("pikachu", ("tackle",)), "focusblast", 6)
+    assert high > low * 2, (high, low)

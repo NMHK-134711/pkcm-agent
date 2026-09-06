@@ -943,7 +943,12 @@ def _accuracy(modifier: int | None, ability: str, attacker_side: bool = True):
 
 
 register("ability", "compoundeyes", name="Compound Eyes", modify_accuracy=_accuracy(X1_3, "compoundeyes"))
-register("ability", "noguard", name="No Guard", modify_accuracy=_accuracy(None, "noguard"))
+def _no_guard(ctx, ref, value, attacker, defender, move, **_):
+    """Both ways round: its moves land and moves against it land."""
+    return True
+
+
+register("ability", "noguard", name="No Guard", never_misses=_no_guard)
 register("ability", "sandveil", name="Sand Veil",
          modify_accuracy=lambda ctx, ref, value, attacker, defender, move, **_:
              chain_modify(int(value), X0_75)

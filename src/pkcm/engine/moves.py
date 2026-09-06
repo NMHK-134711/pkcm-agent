@@ -816,6 +816,14 @@ def connects(ctx: Context, attacker: Ref, defender: Ref, move: Move) -> bool:
     if move.accuracy is None:
         return True
 
+    # Asked before the stages, because that is the whole difference between a
+    # sure hit and a hundred percent. No Guard and Lock-On both used to return
+    # 100 from ``modify_accuracy`` and both were then multiplied down by the
+    # target's evasion -- No Guard landed 33% of the time against a Minimize.
+    # Nothing exercised it while the format was thought to ban evasion moves.
+    if _both_sides(ctx, "never_misses", False, attacker, defender, move):
+        return True
+
     accuracy = _both_sides(ctx, "modify_accuracy", float(move.accuracy), attacker, defender, move)
     evasion = (0 if move.raw.get("ignoreEvasion")
                else ctx.state.sides[defender[0]].boost(defender[1], "evasion"))

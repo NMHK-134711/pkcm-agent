@@ -80,6 +80,12 @@ EVENTS: dict[str, str] = {
         "modify_priority did."
     ),
     "modify_accuracy": "ref, target, move -- percentage chance to hit",
+    "never_misses": (
+        "attacker, defender, move -- return True and the move connects without "
+        "an accuracy roll. Distinct from returning 100 from modify_accuracy, "
+        "which is a percentage the evasion stages then multiply: No Guard and "
+        "Lock-On both did that and both missed a Minimize."
+    ),
     "modify_base_power": (
         "attacker, defender, move -- the move's power before the damage formula. "
         "Showdown's onBasePower, and a distinct step from modify_damage: "

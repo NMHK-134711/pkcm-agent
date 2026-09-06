@@ -44,6 +44,16 @@ from pkcm.engine.stats import NATURES, get_nature  # noqa: E402
 
 EV_ORDER = ("hp", "attack", "defense", "specialAttack", "specialDefense", "speed")
 
+#: Formes pokedb spells out and we abbreviate.
+SLUG_ALIASES = {
+    "tauros-paldea-combat-breed": "taurospaldeacombat",
+    "tauros-paldea-blaze-breed": "taurospaldeablaze",
+    "tauros-paldea-aqua-breed": "taurospaldeaaqua",
+    "basculegion-female": "basculegionf",
+    "meowstic-female": "meowsticf",
+    "lycanroc-midday": "lycanroc",
+}
+
 #: pokesol numbers the natures from 1, grouped by the stat raised (Attack,
 #: Defence, Sp. Atk, Sp. Def, Speed) and within each group by the stat lowered
 #: in the same order, skipping itself. Derived rather than assumed: over 441
@@ -171,6 +181,20 @@ def main() -> int:
         moves_by_id = {**moves_by_id, **fixes}
         print(f"applying {len(fixes)} corrected pokesol move ids")
 
+    # Sets a person read off an article the cards could not settle. They are
+    # filled in before completeness is judged and still go through
+    # team_errors: a hand-entered set is not exempt from the check, and the
+    # one that started this project was a Primarina holding a move it did not
+    # have.
+    by_hand: dict[str, dict] = {}
+    hand = ROOT / "data" / "champions" / "manual_sets.json"
+    if hand.exists():
+        by_hand = {k: v for k, v in
+                   json.loads(hand.read_text(encoding="utf-8")).items()
+                   if not k.startswith("_")}
+        print(f"{sum(len(v) for v in by_hand.values())} hand-read sets "
+              f"across {len(by_hand)} articles")
+
     learned_items = ROOT / "data" / "champions" / "pokesol_items.json"
     if learned_items.exists():
         table = json.loads(learned_items.read_text(encoding="utf-8"))
@@ -272,6 +296,15 @@ def main() -> int:
                               if f"{int(r['nationalDex']):04d}-{int(r['formIndex']):02d}" == key),
                              None)
                 if match is None:
+                    # Some formes have no row at all -- Mega Pyroar is 0668-02
+                    # and the species table simply lacks it. The dex number
+                    # still names the family, and a Mega registers as its base.
+                    number = int(key.split("-")[0])
+                    kin = [one for one in regulation.legal_species
+                           if not dex.species[one].is_mega
+                           and dex.species[one].dex_num == number]
+                    if len(kin) == 1:
+                        want.append(kin[0])
                     continue
                 # pokedb spells a Mega by repeating the name --
                 # metagross-mega-metagross -- while a regional forme is the
@@ -287,6 +320,9 @@ def main() -> int:
                 if name not in dex.species:
                     name = slug
                 if name not in dex.species:
+                    # pokedb spells out what our ids abbreviate.
+                    name = SLUG_ALIASES.get(match["slug"], name)
+                if name not in dex.species:
                     continue
                 base = dex.species[name]
                 if base.is_mega and base.base_species:
@@ -301,6 +337,28 @@ def main() -> int:
                     if len(kin) == 1:
                         name = kin[0]
                 want.append(name)
+            for name, entry in (by_hand.get(url or "") or {}).items():
+                # A leading underscore is a note, not a set -- "_unavailable"
+                # is how an article says the builder never published one.
+                if name.startswith("_") or name in found:
+                    continue
+                # A reading beats the index. pokedb has the rank 79 Tauros as
+                # the Combat breed and the article says Aqua, and Raging Bull
+                # changes type with the breed, so this is not cosmetic. Where
+                # the hand-read species is a sibling of one the index named,
+                # the sibling steps aside.
+                if name not in want:
+                    number = dex.species[name].dex_num
+                    for slot, other in enumerate(want):
+                        if dex.species[other].dex_num == number:
+                            want[slot] = name
+                            found.pop(other, None)
+                            break
+                found[name] = PokemonSet(
+                    species=name, ability=entry["ability"],
+                    moves=tuple(entry["moves"]), item=entry["item"],
+                    nature=entry["nature"], sp=tuple(entry["sp"]))
+                found_item[name] = None
             missing = [name for name in want if name not in found]
             # One species left over and one card left over is not a guess: the
             # index says the party is these six, the cards account for five,

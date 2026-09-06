@@ -1,0 +1,132 @@
+{
+ "_note": "Sets hk read off an article the importer could not settle. Keyed by the article's URL and then by our species id. The importer fills these in before it decides whether a party is complete, and everything here still goes through the legality check -- a hand-entered set is not exempt from it, and the one that started this project was a Primarina holding a move it did not have.",
+ "https://pokesol.app/u/oikerabia/articles/002f7dede24aeed9": {
+  "pyroar": {
+   "ability": "unnerve",
+   "item": "pyroarite",
+   "moves": [
+    "flamethrower",
+    "hypervoice",
+    "scorchingsands",
+    "overheat"
+   ],
+   "nature": "modest",
+   "sp": [
+    2,
+    0,
+    0,
+    32,
+    0,
+    32
+   ],
+   "note": "rank 5; Mega Pyroar, so the base registers holding the stone"
+  }
+ },
+ "https://pokesol.app/u/oshapoke/articles/54908f9c6385dce8": {
+  "pyroar": {
+   "ability": "unnerve",
+   "item": "pyroarite",
+   "moves": [
+    "overheat",
+    "flamethrower",
+    "hypervoice",
+    "yawn"
+   ],
+   "nature": "timid",
+   "sp": [
+    14,
+    0,
+    1,
+    32,
+    0,
+    19
+   ],
+   "note": "rank 263"
+  }
+ },
+ "https://pokesol.app/u/rcmk/articles/80e30ac3a48969fa": {
+  "taurospaldeaaqua": {
+   "ability": "intimidate",
+   "item": "choicescarf",
+   "moves": [
+    "ragingbull",
+    "closecombat",
+    "endeavor",
+    "rocktomb"
+   ],
+   "nature": "adamant",
+   "sp": [
+    3,
+    30,
+    1,
+    0,
+    0,
+    32
+   ],
+   "note": "rank 79; hk read the article and it is the Aqua breed. pokedb indexes it as 0128-01, the Combat breed, and is wrong -- Raging Bull takes its type from the breed, so the two are different Pokemon."
+  }
+ },
+ "https://pokesol.app/u/reitaro_reicha/articles/f49bae5705ab4a9d": {
+  "ditto": {
+   "ability": "imposter",
+   "item": "focussash",
+   "moves": [
+    "transform"
+   ],
+   "nature": "serious",
+   "sp": [
+    32,
+    0,
+    0,
+    0,
+    0,
+    0
+   ],
+   "note": "rank 218; the writer says the spread and nature do not matter on a Ditto, which plays by copying"
+  }
+ },
+ "https://pokesol.app/u/renren_216poke/articles/758d3fd762a29889": {
+  "ditto": {
+   "ability": "imposter",
+   "item": "focussash",
+   "moves": [
+    "transform"
+   ],
+   "nature": "serious",
+   "sp": [
+    32,
+    0,
+    0,
+    0,
+    0,
+    0
+   ],
+   "note": "rank 419"
+  }
+ },
+ "https://pokesol.app/u/imaichipoke/articles/1ab381df63132b66": {
+  "ditto": {
+   "ability": "imposter",
+   "item": "focussash",
+   "moves": [
+    "transform"
+   ],
+   "nature": "serious",
+   "sp": [
+    32,
+    0,
+    0,
+    0,
+    0,
+    0
+   ],
+   "note": "rank 504"
+  }
+ },
+ "https://pokesol.app/u/srgb_pokemon/articles/709b7b5a3d5f7fb3": {
+  "_unavailable": "rank 74; the builder says the Corviknight set came from a friend and is not being published. Nothing to read."
+ },
+ "https://pokesol.app/u/sypk/articles/fdc793f61981bf39": {
+  "_unavailable": "rank 497; the builder says the Aegislash was thrown in because a Steel type was wanted and was never tuned -- \"use anything\". There is no set to take."
+ }
+}

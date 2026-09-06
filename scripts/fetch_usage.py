@@ -1,7 +1,7 @@
 """Collect per-species move and item usage from pokedb, for hk to run.
 
-    python scripts/fetch_usage.py --only-missing
-    python scripts/fetch_usage.py --season 5 --limit 20 --delay 2.0
+    python scripts/fetch_usage.py
+    python scripts/fetch_usage.py --limit 20        # the most played first
 
 **Read this before running it.** ``champs.pokedb.tokyo/robots.txt`` names
 ClaudeBot and Claude-SearchBot and disallows them from the whole site, and the
@@ -23,12 +23,28 @@ natures, not spreads. Items we already have from the 518 ranked teams in
 ``data/champions/s*_single_ranked_teams.json`` -- and the two agree closely --
 so the reason to run this is the moves.
 
-**Why we want them.** The 46-party field the optimizer scores against covers
-82.3% of the ladder's slots. The other 17.7% are species it never plays --
-Blaziken at 9.5% of teams, Lopunny, Alolan Ninetales, Dragapult -- and a party
-whose floor is measured against a field missing them has holes nothing tested.
-Species and items for those we can already take from the ranked teams; their
-movesets are the one thing only these pages have.
+**Why we want them.** Three things, and only the first is about the species
+the field is missing.
+
+The 46-party field the optimizer scores against covers 82.3% of the ladder's
+slots. The rest are species it never plays -- Blaziken in 9.5% of teams,
+Lopunny, Alolan Ninetales, Dragapult -- and a floor measured against a field
+missing them has holes nothing tested.
+
+The 52 species it *does* play are represented by a handful of sets each, drawn
+from 46 parties. Garchomp holds 226 of the ladder's slots and we have a few of
+them. The adoption rates are the distribution those samples were drawn from.
+
+And the coach builds its opponent out of the same 46 parties, which is why a
+Hisuian Arcanine placeholder arrived carrying Intimidate when the real one had
+Rock Head. Better sets there are better advice in a live game.
+
+So fetch all of them. ``--only-missing`` exists for a top-up run; it is not
+the way to start, and the whole list is 138 pages, about three and a half
+minutes at the default delay. The 47 further entries on the speed-line page
+are Mega formes, which the ranked teams record as the base species holding a
+stone -- Garchomp's own page lists Garchompite among its items -- so the base
+page already covers them.
 """
 
 from __future__ import annotations
@@ -208,8 +224,10 @@ def main() -> int:
     parser.add_argument("--season", type=int, default=5)
     parser.add_argument("--rule", type=int, default=0, help="0 is singles")
     parser.add_argument("--only-missing", action="store_true",
-                        help="just the species the 46-party field never plays, "
-                             "which is the reason to run this at all")
+                        help="just the species the 46-party field never plays "
+                             "(86 of the 138). For a top-up run -- the first "
+                             "run wants all of them, including the ones we "
+                             "have, whose sets we only have a few of")
     parser.add_argument("--limit", type=int, default=None,
                         help="stop after this many species, most played first")
     parser.add_argument("--delay", type=float, default=1.5,

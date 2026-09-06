@@ -143,3 +143,6 @@ runs/curriculum4_fixed/*
 
 # usage collected from pokedb (scripts/fetch_usage.py)
 !data/champions/usage_m*_singles.json
+
+# collected article index and usage (scripts/fetch_articles.py, fetch_usage.py)
+!data/champions/articles.json

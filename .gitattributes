@@ -1,1 +1,9 @@
 * text=auto eol=lf
+
+# Both machines append to the round robin's progress file at the same time --
+# the personal PC walking the schedule forward, the lab walking it back -- so
+# every pull has two sides that each added lines at the end. The default merge
+# calls that a conflict on a file where the right answer is always "keep both":
+# a line is one fixture's result, order carries no meaning, and a duplicate is
+# dropped by the resume dictionary the next time the run reads it.
+runs/field_rr_*.jsonl merge=union

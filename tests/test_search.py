@@ -980,3 +980,47 @@ def test_an_action_that_does_not_fit_the_determinization_is_not_a_crash(dex):
     assert _chosen_move(state, (0, 0), Action.move(3)).id == "struggle"
     assert _chosen_move(state, (1, 0), Action.move(3)).id == "protect", (
         "a slot that is there still resolves to itself")
+
+
+def test_a_status_move_is_scored_the_same_whatever_it_faces(dex):
+    """Light Screen puts up the same screen against a Dark type and a Ghost.
+
+    The ordering prior used to run a status move through the type chart and
+    STAB the way it runs an attack, on a placeholder power of 45. That swung
+    the score twentyfold on nothing -- 0.045 against Kingambit, 0.900 against
+    Gengar -- and left it a hundred and seven times below Close Combat, so the
+    branch was truncated away before the search could look at it. Every Normal
+    status move (Baton Pass, Substitute, Swords Dance, Recover, Protect) went
+    to nearly zero at once whenever a Ghost was on the field.
+    """
+    from pkcm.engine.actions import Action
+    from pkcm.engine.battle import step
+    from pkcm.engine.pokemon import PokemonSet
+    from pkcm.engine.state import BattleConfig, new_battle
+    from pkcm.search.policy import STATUS_PROMISE, _promise
+
+    def a_set(species, ability, moves, item=None, sp=(0,) * 6):
+        return PokemonSet(species=species, ability=ability, moves=tuple(moves),
+                          item=item, nature="serious", sp=sp)
+
+    config = BattleConfig(dex=dex, regulation=dex.regulation("m_b"),
+                          battle_format="singles")
+    filler = [a_set(name, "__none__", ("tackle",))
+              for name in ("pikachu", "alakazam")]
+    ours = [a_set("espeon", "synchronize",
+                  ("lightscreen", "batonpass", "psychic", "storedpower"))]
+
+    scores = {}
+    for foe in ("kingambit", "gengar", "scizor", "garchomp"):
+        theirs = [a_set(foe, "__none__", ("tackle",))]
+        state = new_battle(config, (tuple(ours + filler),
+                                    tuple(theirs + filler)), seed=3)
+        state, _ = step(state, Action.select(0, 1, 2), Action.select(0, 1, 2))
+        for index, move in enumerate(ours[0].moves[:2]):
+            scores.setdefault(move, []).append(
+                _promise(state, 0, (Action.move(0, index),)))
+
+    for move, seen in scores.items():
+        assert seen == [STATUS_PROMISE] * len(seen), (
+            f"{move} was scored {seen} against four different typings; a "
+            "status move's effect does not depend on what it faces")

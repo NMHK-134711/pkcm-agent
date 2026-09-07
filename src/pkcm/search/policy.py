@@ -80,6 +80,19 @@ def joint_actions(state: BattleState, player: int,
 #: given a floor rather than left to lose every comparison.
 SWITCH_PROMISE = 0.6
 
+#: What a status move is worth in the ordering: a neutral 45-power move, which
+#: is what ``base_power or 45`` was always reaching for. It is flat because a
+#: status move's effect does not depend on the defender's typing and neither
+#: does its value. Running it through the type chart and STAB the way an attack
+#: goes, which is what happened before, swung the score twentyfold on nothing:
+#: Light Screen scored 0.045 against a Dark type and 0.900 against a Ghost, and
+#: it puts up the same screen either way. Against Kingambit that left it a
+#: hundred and seven times below Close Combat, so it was never looked at.
+#:
+#: Baton Pass, Substitute, Swords Dance, Recover and Protect are all Normal, so
+#: a Ghost on the field zeroed every one of them at once.
+STATUS_PROMISE = 0.45
+
 #: How much more the lead is worth than the Pokemon behind it. The lead is the
 #: only one of the three that is guaranteed to be on the field, and the only one
 #: the opponent gets to aim their own lead at.
@@ -204,7 +217,13 @@ def _promise(state: BattleState, player: int, choice: tuple[Action, ...],
         if action.index >= len(moves):
             continue
         move = moves[action.index]
-        power = move.base_power or 45      # a status move is worth a look
+        if move.category == "Status":
+            total += STATUS_PROMISE
+            continue
+        # Not keyed on ``base_power == 0``: Seismic Toss, Metal Burst and
+        # Guillotine deal damage of their own type at a fixed or derived
+        # amount, so the chart still says something true about them.
+        power = move.base_power or 45
         best = 0.0
         for foe in state.foes((player, slot)):
             effectiveness = state.config.dex.type_chart.multiplier(

@@ -61,6 +61,14 @@ def main() -> int:
                              "pokesol imports, covering 98.5%% of the ladder's "
                              "slots against the archive's 82.3%%")
     parser.add_argument("--search-iterations", type=int, default=800)
+    parser.add_argument("--evaluation", default="material",
+                        choices=("material", "pressure", "blind"),
+                        help="the leaf value. \"blind\" is the ablation: no "
+                             "opinion about a position except at terminals, "
+                             "so what remains is the prior and the tactics. "
+                             "Running the same field under two of these says "
+                             "whether a party ranking is a fact about the "
+                             "parties or about the evaluation")
     parser.add_argument("--preview-iterations", type=int, default=None,
                         help="simulations for the team preview alone, on both "
                              "sides. Off by default so a re-run reproduces an "
@@ -103,6 +111,7 @@ def main() -> int:
         trust=args.trust, parties=args.parties,
         search=SearchConfig(iterations=iterations,
                             preview_iterations=args.preview_iterations,
+                            evaluation=args.evaluation,
                             determinizations=max(4, iterations // 20)))
     schedule = fixtures(entrants, args.repeats)
     workers = args.workers if args.workers is not None else default_workers()

@@ -94,6 +94,12 @@ runs/curriculum_v3/*
 # compare against.
 !runs/tournament_*.json
 
+# The field round robin's own result is the same kind of thing but larger:
+# 5.6 MB, and twenty-six hours across two machines. Everything downstream --
+# the floor shortlist, and whatever the party generator is later compared
+# against -- is read out of this one file.
+!runs/field_rr_*.json
+
 # ...and the damage-inference A/B, which answered the same question twice
 # (once pre-skin-modeling, once on the fixed engine) with the same number.
 !runs/damage_inference_ab.json

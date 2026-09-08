@@ -450,6 +450,21 @@ def _snore_refusal(ctx: Context, attacker: Ref, defender: Ref,
     return None if asleep else "user is awake"
 
 
+def _lost_its_focus(ctx: Context, attacker: Ref, defender: Ref,
+                    move: Move) -> str | None:
+    """"The user loses its focus and does nothing if it is hit by a damaging
+    attack this turn before it can execute the move."
+
+    At minus three priority that is most of what Focus Punch is, and nothing
+    was asking: it swung through every hit it took. ``hurtthisturn`` is the
+    ledger Counter already keeps, and it holds exactly this -- damage taken
+    this turn from a move.
+    """
+    if ctx.state.sides[attacker[0]].volatiles[attacker[1]].get("hurtthisturn"):
+        return "it lost its focus"
+    return None
+
+
 def _last_resort_refusal(ctx: Context, attacker: Ref, defender: Ref,
                          move: Move) -> str | None:
     """Last Resort waits for every other move to have been used once."""
@@ -495,6 +510,7 @@ LATE_REFUSALS: dict[
     "firstimpression": _first_turn_out,
     "snore": _snore_refusal,
     "lastresort": _last_resort_refusal,
+    "focuspunch": _lost_its_focus,
 }
 
 
@@ -1115,6 +1131,31 @@ class ActiveMove:
         return self.category == "Status"
 
 
+#: "This move becomes a physical attack that makes contact if [the physical
+#: number] is greater than [the special number]." Shell Side Arm had no
+#: implementation at all: it was Special every time, and never made contact.
+CHOOSES_ITS_SIDE = frozenset({"shellsidearm"})
+
+
+def _staged_only(ctx: Context, ref: Ref, stat: Stat) -> float:
+    """The stat with its stage on it and nothing else -- "No stat modifiers
+    other than stat stage changes are considered for this purpose"."""
+    name = {Stat.ATK: "atk", Stat.DEF: "def", Stat.SPA: "spa",
+            Stat.SPD: "spd"}[stat]
+    stage = ctx.state.sides[ref[0]].boost(ref[1], name)
+    return mutate.raw_stat(ctx.state, ref, stat) * mutate.stage_multiplier(stage)
+
+
+def _pick_the_bigger_side(ctx: Context, active, attacker: Ref, defender: Ref) -> None:
+    physical = (_staged_only(ctx, attacker, Stat.ATK)
+                / max(1.0, _staged_only(ctx, defender, Stat.DEF)))
+    special = (_staged_only(ctx, attacker, Stat.SPA)
+               / max(1.0, _staged_only(ctx, defender, Stat.SPD)))
+    if physical > special:
+        active.category = "Physical"
+        active.flags.add("contact")
+
+
 def activate(ctx: Context, attacker: Ref, defender: Ref, move: Move) -> ActiveMove:
     """Build the per-use view and let ``modify_move`` hooks rewrite it."""
     active = ActiveMove(
@@ -1132,6 +1173,8 @@ def activate(ctx: Context, attacker: Ref, defender: Ref, move: Move) -> ActiveMo
         has_bounced=getattr(move, "has_bounced", False),
     )
     _rewrite_for_terrain(ctx, active, attacker)
+    if move.id in CHOOSES_ITS_SIDE:
+        _pick_the_bigger_side(ctx, active, attacker, defender)
     fx.notify(ctx, "modify_move", attacker, scope="self",
               active=active, attacker=attacker, defender=defender)
         # The moves that say so in their own data, not only the two
@@ -2001,6 +2044,13 @@ def _apply_status_move(ctx: Context, attacker: Ref, target: Ref, move) -> bool:
 
     if move.id in tactics.SELF_DESTRUCT_MOVES or move.raw.get("forceSwitch") \
             or move.raw.get("selfSwitch"):
+        # Parting Shot alone makes its exit conditional: "The user does not
+        # switch out if the target's Attack and Special Attack stat stages
+        # were both unchanged." Everything else here leaves regardless.
+        if move.id == "partingshot" and not did_something:
+            ctx.emit(Event("move_failed", side=attacker[0], move=move.id,
+                           detail="nothing left to lower"))
+            return False
         _after_effects(ctx, attacker, target, move, landed=True)
         return True
 
@@ -2071,21 +2121,23 @@ def _apply_protect(ctx: Context, attacker: Ref, move: Move) -> bool:
 
 
 #: A Substitute costs this fraction of maximum HP and is worth that much.
-#: Shed Tail pays half instead, and hands the result to a replacement.
+#: Substitute pays a quarter and the doll is worth what it paid. Shed Tail
+#: pays *half*, rounded up, for a doll of a quarter -- "The user takes 1/2 of
+#: its maximum HP, rounded up, and creates a substitute that has 1/4 of the
+#: user's maximum HP, rounded down". They were one number, so Shed Tail was
+#: buying a doll twice the size it should be, at a price a point too low.
 SUBSTITUTE_FRACTION = 4
 SHED_TAIL_FRACTION = 2
 
 
 def _apply_substitute(ctx: Context, attacker: Ref, fraction: int = SUBSTITUTE_FRACTION,
                       move_id: str = "substitute") -> bool:
-    """Pay HP for a doll that takes hits until its own HP runs out.
-
-    The cost is also the doll's HP, which is why they are one number. Shed Tail
-    calls this too: it is the same doll bought at a different price, and giving
-    it its own path is how one of them ends up without the HP key that the
-    damage path assumes is there.
-    """
-    cost = mutate.max_hp(ctx.state, attacker) // fraction
+    """Pay HP for a doll that takes hits until its own HP runs out."""
+    top = mutate.max_hp(ctx.state, attacker)
+    if fraction == SHED_TAIL_FRACTION:
+        cost, doll = (top + 1) // 2, top // 4
+    else:
+        cost = doll = top // fraction
     if cost <= 0 or mutate.current_hp(ctx.state, attacker) <= cost:
         ctx.emit(Event("move_failed", side=attacker[0], move=move_id, detail="not enough HP"))
         return False
@@ -2093,7 +2145,7 @@ def _apply_substitute(ctx: Context, attacker: Ref, fraction: int = SUBSTITUTE_FR
         ctx.emit(Event("move_failed", side=attacker[0], move=move_id, detail="already up"))
         return False
     apply_damage(ctx, attacker, cost, "damage", detail="substitute")
-    mutate.add_volatile(ctx, attacker, "substitute", hp=cost)
+    mutate.add_volatile(ctx, attacker, "substitute", hp=doll)
     # "If a substitute is created while the user is trapped by a binding move,
     # the binding effect ends immediately."
     if mutate.volatile(ctx.state, attacker, "partiallytrapped") is not None:

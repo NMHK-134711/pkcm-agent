@@ -1799,6 +1799,11 @@ def _become(ctx: Context, ref: Ref, species_id: str, permanent: bool = False) ->
     """
     if ctx.state.species_id(*ref) == species_id:
         return
+    # Transform: "The user can no longer change formes if it would have the
+    # ability to do so." A Ditto wearing an Aegislash copied Stance Change and
+    # then used it, which is the one thing the sentence rules out.
+    if ctx.state.sides[ref[0]].volatiles[ref[1]].get("transformed"):
+        return
     species = ctx.state.config.dex.species[species_id]
 
     from pkcm.engine.stats import compute_stats

@@ -361,6 +361,21 @@ def self_destruct(ctx: Context, user: Ref, defender: Ref, move) -> None:
                         detail=move.id)
 
 
+def _gastro_acid_may_not_follow(ctx: Context, ref: Ref) -> None:
+    """"The effect of Gastro Acid is not transferred if the recipient has an
+    Ability that cannot be affected." Baton Pass handed it on regardless, and
+    an Aegislash arriving with its Stance Change switched off is not a thing
+    the game does.
+    """
+    from pkcm.engine.moveeffects import UNTOUCHABLE_ABILITIES
+
+    volatiles = ctx.state.sides[ref[0]].volatiles[ref[1]]
+    if "abilitysuppressed" not in volatiles:
+        return
+    if ctx.state.ability_id(*ref) in UNTOUCHABLE_ABILITIES:
+        mutate.remove_volatile(ctx, ref, "abilitysuppressed", quiet=True)
+
+
 def _healing_wish_on_entry(ctx: Context, ref: Ref) -> None:
     """The wish is spent on whoever comes in next."""
     conditions = ctx.state.sides[ref[0]].conditions

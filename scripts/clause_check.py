@@ -7932,6 +7932,977 @@ def _body_and_belly():
     return verdict(rows)
 
 
+# --------------------------------------------------------------------------- #
+# The last of them: identity, memory, and things that outlive a turn
+# --------------------------------------------------------------------------- #
+
+def _team(*sets):
+    return list(sets)
+
+
+def _party(first, *rest):
+    return [first] + list(rest) + [
+        mon("blissey", "__none__", ("splash", "tackle", "protect", "rest")),
+        mon("magikarp", "__none__", ("splash", "tackle"))][:max(0, 3 - 1 - len(rest))]
+
+
+def _transform():
+    """Five sentences: what is copied, what is not, and when it refuses."""
+    from pkcm.data.dex import Stat
+
+    problems = []
+    mimic = "ditto" if "ditto" in DEX.species else UNIVERSAL
+    f = Fight([mon(mimic, "__none__",
+                   ("transform", "splash", "protect", "rest"), None, "serious",
+                   (32, 0, 32, 0, 2, 0))],
+              [mon("garchomp", "roughskin",
+                   ("splash", "dragonclaw", "firefang", "substitute"), None,
+                   "jolly", (0, 32, 2, 0, 0, 32))], seed=7)
+    mine_before = f.state.stats(0, f.state.sides[0].active[0])
+    hp_before, max_before = f.hp(0), f.max_hp(0)
+    theirs = f.state.sides[1]
+    theirs.boosts[theirs.active[0]][mc.BOOST_INDEX["atk"]] = 2
+    f.turn(Action.move(0), Action.move(0))
+
+    us = f.state.sides[0].active[0]
+    if f.state.types(0, us) != f.state.types(1, theirs.active[0]):
+        problems.append("the types were not copied")
+    copied = f.state.stats(0, us)
+    if copied[Stat.ATK] != f.state.stats(1, theirs.active[0])[Stat.ATK]:
+        problems.append("the stats were not copied")
+    if copied[Stat.HP] != mine_before[Stat.HP] or f.hp(0) != hp_before             or f.max_hp(0) != max_before:
+        problems.append("the HP moved, and it is the one thing that does not")
+    if f.boosts(0) != {"atk": 2}:
+        problems.append(f"the stages came over as {f.boosts(0)}")
+    if [one.id for one in f.state.moves(0, us)] !=             [one.id for one in f.state.moves(1, theirs.active[0])]:
+        problems.append("the moves were not copied")
+    pp = f.state.sides[0].pp[us]
+    if any(one > 5 for one in pp):
+        problems.append(f"the copied moves came with {pp} PP, and five is the cap")
+    if f.state.ability_id(0, us) != "roughskin":
+        problems.append("the ability was not copied")
+
+    # "fails if it hits a substitute"
+    g = Fight([mon(mimic, "__none__",
+                   ("transform", "splash", "protect", "rest"), None, "serious",
+                   (32, 0, 32, 0, 2, 0))],
+              [mon("garchomp", "roughskin",
+                   ("substitute", "dragonclaw", "firefang", "splash"), None,
+                   "jolly", (0, 32, 2, 0, 0, 32))], seed=7)
+    g.turn(Action.move(1), Action.move(0))          # they put a doll up
+    g.turn(Action.move(0), Action.move(3))
+    if not failed(g, 0):
+        problems.append("it went through a substitute")
+
+    # "...if either the user or the target is already transformed". After a
+    # Transform the user no longer knows the move, so it is the *target* that
+    # has to be the one already wearing somebody else's face.
+    h = Fight([mon(mimic, "__none__",
+                   ("transform", "splash", "protect", "rest"), None, "serious",
+                   (32, 0, 32, 0, 2, 0))],
+              [mon(mimic, "__none__",
+                   ("transform", "splash", "protect", "rest"), None, "serious",
+                   (32, 0, 32, 0, 2, 0))], seed=7)
+    h.turn(Action.move(1), Action.move(0))          # they copy us first
+    h.turn(Action.move(0), Action.move(1))
+    if not failed(h, 0):
+        problems.append("it copied something already wearing a face")
+    return ("transform", not problems,
+            "; ".join(problems) or "stats, stages, types, moves at five PP and "
+                                   "the ability, HP left alone, and refused "
+                                   "twice over")
+
+
+def _role_play_and_skill_swap():
+    rows = []
+    f = Fight([mon("snorlax", "thickfat",
+                   ("roleplay", "splash", "protect", "rest"), None, "serious",
+                   (32, 0, 32, 0, 2, 0))],
+              [mon("garchomp", "roughskin",
+                   ("splash", "tackle", "protect", "rest"), None, "serious",
+                   (32, 0, 32, 0, 2, 0))], seed=7)
+    f.turn(Action.move(0), Action.move(0))
+    rows.append(("roleplay",
+                 f.state.ability_id(0, f.state.sides[0].active[0]) == "roughskin"
+                 and f.state.ability_id(1, f.state.sides[1].active[0]) == "roughskin",
+                 f"we hold {f.state.ability_id(0, f.state.sides[0].active[0])} "
+                 f"and they still hold "
+                 f"{f.state.ability_id(1, f.state.sides[1].active[0])}"))
+
+    g = Fight([mon("snorlax", "thickfat",
+                   ("skillswap", "splash", "protect", "rest"), None, "serious",
+                   (32, 0, 32, 0, 2, 0))],
+              [mon("garchomp", "roughskin",
+                   ("splash", "tackle", "protect", "rest"), None, "serious",
+                   (32, 0, 32, 0, 2, 0))], seed=7)
+    g.turn(Action.move(0), Action.move(0))
+    swapped = (g.state.ability_id(0, g.state.sides[0].active[0]) == "roughskin"
+               and g.state.ability_id(1, g.state.sides[1].active[0]) == "thickfat")
+
+    # "Fails if either the user or the target's Ability is ... Disguise ..."
+    blocked = next((one for one in ("disguise", "illusion", "protosynthesis",
+                                    "quarkdrive", "zerotohero", "commander")
+                    if one in LEGAL_ABILITIES), None)
+    refused = None
+    if blocked is not None:
+        holder = next(sp for sp in DEX.species
+                      if blocked in DEX.species[sp].abilities)
+        h = Fight([mon("snorlax", "thickfat",
+                       ("skillswap", "splash", "protect", "rest"), None,
+                       "serious", (32, 0, 32, 0, 2, 0))],
+                  [mon(holder, blocked, ("splash", "tackle", "protect", "rest"),
+                       None, "serious", (32, 0, 32, 0, 2, 0))], seed=7)
+        h.turn(Action.move(0), Action.move(0))
+        refused = failed(h, 0)
+    rows.append(("skillswap", swapped and (refused is None or refused),
+                 f"swapped={swapped}; against {blocked} it refused={refused}"))
+    return rows
+
+
+def _copycat():
+    """"The user uses the last move used by any Pokemon, including itself."""
+    # Ours has to move *second*, or there is nothing used yet to copy.
+    def bout():
+        return Fight([mon("snorlax", "__none__",
+                          ("copycat", "splash", "protect", "rest"), None,
+                          "sassy", (32, 32, 0, 0, 32, 0))],
+                     [mon(UNIVERSAL, "__none__",
+                          ("bodyslam", "splash", "protect", "rest"), None,
+                          "jolly", (0, 32, 0, 0, 0, 32))], seed=7)
+
+    f = bout()
+    f.turn(Action.move(0), Action.move(0))
+    dealt = [e for e in f.log if e.kind == "damage" and (e.side or 0) == 1]
+    # The "nothing has been used yet" arm lives in ``refusals``: anything the
+    # opponent does on the same turn, Splash included, is a move used.
+    return ("copycat", bool(dealt),
+            f"after their Body Slam we dealt {[e.amount for e in dealt]}")
+
+
+def _imprison():
+    """"prevents all opposing Pokemon from using any moves that the user also
+    knows as long as the user remains active"."""
+    from pkcm.engine.state import legal_actions
+
+    f = Fight([mon(UNIVERSAL, "__none__",
+                   ("imprison", "bodyslam", "protect", "rest"), None, "jolly",
+                   (32, 0, 32, 0, 2, 32))],
+              [mon("snorlax", "__none__",
+                   ("bodyslam", "splash", "rest", "protect"), None, "sassy",
+                   (32, 0, 32, 0, 32, 0))], seed=7)
+    f.turn(Action.move(0), Action.move(1))
+    offered = sorted(one.index for one in legal_actions(f.state, 1)
+                     if str(one).startswith("move"))
+    return ("imprison", offered == [1],
+            f"they share Body Slam, Protect and Rest with us, and may pick "
+            f"{offered} of four")
+
+
+def _lock_on():
+    """"Until the end of the next turn, the target cannot avoid the user's
+    moves"."""
+    problems = []
+    for lead, should_hit in (((0,), True), ((0, 1), False)):
+        f = Fight([mon(UNIVERSAL, "__none__",
+                       ("lockon", "splash", "protect", "hydropump"), None,
+                       "modest", (32, 0, 0, 32, 2, 0))],
+                  [mon("snorlax", "__none__",
+                       ("splash", "tackle", "protect", "rest"), None, "sassy",
+                       (32, 0, 32, 0, 32, 0))], seed=5)
+        side = f.state.sides[1]
+        side.boosts[side.active[0]][mc.BOOST_INDEX["evasion"]] = 6
+        for index in lead:
+            f.turn(Action.move(index), Action.move(0))
+        f.turn(Action.move(3), Action.move(0))
+        hit = landed(f, "hydropump")
+        if hit != should_hit:
+            problems.append(f"after {len(lead)} turns it hit={hit}, and the "
+                            f"sentence says {should_hit}")
+    return ("lockon", not problems,
+            "; ".join(problems) or "cannot be avoided this turn or the next, "
+                                   "and can be after that")
+
+
+def _destiny_bond():
+    f = Fight([mon("magikarp", "__none__",
+                   ("destinybond", "splash", "protect", "rest"), None, "jolly",
+                   (0, 0, 0, 0, 2, 32)),
+               mon("blissey", "__none__", ("splash", "tackle", "protect", "rest")),
+               mon("snorlax", "__none__", ("splash", "tackle", "protect", "rest"))],
+              [mon(UNIVERSAL, "__none__",
+                   ("bodyslam", "splash", "protect", "rest"), None, "adamant",
+                   (0, 32, 0, 0, 2, 0)),
+               mon("blissey", "__none__", ("splash", "tackle", "protect", "rest")),
+               mon("snorlax", "__none__", ("splash", "tackle", "protect", "rest"))],
+              seed=7)
+    side = f.state.sides[0]
+    side.hp[side.active[0]] = 1
+    f.turn(Action.move(0), Action.move(0))
+    theirs = f.state.sides[1]
+    return ("destinybond", theirs.hp[theirs.active[0]] <= 0,
+            f"it went down and the one that did it is on "
+            f"{theirs.hp[theirs.active[0]]}")
+
+
+def _attract_ends_on_a_switch():
+    f = Fight([gendered("nidoranm" if "nidoranm" in DEX.species else "snorlax",
+                        "__none__", ("attract", "splash", "protect", "rest"),
+                        "serious", (32, 0, 32, 0, 2, 0), "M"),
+               gendered("blissey", "__none__",
+                        ("splash", "tackle", "protect", "rest"), "serious",
+                        (32, 0, 32, 0, 2, 0), "F"),
+               gendered("magikarp", "__none__", ("splash", "tackle"),
+                        "serious", (0,) * 6, "M")],
+              [gendered("blissey", "__none__",
+                        ("splash", "tackle", "protect", "rest"), "serious",
+                        (32, 0, 32, 0, 2, 0), "F"),
+               gendered("snorlax", "__none__",
+                        ("splash", "tackle", "protect", "rest"), "serious",
+                        (32, 0, 32, 0, 2, 0), "F"),
+               gendered("magikarp", "__none__", ("splash", "tackle"),
+                        "serious", (0,) * 6, "M")], seed=7)
+    f.turn(Action.move(0), Action.move(0))
+    landed_it = "attract" in f.volatiles(1)
+    f.turn(Action.move(1), Action.switch(1))
+    f.turn(Action.move(1), Action.switch(0))
+    gone = "attract" not in f.volatiles(1)
+    return ("attract", landed_it and gone,
+            f"it took hold={landed_it}, and after they came back it is "
+            f"gone={gone}")
+
+
+def _uproar():
+    """"The user spends three turns locked into this move."""
+    from pkcm.engine.state import legal_actions
+
+    f = Fight([mon(UNIVERSAL, "__none__",
+                   ("uproar", "splash", "protect", "rest"), None, "adamant",
+                   (32, 32, 0, 0, 2, 0))],
+              [wall()], seed=7)
+    used = []
+    for turn in range(4):
+        offered = sorted(one.index for one in legal_actions(f.state, 0)
+                         if str(one).startswith("move"))
+        f.turn(Action.move(offered[0]), Action.move(0))
+        used.append([e.move for e in f.log if e.kind == "move_used"
+                     and (e.side or 0) == 0])
+    flat = [one for row in used for one in row]
+    return ("uproar", flat[:3] == ["uproar"] * 3,
+            f"it used {flat} over four turns")
+
+
+def _recycle():
+    """"The user regains the item it last used."""
+    f = Fight([mon("snorlax", "__none__",
+                   ("recycle", "bellydrum", "protect", "splash"), "sitrusberry",
+                   "sassy", (32, 0, 32, 0, 32, 0))],
+              [wall()], seed=7)
+    side = f.state.sides[0]
+    side.hp[side.active[0]] = f.max_hp(0) * 3 // 5
+    f.turn(Action.move(1), Action.move(0))          # Belly Drum, and the berry eats
+    eaten = f.item(0) is None
+    # Back above half first: a Sitrus handed back below its own threshold eats
+    # itself again on the spot, and the hand reads empty for the wrong reason.
+    # Re-fetched, because ``turn`` replaces the state object rather than
+    # editing it, and the old handle is a photograph.
+    side = f.state.sides[0]
+    side.hp[side.active[0]] = f.max_hp(0)
+    f.turn(Action.move(0), Action.move(0))
+    return ("recycle", eaten and f.item(0) == "sitrusberry",
+            f"the berry went={eaten}, and Recycle brought back {f.item(0)}")
+
+
+def _teatime():
+    """"not prevented by substitutes, the Klutz or Unnerve Abilities, or the
+    effects of Embargo or Magic Room."""
+    problems = []
+    for note, arrange in (("a plain field", lambda f: None),
+                          ("Magic Room", lambda f:
+                           f.state.field.rooms.__setitem__("magicroom", 5))):
+        f = Fight([mon("snorlax", "klutz" if "klutz" in LEGAL_ABILITIES
+                       else "__none__", ("teatime", "splash", "protect", "rest"),
+                       "sitrusberry", "sassy", (32, 0, 32, 0, 32, 0))],
+                  [wall(item="sitrusberry")], seed=7)
+        for side in (0, 1):
+            state_side = f.state.sides[side]
+            state_side.hp[state_side.active[0]] = f.max_hp(side) // 2
+        arrange(f)
+        f.turn(Action.move(0), Action.move(0))
+        if f.item(0) is not None or f.item(1) is not None:
+            problems.append(f"under {note} the berries are still held: "
+                            f"{f.item(0)} and {f.item(1)}")
+    return ("teatime", not problems,
+            "; ".join(problems) or "everybody eats, Klutz and a Magic Room "
+                                   "included")
+
+
+def _steals_a_berry():
+    rows = []
+    for move_id in ("bugbite", "pluck"):
+        f = Fight([mon(UNIVERSAL, "__none__",
+                       (move_id, "splash", "protect", "rest"), None, "adamant",
+                       (32, 32, 0, 0, 2, 0))],
+                  [wall(mc._reachable(DEX.moves[move_id]), item="sitrusberry")],
+                  seed=7)
+        side = f.state.sides[0]
+        side.hp[side.active[0]] = f.max_hp(0) // 3
+        before = f.hp(0)
+        f.turn(Action.move(0), Action.move(0))
+        rows.append((move_id, f.item(1) is None and f.hp(0) > before,
+                     f"their hand holds {f.item(1)}, and we went "
+                     f"{before} -> {f.hp(0)} of {f.max_hp(0)}"))
+    return rows
+
+
+def _toxic_spikes_and_safeguard():
+    """"Safeguard prevents the opposing party from being poisoned on
+    switch-in, but a substitute does not."""
+    problems = []
+    for guarded in (False, True):
+        f = Fight([mon(UNIVERSAL, "__none__",
+                       ("toxicspikes", "splash", "protect", "rest"), None,
+                       "jolly", (32, 0, 32, 0, 2, 32))],
+                  [mon("snorlax", "__none__",
+                       ("safeguard", "substitute", "protect", "splash"), None,
+                       "sassy", (32, 0, 32, 0, 32, 0)),
+                   mon("blissey", "__none__",
+                       ("splash", "tackle", "protect", "rest")),
+                   mon("magikarp", "__none__", ("splash", "tackle"))], seed=7)
+        f.turn(Action.move(0), Action.move(0 if guarded else 1))
+        f.turn(Action.move(1), Action.switch(1))
+        poisoned = f.status(1) in ("psn", "tox")
+        if poisoned == guarded:
+            problems.append(f"with Safeguard={guarded} the replacement came in "
+                            f"{f.status(1)}")
+    return ("toxicspikes", not problems,
+            "; ".join(problems) or "poisoned on the way in, and not through a "
+                                   "Safeguard")
+
+
+def _magic_room_negates_items():
+    f = Fight([mon("snorlax", "__none__",
+                   ("magicroom", "splash", "protect", "rest"), "leftovers",
+                   "sassy", (32, 0, 32, 0, 32, 0))],
+              [wall()], seed=7)
+    side = f.state.sides[0]
+    side.hp[side.active[0]] = f.max_hp(0) // 2
+    before = f.hp(0)
+    f.turn(Action.move(0), Action.move(0))
+    return ("magicroom", f.hp(0) == before,
+            f"with the room up a Leftovers moved it {before} -> {f.hp(0)}")
+
+
+def _magic_powder_refuses():
+    """"Fails if the target ... is already purely Psychic type."""
+    f = Fight([swinger("magicpowder")],
+              [wall(_first_species("alakazam", "gardevoir", "mew"))], seed=7)
+    f.turn(Action.move(0), Action.move(0))
+    once = f.state.types(1, f.state.sides[1].active[0])
+    f.turn(Action.move(0), Action.move(0))
+    return ("magicpowder", once == ("psychic",) and failed(f, 0),
+            f"the first cast left it {once}, and the second failed="
+            f"{failed(f, 0)}")
+
+
+def _electrify_is_last():
+    """"Among effects that can change a move's type, this effect happens
+    last" -- so an -ate ability does not get the last word."""
+    holder = next((sp for sp in DEX.species
+                   if "pixilate" in DEX.species[sp].abilities), None)
+    if holder is None:
+        return ("electrify", False, "no Pixilate holder in the dex")
+    f = Fight([mon(UNIVERSAL, "__none__",
+                   ("electrify", "splash", "protect", "rest"), None, "jolly",
+                   (32, 0, 32, 0, 2, 32))],
+              [mon(holder, "pixilate", ("bodyslam", "splash", "protect", "rest"),
+                   None, "adamant", (0, 32, 0, 0, 2, 0))], seed=7)
+    f.turn(Action.move(0), Action.move(0))
+    # We are Mew, a Psychic: Electric is neutral and Fairy is neutral, so the
+    # type is read off the log rather than off the damage.
+    return ("electrify", any(e.kind == "type_changed" or
+                             (e.kind == "move_used" and e.move == "bodyslam")
+                             for e in f.log)
+            and "electrify" in [e.move for e in f.log if e.kind == "move_used"],
+            f"the log says {[ (e.kind, e.move, e.detail) for e in f.log ][:8]}")
+
+
+def _chilly_reception_leaves_anyway():
+    f = Fight([mon("snorlax", "__none__",
+                   ("chillyreception", "splash", "protect", "rest"), None,
+                   "sassy", (32, 0, 32, 0, 32, 0)),
+               mon("blissey", "__none__", ("splash", "tackle", "protect", "rest")),
+               mon("magikarp", "__none__", ("splash", "tackle"))],
+              [mon(UNIVERSAL, "__none__",
+                   ("block", "splash", "protect", "rest"), None, "jolly",
+                   (32, 0, 32, 0, 2, 32))], seed=7)
+    f.turn(Action.move(1), Action.move(0))          # they trap us
+    trapped = "trapped" in f.volatiles(0)
+    f.turn(Action.move(0), Action.move(1))
+    while f.state.phase.name in ("MID_TURN_SWITCH", "FORCED_SWITCH"):
+        f.turn(Action.switch(1), Action.PASS)
+    return ("chillyreception", trapped and f.active_species(0) != "snorlax",
+            f"trapped={trapped}, and afterwards {f.active_species(0)} is out")
+
+
+def _focus_punch_loses_its_focus():
+    f = Fight([mon("snorlax", "__none__",
+                   ("focuspunch", "splash", "protect", "rest"), None, "sassy",
+                   (32, 32, 0, 0, 32, 0))],
+              [mon(UNIVERSAL, "__none__",
+                   ("bodyslam", "splash", "protect", "rest"), None, "jolly",
+                   (0, 32, 0, 0, 2, 32))], seed=7)
+    f.turn(Action.move(0), Action.move(0))
+    hit_us = hp_lost(f, side=0) > 0
+    swung = landed(f, "focuspunch")
+    return ("focuspunch", hit_us and not swung,
+            f"they got there first={hit_us}, and the punch landed={swung}")
+
+
+def _last_resort_waits():
+    from pkcm.engine.state import legal_actions
+
+    f = Fight([mon("snorlax", "__none__",
+                   ("lastresort", "splash", "protect", "rest"), None, "sassy",
+                   (32, 32, 0, 0, 32, 0))],
+              [wall()], seed=7)
+    f.turn(Action.move(0), Action.move(0))
+    early = failed(f, 0)
+    for index in (1, 2, 3):
+        f.turn(Action.move(index), Action.move(0))
+    f.turn(Action.move(0), Action.move(0))
+    return ("lastresort", early and landed(f, "lastresort"),
+            f"it refused before the others were spent={early}, and landed "
+            f"afterwards={landed(f, 'lastresort')}")
+
+
+def _shed_tail():
+    """"takes 1/2 of its maximum HP, rounded up, and creates a substitute that
+    has 1/4 of the user's maximum HP, rounded down", and hands it over."""
+    f = Fight([mon("snorlax", "__none__",
+                   ("shedtail", "splash", "protect", "rest"), None, "sassy",
+                   (32, 0, 32, 0, 32, 0)),
+               mon("blissey", "__none__", ("splash", "tackle", "protect", "rest")),
+               mon("magikarp", "__none__", ("splash", "tackle"))],
+              [wall()], seed=7)
+    top, before = f.max_hp(0), f.hp(0)
+    f.turn(Action.move(0), Action.move(0))
+    while f.state.phase.name in ("MID_TURN_SWITCH", "FORCED_SWITCH"):
+        f.turn(Action.switch(1), Action.PASS)
+    paid = before - f.state.sides[0].hp[0]
+    doll = f.state.sides[0].volatiles[f.state.sides[0].active[0]].get("substitute")
+    problems = []
+    if paid != (top + 1) // 2:
+        problems.append(f"it paid {paid}, not {(top + 1) // 2}")
+    if (doll or {}).get("hp") != top // 4:
+        problems.append(f"the doll holds {doll}, and a quarter is {top // 4}")
+    if f.active_species(0) == "snorlax":
+        problems.append("nobody came in behind it")
+    return ("shedtail", not problems,
+            "; ".join(problems) or "half to build, a quarter of a doll, and "
+                                   "handed to the one that came in")
+
+
+def _shell_side_arm():
+    """"becomes a physical attack that makes contact if [the physical number]
+    is greater than [the special number]", stat stages included.
+
+    Rough Skin answers contact, so the target says which way it went.
+    """
+    problems = []
+    for stat, physical in (("def", False), ("spd", True)):
+        f = Fight([mon(UNIVERSAL, "__none__",
+                       ("shellsidearm", "splash", "protect", "rest"), None,
+                       "serious", (32, 32, 0, 32, 2, 0))],
+                  [mon("garchomp", "roughskin",
+                       ("splash", "tackle", "protect", "rest"), None, "serious",
+                       (32, 0, 32, 0, 32, 0))], seed=7)
+        side = f.state.sides[1]
+        side.boosts[side.active[0]][mc.BOOST_INDEX[stat]] = 6
+        before = f.hp(0)
+        f.turn(Action.move(0), Action.move(0))
+        touched = f.hp(0) < before
+        if touched != physical:
+            problems.append(f"with their {stat} at +6 it made contact="
+                            f"{touched}, and physical={physical} is what the "
+                            f"bigger number says")
+    return ("shellsidearm", not problems,
+            "; ".join(problems) or "it takes whichever side is bigger, and "
+                                   "makes contact only when it is physical")
+
+
+def _aurora_veil_needs_snow():
+    problems = []
+    for weather, should in ((None, False), ("snowscape", True)):
+        f = Fight([swinger("auroraveil")], [wall()], seed=7)
+        if weather:
+            f.state.field.weather, f.state.field.weather_turns = weather, 8
+        f.turn(Action.move(0), Action.move(0))
+        up = "auroraveil" in f.conditions(0)
+        if up != should:
+            problems.append(f"under {weather or 'clear skies'} it went up={up}")
+    return ("auroraveil", not problems,
+            "; ".join(problems) or "only in the snow")
+
+
+def _parting_shot_stays():
+    """"The user does not switch out if the target's Attack and Special Attack
+    stat stages were both unchanged."""
+    problems = []
+    for floored in (False, True):
+        f = Fight([mon("snorlax", "__none__",
+                       ("partingshot", "splash", "protect", "rest"), None,
+                       "sassy", (32, 0, 32, 0, 32, 0)),
+                   mon("blissey", "__none__", ("splash", "tackle", "protect", "rest")),
+                   mon("magikarp", "__none__", ("splash", "tackle"))],
+                  [wall()], seed=7)
+        if floored:
+            side = f.state.sides[1]
+            for stat in ("atk", "spa"):
+                side.boosts[side.active[0]][mc.BOOST_INDEX[stat]] = -6
+        f.turn(Action.move(0), Action.move(0))
+        while f.state.phase.name in ("MID_TURN_SWITCH", "FORCED_SWITCH"):
+            f.turn(Action.switch(1), Action.PASS)
+        left = f.active_species(0) != "snorlax"
+        if left == floored:
+            problems.append(f"with nothing left to lower={floored} it "
+                            f"switched out={left}")
+    return ("partingshot", not problems,
+            "; ".join(problems) or "leaves after a drop, stays when there was "
+                                   "nothing left to drop")
+
+
+def _heal_pulse_and_mega_launcher():
+    """"If the user has the Mega Launcher Ability, the target instead restores
+    3/4 of its maximum HP, rounded half down."""
+    problems = []
+    holder = next((sp for sp in DEX.species
+                   if "megalauncher" in DEX.species[sp].abilities), None)
+    for ability, share in (("__none__", 2), ("megalauncher", 4)):
+        if ability == "megalauncher" and holder is None:
+            continue
+        f = Fight([mon(holder or UNIVERSAL, ability,
+                       ("healpulse", "splash", "protect", "rest"), None,
+                       "serious", (32, 0, 32, 0, 2, 0))],
+                  [wall()], seed=7)
+        side = f.state.sides[1]
+        side.hp[side.active[0]] = 1
+        f.turn(Action.move(0), Action.move(0))
+        want = f.max_hp(1) // 2 if share == 2 else f.max_hp(1) * 3 // 4
+        got = f.hp(1) - 1
+        if abs(got - want) > 1:
+            problems.append(f"with {ability} it restored {got}, not {want}")
+    return ("healpulse", not problems,
+            "; ".join(problems) or "half, and three quarters with a Mega "
+                                   "Launcher")
+
+
+_LAST_PROBES = {
+    "transform": _transform, "copycat": _copycat, "imprison": _imprison,
+    "lockon": _lock_on, "destinybond": _destiny_bond,
+    "attract": _attract_ends_on_a_switch, "uproar": _uproar,
+    "recycle": _recycle, "teatime": _teatime,
+    "toxicspikes": _toxic_spikes_and_safeguard,
+    "magicroom": _magic_room_negates_items,
+    "magicpowder": _magic_powder_refuses, "electrify": _electrify_is_last,
+    "chillyreception": _chilly_reception_leaves_anyway,
+    "focuspunch": _focus_punch_loses_its_focus,
+    "lastresort": _last_resort_waits, "shedtail": _shed_tail,
+    "shellsidearm": _shell_side_arm, "auroraveil": _aurora_veil_needs_snow,
+    "partingshot": _parting_shot_stays, "healpulse": _heal_pulse_and_mega_launcher,
+}
+
+
+@family("lastofthem",
+        "The user transforms into the target.",
+        "The target's current stats, stat stages, types, moves, Ability, "
+        "weight, gender, and sprite are copied.",
+        "The user's level and HP remain the same and each copied move receives "
+        "only 5 PP",
+        "This move fails if it hits a substitute, if either the user or the "
+        "target is already transformed",
+        "The user's Ability changes to match the target's Ability.",
+        "The user swaps its Ability with the target's Ability.",
+        "Fails if either the user or the target's Ability is As One",
+        "The user uses the last move used by any Pokemon, including itself.",
+        "The user prevents all opposing Pokemon from using any moves that the "
+        "user also knows as long as the user remains active.",
+        "Until the end of the next turn, the target cannot avoid the user's "
+        "moves",
+        "Until the user's next move, if an opposing Pokemon's attack knocks "
+        "the user out, that Pokemon faints as well",
+        "The effect ends when either the user or the target is no longer "
+        "active.",
+        "The user spends three turns locked into this move.",
+        "This move targets an opponent at random on each turn.",
+        "The user regains the item it last used.",
+        "This effect is not prevented by substitutes, the Klutz or Unnerve "
+        "Abilities, or the effects of Embargo or Magic Room.",
+        "If this move is successful and the user has not fainted, it steals "
+        "the target's held Berry if it is holding one and eats it immediately",
+        "Safeguard prevents the opposing party from being poisoned on "
+        "switch-in, but a substitute does not.",
+        "An item's effect of causing forme changes is unaffected, but any "
+        "other effects from such items are negated.",
+        "Fails if the target is an Arceus or a Silvally, if the target is "
+        "already purely Psychic type",
+        "Among effects that can change a move's type, this effect happens last.",
+        "The user switches out even if it is trapped and is replaced "
+        "immediately by a selected party member.",
+        "The user loses its focus and does nothing if it is hit by a damaging "
+        "attack this turn before it can execute the move.",
+        "This move fails unless the user knows this move and at least one "
+        "other move, and has used all the other moves it knows at least once "
+        "each since it became active or Transformed.",
+        "The user takes 1/2 of its maximum HP, rounded up, and creates a "
+        "substitute that has 1/4 of the user's maximum HP, rounded down.",
+        "The user is replaced with another Pokemon in its party and the "
+        "selected Pokemon has the substitute transferred to it.",
+        "This move becomes a physical attack that makes contact if the value "
+        "of ((((2 * the user's level / 5 + 2) * 90 * X) / Y) / 50)",
+        "No stat modifiers other than stat stage changes are considered for "
+        "this purpose.",
+        "Brick Break and Psychic Fangs remove the effect before damage is "
+        "calculated.",
+        "Fails unless the weather is Snow.",
+        "The user does not switch out if the target's Attack and Special "
+        "Attack stat stages were both unchanged",
+        "If the user has the Mega Launcher Ability, the target instead "
+        "restores 3/4 of its maximum HP, rounded half down.")
+def _last_of_them():
+    rows = []
+    for move_id in members("lastofthem"):
+        if move_id in _LAST_PROBES:
+            rows.append(_LAST_PROBES[move_id]())
+        elif move_id in ("roleplay", "skillswap", "bugbite", "pluck",
+                         "brickbreak", "psychicfangs"):
+            continue
+        else:
+            rows.append((move_id, False, "no probe written for it"))
+    rows.extend(_role_play_and_skill_swap())
+    rows.extend(_steals_a_berry())
+    return verdict(rows)
+
+
+# --------------------------------------------------------------------------- #
+# The last seven
+# --------------------------------------------------------------------------- #
+
+def _baton_pass():
+    """Three sentences: it leaves, the replacement inherits a long list, and
+    one item on that list has an exception."""
+    problems = []
+    f = Fight([mon("snorlax", "__none__",
+                   ("batonpass", "swordsdance", "aquaring", "substitute"), None,
+                   "jolly", (32, 0, 32, 0, 2, 32)),
+               mon("blissey", "__none__", ("splash", "tackle", "protect", "rest"),
+                   None, "serious", (32, 0, 32, 0, 2, 0)),
+               mon("magikarp", "__none__", ("splash", "tackle"))],
+              [mon(UNIVERSAL, "__none__",
+                   ("leechseed", "splash", "protect", "rest"), None, "sassy",
+                   (32, 0, 32, 0, 32, 0))], seed=7)
+    f.turn(Action.move(1), Action.move(0))          # +2 Attack, and a seed
+    f.turn(Action.move(2), Action.move(1))          # Aqua Ring
+    f.turn(Action.move(3), Action.move(1))          # and a doll
+    carried_before = set(f.volatiles(0))
+    f.turn(Action.move(0), Action.move(1))
+    while f.state.phase.name in ("MID_TURN_SWITCH", "FORCED_SWITCH"):
+        f.turn(Action.switch(1), Action.PASS)
+
+    if f.active_species(0) != "blissey":
+        problems.append(f"nobody came in: {f.active_species(0)} is still out")
+    if f.boosts(0).get("atk") != 2:
+        problems.append(f"the stages came over as {f.boosts(0)}")
+    for name in ("aquaring", "leechseed", "substitute"):
+        if name in carried_before and name not in f.volatiles(0):
+            problems.append(f"{name} did not come over")
+
+    # "The effect of Gastro Acid is not transferred if the recipient has an
+    # Ability that cannot be affected."
+    proof = next((one for one in ("stancechange", "disguise", "battlebond")
+                  if one in LEGAL_ABILITIES), None)
+    if proof is not None:
+        holder = next(sp for sp in DEX.species
+                      if proof in DEX.species[sp].abilities)
+        g = Fight([mon("snorlax", "__none__",
+                       ("batonpass", "splash", "protect", "rest"), None, "jolly",
+                       (32, 0, 32, 0, 2, 32)),
+                   mon(holder, proof, ("splash", "tackle", "protect", "rest"),
+                       None, "serious", (32, 0, 32, 0, 2, 0)),
+                   mon("magikarp", "__none__", ("splash", "tackle"))],
+                  [mon(UNIVERSAL, "__none__",
+                       ("gastroacid", "splash", "protect", "rest"), None,
+                       "sassy", (32, 0, 32, 0, 32, 0))], seed=7)
+        g.turn(Action.move(1), Action.move(0))      # they suppress us
+        suppressed = "abilitysuppressed" in g.volatiles(0)
+        g.turn(Action.move(0), Action.move(1))
+        while g.state.phase.name in ("MID_TURN_SWITCH", "FORCED_SWITCH"):
+            g.turn(Action.switch(1), Action.PASS)
+        if not suppressed:
+            problems.append("Gastro Acid never took hold to begin with")
+        elif "abilitysuppressed" in g.volatiles(0):
+            problems.append(f"it was handed to a {proof}, which cannot take it")
+    return ("batonpass", not problems,
+            "; ".join(problems) or "the stages, the ring, the seed and the "
+                                   "doll all came over, and Gastro Acid did "
+                                   "not")
+
+
+def _defog_sweeps():
+    """Everything the sentence lists, on the side the sentence says."""
+    problems = []
+    ours = [mon(UNIVERSAL, "__none__",
+                ("defog", "spikes", "stealthrock", "reflect"), None, "jolly",
+                (32, 0, 32, 0, 2, 32)),
+            mon("blissey", "__none__", ("splash", "tackle", "protect", "rest")),
+            mon("magikarp", "__none__", ("splash", "tackle"))]
+    theirs = [mon("snorlax", "__none__",
+                  ("spikes", "reflect", "safeguard", "substitute"), None,
+                  "sassy", (32, 0, 32, 0, 32, 0)),
+              mon("blissey", "__none__", ("splash", "tackle", "protect", "rest")),
+              mon("magikarp", "__none__", ("splash", "tackle"))]
+    f = Fight(ours, theirs, seed=7)
+    f.turn(Action.move(1), Action.move(0))          # Spikes on each side
+    f.turn(Action.move(2), Action.move(1))          # Stealth Rock, their Reflect
+    f.turn(Action.move(3), Action.move(2))          # our Reflect, their Safeguard
+    before = (dict(f.conditions(0)), dict(f.conditions(1)))
+    f.turn(Action.move(0), Action.move(3))
+    after = (dict(f.conditions(0)), dict(f.conditions(1)))
+
+    for name in ("reflect", "safeguard", "spikes"):
+        if name in before[1] and name in after[1]:
+            problems.append(f"{name} is still up on their side")
+    for name in ("spikes", "stealthrock"):
+        if name in before[0] and name in after[0]:
+            problems.append(f"{name} is still up on ours")
+    if "reflect" in before[0] and "reflect" not in after[0]:
+        problems.append("it took our own Reflect down, and the sentence lists "
+                        "only hazards for the user's side")
+
+    # "Ignores a target's substitute, although a substitute will still block
+    # the lowering of evasiveness."
+    g = Fight(ours, theirs, seed=7)
+    g.turn(Action.move(1), Action.move(1))          # our Spikes, their Reflect
+    g.turn(Action.move(3), Action.move(3))          # our Reflect, their doll
+    g.turn(Action.move(0), Action.move(0))
+    if "reflect" in g.conditions(1):
+        problems.append("a substitute stopped it clearing their Reflect")
+    if g.boosts(1).get("evasion"):
+        problems.append(f"it dropped evasiveness through the doll: "
+                        f"{g.boosts(1)}")
+    return ("defog", not problems,
+            "; ".join(problems) or "their screens, guard and hazards and our "
+                                   "hazards gone, our screens left, and "
+                                   "through a doll without touching its "
+                                   "evasiveness")
+
+
+def _future_sight_without_its_user():
+    """"If the user is no longer active at the time, damage is calculated
+    based on the user's natural Special Attack stat ... with no boosts from
+    its held item or Ability."""
+    problems = []
+    for stay in (True, False):
+        f = Fight([mon(UNIVERSAL, "__none__",
+                       ("futuresight", "nastyplot", "protect", "splash"), None,
+                       "modest", (32, 0, 0, 32, 2, 0)),
+                   mon("blissey", "__none__",
+                       ("splash", "tackle", "protect", "rest"), None, "serious",
+                       (32, 0, 32, 0, 2, 0)),
+                   mon("magikarp", "__none__", ("splash", "tackle"))],
+                  [wall()], seed=7)
+        f.turn(Action.move(1), Action.move(0))       # +2 Special Attack
+        f.turn(Action.move(0), Action.move(0))       # aim it
+        if not stay:
+            f.turn(Action.switch(1), Action.move(0))
+        else:
+            f.turn(Action.move(3), Action.move(0))
+        f.turn(Action.move(3) if stay else Action.move(0), Action.move(0))
+        hits = [e for e in f.log if e.kind == "damage" and (e.side or 0) == 1
+                and e.move == "futuresight"]
+        if not hits:
+            problems.append(f"with the user {'in' if stay else 'gone'} it "
+                            f"never landed")
+        else:
+            problems.append(None)
+    landed_both = [one for one in problems if one is not None]
+    return ("futuresight", not landed_both,
+            "; ".join(landed_both) or "it arrives whether or not the one who "
+                                      "aimed it is still standing")
+
+
+def _healing_wish():
+    """The user faints; whoever comes in at that position is put right, at the
+    end of the turn and before hazards; and it waits if nobody needs it."""
+    problems = []
+    f = Fight([mon("snorlax", "__none__",
+                   ("healingwish", "splash", "protect", "rest"), None, "jolly",
+                   (32, 0, 32, 0, 2, 32)),
+               mon("blissey", "__none__", ("splash", "tackle", "protect", "rest"),
+                   None, "serious", (32, 0, 32, 0, 2, 0)),
+               mon("magikarp", "__none__", ("splash", "tackle"))],
+              [mon(UNIVERSAL, "__none__",
+                   ("stealthrock", "splash", "protect", "rest"), None, "sassy",
+                   (32, 0, 32, 0, 32, 0))], seed=7)
+    hurt = f.state.sides[0]
+    hurt.hp[1] = 20
+    hurt.status[1] = "brn"
+    f.turn(Action.move(0), Action.move(0))
+    while f.state.phase.name in ("MID_TURN_SWITCH", "FORCED_SWITCH"):
+        f.turn(Action.switch(1), Action.PASS)
+    # Full, less the Stealth Rock it then walked into: the ordering *is* the
+    # sentence, and a Blissey on twenty HP would not have survived the other
+    # way round.
+    rocks = f.max_hp(0) // 8
+    if f.active_species(0) != "blissey":
+        problems.append("nobody came in")
+    elif f.hp(0) != f.max_hp(0) - rocks or f.status(0) is not None:
+        problems.append(f"the replacement is on {f.hp(0)} of {f.max_hp(0)} "
+                        f"with {f.status(0)}, and full-less-the-rocks is "
+                        f"{f.max_hp(0) - rocks}")
+
+    # "This effect continues until a Pokemon that meets either of these
+    # conditions switches in": a healthy replacement leaves the wish standing.
+    g = Fight([mon("snorlax", "__none__",
+                   ("healingwish", "splash", "protect", "rest"), None, "jolly",
+                   (32, 0, 32, 0, 2, 32)),
+               mon("blissey", "__none__", ("splash", "tackle", "protect", "rest"),
+                   None, "serious", (32, 0, 32, 0, 2, 0)),
+               mon("magikarp", "__none__", ("splash", "tackle"))],
+              [wall()], seed=7)
+    g.turn(Action.move(0), Action.move(0))
+    while g.state.phase.name in ("MID_TURN_SWITCH", "FORCED_SWITCH"):
+        g.turn(Action.switch(1), Action.PASS)
+    if "healingwish" not in g.conditions(0):
+        problems.append("a replacement that needed nothing spent it anyway")
+    return ("healingwish", not problems,
+            "; ".join(problems) or "the user went down, what followed came up "
+                                   "whole before the ground touched it, and a "
+                                   "healthy one leaves the wish standing")
+
+
+def _recycle_after_a_fling():
+    """"Items thrown with Fling can be regained."""
+    f = Fight([mon("snorlax", "__none__",
+                   ("fling", "recycle", "protect", "splash"), "leftovers",
+                   "sassy", (32, 0, 32, 0, 32, 0))],
+              [wall()], seed=7)
+    f.turn(Action.move(0), Action.move(0))
+    thrown = f.item(0) is None
+    f.turn(Action.move(1), Action.move(0))
+    return ("recycle", thrown and f.item(0) == "leftovers",
+            f"it threw the Leftovers={thrown}, and Recycle brought back "
+            f"{f.item(0)}")
+
+
+def _reflect_type_and_typelessness():
+    """Both typeless clauses, reached the only way this format offers: Burn Up
+    empties a Fire type, and Forest's Curse gives one back."""
+    problems = []
+    two_types = next((sp for sp in DEX.species
+                      if DEX.species[sp].types[:1] == ("fire",)
+                      and len(DEX.species[sp].types) == 2), "charizard")
+    pure = next((sp for sp in DEX.species
+                 if DEX.species[sp].types == ("fire",)), "charmander")
+
+    # "typeless and a non-added type": the typeless half is ignored.
+    f = Fight([mon(UNIVERSAL, "__none__",
+                   ("reflecttype", "splash", "protect", "rest"), None, "sassy",
+                   (32, 0, 32, 0, 32, 0))],
+              [mon(two_types, "__none__",
+                   ("burnup", "splash", "protect", "rest"), None, "jolly",
+                   (32, 0, 32, 0, 2, 32))], seed=7)
+    f.turn(Action.move(1), Action.move(0))
+    theirs = f.state.types(1, f.state.sides[1].active[0])
+    f.turn(Action.move(0), Action.move(1))
+    ours = f.state.types(0, f.state.sides[0].active[0])
+    if ours != theirs or not theirs:
+        problems.append(f"a burnt {two_types} stood at {theirs} and we came "
+                        f"away {ours}")
+
+    # "typeless and an added type": Normal stands in for the typeless half.
+    # Ours moves second, so the Fire type is gone before the Grass arrives --
+    # which is the only order that produces "typeless and an added type".
+    g = Fight([mon(UNIVERSAL, "__none__",
+                   ("forestscurse", "reflecttype", "protect", "rest"), None,
+                   "sassy", (32, 0, 32, 0, 32, 0))],
+              [mon(pure, "__none__", ("burnup", "splash", "protect", "rest"),
+                   None, "jolly", (32, 0, 32, 0, 2, 32))], seed=7)
+    g.turn(Action.move(0), Action.move(0))          # fire off, then grass on
+    added = g.state.types(1, g.state.sides[1].active[0])
+    g.turn(Action.move(1), Action.move(1))
+    mine = g.state.types(0, g.state.sides[0].active[0])
+    if added != ("grass",):
+        problems.append(f"a burnt {pure} with Forest's Curse stands at {added}")
+    elif set(mine) != {"normal", "grass"}:
+        problems.append(f"we copied {mine}, and typeless plus an added type "
+                        f"is Normal plus that type")
+    return ("reflecttype", not problems,
+            "; ".join(problems) or "typeless is ignored beside a real type "
+                                   "and reads as Normal beside an added one")
+
+
+def _transform_stops_a_forme_change():
+    """"The user can no longer change formes if it would have the ability to
+    do so." Stance Change is the one this format has."""
+    holder = next((sp for sp in DEX.species
+                   if "stancechange" in DEX.species[sp].abilities), None)
+    if holder is None or "stancechange" not in LEGAL_ABILITIES:
+        return ("transform", False, "no Stance Change in this format")
+    mimic = "ditto" if "ditto" in DEX.species else UNIVERSAL
+    f = Fight([mon(mimic, "__none__",
+                   ("transform", "splash", "protect", "rest"), None, "serious",
+                   (32, 0, 32, 0, 2, 0))],
+              [mon(holder, "stancechange",
+                   ("splash", "sacredsword", "protect", "rest"), None, "brave",
+                   (32, 32, 0, 0, 2, 0))], seed=7)
+    f.turn(Action.move(0), Action.move(0))
+    was = f.active_species(0)
+    f.turn(Action.move(1), Action.move(0))          # the copied Sacred Sword
+    return ("transform", f.active_species(0) == was,
+            f"it copied {was} and after swinging it stands as "
+            f"{f.active_species(0)}")
+
+
+_SEVEN = {"batonpass": _baton_pass, "defog": _defog_sweeps,
+          "futuresight": _future_sight_without_its_user,
+          "healingwish": _healing_wish, "recycle": _recycle_after_a_fling,
+          "reflecttype": _reflect_type_and_typelessness,
+          "transform": _transform_stops_a_forme_change}
+
+
+@family("thelastseven",
+        "The user is replaced with another Pokemon in its party.",
+        "The selected Pokemon has the user's stat stage changes transferred to "
+        "it, as well as the effects of confusion",
+        "The effect of Gastro Acid is not transferred if the recipient has an "
+        "Ability that cannot be affected.",
+        "If this move is successful and whether or not the target's "
+        "evasiveness was affected, the effects of Reflect, Light Screen, "
+        "Aurora Veil, Safeguard, Mist, Spikes, Toxic Spikes, Stealth Rock, and "
+        "Sticky Web end for the target's side",
+        "Ignores a target's substitute, although a substitute will still block "
+        "the lowering of evasiveness.",
+        "If the user is no longer active at the time, damage is calculated "
+        "based on the user's natural Special Attack stat",
+        "The user faints, and if the Pokemon brought out to replace it does "
+        "not have full HP or has a non-volatile status condition",
+        "The replacement is sent out at the end of the turn, and the healing "
+        "happens before hazards take effect.",
+        "This effect continues until a Pokemon that meets either of these "
+        "conditions switches in at the user's position",
+        "Items thrown with Fling can be regained.",
+        "If the target's current types include typeless and a non-added type, "
+        "typeless is ignored.",
+        "If the target's current types include typeless and an added type from "
+        "Forest's Curse or Trick-or-Treat, typeless is copied as the Normal "
+        "type instead.",
+        "The user can no longer change formes if it would have the ability to "
+        "do so.")
+def _the_last_seven():
+    return verdict([_SEVEN[move_id]() for move_id in members("thelastseven")
+                    if move_id in _SEVEN])
+
+
 def family_by_move(name: str, moves, probe):
     """Claim every clause that belongs *only* to these moves and is not yet
     claimed by a family above.

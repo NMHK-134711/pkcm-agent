@@ -1638,3 +1638,99 @@ def test_stuff_cheeks_is_not_offered_with_empty_hands(dex, config):
     offered = [one.index for one in legal_actions(state, 0)
                if one.kind is ActionKind.MOVE]
     assert offered == [0, 1]
+
+
+def test_focus_punch_loses_its_focus_when_it_is_hit(dex, config):
+    """At minus three priority that is most of what the move is, and it swung
+    through every hit it took."""
+    state = build(config, a_set("snorlax", ("focuspunch",)),
+                  a_set("weavile", ("iceshard",)))
+    state, _ = step(state, Action.move(0), Action.move(0))
+    assert any(e.kind == "move_failed" and e.detail == "it lost its focus"
+               for e in _)
+
+
+def test_shed_tail_pays_half_for_a_doll_of_a_quarter(dex, config):
+    """The cost and the doll were one number, so Shed Tail bought one twice
+    the size it should be."""
+    state = build(config, a_set("snorlax", ("shedtail",)), a_set("blissey", ("splash",)))
+    top = state.pokemon(0, 0).max_hp
+    ctx = make_context(state)
+    cast(ctx, dex, "shedtail")
+    assert state.sides[0].hp[0] == top - (top + 1) // 2
+    assert state.sides[0].volatiles[0]["substitute"]["hp"] == top // 4
+
+
+def test_shell_side_arm_takes_the_bigger_of_the_two(dex, config):
+    """It had no implementation at all: Special every time, never contact."""
+    from pkcm.engine.moves import activate
+
+    # Garchomp's two defences are close enough that a stage decides it; a
+    # Blissey is so lopsided that nothing short of the whole scale would.
+    move = dex.moves["shellsidearm"]
+    state = build(config, a_set("snorlax", ("shellsidearm",)),
+                  a_set("garchomp", ("splash",)))
+    ctx = make_context(state)
+
+    mutate.boost(ctx, BLUE, {"spd": 6})          # their Special Defence is huge
+    assert activate(ctx, RED, BLUE, move).category == "Physical"
+    assert "contact" in activate(ctx, RED, BLUE, move).flags
+
+    state = build(config, a_set("snorlax", ("shellsidearm",)),
+                  a_set("garchomp", ("splash",)))
+    ctx = make_context(state)
+    mutate.boost(ctx, BLUE, {"def": 6})          # now their Defence is
+    assert activate(ctx, RED, BLUE, move).category == "Special"
+
+
+def test_a_safeguard_keeps_toxic_spikes_off_the_replacement(dex, config):
+    state = build(config, a_set("snorlax", ("splash",)), a_set("blissey", ("splash",)))
+    ctx = make_context(state)
+    state.sides[1].conditions["toxicspikes"] = 1
+    state.sides[1].conditions["safeguard"] = 5
+    from pkcm.engine.battle import switch_into
+
+    switch_into(ctx, 1, 0, 1)
+    assert state.sides[1].status[1] is None
+
+    state.sides[1].conditions.pop("safeguard")
+    switch_into(ctx, 1, 0, 2)
+    assert state.sides[1].status[2] == "psn"
+
+
+def test_parting_shot_stays_when_there_is_nothing_left_to_lower(dex, config):
+    state = build(config, a_set("snorlax", ("partingshot",)),
+                  a_set("blissey", ("splash",)))
+    ctx = make_context(state)
+    mutate.boost(ctx, BLUE, {"atk": -6, "spa": -6})
+    cast(ctx, dex, "partingshot")
+    assert state.sides[0].active[0] == 0
+    assert any(e.kind == "move_failed" for e in ctx.log)
+
+
+def test_reflect_type_refuses_a_target_with_no_type_left(dex, config):
+    """It read ``types[0]`` of an empty tuple and took the battle down."""
+    state = build(config, a_set("snorlax", ("reflecttype",)),
+                  a_set("charmander", ("burnup",)))
+    ctx = make_context(state)
+    cast(ctx, dex, "burnup", attacker=BLUE, defender=RED)
+    assert state.types(1, 0) == ()
+    cast(ctx, dex, "reflecttype")
+    assert any(e.kind == "move_failed" for e in ctx.log)
+
+
+def test_a_healing_wish_lands_before_the_hazards(dex, config):
+    """"the healing happens before hazards take effect" -- it was being spent
+    after, so the replacement walked into the rocks on whatever it had."""
+    from pkcm.engine.battle import switch_into
+
+    state = build(config, a_set("snorlax", ("healingwish",)), a_set("blissey", ("splash",)))
+    ctx = make_context(state)
+    state.sides[0].conditions["healingwish"] = 1
+    state.sides[0].conditions["stealthrock"] = 1
+    state.sides[0].hp[1] = 1
+    state.sides[0].status[1] = "brn"
+    switch_into(ctx, 0, 0, 1)
+    top = state.pokemon(0, 1).max_hp
+    assert state.sides[0].hp[1] == top - top // 8
+    assert state.sides[0].status[1] is None

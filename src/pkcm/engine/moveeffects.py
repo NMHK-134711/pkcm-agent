@@ -79,7 +79,16 @@ def _rest(ctx, user, target, move) -> bool:
 
 @special("healpulse")
 def _heal_pulse(ctx, user, target, move) -> bool:
-    return bool(heal(ctx, target, max_hp(ctx.state, target) // 2, reason=move.id))
+    """"If the user has the Mega Launcher Ability, the target instead restores
+    3/4 of its maximum HP, rounded half down."
+
+    Mega Launcher is registered as a power multiplier for pulse moves, which
+    is the whole of it for the other four; Heal Pulse deals no damage, so the
+    ability had nothing to multiply and the clause did nothing.
+    """
+    top = max_hp(ctx.state, target)
+    share = (top * 3 + 2) // 4 if ctx.ability_of(user) == "megalauncher" else top // 2
+    return bool(heal(ctx, target, share, reason=move.id))
 
 
 @special("partingshot")
@@ -916,6 +925,12 @@ def _add_type(extra: str):
         for other in ADDED_TYPES.values():
             if other != extra and other in types:
                 types.remove(other)
+        if not types:
+            # "If the target's current types include typeless and an added
+            # type ..., typeless is copied as the Normal type instead."
+            # Typeless is the empty tuple here, so the pair would otherwise be
+            # indistinguishable from having only the added type.
+            ctx.state.sides[target[0]].status_data[target[1]]["wastypeless"] = True
         ctx.state.set_override(target[0], target[1], "types",
                                tuple(types) + (extra,))
         ctx.emit(Event("type_added", side=target[0], slot=target[1], detail=extra))
@@ -930,9 +945,24 @@ SPECIAL_MOVES["trickortreat"] = _add_type("ghost")
 
 @special("reflecttype")
 def _reflect_type(ctx, user, target, move) -> bool:
-    ctx.state.set_override(user[0], user[1], "types", ctx.state.types(*target))
+    """"Fails if ... the target's current type is typeless alone" -- and it did
+    not fail. It read ``types[0]`` of an empty tuple and took the battle down
+    with it, which is what a Burn Up on a pure Fire type leaves behind.
+
+    Typeless being the empty tuple is also why "typeless is ignored" alongside
+    a real type comes out right without asking. The one case that has to be
+    remembered is the other sentence: a Pokemon with nothing of its own that
+    has since been given a type by Forest's Curse or Trick-or-Treat is copied
+    as Normal *plus* that type.
+    """
+    theirs = tuple(ctx.state.types(*target))
+    if not theirs:
+        return _fail(ctx, user, "the target has no type to copy")
+    if ctx.state.sides[target[0]].status_data[target[1]].get("wastypeless"):
+        theirs = ("normal",) + theirs
+    ctx.state.set_override(user[0], user[1], "types", theirs)
     ctx.emit(Event("type_change", side=user[0], slot=user[1],
-                   detail=ctx.state.types(*target)[0]))
+                   detail="/".join(theirs)))
     return True
 
 
@@ -994,6 +1024,11 @@ def _transform(ctx, user, target, move) -> bool:
 
     if _volatiles(ctx, user).get("transformed"):
         return _fail(ctx, user, "already transformed")
+    # "...if either the user or the target is already transformed" -- only the
+    # user was being asked, and after a Transform the user no longer knows the
+    # move, so the half that was asked is the half that cannot come up.
+    if _volatiles(ctx, target).get("transformed"):
+        return _fail(ctx, user, "the target is already transformed")
     _imposter(ctx, ref=user)
     return True
 
@@ -1282,12 +1317,22 @@ register("room", "wonderroom", name="Wonder Room")
 HAZARDS = ("spikes", "toxicspikes", "stealthrock", "stickyweb")
 SCREENS = ("reflect", "lightscreen", "auroraveil")
 
+#: What Defog takes off the *target's* side beyond the hazards: "the effects of
+#: Reflect, Light Screen, Aurora Veil, Safeguard, Mist, Spikes, Toxic Spikes,
+#: Stealth Rock, and Sticky Web end for the target's side". Safeguard and Mist
+#: were on the list and not in the code.
+DEFOG_CLEARS = SCREENS + ("safeguard", "mist")
+
 
 @special("defog")
 def _defog(ctx, user, target, move) -> bool:
     cleared = False
-    boost(ctx, target, {"evasion": -1}, source=user)
-    for player, names in ((user[0], HAZARDS), (target[0], HAZARDS + SCREENS)):
+    # "Ignores a target's substitute, although a substitute will still block
+    # the lowering of evasiveness." The move carries ``bypasssub`` so it gets
+    # to the field behind the doll; the one stage it takes does not.
+    if mutate.volatile(ctx.state, target, "substitute") is None:
+        boost(ctx, target, {"evasion": -1}, source=user)
+    for player, names in ((user[0], HAZARDS), (target[0], HAZARDS + DEFOG_CLEARS)):
         conditions = ctx.state.sides[player].conditions
         for name in names:
             if conditions.pop(name, None) is not None:

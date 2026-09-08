@@ -617,8 +617,14 @@ def apply_entry_hazards(ctx: Context, ref: Ref) -> None:
             del side.conditions["toxicspikes"]
             ctx.emit(Event("hazard_absorbed", side=side_index, detail="toxicspikes"))
         elif "steel" not in ctx.state.types(side_index, slot):
-            status = "tox" if side.conditions["toxicspikes"] >= 2 else "psn"
-            mutate.set_status(ctx, ref, status)
+            # "Safeguard prevents the opposing party from being poisoned on
+            # switch-in, but a substitute does not." Asked here rather than
+            # through Safeguard's own ``try_status``, because that one wants a
+            # source to point at and a hazard has nobody to name -- so it
+            # never refused one.
+            if "safeguard" not in side.conditions:
+                status = "tox" if side.conditions["toxicspikes"] >= 2 else "psn"
+                mutate.set_status(ctx, ref, status)
 
     if "stickyweb" in side.conditions:
         mutate.boost(ctx, ref, {"spe": -1})

@@ -356,6 +356,12 @@ def _announce_arrival(ctx: Context, player: int, position: int) -> None:
     ctx.emit(
         ev.switch_in(player, slot, ctx.state.species_id(*ref), side.hp[slot], pokemon.max_hp)
     )
+    # "the healing happens before hazards take effect" -- it was being spent in
+    # ``_greet_field``, which runs after this, so a Healing Wish sent its
+    # replacement into the Stealth Rock first and healed whatever was left.
+    from pkcm.engine.tactics import _healing_wish_on_entry
+
+    _healing_wish_on_entry(ctx, ref)
     apply_entry_hazards(ctx, ref)
 
 
@@ -367,8 +373,10 @@ def _greet_field(ctx: Context, player: int, position: int) -> None:
         return
     ref: Ref = (player, slot)
 
-    from pkcm.engine.tactics import _healing_wish_on_entry
+    from pkcm.engine.tactics import (_gastro_acid_may_not_follow,
+                                     _healing_wish_on_entry)
 
+    _gastro_acid_may_not_follow(ctx, ref)
     _healing_wish_on_entry(ctx, ref)
     fx.notify(ctx, "switch_in", ref)
 

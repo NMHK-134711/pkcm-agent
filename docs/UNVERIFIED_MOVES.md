@@ -1,27 +1,18 @@
 # 효과가 있는데, 그 문장을 직접 재보지는 않은 기술
 
-`python scripts/coverage_audit.py`가 만듭니다. 포맷의 기술 497개 중 설명이 없거나 "No additional effect."뿐인 것 29개를 빼면 **468개**가 효과 문장을 갖고, 그 중 **188개**는 모든 효과 문장마다 그 문장을 읽고 쓴 probe가 붙어 있습니다.
+`python scripts/coverage_audit.py`가 만듭니다. 포맷의 기술 497개 중 설명이 없거나 "No additional effect."뿐인 것 29개를 빼면 **468개**가 효과 문장을 갖고, 그 중 **247개**는 모든 효과 문장마다 그 문장을 읽고 쓴 probe가 붙어 있습니다.
 
-아래 **280개**가 나머지입니다. `clause_check`가 그 문장을 다른 검사에 *위임*했고, "그 검사가 이 문장을 덮는다"는 건 제 판단이지 측정이 아닙니다. 전부 초록이지만, 초록의 근거가 문장이 아니라 제 짐작입니다.
+아래 **221개**가 나머지입니다. `clause_check`가 그 문장을 다른 검사에 *위임*했고, "그 검사가 이 문장을 덮는다"는 건 제 판단이지 측정이 아닙니다. 전부 초록이지만, 초록의 근거가 문장이 아니라 제 짐작입니다.
 
 드래곤옐이 정확히 이 자리에 있었습니다: 문장은 급소율을 말하는데 위임된 검사는 능력치 랭크를 재고 있었고, 잴 것이 없으니 조용히 통과시켰습니다.
 
 (테라스탈·블루오브·하늘가르기처럼 이 포맷에 없는 기전만 언급하는 문장은 도달 불가로 기록되어 있고, 여기서는 세지 않았습니다.)
 
-## A등급 -- 2개
-
-위임된 검사가 '싱글에서 아군이 없어 실패한다'만 확인합니다. 기술이 무엇을 하는지는 아무도 재지 않았습니다 -- 드래곤옐이 여기 있었습니다.
-
-- **아로마미스트** (Aromatic Mist, `aromaticmist`, Status)
-  - Raises the target's Special Defense by 1 stage.
-- **코칭** (Coaching, `coaching`, Status)
-  - Raises the target's Attack and Defense by 1 stage.
-
-## B등급 -- 87개
+## B등급 -- 77개
 
 그 기술 전용 수기 검사가 있습니다. 다만 그 검사가 아래 문장을 덮는다는 것은 확인된 적이 없습니다.
 
-### 설명이 기술 그 자체 (mechanic_check의 수기 검사에 통째로 위임) -- 53개
+### 설명이 기술 그 자체 (mechanic_check의 수기 검사에 통째로 위임) -- 58개
 
 - **아쿠아링** (Aqua Ring, `aquaring`, Status)
   - The user has 1/16 of its maximum HP, rounded down, restored at the end of each turn while it remains active.
@@ -43,6 +34,9 @@
   - The user uses the last move used by any Pokemon, including itself.
 - **부식가스** (Corrosive Gas, `corrosivegas`, Status)
   - This move cannot cause Pokemon with the Sticky Hold Ability to lose their held item or cause a Kyogre, Groudon, Dialga, Palkia, Giratina, Arceus, Genesect, Silvally, Zacian, Zamazenta, Paradox Pokemon, or Ogerpon to lose their Blue Orb, Red Orb, Adamant Crystal, Lustrous Globe, Griseous Core, Plate, Drive, Memory, Rusted Sword, Rusted Shield, Booster Energy, or Mask, respectively.
+- **안개제거** (Defog, `defog`, Status)
+  - If this move is successful and whether or not the target's evasiveness was affected, the effects of Reflect, Light Screen, Aurora Veil, Safeguard, Mist, Spikes, Toxic Spikes, Stealth Rock, and Sticky Web end for the target's side, and the effects of Spikes, Toxic Spikes, Stealth Rock, and Sticky Web end for the user's side.
+  - Ignores a target's substitute, although a substitute will still block the lowering of evasiveness.
 - **길동무** (Destiny Bond, `destinybond`, Status)
   - Until the user's next move, if an opposing Pokemon's attack knocks the user out, that Pokemon faints as well, unless the attack was Doom Desire or Future Sight.
 - **드래곤테일** (Dragon Tail, `dragontail`, Physical)
@@ -78,8 +72,12 @@
   - Fails if the target is an Arceus or a Silvally, if the target is already purely Psychic type, or if the target is Terastallized.
 - **매직룸** (Magic Room, `magicroom`, Status)
   - An item's effect of causing forme changes is unaffected, but any other effects from such items are negated.
+- **작아지기** (Minimize, `minimize`, Status)
+  - Whether or not the user's evasiveness was changed, Body Slam, Dragon Rush, Flying Press, Heat Crash, Heavy Slam, Malicious Moonsault, Steamroller, Stomp, and Supercell Slam will not check accuracy and have their damage doubled if used against the user while it is active.
 - **아픔나누기** (Pain Split, `painsplit`, Status)
   - The user and the target's HP become the average of their current HP, rounded down, but not more than the maximum HP of either one.
+- **막말내뱉기** (Parting Shot, `partingshot`, Status)
+  - The user does not switch out if the target's Attack and Special Attack stat stages were both unchanged, or if there are no unfainted party members.
 - **보복** (Payback, `payback`, Physical)
   - Switching in does not count as an action.
 - **쪼아대기** (Pluck, `pluck`, Physical)
@@ -124,6 +122,11 @@
   - The user is protected from most attacks made by other Pokemon during this turn, and Pokemon making contact with the user lose 1/8 of their maximum HP, rounded down.
 - **토해내기** (Spit Up, `spitup`, Special)
   - Whether or not this move is successful, the user's Defense and Special Defense decrease by as many stages as Stockpile had increased them, and the user's Stockpile count resets to 0.
+- **비축하기** (Stockpile, `stockpile`, Status)
+  - The user's Stockpile count increases by 1.
+  - The user's Stockpile count is reset to 0 when it is no longer active.
+- **힘흡수** (Strength Sap, `strengthsap`, Status)
+  - The user restores its HP equal to the target's Attack stat calculated with its stat stage before this move was used.
 - **볼가득넣기** (Stuff Cheeks, `stuffcheeks`, Status)
   - This move cannot be selected unless the user is holding a Berry.
   - The user eats its Berry and raises its Defense by 2 stages.
@@ -148,50 +151,6 @@
   - This move targets an opponent at random on each turn.
 - **날려버리기** (Whirlwind, `whirlwind`, Status)
   - The target is forced to switch out and be replaced with a random unfainted ally.
-
-### 선언된 랭크 변화 (boosts 필드) -- 10개
-
-- **경혈찌르기** (Acupressure, `acupressure`, Status)
-  - Raises a random stat by 2 stages as long as the stat is not already at stage 6.
-- **배북** (Belly Drum, `bellydrum`, Status)
-  - Raises the user's Attack by 12 stages in exchange for the user losing 1/2 of its maximum HP, rounded down.
-- **명상** (Calm Mind, `calmmind`, Status)
-  - Raises the user's Special Attack and Special Defense by 1 stage.
-- **용의춤** (Dragon Dance, `dragondance`, Status)
-  - Raises the user's Attack and Speed by 1 stage.
-- **마지막일침** (Fell Stinger, `fellstinger`, Physical)
-  - Raises the user's Attack by 3 stages if this move knocks out the target.
-- **철벽** (Iron Defense, `irondefense`, Status)
-  - Raises the user's Defense by 2 stages.
-- **자기장조작** (Magnetic Flux, `magneticflux`, Status)
-  - Raises the Defense and Special Defense of Pokemon on the user's side with the Plus or Minus Abilities by 1 stage.
-- **배수의진** (No Retreat, `noretreat`, Status)
-  - Raises the user's Attack, Defense, Special Attack, Special Defense, and Speed by 1 stage, but it becomes prevented from switching out.
-- **껍질깨기** (Shell Smash, `shellsmash`, Status)
-  - Lowers the user's Defense and Special Defense by 1 stage.
-  - Raises the user's Attack, Special Attack, and Speed by 2 stages.
-- **정리정돈** (Tidy Up, `tidyup`, Status)
-  - Raises the user's Attack and Speed by 1 stage.
-
-### 선언된 랭크 변화 (boosts 필드), 설명이 기술 그 자체 (mechanic_check의 수기 검사에 통째로 위임) -- 5개
-
-- **안개제거** (Defog, `defog`, Status)
-  - Lowers the target's evasiveness by 1 stage.
-  - If this move is successful and whether or not the target's evasiveness was affected, the effects of Reflect, Light Screen, Aurora Veil, Safeguard, Mist, Spikes, Toxic Spikes, Stealth Rock, and Sticky Web end for the target's side, and the effects of Spikes, Toxic Spikes, Stealth Rock, and Sticky Web end for the user's side.
-  - Ignores a target's substitute, although a substitute will still block the lowering of evasiveness.
-- **작아지기** (Minimize, `minimize`, Status)
-  - Raises the user's evasiveness by 2 stages.
-  - Whether or not the user's evasiveness was changed, Body Slam, Dragon Rush, Flying Press, Heat Crash, Heavy Slam, Malicious Moonsault, Steamroller, Stomp, and Supercell Slam will not check accuracy and have their damage doubled if used against the user while it is active.
-- **막말내뱉기** (Parting Shot, `partingshot`, Status)
-  - Lowers the target's Attack and Special Attack by 1 stage.
-  - The user does not switch out if the target's Attack and Special Attack stat stages were both unchanged, or if there are no unfainted party members.
-- **비축하기** (Stockpile, `stockpile`, Status)
-  - Raises the user's Defense and Special Defense by 1 stage.
-  - The user's Stockpile count increases by 1.
-  - The user's Stockpile count is reset to 0 when it is no longer active.
-- **힘흡수** (Strength Sap, `strengthsap`, Status)
-  - Lowers the target's Attack by 1 stage.
-  - The user restores its HP equal to the target's Attack stat calculated with its stat stage before this move was used.
 
 ### 추가효과 확률 (데이터의 secondary 필드) -- 5개
 
@@ -265,7 +224,7 @@
   - Power doubles if a weather condition other than Delta Stream is active, and this move's type changes to match.
   - If the user is holding Utility Umbrella and uses Weather Ball during Primordial Sea, Rain Dance, Desolate Land, or Sunny Day, this move remains Normal type and does not double in power.
 
-## C등급 -- 191개
+## C등급 -- 144개
 
 기술 데이터의 필드(secondary/boosts/status)가 실제 배틀에 나타나는지 자동 검사합니다. 문장이 필드보다 더 말하는 부분은 측정되지 않습니다.
 
@@ -484,107 +443,16 @@
 - **사념의박치기** (Zen Headbutt, `zenheadbutt`, Physical)
   - Has a 20% chance to make the target flinch.
 
-### 선언된 랭크 변화 (boosts 필드) -- 46개
+### 설명이 기술 그 자체 (mechanic_check의 수기 검사에 통째로 위임) -- 14개
 
-- **녹기** (Acid Armor, `acidarmor`, Status)
-  - Raises the user's Defense by 2 stages.
-- **고속이동** (Agility, `agility`, Status)
-  - Raises the user's Speed by 2 stages.
-- **망각술** (Amnesia, `amnesia`, Status)
-  - Raises the user's Special Defense by 2 stages.
-- **아머캐논** (Armor Cannon, `armorcannon`, Special)
-  - Lowers the user's Defense and Special Defense by 1 stage.
-- **초롱초롱눈동자** (Baby-Doll Eyes, `babydolleyes`, Status)
-  - Lowers the target's Attack by 1 stage.
-- **벌크업** (Bulk Up, `bulkup`, Status)
-  - Raises the user's Attack and Defense by 1 stage.
-- **애교부리기** (Charm, `charm`, Status)
-  - Lowers the target's Attack by 2 stages.
-- **스케일노이즈** (Clanging Scales, `clangingscales`, Special)
-  - Lowers the user's Defense by 1 stage.
-- **인파이트** (Close Combat, `closecombat`, Physical)
-  - Lowers the user's Defense and Special Defense by 1 stage.
-- **똬리틀기** (Coil, `coil`, Status)
-  - Raises the user's Attack, Defense, and accuracy by 1 stage.
-- **코스믹파워** (Cosmic Power, `cosmicpower`, Status)
-  - Raises the user's Defense and Special Defense by 1 stage.
-- **코튼가드** (Cotton Guard, `cottonguard`, Status)
-  - Raises the user's Defense by 3 stages.
-- **목화포자** (Cotton Spore, `cottonspore`, Status)
-  - Lowers the target's Speed by 2 stages.
-- **데코레이션** (Decorate, `decorate`, Status)
-  - Raises the target's Attack and Special Attack by 2 stages.
-- **그림자분신** (Double Team, `doubleteam`, Status)
-  - Raises the user's evasiveness by 1 stage.
-- **용성군** (Draco Meteor, `dracometeor`, Special)
-  - Lowers the user's Special Attack by 2 stages.
-- **괴전파** (Eerie Impulse, `eerieimpulse`, Status)
-  - Lowers the target's Special Attack by 2 stages.
-- **거짓울음** (Fake Tears, `faketears`, Status)
-  - Lowers the target's Special Defense by 2 stages.
-- **깃털댄스** (Feather Dance, `featherdance`, Status)
-  - Lowers the target's Attack by 2 stages.
-- **부추기기** (Flatter, `flatter`, Status)
-  - Raises the target's Special Attack by 1 stage and confuses it.
-- **암해머** (Hammer Arm, `hammerarm`, Physical)
-  - Lowers the user's Speed by 1 stage.
-- **들이받기** (Headlong Rush, `headlongrush`, Physical)
-  - Lowers the user's Defense and Special Defense by 1 stage.
-- **멀리짖기** (Howl, `howl`, Status)
-  - Raises the Attack of the user and all allies 1 stage.
-- **아이스해머** (Ice Hammer, `icehammer`, Physical)
-  - Lowers the user's Speed by 1 stage.
-- **리프스톰** (Leaf Storm, `leafstorm`, Special)
-  - Lowers the user's Special Attack by 2 stages.
-- **골드러시** (Make It Rain, `makeitrain`, Special)
-  - Lowers the user's Special Attack by 1 stage.
-- **금속음** (Metal Sound, `metalsound`, Status)
-  - Lowers the target's Special Defense by 2 stages.
-- **메테오빔** (Meteor Beam, `meteorbeam`, Special)
-  - Raises the user's Special Attack by 1 stage on the first turn.
-- **나쁜음모** (Nasty Plot, `nastyplot`, Status)
-  - Raises the user's Special Attack by 2 stages.
-- **부르짖기** (Noble Roar, `nobleroar`, Status)
-  - Lowers the target's Attack and Special Attack by 1 stage.
-- **오버히트** (Overheat, `overheat`, Special)
-  - Lowers the user's Special Attack by 2 stages.
-- **나비춤** (Quiver Dance, `quiverdance`, Status)
-  - Raises the user's Special Attack, Special Defense, and Speed by 1 stage.
-- **록커트** (Rock Polish, `rockpolish`, Status)
-  - Raises the user's Speed by 2 stages.
-- **스케일샷** (Scale Shot, `scaleshot`, Physical)
-  - Lowers the user's Defense by 1 stage and raises the user's Speed by 1 stage after the last hit.
-- **겁나는얼굴** (Scary Face, `scaryface`, Status)
-  - Lowers the target's Speed by 2 stages.
-- **싫은소리** (Screech, `screech`, Status)
-  - Lowers the target's Defense by 2 stages.
-- **농성** (Shelter, `shelter`, Status)
-  - Raises the user's Defense by 2 stages.
-- **하바네로엑기스** (Spicy Extract, `spicyextract`, Status)
-  - Raises the target's Attack by 2 stages and lowers its Defense by 2 stages.
-- **실뿜기** (String Shot, `stringshot`, Status)
-  - Lowers the target's Speed by 2 stages.
-- **엄청난힘** (Superpower, `superpower`, Physical)
-  - Lowers the user's Attack and Defense by 1 stage.
-- **뽐내기** (Swagger, `swagger`, Status)
-  - Raises the target's Attack by 2 stages and confuses it.
-- **달콤한향기** (Sweet Scent, `sweetscent`, Status)
-  - Lowers the target's evasiveness by 2 stages.
-- **칼춤** (Swords Dance, `swordsdance`, Status)
-  - Raises the user's Attack by 2 stages.
-- **눈물그렁그렁** (Tearful Look, `tearfullook`, Status)
-  - Lowers the target's Attack and Special Attack by 1 stage.
-- **간지르기** (Tickle, `tickle`, Status)
-  - Lowers the target's Attack and Defense by 1 stage.
-- **독실** (Toxic Thread, `toxicthread`, Status)
-  - Lowers the target's Speed by 1 stage and poisons it.
-
-### 설명이 기술 그 자체 (mechanic_check의 수기 검사에 통째로 위임) -- 10개
-
+- **충전** (Charge, `charge`, Status)
+  - The user's next Electric-type attack will have its power doubled; the effect ends when the user is no longer active, or after the user attempts to use any Electric-type move besides Charge, even if it is not successful.
 - **썰렁개그** (Chilly Reception, `chillyreception`, Status)
   - The user switches out even if it is trapped and is replaced immediately by a selected party member.
 - **배대뒤치기** (Circle Throw, `circlethrow`, Physical)
   - This effect fails if the target is under the effect of Ingrain, has the Suction Cups Ability, or this move hit a substitute.
+- **일렉트로빔** (Electro Shot, `electroshot`, Special)
+  - If the user is holding Utility Umbrella and the weather is Primordial Sea or Rain Dance, the move still requires a turn to charge.
 - **플라잉프레스** (Flying Press, `flyingpress`, Physical)
   - This move combines Flying in its type effectiveness against the target.
 - **힘껏펀치** (Focus Punch, `focuspunch`, Physical)
@@ -594,10 +462,14 @@
 - **미래예지** (Future Sight, `futuresight`, Special)
   - If the user is no longer active at the time, damage is calculated based on the user's natural Special Attack stat, types, and level, with no boosts from its held item or Ability.
   - Fails if this move or Doom Desire is already in effect for the target's position.
+- **성장** (Growth, `growth`, Status)
+  - If the user is holding Utility Umbrella, this move will only raise the user's Attack and Special Attack by 1 stage, even if the weather is Sunny Day or Desolate Land.
 - **뿌리박기** (Ingrain, `ingrain`, Status)
   - The user has 1/16 of its maximum HP restored at the end of each turn, but it is prevented from switching out and other Pokemon cannot force the user to switch out.
 - **비장의무기** (Last Resort, `lastresort`, Physical)
   - This move fails unless the user knows this move and at least one other move, and has used all the other moves it knows at least once each since it became active or Transformed.
+- **추억의선물** (Memento, `memento`, Status)
+  - The user faints unless this move misses or there is no target.
 - **철제광선** (Steel Beam, `steelbeam`, Special)
   - Whether or not this move is successful and even if it would cause fainting, the user loses 1/2 of its maximum HP, rounded up, unless the user has the Magic Guard Ability.
 - **발버둥** (Struggle, `struggle`, Physical)
@@ -642,24 +514,6 @@
   - For 5 turns, the weather becomes Sandstorm.
 - **쾌청** (Sunny Day, `sunnyday`, Status)
   - For 5 turns, the weather becomes Sunny Day.
-
-### 선언된 랭크 변화 (boosts 필드), 설명이 기술 그 자체 (mechanic_check의 수기 검사에 통째로 위임) -- 5개
-
-- **충전** (Charge, `charge`, Status)
-  - Raises the user's Special Defense by 1 stage.
-  - The user's next Electric-type attack will have its power doubled; the effect ends when the user is no longer active, or after the user attempts to use any Electric-type move besides Charge, even if it is not successful.
-- **소울비트** (Clangorous Soul, `clangoroussoul`, Status)
-  - Raises the user's Attack, Defense, Special Attack, Special Defense, and Speed by 1 stage in exchange for the user losing 33% of its maximum HP, rounded down.
-  - Fails if the user would faint or if its Attack, Defense, Special Attack, Special Defense, and Speed stat stages would not change.
-- **일렉트로빔** (Electro Shot, `electroshot`, Special)
-  - Raises the user's Special Attack by 1 stage on the first turn.
-  - If the user is holding Utility Umbrella and the weather is Primordial Sea or Rain Dance, the move still requires a turn to charge.
-- **성장** (Growth, `growth`, Status)
-  - Raises the user's Attack and Special Attack by 1 stage.
-  - If the user is holding Utility Umbrella, this move will only raise the user's Attack and Special Attack by 1 stage, even if the weather is Sunny Day or Desolate Land.
-- **추억의선물** (Memento, `memento`, Status)
-  - Lowers the target's Attack and Special Attack by 2 stages.
-  - The user faints unless this move misses or there is no target.
 
 ### 벽 파괴 -- 2개
 

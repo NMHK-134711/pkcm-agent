@@ -368,6 +368,15 @@ def random_sp(cursor: RngCursor) -> StatTuple:
     return tuple(spread)  # type: ignore[return-value]
 
 
+#: Legal, implemented, and not worth one of the four slots -- hk, on Aromatic
+#: Mist: nobody plays it. This is a judgement about the format, not about the
+#: engine, which is why it is here and not in ``scope``: the move still runs
+#: faithfully when an opponent brings it, and ``team_errors`` still accepts a
+#: registered party that has it. Only the generator and the mutation operators
+#: are kept from spending a slot on it.
+NOT_WORTH_A_SLOT = frozenset({"aromaticmist"})
+
+
 def usable_moves(
     dex: Dex,
     species_id: str,
@@ -383,7 +392,7 @@ def usable_moves(
     key = (species_id, options)
     pool = cache.get(key)
     if pool is None:
-        pool = sorted(learnable_moves(dex, species_id))
+        pool = sorted(learnable_moves(dex, species_id) - NOT_WORTH_A_SLOT)
         if options.only_supported_moves:
             pool = [move_id for move_id in pool if is_supported(dex.moves[move_id])]
         if options.require_damaging_move and not any(dex.moves[m].base_power > 0 for m in pool):

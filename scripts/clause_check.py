@@ -3256,6 +3256,13 @@ def _refusal_cases():
                lambda f: f.state.sides[0].boosts[f.state.sides[0].active[0]]
                .__setitem__(mc.BOOST_INDEX["atk"], 6), True)
         yield ("bellydrum", "room to raise it", lambda f: None, False)
+        yield ("clangoroussoul", "a third of its HP already gone",
+               lambda f: hurt(f, 4), True)
+        yield ("clangoroussoul", "full health", lambda f: None, False)
+        yield ("clangoroussoul", "all five stages already at six",
+               lambda f: f.state.sides[0].boosts.__setitem__(
+                   f.state.sides[0].active[0],
+                   [6, 6, 6, 6, 6, 0, 0]), True)
         yield ("topsyturvy", "every stage at zero", lambda f: None, True)
         yield ("topsyturvy", "a stage to turn over",
                lambda f: f.state.sides[1].boosts[f.state.sides[1].active[0]]
@@ -3299,6 +3306,8 @@ def _refusal_cases():
         "Fails if the user has full HP, is already asleep, or if another "
         "effect is preventing sleep.",
         "Fails if the user would faint or if its Attack stat stage is 6.",
+        "Fails if the user would faint or if its Attack, Defense, Special "
+        "Attack, Special Defense, and Speed stat stages would not change.",
         "Fails if all of the target's stat stages are 0.",
         "Fails if there is no target or if the target is already affected.",
         "Fails if there is no terrain active.",
@@ -5637,6 +5646,251 @@ def _what_recycle_can_get_back():
             got = f.item(1)
         rows.append((move_id, (got == "leftovers") if thrower else (got is None),
                      f"afterwards the hand holds {got!r}"))
+    return verdict(rows)
+
+
+# --------------------------------------------------------------------------- #
+# Stat stages, taken from the sentence instead of from the data field
+# --------------------------------------------------------------------------- #
+#
+# ``declaredboosts`` further up checks these same clauses by re-running the
+# move's ``mechanic_check`` entry, and that entry compares the battle against
+# the move's ``boosts`` field: it is a check of the engine against the data.
+# This one reads the English -- which stat, whose, how many stages -- and
+# checks the engine against *that*. Dragon Cheer is why the difference
+# matters: its sentence said "critical hit" where its field said nothing, so
+# there was nothing to compare and the comparison passed.
+
+_STAT_WORDS = (("Special Attack", "spa"), ("Special Defense", "spd"),
+               ("Attack", "atk"), ("Defense", "def"), ("Speed", "spe"),
+               ("accuracy", "accuracy"), ("evasiveness", "evasion"))
+
+_STAGE_CLAUSE = re.compile(
+    r"(?i)\b(raises|lowers) (?:the (user|target)'s|its) "
+    r"([A-Za-z, ]+?) by (\d+) stages?")
+
+_HP_COST = re.compile(r"(?i)in exchange for the user losing "
+                      r"(?:(\d+)/(\d+)|(\d+)%) of its maximum HP")
+
+
+def _named_stats(phrase):
+    """The stats a phrase names, and the words it had left over.
+
+    Left-over words are the point: "Attack, Defense, and accuracy" must come
+    out as three stats and nothing else, and a phrase this does not fully
+    understand has to fail loudly rather than check two thirds of a sentence.
+    """
+    found, rest = [], phrase
+    for word, key in _STAT_WORDS:
+        if re.search(word, rest, flags=re.I):
+            found.append(key)
+            rest = re.sub(word, " ", rest, flags=re.I)
+    leftover = [one for one in rest.replace(",", " ").split()
+                if one.lower() != "and"]
+    return found, leftover
+
+
+def _stages_stated(sentence):
+    """``{"user": {stat: stages}, "target": {...}}`` as the sentence says."""
+    want = {"user": {}, "target": {}}
+    subject = None
+    for verb, who, phrase, count in _STAGE_CLAUSE.findall(sentence):
+        stats, leftover = _named_stats(phrase)
+        if not stats or leftover:
+            return None
+        subject = who.lower() or subject
+        if subject is None:
+            return None
+        sign = 1 if verb.lower() == "raises" else -1
+        for stat in stats:
+            # Belly Drum says twelve because twelve is the distance from the
+            # bottom of the scale; the scale still stops at six.
+            want[subject][stat] = max(-6, min(6, sign * int(count)))
+    return want if (want["user"] or want["target"]) else None
+
+
+def _use_once(move_id, must_land=True, ours=None, theirs=None):
+    """One turn in which the move actually happened, or ``None``."""
+    move = DEX.moves[move_id]
+    other = theirs or [wall() if move.category == "Status"
+                       else wall(mc._reachable(move))]
+
+    def build(seed):
+        f = Fight(ours or [swinger(move_id)], other, seed=seed)
+        f.turn(Action.move(0), Action.move(0))
+        return f
+
+    def worked(f):
+        if failed(f, 0):
+            return False
+        return not must_land or landed(f, move_id)
+
+    return until(build, worked)
+
+
+def _plain_stages(move_id, sentence):
+    want = _stages_stated(sentence)
+    if want is None:
+        return (move_id, False, f"this probe could not read the sentence: "
+                                f"{sentence}")
+    move = DEX.moves[move_id]
+    # A charging move states its stage for the turn it charges, so the turn it
+    # charges is the turn to look at -- there is no hit to wait for.
+    must_land = move.category != "Status" and "on the first turn" not in sentence
+    f = _use_once(move_id, must_land=must_land)
+    if f is None:
+        return (move_id, False, "the move never happened in thirty tries")
+
+    got = {"user": f.boosts(0), "target": f.boosts(1)}
+    problems = []
+    for who, stages in want.items():
+        for stat, count in stages.items():
+            if got[who].get(stat, 0) != count:
+                problems.append(f"the {who}'s {stat} is "
+                                f"{got[who].get(stat, 0)}, not {count}")
+    if "becomes prevented from switching out" in sentence:
+        from pkcm.engine.state import legal_actions
+
+        if any(str(one).startswith("switch") for one in legal_actions(f.state, 0)):
+            problems.append("it may still switch out afterwards")
+    if "poisons it" in sentence and f.status(1) not in ("psn", "tox"):
+        problems.append(f"the target's status is {f.status(1)}, not poison")
+    if "confuses it" in sentence and "confusion" not in f.volatiles(1):
+        problems.append("the target was not confused")
+    cost = _HP_COST.search(sentence)
+    if cost:
+        top = f.max_hp(0)
+        share = (int(cost.group(3)) / 100 if cost.group(3)
+                 else int(cost.group(1)) / int(cost.group(2)))
+        paid, owed = top - f.hp(0), int(top * share)
+        if paid != owed:
+            problems.append(f"it paid {paid} of {top} for it, not {owed}")
+    return (move_id, not problems,
+            "; ".join(problems) or f"user {got['user'] or 'unmoved'}, "
+                                   f"target {got['target'] or 'unmoved'}")
+
+
+def _acupressure_stages(move_id, sentence):
+    """"A random stat by 2 stages as long as the stat is not already at 6."
+
+    Seven stats are in the hat in this generation -- the five plus accuracy
+    and evasiveness -- so the spread over sixty casts is part of the sentence,
+    not decoration.
+    """
+    problems, seen = [], {}
+    for seed in range(60):
+        f = Fight([swinger(move_id)], [wall()], seed=seed)
+        f.turn(Action.move(0), Action.move(0))
+        got = f.boosts(0)
+        if len(got) != 1 or set(got.values()) != {2}:
+            problems.append(f"one cast left {got or 'nothing'}")
+            break
+        seen[next(iter(got))] = seen.get(next(iter(got)), 0) + 1
+    if not problems and len(seen) != len(mc.BOOST_INDEX):
+        problems.append(f"only {sorted(seen)} ever came up in sixty casts")
+
+    f = Fight([swinger(move_id)], [wall()], seed=1)
+    side = f.state.sides[0]
+    side.boosts[side.active[0]] = [6] * len(side.boosts[side.active[0]])
+    f.turn(Action.move(0), Action.move(0))
+    if not failed(f, 0):
+        problems.append("with every stat already at 6 it did not fail")
+    return (move_id, not problems,
+            "; ".join(problems) or f"two stages a time over {sorted(seen)}, "
+                                   f"and nothing left to raise makes it fail")
+
+
+def _side_pair(user, ability, move_id, partner="snorlax",
+               partner_ability="__none__"):
+    return [mon(user, ability, (move_id, "splash", "protect", "rest"),
+                None, "serious", (32, 0, 32, 0, 2, 32)),
+            mon(partner, partner_ability,
+                ("splash", "bodyslam", "protect", "rest"), None, "serious",
+                (32, 0, 32, 0, 2, 0))]
+
+
+def _howl_stages(move_id, sentence):
+    """"The Attack of the user and all allies" -- so it needs an ally."""
+    f = Pair(_side_pair(UNIVERSAL, "__none__", move_id), [wall()] * 2, seed=5)
+    f.turn((Action.move(0), Action.move(0)), (Action.move(0), Action.move(0)))
+    mine, ally = f.boosts(0, 0), f.boosts(0, 1)
+    return (move_id, mine.get("atk") == 1 and ally.get("atk") == 1,
+            f"the user {mine or 'unmoved'}, the ally {ally or 'unmoved'}")
+
+
+def _magnetic_flux_stages(move_id, sentence):
+    """Only the ones with Plus or Minus, which is the whole sentence."""
+    holder = next((one for one in ("ampharos", "klinklang", "manectric",
+                                   "dedenne", "plusle", "minun")
+                   if one in DEX.species), None)
+    if holder is None:
+        return (move_id, False, "no Plus or Minus species in the dex")
+    f = Pair(_side_pair(holder, "plus", move_id), [wall()] * 2, seed=5)
+    f.turn((Action.move(0), Action.move(0)), (Action.move(0), Action.move(0)))
+    mine, ally = f.boosts(0, 0), f.boosts(0, 1)
+    ok = (mine.get("def") == 1 and mine.get("spd") == 1 and not ally)
+    return (move_id, ok, f"the Plus holder {mine or 'unmoved'}, the ally "
+                         f"without it {ally or 'unmoved'}")
+
+
+def _fell_stinger_stages(move_id, sentence):
+    """Three stages *if this move knocks out the target*, and not otherwise."""
+    problems = []
+    killed = Fight([swinger(move_id)], [wall()], seed=4)
+    side = killed.state.sides[1]
+    side.hp[side.active[0]] = 1
+    killed.turn(Action.move(0), Action.move(0))
+    if killed.boosts(0).get("atk") != 3:
+        problems.append(f"after a knockout the user is {killed.boosts(0)}")
+
+    survived = _use_once(move_id)
+    if survived is None:
+        problems.append("it never connected on a healthy target")
+    elif survived.boosts(0).get("atk"):
+        problems.append(f"without a knockout it still got "
+                        f"{survived.boosts(0)}")
+    return (move_id, not problems,
+            "; ".join(problems) or "three stages on the knockout, none without")
+
+
+def _ally_stages(move_id, sentence):
+    """Coaching and Aromatic Mist boost the ally, and only the ally."""
+    want = (_stages_stated(sentence) or {}).get("target")
+    if not want:
+        return (move_id, False, f"this probe could not read: {sentence}")
+    f = Pair(_side_pair(UNIVERSAL, "__none__", move_id), [wall()] * 2, seed=3)
+    f.turn((Action.move(0, target=TARGET_ALLY), Action.move(0)),
+           (Action.move(0), Action.move(0)))
+    ally, mine = f.boosts(0, 1), f.boosts(0, 0)
+    problems = [f"the ally's {stat} is {ally.get(stat, 0)}, not {count}"
+                for stat, count in want.items() if ally.get(stat, 0) != count]
+    if mine:
+        problems.append(f"the user took {mine} as well")
+    return (move_id, not problems,
+            "; ".join(problems) or f"the ally {ally}, the user untouched")
+
+
+#: Sentences whose stages cannot be read off one singles turn.
+STAGE_PROBES = {"acupressure": _acupressure_stages,
+                "howl": _howl_stages,
+                "magneticflux": _magnetic_flux_stages,
+                "fellstinger": _fell_stinger_stages,
+                "coaching": _ally_stages,
+                "aromaticmist": _ally_stages}
+
+
+@family("statedstages", "Lowers the ", "Raises the ", "Raises a ")
+def _stated_stages():
+    rows = []
+    mine = set(FAMILIES["statedstages"]["clauses"])
+    for move_id in members("statedstages"):
+        for sentence in sentences(DEX.moves[move_id]):
+            if sentence not in mine:
+                continue
+            if "chance for a critical hit" in sentence:
+                continue          # a crit stage is not a stat stage: critstages
+            probe = STAGE_PROBES.get(move_id, _plain_stages)
+            rows.append(probe(move_id, sentence))
     return verdict(rows)
 
 

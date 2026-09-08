@@ -1877,6 +1877,7 @@ def _hit_count(ctx: Context, move) -> int:
 
 
 def _apply_status_move(ctx: Context, attacker: Ref, target: Ref, move) -> bool:
+    from pkcm.engine import moveeffects
     from pkcm.engine.moveeffects import SPECIAL_MOVES
 
     raw = move.raw
@@ -1911,7 +1912,10 @@ def _apply_status_move(ctx: Context, attacker: Ref, target: Ref, move) -> bool:
         _after_effects(ctx, attacker, target, move, landed=True)
         return True
 
-    if "boosts" in raw and raw["boosts"]:
+    # ``OWNS_ITS_BOOSTS``: the handler above already applied them, because in
+    # that move the stages are not free and the price is in the description
+    # only. Running this as well would hand out a second set.
+    if raw.get("boosts") and move.id not in moveeffects.OWNS_ITS_BOOSTS:
         did_something |= bool(mutate.boost(ctx, target, raw["boosts"], source=attacker))
 
     if raw.get("status"):

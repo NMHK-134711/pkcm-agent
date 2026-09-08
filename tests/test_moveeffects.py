@@ -155,6 +155,29 @@ def test_belly_drum_fails_below_half(dex, config):
     assert any(e.kind == "move_failed" for e in ctx.log)
 
 
+def test_clangorous_soul_pays_a_third_for_its_five_stages(dex, config):
+    """The price is in the description and not in the data, so the
+    declarative path was handing out all five for nothing."""
+    state = build(config, a_set("kommoo", "soundproof", ("clangoroussoul",)),
+                  a_set("pikachu"))
+    full = state.pokemon(0, 0).max_hp
+    ctx = make_context(state)
+    cast(ctx, dex, "clangoroussoul")
+    assert [state.sides[0].boost(0, one)
+            for one in ("atk", "def", "spa", "spd", "spe")] == [1] * 5
+    assert state.sides[0].hp[0] == full - full * 33 // 100
+
+
+def test_clangorous_soul_fails_when_it_cannot_pay(dex, config):
+    state = build(config, a_set("kommoo", "soundproof", ("clangoroussoul",)),
+                  a_set("pikachu"))
+    state.sides[0].hp[0] = state.pokemon(0, 0).max_hp // 4
+    ctx = make_context(state)
+    cast(ctx, dex, "clangoroussoul")
+    assert state.sides[0].boost(0, "atk") == 0
+    assert any(e.kind == "move_failed" for e in ctx.log)
+
+
 def test_psych_up_copies_and_topsy_turvy_inverts(dex, config):
     state = build(config, a_set("alakazam", "synchronize", ("psychup", "topsyturvy")),
                   a_set("snorlax"))

@@ -282,6 +282,28 @@ def test_species_with_nothing_playable_are_skipped(dex, regulation):
     assert "ditto" not in drawn
 
 
+def test_the_generator_does_not_spend_a_slot_on_aromatic_mist(dex, regulation):
+    """hk, on Aromatic Mist: nobody plays it. It is legal and the engine runs
+    it correctly -- the generator simply may not draw it."""
+    from pkcm.engine.legality import (NOT_WORTH_A_SLOT, learnable_moves,
+                                      usable_moves)
+    from pkcm.engine.scope import is_supported
+
+    learners = [one for one in regulation.legal_species
+                if "aromaticmist" in learnable_moves(dex, one)]
+    assert learners, "nothing in the regulation learns it, so this proves nothing"
+    for species in learners:
+        assert "aromaticmist" not in usable_moves(dex, species)
+
+    for move_id in NOT_WORTH_A_SLOT:
+        assert is_supported(dex.moves[move_id]), (
+            f"{move_id} is being kept out of parties for taste, not for "
+            f"capability -- an unsupported move belongs in scope instead")
+
+
+
+
+
 # --------------------------------------------------------------------------- #
 # Teams built out of what people actually brought
 # --------------------------------------------------------------------------- #

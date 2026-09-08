@@ -251,6 +251,36 @@ def _belly_drum(ctx, user, target, move) -> bool:
     return True
 
 
+#: Moves whose ``boosts`` field their own handler applies. The declarative
+#: path in ``moves._apply_status_move`` skips these, because running it too
+#: would hand out a second set of stages.
+OWNS_ITS_BOOSTS = frozenset({"clangoroussoul"})
+
+
+@special("clangoroussoul")
+def _clangorous_soul(ctx, user, target, move) -> bool:
+    """"Raises the user's Attack, Defense, Special Attack, Special Defense,
+    and Speed by 1 stage in exchange for the user losing 33% of its maximum
+    HP, rounded down. Fails if the user would faint or if its ... stat stages
+    would not change."
+
+    The five stages are in the data and the price is not, so the declarative
+    path was handing a Kommo-o +1 across the board for free -- the strongest
+    single line in the move, missing. Belly Drum above is the same shape and
+    was only right because its data carries no ``boosts`` at all.
+    """
+    wanted = dict(move.raw.get("boosts") or {})
+    cost = max_hp(ctx.state, user) * 33 // 100
+    if cost <= 0 or current_hp(ctx.state, user) <= cost:
+        return _fail(ctx, user, "not enough HP")
+    row = ctx.state.sides[user[0]].boosts[user[1]]
+    if all(row[BOOST_INDEX[stat]] >= 6 for stat in wanted):
+        return _fail(ctx, user, "nothing left to raise")
+    mutate.apply_damage(ctx, user, cost, "damage", detail=move.id)
+    boost(ctx, user, wanted, source=user)
+    return True
+
+
 @special("psychup")
 def _psych_up(ctx, user, target, move) -> bool:
     ctx.state.sides[user[0]].boosts[user[1]] = list(

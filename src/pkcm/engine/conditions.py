@@ -87,12 +87,34 @@ def _burn_halves_attack(ctx, ref, value, stat, **kwargs):
     return value // 2
 
 
+def _burn_halves_a_borrowed_swing(ctx, ref, value, attacker, defender, move,
+                                 **_):
+    """The hook above halves the user's Attack, which halves every physical
+    move that swings with it. Body Press swings with its own Defence and Foul
+    Play with the target's Attack, so neither was touched -- and in the game a
+    burn halves the damage of a physical move, not the Attack stat.
+    """
+    from pkcm.engine.moves import IGNORES_THE_BURN
+
+    if ref != attacker or move.category != "Physical":
+        return None
+    if move.id in IGNORES_THE_BURN:
+        return None
+    raw = move.raw
+    if not (raw.get("overrideOffensiveStat")
+            or raw.get("overrideOffensivePokemon")):
+        return None                  # the Attack hook already took care of it
+    return value // 2
+
+
 def _burn_residual(ctx, ref, **_):
     apply_damage(ctx, ref, fraction_of_max(ctx.state, ref, 16), "status_damage", detail="brn")
 
 
 register("status", "brn", name="Burn",
-         modify_stat=_burn_halves_attack, residual=_burn_residual)
+         modify_stat=_burn_halves_attack,
+         modify_damage=_burn_halves_a_borrowed_swing,
+         residual=_burn_residual)
 
 
 def _paralysis_halves_speed(ctx, ref, value, stat, **_):

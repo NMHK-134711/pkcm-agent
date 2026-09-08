@@ -1517,3 +1517,81 @@ def test_wide_guard_is_gone_the_turn_after(dex, config):
                   a_set("snorlax", ("splash",)))
     state, _ = step(state, Action.move(0), Action.move(0))
     assert "wideguard" not in state.sides[0].conditions, "one turn only"
+
+
+def test_flying_press_combines_flying_into_the_chart(dex, config):
+    """"This move combines Flying in its type effectiveness against the
+    target." It was plain Fighting, so a Grass type took half."""
+    from pkcm.engine.moves import type_effectiveness
+
+    state = build(config, a_set("hawlucha", ("flyingpress",)),
+                  a_set("amoonguss", ("tackle",)))
+    ctx = make_context(state)
+    move = dex.moves["flyingpress"]
+    # Fighting is halved by Grass and by Poison; Flying is doubled by Grass.
+    assert type_effectiveness(ctx, RED, BLUE, move) == pytest.approx(1.0)
+
+
+def test_freeze_dry_is_super_effective_on_water(dex, config):
+    """"...no matter what this move's type is" -- and the rest of the target's
+    typing is still looked up as normal, so a Water/Ground takes four."""
+    from pkcm.engine.moves import type_effectiveness
+
+    move = dex.moves["freezedry"]
+    state = build(config, a_set("froslass", ("freezedry",)),
+                  a_set("milotic", ("tackle",)))
+    ctx = make_context(state)
+    assert type_effectiveness(ctx, RED, BLUE, move) == pytest.approx(2.0)
+
+    state = build(config, a_set("froslass", ("freezedry",)),
+                  a_set("quagsire", ("tackle",)))
+    ctx = make_context(state)
+    assert type_effectiveness(ctx, RED, BLUE, move) == pytest.approx(4.0)
+
+
+def test_gyro_ball_is_a_quarter_of_the_ratio_plus_one(dex, config):
+    from pkcm.engine.moves import base_power
+
+    state = build(config, a_set("snorlax", ("gyroball",), nature="brave"),
+                  a_set("weavile", ("tackle",), nature="jolly"))
+    ctx = make_context(state)
+    mine = effective_stat(ctx, RED, Stat.SPE)
+    theirs = effective_stat(ctx, BLUE, Stat.SPE)
+    move = dex.moves["gyroball"]
+    assert base_power(ctx, RED, BLUE, move) == min(150, 25 * theirs // mine + 1)
+
+
+def test_a_burn_halves_a_move_that_swings_with_a_borrowed_stat(dex, config):
+    """Burn halves the damage of a physical move, and the engine did it by
+    halving Attack -- which Body Press and Foul Play never touch."""
+    state = build(config, a_set("snorlax", ("bodypress", "foulplay")),
+                  a_set("blissey", ("tackle",)))
+    ctx = make_context(state)
+    healthy = {}
+    for move_id in ("bodypress", "foulplay"):
+        before = state.sides[1].hp[0]
+        cast(ctx, dex, move_id)
+        healthy[move_id] = before - state.sides[1].hp[0]
+
+    state = build(config, a_set("snorlax", ("bodypress", "foulplay")),
+                  a_set("blissey", ("tackle",)))
+    state.sides[0].status[0] = "brn"
+    ctx = make_context(state)
+    for move_id in ("bodypress", "foulplay"):
+        before = state.sides[1].hp[0]
+        cast(ctx, dex, move_id)
+        burnt = before - state.sides[1].hp[0]
+        assert burnt * 2 == pytest.approx(healthy[move_id], abs=2), move_id
+
+
+def test_charge_is_spent_by_the_electric_move_it_paid_for(dex, config):
+    """"the effect ends ... after the user attempts to use any Electric-type
+    move besides Charge". Nothing spent it, so one Charge doubled every
+    Electric move for the rest of the Pokemon's time on the field."""
+    state = build(config, a_set("pikachu", ("charge", "thunderbolt")),
+                  a_set("snorlax", ("splash",)))
+    state, _ = step(state, Action.move(0), Action.move(0))
+    assert "charge" in state.sides[0].volatiles[0]
+
+    state, _ = step(state, Action.move(1), Action.move(0))
+    assert "charge" not in state.sides[0].volatiles[0]

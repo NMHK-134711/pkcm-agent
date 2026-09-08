@@ -1,14 +1,14 @@
 # 효과가 있는데, 그 문장을 직접 재보지는 않은 기술
 
-`python scripts/coverage_audit.py`가 만듭니다. 포맷의 기술 497개 중 설명이 없거나 "No additional effect."뿐인 것 31개를 빼면 **466개**가 효과 문장을 갖고, 그 중 **406개**는 모든 효과 문장마다 그 문장을 읽고 쓴 probe가 붙어 있습니다.
+`python scripts/coverage_audit.py`가 만듭니다. 포맷의 기술 497개 중 설명이 없거나 "No additional effect."뿐인 것 31개를 빼면 **466개**가 효과 문장을 갖고, 그 중 **418개**는 모든 효과 문장마다 그 문장을 읽고 쓴 probe가 붙어 있습니다.
 
-아래 **60개**가 나머지입니다. `clause_check`가 그 문장을 다른 검사에 *위임*했고, "그 검사가 이 문장을 덮는다"는 건 제 판단이지 측정이 아닙니다. 전부 초록이지만, 초록의 근거가 문장이 아니라 제 짐작입니다.
+아래 **48개**가 나머지입니다. `clause_check`가 그 문장을 다른 검사에 *위임*했고, "그 검사가 이 문장을 덮는다"는 건 제 판단이지 측정이 아닙니다. 전부 초록이지만, 초록의 근거가 문장이 아니라 제 짐작입니다.
 
 드래곤옐이 정확히 이 자리에 있었습니다: 문장은 급소율을 말하는데 위임된 검사는 능력치 랭크를 재고 있었고, 잴 것이 없으니 조용히 통과시켰습니다.
 
 (테라스탈·블루오브·하늘가르기처럼 이 포맷에 없는 기전만 언급하는 문장은 도달 불가로 기록되어 있고, 여기서는 세지 않았습니다.)
 
-## B등급 -- 45개
+## B등급 -- 37개
 
 그 기술 전용 수기 검사가 있습니다. 다만 그 검사가 아래 문장을 덮는다는 것은 확인된 적이 없습니다.
 
@@ -23,10 +23,6 @@
   - The user is replaced with another Pokemon in its party.
   - The selected Pokemon has the user's stat stage changes transferred to it, as well as the effects of confusion, Aqua Ring, Curse, Dragon Cheer, Embargo, Focus Energy, Gastro Acid, Heal Block, Ingrain, Leech Seed, Lock-On (Mind Reader), Magnet Rise, Perish Song, Power Trick, Telekinesis, and a substitute with its remaining HP.
   - The effect of Gastro Acid is not transferred if the recipient has an Ability that cannot be affected.
-- **집단구타** (Beat Up, `beatup`, Physical)
-  - The power of each hit is equal to 5+(X/10), where X is each participating Pokemon's base Attack; each hit is considered to come from the user.
-- **바디프레스** (Body Press, `bodypress`, Physical)
-  - Other effects that modify the Attack stat are used as normal.
 - **벌레먹기** (Bug Bite, `bugbite`, Physical)
   - If this move is successful and the user has not fainted, it steals the target's held Berry if it is holding one and eats it immediately, gaining its effects even if the user's item is being ignored.
 - **흉내쟁이** (Copycat, `copycat`, Status)
@@ -40,10 +36,6 @@
   - Among effects that can change a move's type, this effect happens last.
 - **버티기** (Endure, `endure`, Status)
   - The user will survive attacks made by other Pokemon during this turn with at least 1 HP.
-- **객기** (Facade, `facade`, Physical)
-  - The physical damage halving effect from the user's burn is ignored.
-- **자이로볼** (Gyro Ball, `gyroball`, Physical)
-  - Power is equal to (25 * target's current Speed / user's current Speed) + 1, rounded down, but not more than 150.
 - **치유소원** (Healing Wish, `healingwish`, Status)
   - The user faints, and if the Pokemon brought out to replace it does not have full HP or has a non-volatile status condition, its HP is fully restored along with having any non-volatile status condition cured.
   - The replacement is sent out at the end of the turn, and the healing happens before hazards take effect.
@@ -52,25 +44,16 @@
   - If the user has the Mega Launcher Ability, the target instead restores 3/4 of its maximum HP, rounded half down.
 - **봉인** (Imprison, `imprison`, Status)
   - The user prevents all opposing Pokemon from using any moves that the user also knows as long as the user remains active.
-- **탁쳐서떨구기** (Knock Off, `knockoff`, Physical)
-  - This move's power is multiplied by 1.5 if the target is holding an item, and the target loses its held item if the user has not fainted.
 - **록온** (Lock-On, `lockon`, Status)
   - Until the end of the next turn, the target cannot avoid the user's moves, even if the target is in the middle of a two-turn move.
 - **마법가루** (Magic Powder, `magicpowder`, Status)
   - Fails if the target is an Arceus or a Silvally, if the target is already purely Psychic type, or if the target is Terastallized.
 - **매직룸** (Magic Room, `magicroom`, Status)
   - An item's effect of causing forme changes is unaffected, but any other effects from such items are negated.
-- **작아지기** (Minimize, `minimize`, Status)
-  - Whether or not the user's evasiveness was changed, Body Slam, Dragon Rush, Flying Press, Heat Crash, Heavy Slam, Malicious Moonsault, Steamroller, Stomp, and Supercell Slam will not check accuracy and have their damage doubled if used against the user while it is active.
 - **막말내뱉기** (Parting Shot, `partingshot`, Status)
   - The user does not switch out if the target's Attack and Special Attack stat stages were both unchanged, or if there are no unfainted party members.
-- **보복** (Payback, `payback`, Physical)
-  - Switching in does not count as an action.
 - **쪼아대기** (Pluck, `pluck`, Physical)
   - If this move is successful and the user has not fainted, it steals the target's held Berry if it is holding one and eats it immediately, gaining its effects even if the user's item is being ignored.
-- **분노의주먹** (Rage Fist, `ragefist`, Physical)
-  - Power is equal to 50+(X*50), where X is the total number of times the user has been hit by a damaging attack during the battle, even if the user did not lose HP from the attack.
-  - X cannot be greater than 6 and does not reset upon switching out or fainting.
 - **리사이클** (Recycle, `recycle`, Status)
   - The user regains the item it last used.
   - Items thrown with Fling can be regained.
@@ -123,24 +106,16 @@
 - **웨더볼** (Weather Ball, `weatherball`, Special)
   - If the user is holding Utility Umbrella and uses Weather Ball during Primordial Sea, Rain Dance, Desolate Land, or Sunny Day, this move remains Normal type and does not double in power.
 
-## C등급 -- 15개
+## C등급 -- 11개
 
 기술 데이터의 필드(secondary/boosts/status)가 실제 배틀에 나타나는지 자동 검사합니다. 문장이 필드보다 더 말하는 부분은 측정되지 않습니다.
 
-- **충전** (Charge, `charge`, Status)
-  - The user's next Electric-type attack will have its power doubled; the effect ends when the user is no longer active, or after the user attempts to use any Electric-type move besides Charge, even if it is not successful.
 - **썰렁개그** (Chilly Reception, `chillyreception`, Status)
   - The user switches out even if it is trapped and is replaced immediately by a selected party member.
 - **일렉트로빔** (Electro Shot, `electroshot`, Special)
   - If the user is holding Utility Umbrella and the weather is Primordial Sea or Rain Dance, the move still requires a turn to charge.
-- **플라잉프레스** (Flying Press, `flyingpress`, Physical)
-  - This move combines Flying in its type effectiveness against the target.
 - **힘껏펀치** (Focus Punch, `focuspunch`, Physical)
   - The user loses its focus and does nothing if it is hit by a damaging attack this turn before it can execute the move.
-- **속임수** (Foul Play, `foulplay`, Physical)
-  - The user's Ability, item, and burn are used as normal.
-- **프리즈드라이** (Freeze-Dry, `freezedry`, Special)
-  - This move's type effectiveness against Water is changed to be super effective no matter what this move's type is.
 - **미래예지** (Future Sight, `futuresight`, Special)
   - If the user is no longer active at the time, damage is calculated based on the user's natural Special Attack stat, types, and level, with no boosts from its held item or Ability.
 - **성장** (Growth, `growth`, Status)

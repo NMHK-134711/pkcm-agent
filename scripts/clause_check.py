@@ -38,6 +38,7 @@ Fight, mon, ours = mc.Fight, mc.mon, mc.ours
 Action = mc.Action
 BattleConfig, new_battle, step = mc.BattleConfig, mc.new_battle, mc.step
 from pkcm.engine.actions import TARGET_ALLY               # noqa: E402
+from pkcm.engine.moves import X1_5, chain_modify           # noqa: E402
 
 CHAMPIONS = [m for m in DEX.moves.values() if DEX.exists_in_champions(m)]
 
@@ -1662,7 +1663,8 @@ def _five_turns_of_snow():
 
 
 
-def rolls_for(f, move, power, side=0, as_type=None, extra=1.0, crit=False):
+def rolls_for(f, move, power, side=0, as_type=None, extra=1.0, crit=False,
+              effectiveness=None):
     """The sixteen damages the formula gives for a power worked out here.
 
     ``mechanic_check._expected_rolls`` reads ``move.base_power``, which is
@@ -1679,12 +1681,17 @@ def rolls_for(f, move, power, side=0, as_type=None, extra=1.0, crit=False):
     us = (side, f.state.sides[side].active[0])
     them = (1 - side, f.state.sides[1 - side].active[0])
     physical = move.category == "Physical"
-    attack = effective_stat(ctx, us, Stat.ATK if physical else Stat.SPA)
-    defense = effective_stat(ctx, them, Stat.DEF if physical else Stat.SPD)
+    attack = effective_stat(ctx, us, Stat.ATK if physical else Stat.SPA,
+                            move=move)
+    defense = effective_stat(ctx, them, Stat.DEF if physical else Stat.SPD,
+                             move=move)
     # Weather Ball and Terrain Pulse change type in the same sentence that
     # doubles their power, so the expectation has to change type with them.
     kind = as_type or move.type
-    effectiveness = DEX.type_chart.multiplier(kind, f.state.types(*them))
+    # Flying Press and Freeze-Dry look up a chart that is not their type's, so
+    # the multiplier can be handed in rather than derived.
+    if effectiveness is None:
+        effectiveness = DEX.type_chart.multiplier(kind, f.state.types(*them))
     stab = kind in f.state.types(*us)
     base = damage_base(power=power, attack=attack, defense=defense, crit=crit)
     # ``extra`` is the field's own hand on the damage -- Rain multiplying a
@@ -7087,6 +7094,390 @@ def _dragged_out():
         rows.append((move_id, not problems,
                      "; ".join(problems) or "dragged out, and held by Ingrain, "
                                             "Suction Cups and a substitute"))
+    return verdict(rows)
+
+
+# --------------------------------------------------------------------------- #
+# Damage worked out from the sentence that describes it
+# --------------------------------------------------------------------------- #
+
+def _clean_hits(f, move_id, side=1):
+    return [e for e in f.log if e.kind == "damage" and (e.side or 0) == side
+            and e.move == move_id and not e.crit]
+
+
+def _swing(move_id, ours=None, theirs=None, arrange=None, lead=(), seed=7,
+           their_move=0):
+    move = DEX.moves[move_id]
+    f = Fight(ours or [swinger(move_id)],
+              theirs or [wall(mc._reachable(move))], seed=seed)
+    if arrange is not None:
+        arrange(f)
+    for index in lead:
+        f.turn(Action.move(index), Action.move(their_move))
+    return f
+
+
+def _gyro_ball():
+    """"(25 * target's current Speed / user's current Speed) + 1, rounded
+    down, but not more than 150"."""
+    from pkcm.data.dex import Stat
+    from pkcm.engine.battle import make_context
+    from pkcm.engine.mutate import effective_stat
+
+    move, problems = DEX.moves["gyroball"], []
+    for theirs_species, note in ((_first_species("weavile", "pikachu"), "a fast one"),
+                                 (_first_species("shuckle", "snorlax"), "a slow one")):
+        f = Fight([mon("snorlax", "__none__",
+                       ("gyroball", "splash", "protect", "rest"), None,
+                       "brave", (32, 32, 0, 0, 2, 0))],
+                  [mon(theirs_species, "__none__",
+                       ("splash", "tackle", "protect", "rest"), None, "jolly",
+                       (0, 2, 0, 0, 0, 32))], seed=7)
+        ctx = make_context(f.state)
+        mine = effective_stat(ctx, (0, f.state.sides[0].active[0]), Stat.SPE)
+        yours = effective_stat(ctx, (1, f.state.sides[1].active[0]), Stat.SPE)
+        power = min(150, 25 * yours // mine + 1)
+        alive = f.hp(1)
+        want = {min(one, alive) for one in rolls_for(f, move, power)}
+        f.turn(Action.move(0), Action.move(0))
+        hits = _clean_hits(f, "gyroball")
+        if not hits:
+            problems.append(f"{note}: never landed cleanly")
+        elif hits[0].amount not in want:
+            problems.append(f"{note}: {yours} against {mine} is {power} power, "
+                            f"{min(want)}-{max(want)}, and it dealt "
+                            f"{hits[0].amount}")
+    return ("gyroball", not problems,
+            "; ".join(problems) or "twenty-five times the ratio, plus one, "
+                                   "capped at 150")
+
+
+def _rage_fist():
+    """"50+(X*50), where X is the number of times the user has been hit ...
+    X cannot be greater than 6 and does not reset upon switching out."""
+    move, problems = DEX.moves["ragefist"], []
+    for taken in (0, 3, 8):
+        f = Fight([mon(UNIVERSAL, "__none__",
+                       ("ragefist", "splash", "protect", "rest"), None,
+                       "adamant", (32, 32, 0, 0, 2, 0)),
+                   mon("blissey", "__none__", ("splash", "tackle", "protect", "rest")),
+                   mon("magikarp", "__none__", ("splash", "tackle"))],
+                  [mon(_first_species("milotic", "gyarados", "starmie"),
+                       "__none__", ("tackle", "splash", "protect", "rest"),
+                       None, "jolly", (0, 2, 0, 0, 0, 32))], seed=7)
+        for _ in range(taken):
+            f.turn(Action.move(1), Action.move(0))
+        power = move.base_power + 50 * min(6, taken)
+        # Capped at what the target still has: a knockout truncates the damage
+        # event, and six stacks of Rage Fist is more than most things carry.
+        want = {min(one, f.hp(1)) for one in rolls_for(f, move, power)}
+        f.turn(Action.move(0), Action.move(1))
+        hits = _clean_hits(f, "ragefist")
+        if not hits:
+            problems.append(f"after {taken} hits it never landed cleanly")
+        elif hits[0].amount not in want:
+            problems.append(f"after {taken} hits taken it dealt "
+                            f"{hits[0].amount}, and {power} power is "
+                            f"{min(want)}-{max(want)}")
+
+    # "does not reset upon switching out"
+    f = Fight([mon(UNIVERSAL, "__none__",
+                   ("ragefist", "splash", "protect", "rest"), None, "adamant",
+                   (32, 32, 0, 0, 2, 0)),
+               mon("blissey", "__none__", ("splash", "tackle", "protect", "rest")),
+               mon("magikarp", "__none__", ("splash", "tackle"))],
+              [mon(_first_species("milotic", "gyarados", "starmie"),
+                   "__none__", ("tackle", "splash", "protect", "rest"), None,
+                   "jolly", (0, 2, 0, 0, 0, 32))], seed=7)
+    for _ in range(3):
+        f.turn(Action.move(1), Action.move(0))
+    f.turn(Action.switch(1), Action.move(1))
+    f.turn(Action.switch(0), Action.move(1))
+    want = {min(one, f.hp(1))
+            for one in rolls_for(f, move, move.base_power + 150)}
+    f.turn(Action.move(0), Action.move(1))
+    hits = _clean_hits(f, "ragefist")
+    if hits and hits[0].amount not in want:
+        problems.append(f"after a trip to the bench it dealt {hits[0].amount}, "
+                        f"and the three hits it took are still worth "
+                        f"{min(want)}-{max(want)}")
+    return ("ragefist", not problems,
+            "; ".join(problems) or "fifty a hit, capped at six, and it "
+                                   "remembers across a switch")
+
+
+def _beat_up():
+    """"The power of each hit is equal to 5+(X/10), where X is each
+    participating Pokemon's base Attack"."""
+    party = ["snorlax", "blissey", "magikarp"]
+    move = DEX.moves["beatup"]
+    f = Fight([mon(party[0], "__none__",
+                   ("beatup", "splash", "protect", "rest"), None, "adamant",
+                   (32, 32, 0, 0, 2, 0))]
+              + [mon(one, "__none__", ("splash", "tackle", "protect", "rest"))
+                 for one in party[1:]],
+              [wall(mc._reachable(move))], seed=7)
+    wanted = [rolls_for(f, move, 5 + DEX.species[one].base_stats[1] // 10)
+              for one in party]
+    f.turn(Action.move(0), Action.move(0))
+    hits = _clean_hits(f, "beatup")
+    problems = []
+    if len(hits) != len(party):
+        problems.append(f"{len(hits)} hits for a party of {len(party)}")
+    for hit, want, who in zip(hits, wanted, party):
+        if hit.amount not in want:
+            problems.append(f"{who}'s hit dealt {hit.amount}, and "
+                            f"{5 + DEX.species[who].base_stats[1] // 10} power "
+                            f"is {min(want)}-{max(want)}")
+    return ("beatup", not problems,
+            "; ".join(problems) or f"one hit each from {party}, each at five "
+                                   f"plus a tenth of its base Attack")
+
+
+def _knock_off_power_and_theft():
+    """"power is multiplied by 1.5 if the target is holding an item, and the
+    target loses its held item"."""
+    move, problems = DEX.moves["knockoff"], []
+    for item, share in ((None, 1), ("leftovers", 1.5)):
+        f = Fight([swinger("knockoff")],
+                  [wall(mc._reachable(move), item=item)], seed=7)
+        power = move.base_power if item is None else chain_modify(
+            move.base_power, X1_5)
+        want = rolls_for(f, move, power)
+        f.turn(Action.move(0), Action.move(0))
+        hits = _clean_hits(f, "knockoff")
+        if not hits:
+            problems.append(f"holding {item}: never landed cleanly")
+            continue
+        if hits[0].amount not in want:
+            problems.append(f"against a {item or 'bare'} hand it dealt "
+                            f"{hits[0].amount}, and {power} power is "
+                            f"{min(want)}-{max(want)}")
+        if item is not None and f.item(1) is not None:
+            problems.append(f"the {f.item(1)} is still in its hand")
+    return ("knockoff", not problems,
+            "; ".join(problems) or "half again against a held item, and the "
+                                   "item gone afterwards")
+
+
+def _payback_on_a_switch():
+    """"Switching in does not count as an action", so a target that has just
+    come in has not moved, and Payback stays at fifty."""
+    move = DEX.moves["payback"]
+    f = Fight([mon(UNIVERSAL, "__none__",
+                   ("payback", "splash", "protect", "rest"), None, "adamant",
+                   (32, 32, 0, 0, 2, 0))],
+              [mon("snorlax", "__none__", ("splash", "tackle", "protect", "rest"),
+                   None, "jolly", (0, 2, 0, 0, 0, 32)),
+               mon("snorlax", "__none__", ("splash", "tackle", "protect", "rest"),
+                   None, "jolly", (0, 2, 0, 0, 0, 32)),
+               mon("magikarp", "__none__", ("splash", "tackle"))], seed=7)
+    want = rolls_for(f, move, move.base_power)
+    f.turn(Action.move(0), Action.switch(1))
+    hits = _clean_hits(f, "payback")
+    return ("payback", bool(hits) and hits[0].amount in want,
+            f"against something that had just switched in it dealt "
+            f"{hits[0].amount if hits else 'nothing'}, and undoubled is "
+            f"{min(want)}-{max(want)}")
+
+
+#: "Body Slam, Dragon Rush, Flying Press, Heat Crash, Heavy Slam, Malicious
+#: Moonsault, Steamroller, Stomp, and Supercell Slam", of which this format
+#: has these.
+_STOMPERS = ("bodyslam", "dragonrush", "flyingpress", "heatcrash",
+             "heavyslam", "steamroller", "stomp", "supercellslam")
+
+
+def _minimize_makes_a_target():
+    problems = []
+    for stomper in [one for one in _STOMPERS if one in DEX.moves
+                    and DEX.exists_in_champions(DEX.moves[one])]:
+        move = DEX.moves[stomper]
+        if move.raw.get("basePower", 0) <= 0:
+            continue
+        f = Fight([swinger(stomper)],
+                  [mon("snorlax", "__none__",
+                       ("minimize", "splash", "protect", "rest"), None, "jolly",
+                       (32, 0, 32, 0, 2, 32))], seed=7)
+        side = f.state.sides[1]
+        side.boosts[side.active[0]][mc.BOOST_INDEX["evasion"]] = 6
+        side.volatiles[side.active[0]]["minimize"] = {}
+        want = rolls_for(f, move, move.base_power * 2)
+        f.turn(Action.move(0), Action.move(1))
+        hits = _clean_hits(f, stomper)
+        if not hits:
+            problems.append(f"{stomper} missed a minimized target at +6 "
+                            f"evasion, and it is not supposed to check")
+        elif hits[0].amount not in want:
+            problems.append(f"{stomper} dealt {hits[0].amount} against the "
+                            f"doubled {min(want)}-{max(want)}")
+    return ("minimize", not problems,
+            "; ".join(problems) or "every stomping move in the list hits a "
+                                   "minimized target and hits twice as hard")
+
+
+def _charge_doubles_the_next_one():
+    """"the effect ends when the user is no longer active, or after the user
+    attempts to use any Electric-type move besides Charge"."""
+    bolt = DEX.moves["thunderbolt"]
+    problems = []
+
+    def dealt(lead):
+        f = Fight([mon(UNIVERSAL, "__none__",
+                       ("charge", "thunderbolt", "splash", "voltswitch"), None,
+                       "modest", (32, 0, 0, 32, 2, 0)),
+                   mon("blissey", "__none__", ("splash", "tackle", "protect", "rest")),
+                   mon("magikarp", "__none__", ("splash", "tackle"))],
+                  [wall("snorlax")], seed=7)
+        for index in lead:
+            f.turn(Action.move(index), Action.move(0))
+        want = rolls_for(f, bolt, bolt.base_power * 2)
+        plain = rolls_for(f, bolt, bolt.base_power)
+        f.turn(Action.move(1), Action.move(0))
+        hits = _clean_hits(f, "thunderbolt")
+        return (hits[0].amount if hits else None), want, plain
+
+    got, doubled, plain = dealt((0,))
+    if got is None or got not in doubled:
+        problems.append(f"straight after Charge it dealt {got}, and doubled is "
+                        f"{min(doubled)}-{max(doubled)}")
+    got, doubled, plain = dealt(())
+    if got is None or got not in plain:
+        problems.append(f"with no Charge it dealt {got}, and plain is "
+                        f"{min(plain)}-{max(plain)}")
+    # An Electric move spends it, even one that does nothing else useful.
+    got, doubled, plain = dealt((0, 1))
+    if got is None or got not in plain:
+        problems.append(f"a second Electric move after Charge dealt {got}, and "
+                        f"the charge should be spent: {min(plain)}-{max(plain)}")
+    return ("charge", not problems,
+            "; ".join(problems) or "doubles the next Electric move and is "
+                                   "spent by it")
+
+
+def _burn_is_used_as_normal(move_id, target=None):
+    """Body Press and Foul Play swing with a stat that is not Attack, and both
+    say the ordinary Attack modifiers still apply. A burn is the plainest one."""
+    move = DEX.moves[move_id]
+    amounts = {}
+    for burnt in (False, True):
+        f = Fight([mon("snorlax", "__none__",
+                       (move_id, "splash", "protect", "rest"), None, "impish",
+                       (32, 0, 32, 0, 2, 0))],
+                  [mon(target or "blissey", "__none__",
+                       ("swordsdance", "splash", "protect", "rest"), None,
+                       "adamant", (32, 32, 0, 0, 2, 0))], seed=7)
+        if burnt:
+            side = f.state.sides[0]
+            side.status[side.active[0]] = "brn"
+        f.turn(Action.move(0), Action.move(1))
+        hits = _clean_hits(f, move_id)
+        amounts[burnt] = hits[0].amount if hits else None
+    whole, halved = amounts[False], amounts[True]
+    ok = (whole and halved and abs(halved * 2 - whole) <= 2)
+    return (move_id, ok, f"{whole} unburnt and {halved} burnt, and the burn "
+                         f"should halve it")
+
+
+def _facade_ignores_the_burn():
+    move = DEX.moves["facade"]
+    amounts = {}
+    for burnt in (False, True):
+        f = Fight([swinger("facade")], [wall(mc._reachable(move))], seed=7)
+        if burnt:
+            side = f.state.sides[0]
+            side.status[side.active[0]] = "brn"
+        want = rolls_for(f, move, move.base_power * (2 if burnt else 1))
+        f.turn(Action.move(0), Action.move(0))
+        hits = _clean_hits(f, "facade")
+        amounts[burnt] = (hits[0].amount if hits else None, want)
+    problems = [f"{'burnt' if burnt else 'healthy'}: dealt {got}, and "
+                f"{min(want)}-{max(want)} is what the power gives"
+                for burnt, (got, want) in amounts.items() if got not in want]
+    return ("facade", not problems,
+            "; ".join(problems) or "doubled by the burn and not halved by it")
+
+
+def _flying_press_and_freeze_dry():
+    """Two moves whose type chart is not their type's.
+
+    Flying Press "combines Flying in its type effectiveness"; Freeze-Dry is
+    "super effective [against Water] no matter what this move's type is".
+    """
+    rows = []
+    cases = {"flyingpress": [(_first_species("amoonguss", "venusaur"), None),
+                             (_first_species("snorlax", "blissey"), None)],
+             "freezedry": [(_first_species("milotic", "gyarados"), None),
+                           (_first_species("quagsire", "gastrodon",
+                                           "swampert"), None)]}
+    for move_id, targets in cases.items():
+        move = DEX.moves[move_id]
+        problems = []
+        for species, _ in targets:
+            if species is None:
+                continue
+            types = DEX.species[species].types
+            if move_id == "flyingpress":
+                want_mult = (DEX.type_chart.multiplier("fighting", types)
+                             * DEX.type_chart.multiplier("flying", types))
+            else:
+                want_mult = 1.0
+                for one in types:
+                    want_mult *= (2.0 if one == "water"
+                                  else DEX.type_chart.multiplier("ice", (one,)))
+            f = Fight([swinger(move_id)], [wall(species)], seed=7)
+            want = rolls_for(f, move, move.base_power, effectiveness=want_mult)
+            f.turn(Action.move(0), Action.move(0))
+            hits = _clean_hits(f, move_id)
+            if not hits:
+                problems.append(f"never landed on a {species}")
+            elif hits[0].amount not in want:
+                problems.append(f"on a {species} ({'/'.join(types)}) it dealt "
+                                f"{hits[0].amount}, and {want_mult}x is "
+                                f"{min(want)}-{max(want)}")
+        rows.append((move_id, not problems,
+                     "; ".join(problems) or "the chart the sentence describes"))
+    return rows
+
+
+_FORMULAS = {"gyroball": _gyro_ball, "ragefist": _rage_fist,
+             "beatup": _beat_up, "knockoff": _knock_off_power_and_theft,
+             "payback": _payback_on_a_switch,
+             "minimize": _minimize_makes_a_target,
+             "charge": _charge_doubles_the_next_one,
+             "facade": _facade_ignores_the_burn}
+
+
+@family("damageformulas",
+        "The power of each hit is equal to 5+(X/10)",
+        "Power is equal to (25 * target's current Speed / user's current Speed)",
+        "Power is equal to 50+(X*50), where X is the total number of times the "
+        "user has been hit",
+        "X cannot be greater than 6 and does not reset upon switching out or "
+        "fainting.",
+        "This move's power is multiplied by 1.5 if the target is holding an item",
+        "Switching in does not count as an action.",
+        "Whether or not the user's evasiveness was changed, Body Slam",
+        "The user's next Electric-type attack will have its power doubled",
+        "Other effects that modify the Attack stat are used as normal.",
+        "The user's Ability, item, and burn are used as normal.",
+        "The physical damage halving effect from the user's burn is ignored.",
+        "This move combines Flying in its type effectiveness against the target.",
+        "This move's type effectiveness against Water is changed to be super "
+        "effective no matter what this move's type is.")
+def _damage_formulas():
+    rows = []
+    for move_id in members("damageformulas"):
+        if move_id in _FORMULAS:
+            rows.append(_FORMULAS[move_id]())
+        elif move_id in ("bodypress", "foulplay"):
+            rows.append(_burn_is_used_as_normal(move_id))
+        elif move_id in ("flyingpress", "freezedry"):
+            continue
+        else:
+            rows.append((move_id, False, "no probe written for it"))
+    rows.extend(_flying_press_and_freeze_dry())
     return verdict(rows)
 
 

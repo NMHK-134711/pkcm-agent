@@ -565,6 +565,15 @@ def _use(ctx: Context, player: int, position: int, action: Action) -> None:
     move = _chosen_move(ctx.state, (player, position), action)
     index = action.index if action.kind is ActionKind.MOVE else None
     mv.use_move(ctx, attacker, move, index, target_code=action.target)
+    # "the effect ends ... after the user attempts to use any Electric-type
+    # move besides Charge, even if it is not successful". Nothing spent it, so
+    # one Charge doubled every Electric move for the rest of the Pokemon's
+    # time on the field. Asked here rather than inside ``use_move`` because
+    # "attempts" is this boundary, and because the doubling itself happens
+    # part-way down that function.
+    if (move is not None and move.type == "electric" and move.id != "charge"
+            and "charge" in ctx.state.sides[player].volatiles[slot]):
+        mutate.remove_volatile(ctx, attacker, "charge")
 
 
 # --------------------------------------------------------------------------- #

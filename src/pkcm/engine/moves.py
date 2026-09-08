@@ -104,9 +104,11 @@ def _relative_weight(ctx: Context, attacker: Ref, defender: Ref, move: Move) -> 
 
 
 def _gyro_ball(ctx: Context, attacker: Ref, defender: Ref, move: Move) -> int:
+    """"(25 * target's current Speed / user's current Speed) + 1, rounded
+    down, but not more than 150." The plus one was missing."""
     mine = max(1, effective_stat(ctx, attacker, Stat.SPE))
     theirs = effective_stat(ctx, defender, Stat.SPE)
-    return max(1, min(150, 25 * theirs // mine))
+    return max(1, min(150, 25 * theirs // mine + 1))
 
 
 def _electro_ball(ctx: Context, attacker: Ref, defender: Ref, move: Move) -> int:
@@ -746,6 +748,18 @@ def base_power(ctx: Context, attacker: Ref, defender: Ref, move) -> int:
 # --------------------------------------------------------------------------- #
 
 
+#: "This move combines Flying in its type effectiveness against the target."
+#: Flying Press was plain Fighting, so it hit a Grass type for half instead of
+#: for neutral.
+COMBINED_TYPE = {"flyingpress": "flying"}
+
+#: "This move's type effectiveness against Water is changed to be super
+#: effective no matter what this move's type is." Freeze-Dry was plain Ice, so
+#: the one thing anybody carries it for -- hitting Water for four times what
+#: Ice Beam manages -- was hitting for a quarter of it.
+SUPER_EFFECTIVE_AGAINST = {"freezedry": "water"}
+
+
 def type_effectiveness(ctx: Context, attacker: Ref, defender: Ref, move: Move) -> float:
     if move.id == STRUGGLE_ID:
         return 1.0
@@ -766,7 +780,22 @@ def type_effectiveness(ctx: Context, attacker: Ref, defender: Ref, move: Move) -
         # nothing: the check above passed and the line below undid it.
         types = tuple(one for one in types if one != "flying")
 
-    value = ctx.state.config.dex.type_chart.multiplier(move.type, types)
+    chart = ctx.state.config.dex.type_chart
+    value = chart.multiplier(move.type, types)
+
+    combined = COMBINED_TYPE.get(move.id)
+    if combined is not None:
+        value *= chart.multiplier(combined, types)
+
+    against = SUPER_EFFECTIVE_AGAINST.get(move.id)
+    if against is not None and against in types:
+        # The rest of the target's typing is looked up as normal; only the one
+        # type the move names is overruled, so Freeze-Dry on a Water/Ground is
+        # four times and not two.
+        value = 1.0
+        for one in types:
+            value *= 2.0 if one == against else chart.multiplier(move.type, (one,))
+
     return _both_sides(ctx, "modify_effectiveness", value, attacker, defender, move)
 
 

@@ -270,7 +270,10 @@ def _leech_seed_residual(ctx, ref, **_):
     drained = apply_damage(
         ctx, ref, fraction_of_max(ctx.state, ref, 8), "status_damage", detail="leechseed"
     )
-    heal(ctx, opponent, drained, reason="leechseed")
+    # "If Big Root is held by the recipient": the item is the seeded
+    # Pokemon's partner's, not the seeded Pokemon's.
+    heal(ctx, opponent, mutate.drained(ctx, opponent, drained),
+         reason="leechseed")
 
 
 register("volatile", "leechseed", name="Leech Seed", residual=_leech_seed_residual)

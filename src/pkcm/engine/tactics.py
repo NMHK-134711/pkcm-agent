@@ -242,11 +242,21 @@ register("volatile", "lockedmove", name="Locked in")
 TRAP_FRACTION = 8
 
 
-def start_trapping(ctx: Context, target: Ref, move) -> None:
+def start_trapping(ctx: Context, attacker: Ref, target: Ref, move) -> None:
+    """Four or five turns, seven if the binder is holding a Grip Claw.
+
+    Three things were wrong in one line: the Grip Claw was read off the
+    *target* rather than the one doing the binding, it gave five turns rather
+    than seven, and the ordinary roll ran 4 to 7 where the move says four or
+    five. The counter is one more than the number of ticks, because the last
+    tick is the one that takes the wrap off.
+    """
     if mutate.volatile(ctx.state, target, "partiallytrapped") is not None:
         return
-    turns = 5 if ctx.state.item_id(*target) == "gripclaw" else ctx.cursor.choice((4, 4, 5, 5, 6, 7))
-    mutate.add_volatile(ctx, target, "partiallytrapped", move=move.id, turns=turns)
+    turns = (8 if ctx.state.item_id(*attacker) == "gripclaw"
+             else ctx.cursor.choice((5, 6)))
+    mutate.add_volatile(ctx, target, "partiallytrapped", move=move.id,
+                        turns=turns, binder=attacker)
     mutate.add_volatile(ctx, target, "trapped")
 
 
@@ -259,8 +269,15 @@ def _trapping_residual(ctx, ref, **_):
         mutate.remove_volatile(ctx, ref, "partiallytrapped")
         mutate.remove_volatile(ctx, ref, "trapped", quiet=True)
         return
-    mutate.apply_damage(ctx, ref, mutate.fraction_of_max(ctx.state, ref, TRAP_FRACTION),
-                        "status_damage", detail=data["move"])
+    # "1/6 if the user is holding Binding Band" -- the user being whoever
+    # wrapped it, which is why the volatile remembers them.
+    binder = data.get("binder")
+    band = (binder is not None
+            and ctx.state.item_id(*binder) == "bindingband")
+    mutate.apply_damage(
+        ctx, ref,
+        mutate.fraction_of_max(ctx.state, ref, 6 if band else TRAP_FRACTION),
+        "status_damage", detail=data["move"])
 
 
 register("volatile", "partiallytrapped", name="Trapped by a move",
@@ -315,4 +332,17 @@ def _healing_wish_on_entry(ctx: Context, ref: Ref) -> None:
 
 
 register("side", "healingwish", name="Healing Wish")
-register("volatile", "ingrain", name="Ingrain")
+def _ingrain_residual(ctx, ref, **_):
+    """A sixteenth back every turn, which was never implemented at all.
+
+    The volatile was registered so ``_is_trapped`` could read it, and a
+    registered name with no handler is exactly what the coverage report calls
+    implemented. The roots hold it down *and* feed it.
+    """
+    mutate.heal(ctx, ref,
+                mutate.drained(ctx, ref,
+                               mutate.fraction_of_max(ctx.state, ref, 16)),
+                reason="ingrain")
+
+
+register("volatile", "ingrain", name="Ingrain", residual=_ingrain_residual)

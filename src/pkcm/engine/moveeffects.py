@@ -113,7 +113,7 @@ def _strength_sap(ctx, user, target, move) -> bool:
     if ctx.state.sides[target[0]].boost(target[1], "atk") == -6:
         return _fail(ctx, user, "Attack is already as low as it goes")
     attack = mutate.effective_stat(ctx, target, Stat.ATK)
-    heal(ctx, user, attack, reason=move.id)
+    heal(ctx, user, mutate.drained(ctx, user, attack, move), reason=move.id)
     boost(ctx, target, {"atk": -1}, source=user)
     return True
 
@@ -364,6 +364,11 @@ SPECIAL_MOVES["gastroacid"] = _apply_volatile("abilitysuppressed")
 SPECIAL_MOVES["psychicnoise"] = _apply_volatile("healblock", turns=3)
 SPECIAL_MOVES["block"] = _apply_volatile("trapped")
 SPECIAL_MOVES["meanlook"] = _apply_volatile("trapped")
+# Spirit Shackle says the same sentence as those two -- "Prevents the target
+# from switching out" -- and had nothing behind it, because Showdown keeps its
+# trap in ``onHit`` and the data it left us is a 100% secondary with no
+# contents. It did its damage and let the target walk.
+SPECIAL_MOVES["spiritshackle"] = _apply_volatile("trapped")
 # Fairy Lock holds *everyone* for the turn after, which is what its
 # pseudo-weather is for. Trapping through ``_apply_volatile`` put the hold on
 # the caster alone -- and with no source to expire against, permanently. The
@@ -549,7 +554,9 @@ register("volatile", "perishsong", name="Perish Song", residual=_perish_count)
 
 register("volatile", "aquaring", name="Aqua Ring",
          residual=lambda ctx, ref, **_: heal(
-             ctx, ref, fraction_of_max(ctx.state, ref, 16), reason="aquaring"))
+             ctx, ref, mutate.drained(ctx, ref,
+                                      fraction_of_max(ctx.state, ref, 16)),
+             reason="aquaring"))
 register("volatile", "magnetrise", name="Magnet Rise", residual=_tick_down("magnetrise"))
 register("volatile", "syrupbomb", name="Syrup Bomb",
          residual=lambda ctx, ref, **_: (
@@ -1523,6 +1530,9 @@ def _minimize_doubles_stomping_moves(ctx, ref, value, attacker, defender, move, 
 MINIMIZE_PUNISHERS = frozenset({
     "stomp", "bodyslam", "flyingpress", "dragonrush", "heatcrash", "heavyslam",
     "maliciousmoonsault",
+    # Its description carries the same sentence as the other six, and it was
+    # the only one of the seven left off the list.
+    "supercellslam",
 })
 
 def _minimize_cannot_dodge_them(ctx, ref, value, attacker, defender, move, **_):

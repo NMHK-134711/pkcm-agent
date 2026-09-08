@@ -175,6 +175,17 @@ def apply_damage(
     return dealt
 
 
+def drained(ctx: Context, ref: Ref, amount: int, move=None) -> int:
+    """How much a heal that counts as draining actually gives back.
+
+    Big Root is 1.3x, and not only on the drain moves: Aqua Ring, Ingrain,
+    Leech Seed and Strength Sap all name it in their own descriptions, and
+    only the eight drain moves were asking. The hook is the same one the
+    drain path uses, so the item stays a single implementation.
+    """
+    return fx.modify(ctx, "modify_drain", amount, ref, scope="self", move=move)
+
+
 def heal(ctx: Context, ref: Ref, amount: int, reason: str | None = None) -> int:
     side_index, slot = ref
     side = ctx.state.sides[side_index]

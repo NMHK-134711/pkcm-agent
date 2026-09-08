@@ -1422,7 +1422,7 @@ def _apply_damaging_move(ctx: Context, attacker: Ref, defender: Ref, move) -> bo
         # of Defence per use. One implementation stays -- the named one.
         _apply_self_boost(ctx, attacker, move)
         if "partiallytrapped" in _volatile_names(move):
-            tactics.start_trapping(ctx, defender, move)
+            tactics.start_trapping(ctx, attacker, defender, move)
     _after_effects(ctx, attacker, defender, move, landed=bool(total))
     return True
 

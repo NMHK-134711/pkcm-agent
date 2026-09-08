@@ -1,14 +1,14 @@
 # 효과가 있는데, 그 문장을 직접 재보지는 않은 기술
 
-`python scripts/coverage_audit.py`가 만듭니다. 포맷의 기술 497개 중 설명이 없거나 "No additional effect."뿐인 것 31개를 빼면 **466개**가 효과 문장을 갖고, 그 중 **391개**는 모든 효과 문장마다 그 문장을 읽고 쓴 probe가 붙어 있습니다.
+`python scripts/coverage_audit.py`가 만듭니다. 포맷의 기술 497개 중 설명이 없거나 "No additional effect."뿐인 것 31개를 빼면 **466개**가 효과 문장을 갖고, 그 중 **406개**는 모든 효과 문장마다 그 문장을 읽고 쓴 probe가 붙어 있습니다.
 
-아래 **75개**가 나머지입니다. `clause_check`가 그 문장을 다른 검사에 *위임*했고, "그 검사가 이 문장을 덮는다"는 건 제 판단이지 측정이 아닙니다. 전부 초록이지만, 초록의 근거가 문장이 아니라 제 짐작입니다.
+아래 **60개**가 나머지입니다. `clause_check`가 그 문장을 다른 검사에 *위임*했고, "그 검사가 이 문장을 덮는다"는 건 제 판단이지 측정이 아닙니다. 전부 초록이지만, 초록의 근거가 문장이 아니라 제 짐작입니다.
 
 드래곤옐이 정확히 이 자리에 있었습니다: 문장은 급소율을 말하는데 위임된 검사는 능력치 랭크를 재고 있었고, 잴 것이 없으니 조용히 통과시켰습니다.
 
 (테라스탈·블루오브·하늘가르기처럼 이 포맷에 없는 기전만 언급하는 문장은 도달 불가로 기록되어 있고, 여기서는 세지 않았습니다.)
 
-## B등급 -- 59개
+## B등급 -- 45개
 
 그 기술 전용 수기 검사가 있습니다. 다만 그 검사가 아래 문장을 덮는다는 것은 확인된 적이 없습니다.
 
@@ -19,8 +19,6 @@
 - **오로라베일** (Aurora Veil, `auroraveil`, Status)
   - Brick Break and Psychic Fangs remove the effect before damage is calculated.
   - Fails unless the weather is Snow.
-- **토치카** (Baneful Bunker, `banefulbunker`, Status)
-  - The user is protected from most attacks made by other Pokemon during this turn, and Pokemon making contact with the user become poisoned.
 - **배턴터치** (Baton Pass, `batonpass`, Status)
   - The user is replaced with another Pokemon in its party.
   - The selected Pokemon has the user's stat stage changes transferred to it, as well as the effects of confusion, Aqua Ring, Curse, Dragon Cheer, Embargo, Focus Energy, Gastro Acid, Heal Block, Ingrain, Leech Seed, Lock-On (Mind Reader), Magnet Rise, Perish Song, Power Trick, Telekinesis, and a substitute with its remaining HP.
@@ -38,18 +36,12 @@
   - Ignores a target's substitute, although a substitute will still block the lowering of evasiveness.
 - **길동무** (Destiny Bond, `destinybond`, Status)
   - Until the user's next move, if an opposing Pokemon's attack knocks the user out, that Pokemon faints as well, unless the attack was Doom Desire or Future Sight.
-- **드래곤테일** (Dragon Tail, `dragontail`, Physical)
-  - This effect fails if the target used Ingrain previously, has the Suction Cups Ability, or this move hit a substitute.
 - **송전** (Electrify, `electrify`, Status)
   - Among effects that can change a move's type, this effect happens last.
 - **버티기** (Endure, `endure`, Status)
   - The user will survive attacks made by other Pokemon during this turn with at least 1 HP.
 - **객기** (Facade, `facade`, Physical)
   - The physical damage halving effect from the user's burn is ignored.
-- **가드셰어** (Guard Split, `guardsplit`, Status)
-  - The user and the target have their Defense and Special Defense stats set to be equal to the average of the user and the target's Defense and Special Defense stats, respectively, rounded down.
-- **가드스왑** (Guard Swap, `guardswap`, Status)
-  - The user swaps its Defense and Special Defense stat stage changes with the target.
 - **자이로볼** (Gyro Ball, `gyroball`, Physical)
   - Power is equal to (25 * target's current Speed / user's current Speed) + 1, rounded down, but not more than 150.
 - **치유소원** (Healing Wish, `healingwish`, Status)
@@ -60,8 +52,6 @@
   - If the user has the Mega Launcher Ability, the target instead restores 3/4 of its maximum HP, rounded half down.
 - **봉인** (Imprison, `imprison`, Status)
   - The user prevents all opposing Pokemon from using any moves that the user also knows as long as the user remains active.
-- **킹실드** (King's Shield, `kingsshield`, Status)
-  - The user is protected from most attacks made by other Pokemon during this turn, and Pokemon trying to make contact with the user have their Attack lowered by 1 stage.
 - **탁쳐서떨구기** (Knock Off, `knockoff`, Physical)
   - This move's power is multiplied by 1.5 if the target is holding an item, and the target loses its held item if the user has not fainted.
 - **록온** (Lock-On, `lockon`, Status)
@@ -72,22 +62,12 @@
   - An item's effect of causing forme changes is unaffected, but any other effects from such items are negated.
 - **작아지기** (Minimize, `minimize`, Status)
   - Whether or not the user's evasiveness was changed, Body Slam, Dragon Rush, Flying Press, Heat Crash, Heavy Slam, Malicious Moonsault, Steamroller, Stomp, and Supercell Slam will not check accuracy and have their damage doubled if used against the user while it is active.
-- **아픔나누기** (Pain Split, `painsplit`, Status)
-  - The user and the target's HP become the average of their current HP, rounded down, but not more than the maximum HP of either one.
 - **막말내뱉기** (Parting Shot, `partingshot`, Status)
   - The user does not switch out if the target's Attack and Special Attack stat stages were both unchanged, or if there are no unfainted party members.
 - **보복** (Payback, `payback`, Physical)
   - Switching in does not count as an action.
 - **쪼아대기** (Pluck, `pluck`, Physical)
   - If this move is successful and the user has not fainted, it steals the target's held Berry if it is holding one and eats it immediately, gaining its effects even if the user's item is being ignored.
-- **파워셰어** (Power Split, `powersplit`, Status)
-  - The user and the target have their Attack and Special Attack stats set to be equal to the average of the user and the target's Attack and Special Attack stats, respectively, rounded down.
-- **파워스왑** (Power Swap, `powerswap`, Status)
-  - The user swaps its Attack and Special Attack stat stage changes with the target.
-- **파워트릭** (Power Trick, `powertrick`, Status)
-  - If the user has its stats recalculated by changing forme while its stats are swapped, this effect is ignored but is still active for the purposes of Baton Pass.
-- **자기암시** (Psych Up, `psychup`, Status)
-  - The user copies all of the target's current stat stage changes.
 - **분노의주먹** (Rage Fist, `ragefist`, Physical)
   - Power is equal to 50+(X*50), where X is the total number of times the user has been hit by a damaging attack during the battle, even if the user did not lose HP from the attack.
   - X cannot be greater than 6 and does not reset upon switching out or fainting.
@@ -99,8 +79,6 @@
   - If the target's current types include typeless and an added type from Forest's Curse or Trick-or-Treat, typeless is copied as the Normal type instead.
 - **잠자기** (Rest, `rest`, Status)
   - The user falls asleep for the next two turns and restores all of its HP, curing itself of any non-volatile status condition in the process.
-- **울부짖기** (Roar, `roar`, Status)
-  - The target is forced to switch out and be replaced with a random unfainted ally.
 - **역할** (Role Play, `roleplay`, Status)
   - The user's Ability changes to match the target's Ability.
 - **꼬리자르기** (Shed Tail, `shedtail`, Status)
@@ -113,10 +91,6 @@
   - If the user is holding Utility Umbrella and the weather is Desolate Land or Sunny Day, the move still requires a turn to charge.
 - **솔라블레이드** (Solar Blade, `solarblade`, Physical)
   - If the user is holding Utility Umbrella and the weather is Desolate Land or Sunny Day, the move still requires a turn to charge.
-- **스피드스왑** (Speed Swap, `speedswap`, Status)
-  - The user swaps its Speed stat with the target.
-- **니들가드** (Spiky Shield, `spikyshield`, Status)
-  - The user is protected from most attacks made by other Pokemon during this turn, and Pokemon making contact with the user lose 1/8 of their maximum HP, rounded down.
 - **토해내기** (Spit Up, `spitup`, Special)
   - Whether or not this move is successful, the user's Defense and Special Defense decrease by as many stages as Stockpile had increased them, and the user's Stockpile count resets to 0.
 - **비축하기** (Stockpile, `stockpile`, Status)
@@ -148,10 +122,8 @@
   - This move targets an opponent at random on each turn.
 - **웨더볼** (Weather Ball, `weatherball`, Special)
   - If the user is holding Utility Umbrella and uses Weather Ball during Primordial Sea, Rain Dance, Desolate Land, or Sunny Day, this move remains Normal type and does not double in power.
-- **날려버리기** (Whirlwind, `whirlwind`, Status)
-  - The target is forced to switch out and be replaced with a random unfainted ally.
 
-## C등급 -- 16개
+## C등급 -- 15개
 
 기술 데이터의 필드(secondary/boosts/status)가 실제 배틀에 나타나는지 자동 검사합니다. 문장이 필드보다 더 말하는 부분은 측정되지 않습니다.
 
@@ -159,8 +131,6 @@
   - The user's next Electric-type attack will have its power doubled; the effect ends when the user is no longer active, or after the user attempts to use any Electric-type move besides Charge, even if it is not successful.
 - **썰렁개그** (Chilly Reception, `chillyreception`, Status)
   - The user switches out even if it is trapped and is replaced immediately by a selected party member.
-- **배대뒤치기** (Circle Throw, `circlethrow`, Physical)
-  - This effect fails if the target is under the effect of Ingrain, has the Suction Cups Ability, or this move hit a substitute.
 - **일렉트로빔** (Electro Shot, `electroshot`, Special)
   - If the user is holding Utility Umbrella and the weather is Primordial Sea or Rain Dance, the move still requires a turn to charge.
 - **플라잉프레스** (Flying Press, `flyingpress`, Physical)

@@ -214,6 +214,44 @@ def test_fickle_beam_doubles_about_three_times_in_ten(dex, config):
     assert 0.2 < doubled / len(powers) < 0.4, doubled
 
 
+def test_speed_swap_trades_the_stat_and_leaves_the_stages(dex, config):
+    """Its second sentence is "Stat stage changes are unaffected", and it was
+    registered as a swap of exactly those."""
+    from pkcm.data.dex import Stat
+
+    state = build(config, a_set("shuckle", "sturdy", ("speedswap",)),
+                  a_set("weavile", "pressure", ("swordsdance",)))
+    ctx = make_context(state)
+    mutate.boost(ctx, BLUE, {"spe": 2})
+    before = (state.stats(0, 0)[Stat.SPE], state.stats(1, 0)[Stat.SPE])
+    stages = (state.sides[0].boost(0, "spe"), state.sides[1].boost(0, "spe"))
+    assert before[0] != before[1]
+
+    cast(ctx, dex, "speedswap")
+    assert (state.stats(0, 0)[Stat.SPE], state.stats(1, 0)[Stat.SPE]) == before[::-1]
+    assert (state.sides[0].boost(0, "spe"), state.sides[1].boost(0, "spe")) == stages
+
+
+def test_power_trick_is_a_property_and_not_an_event(dex, config):
+    """Written as an override it was a thing that had happened; Baton Pass then
+    handed on the name and none of the meaning."""
+    from pkcm.data.dex import Stat
+    from pkcm.engine.mutate import effective_stat
+
+    state = build(config, a_set("shuckle", "sturdy", ("powertrick",)),
+                  a_set("magikarp"))
+    ctx = make_context(state)
+    before = (effective_stat(ctx, RED, Stat.ATK), effective_stat(ctx, RED, Stat.DEF))
+    cast(ctx, dex, "powertrick")
+    assert (effective_stat(ctx, RED, Stat.ATK),
+            effective_stat(ctx, RED, Stat.DEF)) == before[::-1]
+
+    # And it is the volatile doing it, which is what travels.
+    mutate.remove_volatile(ctx, RED, "powertrick")
+    assert (effective_stat(ctx, RED, Stat.ATK),
+            effective_stat(ctx, RED, Stat.DEF)) == before
+
+
 def test_psych_up_copies_and_topsy_turvy_inverts(dex, config):
     state = build(config, a_set("alakazam", "synchronize", ("psychup", "topsyturvy")),
                   a_set("snorlax"))

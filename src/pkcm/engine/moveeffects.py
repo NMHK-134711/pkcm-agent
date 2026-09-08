@@ -336,7 +336,27 @@ def _swap_boosts(stats: tuple[str, ...], label: str):
 
 SPECIAL_MOVES["powerswap"] = _swap_boosts(("atk", "spa"), "offence")
 SPECIAL_MOVES["guardswap"] = _swap_boosts(("def", "spd"), "defence")
-SPECIAL_MOVES["speedswap"] = _swap_boosts(("spe",), "speed")
+
+
+@special("speedswap")
+def _speed_swap(ctx, user, target, move) -> bool:
+    """"The user swaps its Speed stat with the target. Stat stage changes are
+    unaffected."
+
+    It was registered beside the two above as a swap of stat *stages*, which
+    is the one thing the move's own second sentence says it does not touch --
+    and ``mechanic_check``'s check for it read "trades the two Speed stat
+    stages over", so the wrong rule was written down twice and the two agreed
+    with each other. A Trick Room team hands its Speed to the fast thing
+    across from it; it does not hand over a Dragon Dance.
+    """
+    mine = list(ctx.state.stats(*user))
+    theirs = list(ctx.state.stats(*target))
+    mine[Stat.SPE], theirs[Stat.SPE] = theirs[Stat.SPE], mine[Stat.SPE]
+    ctx.state.set_override(user[0], user[1], "stats", tuple(mine))
+    ctx.state.set_override(target[0], target[1], "stats", tuple(theirs))
+    ctx.emit(Event("stats_swapped", side=user[0], slot=user[1], detail="speed"))
+    return True
 
 
 def _split_stats(stats: tuple[Stat, ...], label: str):
@@ -360,11 +380,16 @@ SPECIAL_MOVES["powersplit"] = _split_stats((Stat.ATK, Stat.SPA), "offence")
 SPECIAL_MOVES["guardsplit"] = _split_stats((Stat.DEF, Stat.SPD), "defence")
 
 
-def _swap_own_stats(first: Stat, second: Stat, volatile: str):
+def _swap_own_stats(volatile: str):
+    """Toggle the volatile; the swap itself is the volatile's own doing.
+
+    It used to write a swapped ``stats`` override onto the user instead, and
+    the swap was therefore a thing that had *happened* rather than a thing
+    that was *true* -- so Baton Pass handed the recipient the word
+    "powertrick" and none of its meaning, which is the one case the move's own
+    description bothers to spell out.
+    """
     def handler(ctx, user, target, move) -> bool:
-        stats = list(ctx.state.stats(*user))
-        stats[first], stats[second] = stats[second], stats[first]
-        ctx.state.set_override(user[0], user[1], "stats", tuple(stats))
         if volatile in _volatiles(ctx, user):
             mutate.remove_volatile(ctx, user, volatile)
         else:
@@ -374,10 +399,23 @@ def _swap_own_stats(first: Stat, second: Stat, volatile: str):
     return handler
 
 
-SPECIAL_MOVES["powertrick"] = _swap_own_stats(Stat.ATK, Stat.DEF, "powertrick")
-SPECIAL_MOVES["powershift"] = _swap_own_stats(Stat.DEF, Stat.SPD, "powershift")
-register("volatile", "powertrick", name="Power Trick")
-register("volatile", "powershift", name="Power Shift")
+def _while_swapped(first: Stat, second: Stat):
+    def handler(ctx, ref, value, stat, **_):
+        if stat is first:
+            return mutate.raw_stat(ctx.state, ref, second)
+        if stat is second:
+            return mutate.raw_stat(ctx.state, ref, first)
+        return None
+
+    return handler
+
+
+SPECIAL_MOVES["powertrick"] = _swap_own_stats("powertrick")
+SPECIAL_MOVES["powershift"] = _swap_own_stats("powershift")
+register("volatile", "powertrick", name="Power Trick",
+         modify_stat=_while_swapped(Stat.ATK, Stat.DEF))
+register("volatile", "powershift", name="Power Shift",
+         modify_stat=_while_swapped(Stat.DEF, Stat.SPD))
 
 
 @special("acupressure")

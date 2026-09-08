@@ -6815,6 +6815,281 @@ def _screens():
     return verdict([_screen_arms(one) for one in _SCREENS])
 
 
+# --------------------------------------------------------------------------- #
+# Moves that move numbers between two Pokemon
+# --------------------------------------------------------------------------- #
+
+def _stat_now(f, side, name):
+    """The number the damage formula would see, stages included -- which is
+    where Power Trick's swap lives now that it is a property of the volatile
+    rather than an override written once."""
+    from pkcm.data.dex import Stat
+    from pkcm.engine.battle import make_context
+    from pkcm.engine.mutate import effective_stat
+
+    ctx = make_context(f.state)
+    ref = (side, f.state.sides[side].active[0])
+    return effective_stat(ctx, ref, getattr(Stat, name.upper()))
+
+
+#: The three splits and the three swaps, with what each is said to move.
+_SPLITS = {"guardsplit": ("def", "spd"), "powersplit": ("atk", "spa")}
+_SWAPS = {"guardswap": ("def", "spd"), "powerswap": ("atk", "spa")}
+
+
+def _two_sides(move_id, ours="shuckle", theirs="deoxysattack"):
+    """Two Pokemon whose numbers are as far apart as the dex allows, so an
+    average is unmistakably an average."""
+    mine = _first_species(ours, "steelix", "snorlax") or "snorlax"
+    other = _first_species(theirs, "alakazam", "gengar") or "gengar"
+    return (Fight([mon(mine, "__none__", (move_id, "splash", "protect", "rest"),
+                       None, "serious", (32, 0, 32, 0, 2, 0))],
+                  [mon(other, "__none__",
+                       ("swordsdance", "splash", "protect", "rest"), None,
+                       "serious", (32, 0, 32, 0, 2, 0))], seed=7))
+
+
+def _splits(move_id):
+    stats = _SPLITS[move_id]
+    f = _two_sides(move_id)
+    before = {(side, name): _stat_now(f, side, name)
+              for side in (0, 1) for name in stats}
+    f.turn(Action.move(0), Action.move(1))
+    problems = []
+    for name in stats:
+        want = (before[(0, name)] + before[(1, name)]) // 2
+        for side in (0, 1):
+            got = _stat_now(f, side, name)
+            if got != want:
+                problems.append(f"side {side}'s {name} is {got}, and the "
+                                f"average of {before[(0, name)]} and "
+                                f"{before[(1, name)]} is {want}")
+    return (move_id, not problems,
+            "; ".join(problems) or f"both sides at the average of "
+                                   f"{[before[(0, n)] for n in stats]} and "
+                                   f"{[before[(1, n)] for n in stats]}")
+
+
+def _swaps_stages(move_id):
+    stats = _SWAPS[move_id]
+    f = _two_sides(move_id)
+    ours, theirs = f.state.sides[0], f.state.sides[1]
+    ours.boosts[ours.active[0]][mc.BOOST_INDEX[stats[0]]] = 2
+    theirs.boosts[theirs.active[0]][mc.BOOST_INDEX[stats[1]]] = -3
+    f.turn(Action.move(0), Action.move(1))
+    got_ours, got_theirs = f.boosts(0), f.boosts(1)
+    ok = (got_ours.get(stats[1]) == -3 and got_theirs.get(stats[0]) == 2
+          and not got_ours.get(stats[0]) and not got_theirs.get(stats[1]))
+    return (move_id, ok, f"afterwards we hold {got_ours or 'nothing'} and they "
+                         f"hold {got_theirs or 'nothing'}")
+
+
+def _speed_swap():
+    """"The user swaps its Speed stat with the target" -- the stat, not the
+    stage, so two very different Speeds are the way to see it."""
+    f = _two_sides("speedswap")
+    mine, theirs = _stat_now(f, 0, "spe"), _stat_now(f, 1, "spe")
+    f.turn(Action.move(0), Action.move(1))
+    now_mine, now_theirs = _stat_now(f, 0, "spe"), _stat_now(f, 1, "spe")
+    return ("speedswap", (now_mine, now_theirs) == (theirs, mine)
+            and mine != theirs,
+            f"{mine}/{theirs} became {now_mine}/{now_theirs}")
+
+
+def _psych_up_copies():
+    """"copies all of the target's current stat stage changes" -- all of them,
+    and its own are replaced rather than added to."""
+    f = _two_sides("psychup")
+    ours, theirs = f.state.sides[0], f.state.sides[1]
+    ours.boosts[ours.active[0]][mc.BOOST_INDEX["def"]] = 4
+    row = theirs.boosts[theirs.active[0]]
+    row[mc.BOOST_INDEX["atk"]] = 2
+    row[mc.BOOST_INDEX["spe"]] = -1
+    f.turn(Action.move(0), Action.move(1))
+    return ("psychup", f.boosts(0) == {"atk": 2, "spe": -1},
+            f"we came away with {f.boosts(0)}, they hold {f.boosts(1)}")
+
+
+def _pain_split():
+    """"the average of their current HP, rounded down, but not more than the
+    maximum HP of either one"."""
+    f = _two_sides("painsplit")
+    ours, theirs = f.state.sides[0], f.state.sides[1]
+    ours.hp[ours.active[0]] = 1
+    theirs.hp[theirs.active[0]] = f.max_hp(1)
+    want = (1 + f.max_hp(1)) // 2
+    f.turn(Action.move(0), Action.move(1))
+    got = (f.hp(0), f.hp(1))
+    ok = got == (min(want, f.max_hp(0)), min(want, f.max_hp(1)))
+    return ("painsplit", ok,
+            f"1 and {f.max_hp(1)} became {got}, and the average is {want} "
+            f"capped at each maximum ({f.max_hp(0)}, {f.max_hp(1)})")
+
+
+def _power_trick_passes_on():
+    """The forme half of the sentence has no forme to change here; the other
+    half -- "still active for the purposes of Baton Pass" -- does."""
+    f = Fight([mon("snorlax", "__none__",
+                   ("powertrick", "batonpass", "splash", "protect"), None,
+                   "serious", (32, 32, 0, 0, 2, 0)),
+               mon(_first_species("shuckle", "steelix", "blissey"), "__none__",
+                   ("splash", "tackle", "protect", "rest"),
+                   None, "serious", (32, 0, 32, 0, 2, 0)),
+               mon("magikarp", "__none__", ("splash", "tackle"))],
+              [wall()], seed=7)
+    before = (_stat_now(f, 0, "atk"), _stat_now(f, 0, "def"))
+    f.turn(Action.move(0), Action.move(0))
+    swapped = (_stat_now(f, 0, "atk"), _stat_now(f, 0, "def"))
+    f.turn(Action.move(1), Action.move(0))
+    while f.state.phase.name in ("MID_TURN_SWITCH", "FORCED_SWITCH"):
+        f.turn(Action.switch(1), Action.PASS)
+    carried = "powertrick" in f.volatiles(0)
+    after = (_stat_now(f, 0, "atk"), _stat_now(f, 0, "def"))
+    return ("powertrick", swapped == before[::-1] and carried
+            and after[0] > after[1],
+            f"{before} became {swapped}; the replacement holds it={carried} "
+            f"and stands at {after}")
+
+
+_NUMBER_MOVERS = {"guardsplit": _splits, "powersplit": _splits,
+                  "guardswap": _swaps_stages, "powerswap": _swaps_stages}
+
+
+@family("numbermovers",
+        "The user and the target have their Defense and Special Defense stats "
+        "set to be equal to the average",
+        "The user and the target have their Attack and Special Attack stats "
+        "set to be equal to the average",
+        "The user swaps its Defense and Special Defense stat stage changes "
+        "with the target.",
+        "The user swaps its Attack and Special Attack stat stage changes with "
+        "the target.",
+        "The user swaps its Speed stat with the target.",
+        "The user copies all of the target's current stat stage changes.",
+        "The user and the target's HP become the average of their current HP",
+        "If the user has its stats recalculated by changing forme while its "
+        "stats are swapped")
+def _number_movers():
+    """Splits, swaps and copies, each against the arithmetic it states."""
+    rows = []
+    for move_id in members("numbermovers"):
+        if move_id in _NUMBER_MOVERS:
+            rows.append(_NUMBER_MOVERS[move_id](move_id))
+        elif move_id == "speedswap":
+            rows.append(_speed_swap())
+        elif move_id == "psychup":
+            rows.append(_psych_up_copies())
+        elif move_id == "painsplit":
+            rows.append(_pain_split())
+        elif move_id == "powertrick":
+            rows.append(_power_trick_passes_on())
+        else:
+            rows.append((move_id, False, "no probe written for it"))
+    return verdict(rows)
+
+
+# --------------------------------------------------------------------------- #
+# The shields that answer a contact move
+# --------------------------------------------------------------------------- #
+
+#: ``move -> (what a contact move costs the attacker, how to read it)``
+_SHIELDS = {
+    "banefulbunker": ("poison",
+                      lambda f: f.status(1) in ("psn", "tox")),
+    "spikyshield": ("an eighth of its maximum HP",
+                    lambda f: f.max_hp(1) - f.hp(1) == f.max_hp(1) // 8),
+    "kingsshield": ("one stage of Attack",
+                    lambda f: f.boosts(1).get("atk") == -1),
+}
+
+
+@family("shieldpunishes",
+        "The user is protected from most attacks made by other Pokemon during "
+        "this turn, and Pokemon making contact with the user become poisoned.",
+        "The user is protected from most attacks made by other Pokemon during "
+        "this turn, and Pokemon making contact with the user lose 1/8 of their "
+        "maximum HP, rounded down.",
+        "The user is protected from most attacks made by other Pokemon during "
+        "this turn, and Pokemon trying to make contact with the user have "
+        "their Attack lowered by 1 stage.")
+def _shield_punishes():
+    """Both halves: the hit does not land, and the one who tried pays.
+
+    A move that keeps its distance pays nothing, which is the word "contact"
+    doing work in the sentence.
+    """
+    rows = []
+    for move_id in members("shieldpunishes"):
+        what, read = _SHIELDS[move_id]
+        problems = []
+        for incoming, touches in (("bodyslam", True), ("swift", False)):
+            f = Fight([mon("snorlax", "__none__",
+                           (move_id, "splash", "protect", "rest"), None,
+                           "jolly", (32, 0, 32, 0, 2, 32))],
+                      [mon(UNIVERSAL, "__none__",
+                           (incoming, "splash", "protect", "rest"), None,
+                           "adamant", (32, 32, 0, 0, 2, 0))], seed=7)
+            f.turn(Action.move(0), Action.move(0))
+            if hp_lost(f, side=0):
+                problems.append(f"{incoming} got through for "
+                                f"{hp_lost(f, side=0)}")
+            paid = read(f)
+            if paid != touches:
+                problems.append(f"after {incoming} the attacker paid "
+                                f"{what}={paid}, and it makes contact={touches}")
+        rows.append((move_id, not problems,
+                     "; ".join(problems) or f"nothing got through, and a "
+                                            f"contact move cost its user {what}"))
+    return verdict(rows)
+
+
+# --------------------------------------------------------------------------- #
+# Being sent out of the field against your will
+# --------------------------------------------------------------------------- #
+
+def _drag_out(move_id, arrange=None, ability="__none__", seed=7):
+    theirs = [mon("snorlax", ability, ("splash", "ingrain", "substitute", "rest"),
+                  None, "sassy", (32, 0, 32, 0, 32, 0)),
+              mon("blissey", "__none__", ("splash", "tackle", "protect", "rest")),
+              mon("magikarp", "__none__", ("splash", "tackle"))]
+    f = Fight([swinger(move_id, extra=("splash", "protect", "rest"))],
+              theirs, seed=seed)
+    if arrange is not None:
+        f.turn(Action.move(0 if move_id in ("roar", "whirlwind") else 3),
+               Action.move(arrange))
+    f.turn(Action.move(0), Action.move(0))
+    while f.state.phase.name in ("MID_TURN_SWITCH", "FORCED_SWITCH"):
+        f.turn(Action.PASS, Action.switch(1))
+    return f
+
+
+@family("draggedout",
+        "The target is forced to switch out and be replaced with a random "
+        "unfainted ally.",
+        "This effect fails if the target is under the effect of Ingrain, has "
+        "the Suction Cups Ability, or this move hit a substitute.",
+        "This effect fails if the target used Ingrain previously, has the "
+        "Suction Cups Ability, or this move hit a substitute.")
+def _dragged_out():
+    """It drags, and then the three things the sentence says stop it."""
+    rows = []
+    for move_id in members("draggedout"):
+        problems = []
+        f = _drag_out(move_id)
+        if f.active_species(1) == "snorlax":
+            problems.append("nothing was dragged out at all")
+        for what, kwargs in (("Ingrain", {"arrange": 1}),
+                             ("Suction Cups", {"ability": "suctioncups"}),
+                             ("a substitute", {"arrange": 2})):
+            held = _drag_out(move_id, **kwargs)
+            if held.active_species(1) != "snorlax":
+                problems.append(f"{what} did not hold it in")
+        rows.append((move_id, not problems,
+                     "; ".join(problems) or "dragged out, and held by Ingrain, "
+                                            "Suction Cups and a substitute"))
+    return verdict(rows)
+
+
 def family_by_move(name: str, moves, probe):
     """Claim every clause that belongs *only* to these moves and is not yet
     claimed by a family above.

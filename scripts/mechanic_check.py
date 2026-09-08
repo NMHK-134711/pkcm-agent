@@ -2023,13 +2023,26 @@ def _no_retreat():
 
 @check("powertrick", "swaps the user's Attack and Defence")
 def _power_trick():
+    """Read through ``effective_stat``: the swap is now a property of the
+    volatile rather than an override written once, which is what lets Baton
+    Pass carry it."""
+    from pkcm.data.dex import Stat
+    from pkcm.engine.battle import make_context
+    from pkcm.engine.mutate import effective_stat
+
+    def swung(f):
+        ctx = make_context(f.state)
+        us = (0, f.state.sides[0].active[0])
+        return (effective_stat(ctx, us, Stat.ATK),
+                effective_stat(ctx, us, Stat.DEF))
+
     f = Fight(ours("shuckle", "__none__",
                    ("powertrick", "protect", "splash", "tackle"),
                    None, "serious", (32, 0, 32, 0, 32, 0)),
               [dummy("magikarp")])
-    before = (_stat(f, 0, "atk"), _stat(f, 0, "def"))
+    before = swung(f)
     f.turn(Action.move(0), Action.move(0))
-    after = (_stat(f, 0, "atk"), _stat(f, 0, "def"))
+    after = swung(f)
     # Shuckle's two are far enough apart that a swap cannot be mistaken for
     # noise, and the volatile alone said only that a word had been written.
     return (before[0] != before[1] and after == (before[1], before[0]),
@@ -2282,18 +2295,31 @@ def _power_swap():
             f"have {f.boosts(1) or 'nothing'}")
 
 
-@check("speedswap", "trades the two Speed stat stages over")
+@check("speedswap", "trades the two Speed stats over, leaving the stages")
 def _speed_swap():
-    f = Fight(ours("gengar", "__none__",
-                   ("speedswap", "shadowball", "protect", "splash"),
-                   None, "timid", (32, 0, 32, 0, 2, 32)),
-              [mon("dragonite", "__none__",
-                   ("dragondance", "dragonclaw", "roost", "firepunch"))])
-    f.turn(Action.move(3), Action.move(0))
-    theirs = f.boosts(1)
-    f.turn(Action.move(0), Action.move(2))
-    return (theirs.get("spe") == 1 and f.boosts(0).get("spe") == 1,
-            f"they had {theirs}, now we have {f.boosts(0)}")
+    """This check used to say "trades the two Speed stat stages over", which
+    is what the engine did and is not what the move does: "The user swaps its
+    Speed stat with the target. Stat stage changes are unaffected."
+    """
+    from pkcm.data.dex import Stat
+
+    f = Fight(ours("shuckle", "__none__",
+                   ("speedswap", "bodyslam", "protect", "splash"),
+                   None, "sassy", (32, 0, 32, 0, 32, 0)),
+              [mon("weavile", "__none__",
+                   ("swordsdance", "iceshard", "protect", "splash"), None,
+                   "jolly", (0, 32, 0, 0, 0, 32))])
+    f.turn(Action.move(3), Action.move(0))            # they Swords Dance
+    before = (f.state.stats(0, f.state.sides[0].active[0])[Stat.SPE],
+              f.state.stats(1, f.state.sides[1].active[0])[Stat.SPE])
+    stages = (f.boosts(0), f.boosts(1))
+    f.turn(Action.move(0), Action.move(3))
+    after = (f.state.stats(0, f.state.sides[0].active[0])[Stat.SPE],
+             f.state.stats(1, f.state.sides[1].active[0])[Stat.SPE])
+    return (after == before[::-1] and before[0] != before[1]
+            and (f.boosts(0), f.boosts(1)) == stages,
+            f"{before} became {after}, and the stages are still "
+            f"{(f.boosts(0), f.boosts(1))}")
 
 
 @check("hardpress", "falls off as the target loses HP")

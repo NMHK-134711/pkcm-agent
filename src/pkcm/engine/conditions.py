@@ -346,8 +346,21 @@ def _terrain_boost(move_type: str):
 
 register("terrain", "electricterrain", name="Electric Terrain",
          modify_damage=_terrain_boost("electric"))
+#: "the power of Bulldoze, Earthquake, and Magnitude used against grounded
+#: Pokemon is multiplied by 0.5" -- the other half of Grassy Terrain, and the
+#: half that decides whether a Grassy Terrain team can be answered by the
+#: commonest Ground move in the format.
+SHAKEN_OFF_BY_GRASS = frozenset({"earthquake", "bulldoze", "magnitude"})
+
+
+def _grassy_softens_the_ground(ctx, ref, value, attacker, defender, move, **_):
+    if move.id in SHAKEN_OFF_BY_GRASS and is_grounded(ctx.state, defender):
+        return int(value * 0.5)
+    return _terrain_boost("grass")(ctx, ref, value, attacker, defender, move)
+
+
 register("terrain", "grassyterrain", name="Grassy Terrain",
-         modify_damage=_terrain_boost("grass"))
+         modify_damage=_grassy_softens_the_ground)
 register("terrain", "psychicterrain", name="Psychic Terrain",
          modify_damage=_terrain_boost("psychic"))
 

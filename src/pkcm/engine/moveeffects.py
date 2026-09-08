@@ -144,7 +144,14 @@ register("side", "wish", name="Wish")
 
 @special("roost")
 def _roost(ctx, user, target, move) -> bool:
-    """The heal is declarative; losing Flying for the turn is not."""
+    """The heal is declarative; losing Flying for the turn is not.
+
+    Returning True whatever happened made the move a success at full health,
+    where its own description says it "does nothing" -- Recover and the rest
+    fail there because their heal is the only thing they claim to do.
+    """
+    if mutate.current_hp(ctx.state, user) >= mutate.max_hp(ctx.state, user):
+        return False
     if "flying" in ctx.state.types(*user):
         mutate.add_volatile(ctx, user, "roost")
     return True
@@ -1662,4 +1669,14 @@ def _electrify_retypes(ctx, ref, active, attacker, defender, **_):
 
 
 register("volatile", "electrify", name="Electrify", modify_move=_electrify_retypes)
-register("volatile", "smackdown", name="Smack Down")
+def _pinned_to_the_ground(ctx, ref, volatile, source, **_):
+    """"During the effect, Magnet Rise fails for the target and Telekinesis
+    fails against the target." The volatile was registered with no handlers,
+    so a smacked-down Pokemon floated straight back up."""
+    if volatile in ("magnetrise", "telekinesis"):
+        return False
+    return None
+
+
+register("volatile", "smackdown", name="Smack Down",
+         try_volatile=_pinned_to_the_ground)

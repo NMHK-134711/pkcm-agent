@@ -2540,6 +2540,342 @@ def _toxic_spike_layers():
     return verdict(rows)
 
 
+
+def _damage_under(field, kind, move_id, user="mew", target="snorlax",
+                  nature="modest", sp=(32, 0, 0, 32, 2, 0)):
+    """What one move takes off, with a weather or terrain set or not."""
+    f = Fight([mon(user, "__none__", (move_id, "splash", "protect", "rest"),
+                   None, nature, sp)],
+              [mon(target, "__none__", ("splash", "bodyslam", "protect", "rest"),
+                   None, "sassy", (32, 0, 32, 0, 32, 0))], seed=7)
+    if field is not None:
+        if kind == "weather":
+            f.state.field.weather, f.state.field.weather_turns = field, 8
+        else:
+            f.state.field.terrain, f.state.field.terrain_turns = field, 8
+    f.turn(Action.move(0), Action.move(0))
+    return hp_lost(f)
+
+
+@family("terrainpower",
+        "During the effect, the power of Electric-type attacks made by grounded "
+        "Pokemon is multiplied by 1.3 and grounded Pokemon cannot fall asleep",
+        "During the effect, the power of Grass-type attacks used by grounded "
+        "Pokemon is multiplied by 1.3, the power of Bulldoze, Earthquake, and "
+        "Magnitude used against grounded Pokemon is multiplied by 0.5",
+        "During the effect, the power of Psychic-type attacks made by grounded "
+        "Pokemon is multiplied by 1.3 and grounded Pokemon cannot be hit by",
+        "During the effect, the power of Dragon-type attacks used against "
+        "grounded Pokemon is multiplied by 0.5 and grounded")
+def _terrain_power():
+    """A third on, or a half off, and only for something standing on it."""
+    want = {"electricterrain": ("thunderbolt", 1.3),
+            "grassyterrain": ("energyball", 1.3),
+            "psychicterrain": ("psychic", 1.3),
+            "mistyterrain": ("dragonpulse", 0.5)}
+    rows = []
+    for move_id in members("terrainpower"):
+        probe, share = want[move_id]
+        plain = _damage_under(None, "terrain", probe)
+        on_it = _damage_under(move_id, "terrain", probe)
+        got = on_it / plain if plain else 0.0
+        # And a Flying type standing above it takes the ordinary number.
+        flying = _damage_under(move_id, "terrain", probe, target="staraptor"
+                               if "staraptor" in DEX.species else "charizard")
+        bare = _damage_under(None, "terrain", probe, target="staraptor"
+                             if "staraptor" in DEX.species else "charizard")
+        aloft = flying / bare if bare else 0.0
+        ours = move_id != "mistyterrain"       # Misty is about the target
+        rows.append((move_id, abs(got - share) <= 0.08
+                     and (abs(aloft - 1.0) <= 0.08 or ours),
+                     f"{probe} went {plain} -> {on_it} (x{got:.2f} against "
+                     f"x{share}); against something in the air x{aloft:.2f}"))
+    return verdict(rows)
+
+
+@family("grassyearthquake",
+        "the power of Bulldoze, Earthquake, and Magnitude used against grounded "
+        "Pokemon is multiplied by 0.5")
+def _grassy_softens_the_ground():
+    plain = _damage_under(None, "terrain", "earthquake", user="garchomp",
+                          nature="adamant", sp=(32, 32, 0, 0, 2, 0))
+    grassy = _damage_under("grassyterrain", "terrain", "earthquake",
+                           user="garchomp", nature="adamant",
+                           sp=(32, 32, 0, 0, 2, 0))
+    share = grassy / plain if plain else 0.0
+    return (abs(share - 0.5) <= 0.06,
+            f"Earthquake went {plain} -> {grassy} on grass (x{share:.2f})")
+
+
+@family("weatherdefence",
+        "During the effect, the Defense of Ice-type Pokemon is multiplied by "
+        "1.5 when taking damage from a physical attack.",
+        "During the effect, the Special Defense of Rock-type Pokemon is "
+        "multiplied by 1.5 when taking damage from a special attack.")
+def _weather_defence():
+    rows = []
+    for move_id in members("weatherdefence"):
+        target, probe, nature, sp = {
+            "snowscape": ("weavile", "bodyslam", "adamant", (32, 32, 0, 0, 2, 0)),
+            "sandstorm": ("tyranitar" if "tyranitar" in DEX.species
+                          else "rampardos",
+                          "surf", "modest", (32, 0, 0, 32, 2, 0)),
+        }[move_id]
+        plain = _damage_under(None, "weather", probe, target=target,
+                              nature=nature, sp=sp)
+        sheltered = _damage_under(move_id, "weather", probe, target=target,
+                                  nature=nature, sp=sp)
+        share = sheltered / plain if plain else 0.0
+        rows.append((move_id, abs(share - 2 / 3) <= 0.06,
+                     f"{probe} at a {'/'.join(DEX.species[target].types)} went "
+                     f"{plain} -> {sheltered} (x{share:.2f} against the two "
+                     f"thirds a 1.5x defence gives)"))
+    return verdict(rows)
+
+
+@family("trickroomspeed",
+        "During the effect, each Pokemon's Speed is considered to be (10000 - "
+        "its normal Speed), and if this value is greater than 8191, 8192 is "
+        "subtracted from it.")
+def _trick_room_speed():
+    rows = []
+    for move_id in members("trickroomspeed"):
+        def first(room):
+            f = Fight([mon("weavile", "__none__",
+                           (move_id, "bodyslam", "protect", "rest"), None,
+                           "jolly", (0, 32, 2, 0, 0, 32))],
+                      [mon("snorlax", "__none__",
+                           ("bodyslam", "splash", "protect", "rest"), None,
+                           "sassy", (32, 32, 0, 0, 32, 0))], seed=7)
+            if room:
+                f.state.field.rooms[move_id] = 5
+            f.turn(Action.move(1), Action.move(0))
+            order = [e for e in f.log if e.kind == "move_used"]
+            return (order[0].side or 0) if order else None
+
+        rows.append((move_id, first(False) == 0 and first(True) == 1,
+                     f"the quick one went first normally (side {first(False)}) "
+                     f"and second inside the room (side {first(True)})"))
+    return verdict(rows)
+
+
+@family("gravitygrounds2",
+        "During the effect, Bounce, Fly, Flying Press, High Jump Kick, Jump "
+        "Kick, Magnet Rise, Sky Drop, Splash, and Telekinesis are prevented "
+        "from being used")
+def _gravity_forbids():
+    rows = []
+    for move_id in members("gravitygrounds2"):
+        f = Fight([mon(UNIVERSAL, "__none__",
+                       ("fly", "splash", "protect", "rest"), None, "adamant",
+                       (32, 32, 0, 0, 2, 0))],
+                  [wall()], seed=7)
+        f.state.field.rooms["gravity"] = 5
+        f.turn(Action.move(0), Action.move(0))
+        refused = failed(f) or any(e.kind in ("move_failed", "cant_move")
+                                   for e in f.log)
+        rows.append((move_id, refused, f"Fly under Gravity was refused={refused}"))
+    return verdict(rows)
+
+
+@family("smackdownblocks", "During the effect, Magnet Rise fails for the target "
+                           "and Telekinesis fails against the target.")
+def _smack_down_pins_them():
+    rows = []
+    for move_id in members("smackdownblocks"):
+        f = Fight([swinger(move_id)],
+                  [mon("mew", "__none__",
+                       ("magnetrise", "splash", "protect", "rest"), None,
+                       "sassy", (32, 0, 32, 0, 32, 0))], seed=7)
+        f.turn(Action.move(0), Action.move(1))
+        pinned = "smackdown" in f.volatiles(1)
+        f.turn(Action.move(1), Action.move(0))
+        rows.append((move_id, pinned and "magnetrise" not in f.volatiles(1),
+                     f"pinned={pinned}; afterwards it held "
+                     f"{sorted(f.volatiles(1) & {'magnetrise'})}"))
+    return verdict(rows)
+
+
+@family("healblocked", "During the effect, healing and draining moves are "
+                       "unusable, and Abilities and items that grant healing "
+                       "will not heal the user")
+def _heal_blocked():
+    rows = []
+    for move_id in members("healblocked"):
+        f = Fight([swinger(move_id)],
+                  [mon("snorlax", "__none__",
+                       ("recover", "splash", "protect", "rest"), None, "sassy",
+                       (32, 0, 32, 0, 32, 0))], seed=7)
+        slot = f.state.sides[1].active[0]
+        f.state.sides[1].hp[slot] //= 2
+        f.turn(Action.move(0), Action.move(1))
+        before = f.hp(1)
+        f.turn(Action.move(1), Action.move(0))
+        rows.append((move_id, f.hp(1) <= before,
+                     f"under it, Recover took them from {before} to {f.hp(1)}"))
+    return verdict(rows)
+
+
+@family("uproarnosleep",
+        "During the three turns, no active Pokemon can fall asleep by any means")
+def _uproar_keeps_everyone_awake():
+    rows = []
+    for move_id in members("uproarnosleep"):
+        # Ours moves first, so the din is up before the Spore is cast.
+        f = Fight([mon("weavile", "__none__",
+                       (move_id, "splash", "protect", "rest"), None, "jolly",
+                       (0, 32, 2, 0, 0, 32))],
+                  [mon("snorlax", "__none__",
+                       ("spore", "splash", "protect", "rest"), None, "sassy",
+                       (32, 0, 32, 0, 32, 0))], seed=7)
+        f.turn(Action.move(0), Action.move(0))
+        rows.append((move_id, f.status(0) != "slp",
+                     f"with the din up, Spore left the user {f.status(0)}"))
+    return verdict(rows)
+
+
+@family("sidehealsaquarter", "Each Pokemon on the user's side restores 1/4 of "
+                             "its maximum HP, rounded half up.")
+def _heals_the_side_a_quarter():
+    rows = []
+    for move_id in members("sidehealsaquarter"):
+        f = Fight([swinger(move_id)], [wall()], seed=7)
+        slot = f.state.sides[0].active[0]
+        whole = f.max_hp(0)
+        f.state.sides[0].hp[slot] = 1
+        f.turn(Action.move(0), Action.move(0))
+        got = f.hp(0) - 1
+        rows.append((move_id, abs(got - (whole + 2) // 4) <= 1,
+                     f"restored {got} of {whole}, a quarter being "
+                     f"{(whole + 2) // 4}"))
+    return verdict(rows)
+
+
+@family("perishfour", "Each active Pokemon receives a perish count of 4 if it "
+                      "doesn't already have a perish count.")
+def _perish_count_of_four():
+    rows = []
+    for move_id in members("perishfour"):
+        f = Fight([swinger(move_id)], [wall()], seed=7)
+        f.turn(Action.move(0), Action.move(0))
+        counts = [f.state.sides[side].volatiles[f.state.sides[side].active[0]]
+                  .get("perishsong") for side in (0, 1)]
+        rows.append((move_id, all(isinstance(one, dict) for one in counts),
+                     f"both sides came out holding {counts}"))
+    return verdict(rows)
+
+
+@family("ragefistcount", "Each hit of a multi-hit attack is counted, but "
+                         "confusion damage is not counted.")
+def _rage_fist_counts_hits():
+    rows = []
+    for move_id in members("ragefistcount"):
+        def dealt(hits):
+            f = Fight([swinger(move_id)],
+                      [mon("garchomp", "__none__",
+                           ("bulletseed", "splash", "protect", "rest"), None,
+                           "adamant", (0, 32, 2, 0, 0, 32))], seed=7)
+            for _ in range(hits):
+                f.turn(Action.move(1), Action.move(0))
+            f.turn(Action.move(0), Action.move(1))
+            return hp_lost(f)
+
+        none, some = dealt(0), dealt(2)
+        rows.append((move_id, some > none,
+                     f"{none} before being hit, {some} after two turns of a "
+                     f"multi-hit move"))
+    return verdict(rows)
+
+
+@family("terrainpulsetype",
+        "Electric type during Electric Terrain, Grass type during Grassy "
+        "Terrain, Fairy type during Misty Terrain, and Psychic type during "
+        "Psychic Terrain")
+def _terrain_pulse_type():
+    rows = []
+    for move_id in members("terrainpulsetype"):
+        off = []
+        for terrain, kind in (("electricterrain", "electric"),
+                              ("grassyterrain", "grass"),
+                              ("mistyterrain", "fairy"),
+                              ("psychicterrain", "psychic")):
+            # A Ground type is immune to Electric and takes Grass at double.
+            f = Fight([swinger(move_id)],
+                      [mon("garchomp", "__none__",
+                           ("splash", "bodyslam", "protect", "rest"), None,
+                           "sassy", (32, 0, 32, 0, 32, 0))], seed=7)
+            f.state.field.terrain, f.state.field.terrain_turns = terrain, 8
+            f.turn(Action.move(0), Action.move(0))
+            hits = [e for e in f.log if e.kind == "damage" and (e.side or 0) == 1]
+            got = hits[0].effectiveness if hits else 0.0
+            want = DEX.type_chart.multiplier(kind, DEX.species["garchomp"].types)
+            if abs(got - want) > 0.01:
+                off.append(f"{terrain}: effectiveness {got} against the {want} "
+                           f"a {kind} move would have")
+        rows.append((move_id, not off, "; ".join(off) or
+                     "the type followed the terrain all four ways"))
+    return verdict(rows)
+
+
+@family("curesthewholeparty", "Every Pokemon in the user's party is cured of "
+                              "its non-volatile status condition.")
+def _cures_the_party():
+    rows = []
+    for move_id in members("curesthewholeparty"):
+        f = Fight([swinger(move_id),
+                   mon("magikarp", "__none__", ("splash", "tackle")),
+                   mon("pikachu", "__none__", ("splash", "tackle"))],
+                  [wall()], seed=7)
+        for slot in range(3):
+            f.state.sides[0].status[slot] = "brn"
+        f.turn(Action.move(0), Action.move(0))
+        left = [f.state.sides[0].status[slot] for slot in range(3)]
+        rows.append((move_id, left == [None, None, None],
+                     f"the party came out {left}"))
+    return verdict(rows)
+
+
+@family("fullhealthdoesnothing", "Does nothing if the user's HP is full.")
+def _nothing_at_full_health():
+    rows = []
+    for move_id in members("fullhealthdoesnothing"):
+        f = Fight([swinger(move_id)], [wall()], seed=7)
+        f.turn(Action.move(0), Action.move(0))
+        rows.append((move_id, failed(f),
+                     f"at full health it failed={failed(f)}"))
+    return verdict(rows)
+
+
+@family("alreadythattype", "Fails if the target is already a Ghost type.",
+        "Fails if the target is already a Grass type.")
+def _already_that_type():
+    rows = []
+    for move_id in members("alreadythattype"):
+        already = {"trickortreat": "gengar", "forestscurse": "meganium"}[move_id]
+        f = Fight([swinger(move_id)], [wall(already)], seed=7)
+        f.turn(Action.move(0), Action.move(0))
+        rows.append((move_id, failed(f),
+                     f"against a {'/'.join(DEX.species[already].types)} it "
+                     f"failed={failed(f)}"))
+    return verdict(rows)
+
+
+@family("typelessdamage", "Deals typeless damage to a random opposing Pokemon.")
+def _struggle_is_typeless():
+    rows = []
+    for move_id in members("typelessdamage"):
+        f = Fight([swinger("tackle")], [wall("gengar")], seed=7)
+        for index in range(len(f.state.sides[0].pp[f.state.sides[0].active[0]])):
+            f.state.sides[0].pp[f.state.sides[0].active[0]][index] = 0
+        f.turn(Action.struggle(), Action.move(0))
+        hits = [e for e in f.log if e.kind == "damage" and (e.side or 0) == 1]
+        rows.append((move_id, bool(hits) and hits[0].effectiveness == 1.0,
+                     f"against a Ghost it dealt {hits[0].amount if hits else 0} "
+                     f"at effectiveness "
+                     f"{hits[0].effectiveness if hits else None}"))
+    return verdict(rows)
+
+
 # --------------------------------------------------------------------------- #
 # The report
 # --------------------------------------------------------------------------- #

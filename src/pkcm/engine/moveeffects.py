@@ -1043,6 +1043,28 @@ def _gravity_grounds_the_move(ctx, ref, move, **_):
 
 # Gravity also pulls everything down to earth -- that half is in
 # ``conditions.is_grounded``, which is the one place that answers the question.
+#: What Gravity ends the moment it is set: "At the time of use, Bounce, Fly,
+#: Magnet Rise, Sky Drop, and Telekinesis end immediately for all active
+#: Pokemon." None of them was being ended, so a Magnet Rise floated on under a
+#: Gravity that is the whole answer to it.
+GROUNDED_BY_GRAVITY = ("magnetrise", "telekinesis", "twoturn")
+
+
+def ground_everything(ctx) -> None:
+    for player in (0, 1):
+        side = ctx.state.sides[player]
+        for slot in side.active:
+            if slot < 0:
+                continue
+            for name in GROUNDED_BY_GRAVITY:
+                if name == "twoturn":
+                    charging = side.volatiles[slot].get("twoturn") or {}
+                    if charging.get("id") not in ("fly", "bounce", "skydrop"):
+                        continue
+                if name in side.volatiles[slot]:
+                    mutate.remove_volatile(ctx, (player, slot), name)
+
+
 register("room", "gravity", name="Gravity",
          modify_accuracy=_gravity_steadies_aim,
          try_move=_gravity_grounds_the_move)
@@ -1141,9 +1163,16 @@ register("side", "wideguard", name="Wide Guard", try_hit=_wide_guard)
 
 @special("healbell")
 def _heal_bell(ctx, user, target, move) -> bool:
+    """Champions and the data: "Active Pokemon with the Soundproof Ability are
+    not cured, unless they are the user." It is a sound move and Soundproof
+    was not being asked -- the bench is not active, so only the one standing
+    on the field can refuse it."""
     side = ctx.state.sides[user[0]]
     cured = False
     for slot in range(len(side.hp)):
+        if slot != user[1] and slot in side.active \
+                and ctx.ability_of((user[0], slot)) == "soundproof":
+            continue
         if side.status[slot] is not None:
             side.status[slot] = None
             side.status_data[slot] = {}

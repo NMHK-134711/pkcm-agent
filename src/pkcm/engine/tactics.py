@@ -223,14 +223,32 @@ register("volatile", "mustrecharge", name="Recharging", try_move=_recharging)
 # --------------------------------------------------------------------------- #
 
 
+def break_lock(ctx: Context, user: Ref) -> None:
+    """The rampage ends where it started, and without the confusion.
+
+    "If the user is prevented from moving, is asleep at the beginning of a
+    turn, or the attack is not successful against the target on the first turn
+    of the effect, the effect ends without confusing the user." A Protect on
+    the first turn is the ordinary way that happens, and the lock survived it.
+    """
+    volatiles = ctx.state.sides[user[0]].volatiles[user[1]]
+    data = volatiles.get("lockedmove")
+    # Only the first turn: a rampage that is stopped later runs its course and
+    # ends in confusion the way it always would.
+    if data is not None and data.get("fresh"):
+        del volatiles["lockedmove"]
+
+
 def start_locked_move(ctx: Context, user: Ref, move, move_index: int | None) -> None:
     """Outrage and friends: 2-3 turns of the same move, then confusion."""
     volatiles = ctx.state.sides[user[0]].volatiles[user[1]]
     data = volatiles.get("lockedmove")
     if data is None or "turns" not in data:
         volatiles["lockedmove"] = {"move": move_index, "id": move.id,
-                                   "turns": ctx.cursor.between(2, 3) - 1}
+                                   "turns": ctx.cursor.between(2, 3) - 1,
+                                   "fresh": True}
         return
+    data.pop("fresh", None)
     data["turns"] -= 1
     if data["turns"] <= 0:
         del volatiles["lockedmove"]

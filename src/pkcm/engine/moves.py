@@ -1269,6 +1269,12 @@ def _resolve(
         # ``NOT_FAIL`` -- and marking it failed here doubled Temper Flare and
         # Stomping Tantrum off a turn that should have left them alone.
         _note_move_failed(ctx, attacker, not _was_shielded(ctx, move))
+        # A rampage that never reached its target on the first turn ends there
+        # and does not confuse: "the attack is not successful against the
+        # target on the first turn of the effect".
+        from pkcm.engine import tactics as _tactics
+
+        _tactics.break_lock(ctx, attacker)
         return
 
     # Status moves ignore the type chart unless they say otherwise. Showdown
@@ -1894,6 +1900,10 @@ def _apply_field_effects(ctx: Context, attacker: Ref, target: Ref, move: Move) -
 
     pseudo = raw.get("pseudoWeather")
     if pseudo:
+        if _to_id(pseudo) == "gravity" and "gravity" not in ctx.state.field.rooms:
+            from pkcm.engine.moveeffects import ground_everything
+
+            ground_everything(ctx)
         # Five was a guess that happens to be right for Trick Room and wrong
         # for Fairy Lock, whose own condition says two.
         from pkcm.engine.moveeffects import TOGGLE_ROOMS

@@ -276,10 +276,24 @@ def test_fire_spin_traps_and_chips(dex, config):
 
 def test_outrage_locks_the_user_in(dex, config):
     state = build(config, a_set("dragonite", "multiscale", ("outrage", "bodyslam")),
-                  a_set("snorlax", "thickfat", ("protect",)))
+                  a_set("snorlax", "thickfat", ("splash", "protect")))
     state, _ = step(state, Action.move(0), Action.move(0))
     assert [a.index for a in legal_actions(state, 0) if a.kind is ActionKind.MOVE] == [0], \
         "no choice while raging"
+
+
+def test_a_rampage_blocked_on_its_first_turn_ends_there(dex, config):
+    """The move says so: "if the attack is not successful against the target
+    on the first turn of the effect, the effect ends without confusing the
+    user". The test above used to be this position -- Protect as the
+    opponent's only move -- and passed because the lock survived the block.
+    """
+    state = build(config, a_set("dragonite", "multiscale", ("outrage", "bodyslam")),
+                  a_set("snorlax", "thickfat", ("protect", "splash")))
+    state, _ = step(state, Action.move(0), Action.move(0))
+    free = [a.index for a in legal_actions(state, 0) if a.kind is ActionKind.MOVE]
+    assert free == [0, 1], f"the rage should have ended; it may pick {free}"
+    assert "confusion" not in state.sides[0].volatiles[0]
 
 
 def test_explosion_takes_the_user_with_it(dex, config):

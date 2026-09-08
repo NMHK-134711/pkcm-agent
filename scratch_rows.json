@@ -1,0 +1,7488 @@
+[
+ {
+  "id": "acidarmor",
+  "name": "Acid Armor",
+  "ko": "녹기",
+  "cat": "Status",
+  "direct": [],
+  "delegated": [
+   [
+    "Raises the user's Defense by 2 stages.",
+    [
+     "declaredboosts"
+    ]
+   ]
+  ],
+  "unclaimed": []
+ },
+ {
+  "id": "acidspray",
+  "name": "Acid Spray",
+  "ko": "애시드봄",
+  "cat": "Special",
+  "direct": [],
+  "delegated": [
+   [
+    "Has a 100% chance to lower the target's Special Defense by 2 stages.",
+    [
+     "secondary"
+    ]
+   ]
+  ],
+  "unclaimed": []
+ },
+ {
+  "id": "acrobatics",
+  "name": "Acrobatics",
+  "ko": "애크러뱃",
+  "cat": "Physical",
+  "direct": [
+   "Power doubles if the user has no held item."
+  ],
+  "delegated": [],
+  "unclaimed": []
+ },
+ {
+  "id": "acupressure",
+  "name": "Acupressure",
+  "ko": "경혈찌르기",
+  "cat": "Status",
+  "direct": [
+   "The user can choose to use this move on itself or an adjacent ally.",
+   "Fails if no stat stage can be raised or if used on an ally with a substitute."
+  ],
+  "delegated": [
+   [
+    "Raises a random stat by 2 stages as long as the stat is not already at stage 6.",
+    [
+     "declaredboosts"
+    ]
+   ]
+  ],
+  "unclaimed": []
+ },
+ {
+  "id": "aerialace",
+  "name": "Aerial Ace",
+  "ko": "제비반환",
+  "cat": "Physical",
+  "direct": [
+   "This move does not check accuracy."
+  ],
+  "delegated": [],
+  "unclaimed": []
+ },
+ {
+  "id": "afteryou",
+  "name": "After You",
+  "ko": "당신먼저",
+  "cat": "Status",
+  "direct": [
+   "The target makes its move immediately after the user this turn, no matter the priority of its selected move.",
+   "Fails if the target would have moved next anyway, or if the target already moved this turn."
+  ],
+  "delegated": [],
+  "unclaimed": []
+ },
+ {
+  "id": "agility",
+  "name": "Agility",
+  "ko": "고속이동",
+  "cat": "Status",
+  "direct": [],
+  "delegated": [
+   [
+    "Raises the user's Speed by 2 stages.",
+    [
+     "declaredboosts"
+    ]
+   ]
+  ],
+  "unclaimed": []
+ },
+ {
+  "id": "aircutter",
+  "name": "Air Cutter",
+  "ko": "에어커터",
+  "cat": "Special",
+  "direct": [
+   "Has a higher chance for a critical hit."
+  ],
+  "delegated": [],
+  "unclaimed": []
+ },
+ {
+  "id": "airslash",
+  "name": "Air Slash",
+  "ko": "에어슬래시",
+  "cat": "Special",
+  "direct": [],
+  "delegated": [
+   [
+    "Has a 30% chance to make the target flinch.",
+    [
+     "secondary"
+    ]
+   ]
+  ],
+  "unclaimed": []
+ },
+ {
+  "id": "alluringvoice",
+  "name": "Alluring Voice",
+  "ko": "매혹의보이스",
+  "cat": "Special",
+  "direct": [],
+  "delegated": [
+   [
+    "Has a 100% chance to confuse the target if it had a stat stage raised this turn.",
+    [
+     "secondary"
+    ]
+   ]
+  ],
+  "unclaimed": []
+ },
+ {
+  "id": "allyswitch",
+  "name": "Ally Switch",
+  "ko": "사이드체인지",
+  "cat": "Status",
+  "direct": [
+   "The user swaps positions with its ally.",
+   "Fails if the user is the only Pokemon on its side.",
+   "This move has a 1/X chance of being successful, where X starts at 1 and triples each time this move is successfully used.",
+   "X resets to 1 if this move fails or if the user's last move used is not Ally Switch."
+  ],
+  "delegated": [],
+  "unclaimed": []
+ },
+ {
+  "id": "amnesia",
+  "name": "Amnesia",
+  "ko": "망각술",
+  "cat": "Status",
+  "direct": [],
+  "delegated": [
+   [
+    "Raises the user's Special Defense by 2 stages.",
+    [
+     "declaredboosts"
+    ]
+   ]
+  ],
+  "unclaimed": []
+ },
+ {
+  "id": "ancientpower",
+  "name": "Ancient Power",
+  "ko": "원시의힘",
+  "cat": "Special",
+  "direct": [],
+  "delegated": [
+   [
+    "Has a 10% chance to raise the user's Attack, Defense, Special Attack, Special Defense, and Speed by 1 stage.",
+    [
+     "secondary"
+    ]
+   ]
+  ],
+  "unclaimed": []
+ },
+ {
+  "id": "appleacid",
+  "name": "Apple Acid",
+  "ko": "사과산",
+  "cat": "Special",
+  "direct": [],
+  "delegated": [
+   [
+    "Has a 100% chance to lower the target's Special Defense by 1 stage.",
+    [
+     "secondary"
+    ]
+   ]
+  ],
+  "unclaimed": []
+ },
+ {
+  "id": "aquacutter",
+  "name": "Aqua Cutter",
+  "ko": "아쿠아커터",
+  "cat": "Physical",
+  "direct": [
+   "Has a higher chance for a critical hit."
+  ],
+  "delegated": [],
+  "unclaimed": []
+ },
+ {
+  "id": "aquaring",
+  "name": "Aqua Ring",
+  "ko": "아쿠아링",
+  "cat": "Status",
+  "direct": [
+   "If Big Root is held by the user, the HP recovered is 1.3x normal, rounded half down.",
+   "If the user uses Baton Pass, the replacement will receive the healing effect."
+  ],
+  "delegated": [
+   [
+    "The user has 1/16 of its maximum HP, rounded down, restored at the end of each turn while it remains active.",
+    [
+     "restated"
+    ]
+   ]
+  ],
+  "unclaimed": []
+ },
+ {
+  "id": "aquastep",
+  "name": "Aqua Step",
+  "ko": "아쿠아스텝",
+  "cat": "Physical",
+  "direct": [],
+  "delegated": [
+   [
+    "Has a 100% chance to raise the user's Speed by 1 stage.",
+    [
+     "secondary"
+    ]
+   ]
+  ],
+  "unclaimed": []
+ },
+ {
+  "id": "armorcannon",
+  "name": "Armor Cannon",
+  "ko": "아머캐논",
+  "cat": "Special",
+  "direct": [],
+  "delegated": [
+   [
+    "Lowers the user's Defense and Special Defense by 1 stage.",
+    [
+     "declaredboosts"
+    ]
+   ]
+  ],
+  "unclaimed": []
+ },
+ {
+  "id": "aromaticmist",
+  "name": "Aromatic Mist",
+  "ko": "아로마미스트",
+  "cat": "Status",
+  "direct": [
+   "Fails if there is no ally adjacent to the user."
+  ],
+  "delegated": [
+   [
+    "Raises the target's Special Defense by 1 stage.",
+    [
+     "declaredboosts"
+    ]
+   ]
+  ],
+  "unclaimed": []
+ },
+ {
+  "id": "assurance",
+  "name": "Assurance",
+  "ko": "승부굳히기",
+  "cat": "Physical",
+  "direct": [],
+  "delegated": [
+   [
+    "Power doubles if the target has already taken damage this turn, other than direct damage from Belly Drum, confusion, Curse, or Pain Split.",
+    [
+     "delegatedpower"
+    ]
+   ]
+  ],
+  "unclaimed": []
+ },
+ {
+  "id": "attract",
+  "name": "Attract",
+  "ko": "헤롱헤롱",
+  "cat": "Status",
+  "direct": [
+   "Causes the target to become infatuated, making it unable to attack 50% of the time.",
+   "Fails if both the user and the target are the same gender, if either is genderless, or if the target is already infatuated.",
+   "Pokemon with the Oblivious Ability or protected by the Aroma Veil Ability are immune."
+  ],
+  "delegated": [
+   [
+    "The effect ends when either the user or the target is no longer active.",
+    [
+     "restated"
+    ]
+   ]
+  ],
+  "unclaimed": []
+ },
+ {
+  "id": "aurasphere",
+  "name": "Aura Sphere",
+  "ko": "파동탄",
+  "cat": "Special",
+  "direct": [
+   "This move does not check accuracy."
+  ],
+  "delegated": [],
+  "unclaimed": []
+ },
+ {
+  "id": "aurawheel",
+  "name": "Aura Wheel",
+  "ko": "오라휠",
+  "cat": "Physical",
+  "direct": [
+   "If the user is a Morpeko in Full Belly Mode, this move is Electric type.",
+   "If the user is a Morpeko in Hangry Mode, this move is Dark type.",
+   "This move cannot be used successfully unless the user's current form, while considering Transform, is Full Belly or Hangry Mode Morpeko."
+  ],
+  "delegated": [
+   [
+    "Has a 100% chance to raise the user's Speed by 1 stage.",
+    [
+     "secondary"
+    ]
+   ]
+  ],
+  "unclaimed": []
+ },
+ {
+  "id": "auroraveil",
+  "name": "Aurora Veil",
+  "ko": "오로라베일",
+  "cat": "Status",
+  "direct": [],
+  "delegated": [
+   [
+    "For 5 turns, the user and its party members take 0.5x damage from physical and special attacks, or 0.66x damage if in a Double Battle; does not reduce damage further with Reflect or Light Screen.",
+    [
+     "statedduration"
+    ]
+   ],
+   [
+    "Critical hits ignore this protection.",
+    [
+     "screenbreakers"
+    ]
+   ],
+   [
+    "It is removed from the user's side if the user or an ally is successfully hit by Brick Break, Psychic Fangs, or Defog.",
+    [
+     "screenbreakers"
+    ]
+   ],
+   [
+    "Brick Break and Psychic Fangs remove the effect before damage is calculated.",
+    [
+     "restated"
+    ]
+   ],
+   [
+    "Lasts for 8 turns if the user is holding Light Clay.",
+    [
+     "screenbreakers"
+    ]
+   ],
+   [
+    "Fails unless the weather is Snow.",
+    [
+     "restated"
+    ]
+   ]
+  ],
+  "unclaimed": []
+ },
+ {
+  "id": "avalanche",
+  "name": "Avalanche",
+  "ko": "눈사태",
+  "cat": "Physical",
+  "direct": [],
+  "delegated": [
+   [
+    "Power doubles if the user was hit by the target this turn.",
+    [
+     "delegatedpower"
+    ]
+   ]
+  ],
+  "unclaimed": []
+ },
+ {
+  "id": "axekick",
+  "name": "Axe Kick",
+  "ko": "발꿈치찍기",
+  "cat": "Physical",
+  "direct": [
+   "If this attack is not successful, the user loses half of its maximum HP, rounded down, as crash damage.",
+   "Pokemon with the Magic Guard Ability are unaffected by crash damage."
+  ],
+  "delegated": [
+   [
+    "Has a 30% chance to confuse the target.",
+    [
+     "secondary"
+    ]
+   ]
+  ],
+  "unclaimed": []
+ },
+ {
+  "id": "babydolleyes",
+  "name": "Baby-Doll Eyes",
+  "ko": "초롱초롱눈동자",
+  "cat": "Status",
+  "direct": [],
+  "delegated": [
+   [
+    "Lowers the target's Attack by 1 stage.",
+    [
+     "declaredboosts"
+    ]
+   ]
+  ],
+  "unclaimed": []
+ },
+ {
+  "id": "banefulbunker",
+  "name": "Baneful Bunker",
+  "ko": "토치카",
+  "cat": "Status",
+  "direct": [
+   "This move has a 1/X chance of being successful, where X starts at 1 and triples each time this move is successfully used.",
+   "X resets to 1 if this move fails, if the user's last move used is not Baneful Bunker, Burning Bulwark, Detect, Endure, King's Shield, Max Guard, Obstruct, Protect, Quick Guard, Silk Trap, Spiky Shield, or Wide Guard, or if it was one of those moves and the user's protection was broken.",
+   "Fails if the user moves last this turn."
+  ],
+  "delegated": [
+   [
+    "The user is protected from most attacks made by other Pokemon during this turn, and Pokemon making contact with the user become poisoned.",
+    [
+     "restated"
+    ]
+   ]
+  ],
+  "unclaimed": []
+ },
+ {
+  "id": "barbbarrage",
+  "name": "Barb Barrage",
+  "ko": "독침천발",
+  "cat": "Physical",
+  "direct": [
+   "Power doubles if the target is already poisoned."
+  ],
+  "delegated": [
+   [
+    "Has a 50% chance to poison the target.",
+    [
+     "secondary"
+    ]
+   ]
+  ],
+  "unclaimed": []
+ },
+ {
+  "id": "batonpass",
+  "name": "Baton Pass",
+  "ko": "배턴터치",
+  "cat": "Status",
+  "direct": [],
+  "delegated": [
+   [
+    "The user is replaced with another Pokemon in its party.",
+    [
+     "restated"
+    ]
+   ],
+   [
+    "The selected Pokemon has the user's stat stage changes transferred to it, as well as the effects of confusion, Aqua Ring, Curse, Dragon Cheer, Embargo, Focus Energy, Gastro Acid, Heal Block, Ingrain, Leech Seed, Lock-On (Mind Reader), Magnet Rise, Perish Song, Power Trick, Telekinesis, and a substitute with its remaining HP.",
+    [
+     "restated"
+    ]
+   ],
+   [
+    "The effect of Gastro Acid is not transferred if the recipient has an Ability that cannot be affected.",
+    [
+     "restated"
+    ]
+   ]
+  ],
+  "unclaimed": []
+ },
+ {
+  "id": "beakblast",
+  "name": "Beak Blast",
+  "ko": "부리캐논",
+  "cat": "Physical",
+  "direct": [
+   "If the user is hit by a contact move this turn before it can execute this move, the attacker is burned."
+  ],
+  "delegated": [],
+  "unclaimed": []
+ },
+ {
+  "id": "beatup",
+  "name": "Beat Up",
+  "ko": "집단구타",
+  "cat": "Physical",
+  "direct": [
+   "Hits one time for the user and one time for each unfainted Pokemon without a non-volatile status condition in the user's party."
+  ],
+  "delegated": [
+   [
+    "The power of each hit is equal to 5+(X/10), where X is each participating Pokemon's base Attack; each hit is considered to come from the user.",
+    [
+     "restated"
+    ]
+   ]
+  ],
+  "unclaimed": []
+ },
+ {
+  "id": "belch",
+  "name": "Belch",
+  "ko": "트림",
+  "cat": "Special",
+  "direct": [
+   "This move cannot be selected until the user eats a Berry, either by eating one that was held, stealing and eating one off another Pokemon with Bug Bite or Pluck, or eating one that was thrown at it with Fling.",
+   "Once the condition is met, this move can be selected and used for the rest of the battle even if the user gains or uses another item or switches out."
+  ],
+  "delegated": [],
+  "unclaimed": [
+   "Consuming a Berry with Natural Gift does not count for the purposes of eating one."
+  ]
+ },
+ {
+  "id": "bellydrum",
+  "name": "Belly Drum",
+  "ko": "배북",
+  "cat": "Status",
+  "direct": [
+   "Fails if the user would faint or if its Attack stat stage is 6."
+  ],
+  "delegated": [
+   [
+    "Raises the user's Attack by 12 stages in exchange for the user losing 1/2 of its maximum HP, rounded down.",
+    [
+     "declaredboosts"
+    ]
+   ]
+  ],
+  "unclaimed": []
+ },
+ {
+  "id": "bind",
+  "name": "Bind",
+  "ko": "조이기",
+  "cat": "Physical",
+  "direct": [
+   "Prevents the target from switching for four or five turns (seven turns if the user is holding Grip Claw).",
+   "Causes damage to the target equal to 1/8 of its maximum HP (1/6 if the user is holding Binding Band), rounded down, at the end of each turn during effect.",
+   "The target can still switch out if it is holding Shed Shell or uses Baton Pass, Flip Turn, Parting Shot, Shed Tail, Teleport, U-turn, or Volt Switch.",
+   "The effect ends if either the user or the target leaves the field, or if the target uses Mortal Spin, Rapid Spin, or Substitute successfully.",
+   "This effect is not stackable or reset by using this or another binding move."
+  ],
+  "delegated": [],
+  "unclaimed": []
+ },
+ {
+  "id": "bite",
+  "name": "Bite",
+  "ko": "물기",
+  "cat": "Physical",
+  "direct": [],
+  "delegated": [
+   [
+    "Has a 30% chance to make the target flinch.",
+    [
+     "secondary"
+    ]
+   ]
+  ],
+  "unclaimed": []
+ },
+ {
+  "id": "bitterblade",
+  "name": "Bitter Blade",
+  "ko": "원념의칼",
+  "cat": "Physical",
+  "direct": [
+   "The user recovers 1/2 the HP lost by the target, rounded half up.",
+   "If Big Root is held by the user, the HP recovered is 1.3x normal, rounded half down."
+  ],
+  "delegated": [],
+  "unclaimed": []
+ },
+ {
+  "id": "bittermalice",
+  "name": "Bitter Malice",
+  "ko": "천추지한",
+  "cat": "Special",
+  "direct": [],
+  "delegated": [
+   [
+    "Has a 100% chance to lower the target's Attack by 1 stage.",
+    [
+     "secondary"
+    ]
+   ]
+  ],
+  "unclaimed": []
+ },
+ {
+  "id": "blastburn",
+  "name": "Blast Burn",
+  "ko": "블라스트번",
+  "cat": "Special",
+  "direct": [
+   "If this move is successful, the user must recharge on the following turn and cannot select a move."
+  ],
+  "delegated": [],
+  "unclaimed": []
+ },
+ {
+  "id": "blazekick",
+  "name": "Blaze Kick",
+  "ko": "블레이즈킥",
+  "cat": "Physical",
+  "direct": [],
+  "delegated": [
+   [
+    "Has a 10% chance to burn the target and a higher chance for a critical hit.",
+    [
+     "secondary"
+    ]
+   ]
+  ],
+  "unclaimed": []
+ },
+ {
+  "id": "blizzard",
+  "name": "Blizzard",
+  "ko": "눈보라",
+  "cat": "Special",
+  "direct": [
+   "If the weather is Snow, this move does not check accuracy."
+  ],
+  "delegated": [
+   [
+    "Has a 10% chance to freeze the target.",
+    [
+     "secondary"
+    ]
+   ]
+  ],
+  "unclaimed": []
+ },
+ {
+  "id": "block",
+  "name": "Block",
+  "ko": "블록",
+  "cat": "Status",
+  "direct": [
+   "Prevents the target from switching out.",
+   "The target can still switch out if it is holding Shed Shell or uses Baton Pass, Flip Turn, Parting Shot, Teleport, U-turn, or Volt Switch.",
+   "The effect ends if either the user or the target leaves the field."
+  ],
+  "delegated": [],
+  "unclaimed": []
+ },
+ {
+  "id": "bodypress",
+  "name": "Body Press",
+  "ko": "바디프레스",
+  "cat": "Physical",
+  "direct": [
+   "Damage is calculated using the user's Defense stat as its Attack, including stat stage changes."
+  ],
+  "delegated": [
+   [
+    "Other effects that modify the Attack stat are used as normal.",
+    [
+     "restated"
+    ]
+   ]
+  ],
+  "unclaimed": []
+ },
+ {
+  "id": "bodyslam",
+  "name": "Body Slam",
+  "ko": "누르기",
+  "cat": "Physical",
+  "direct": [
+   "Damage doubles and no accuracy check is done if the target has used Minimize while active."
+  ],
+  "delegated": [
+   [
+    "Has a 30% chance to paralyze the target.",
+    [
+     "secondary"
+    ]
+   ]
+  ],
+  "unclaimed": []
+ },
+ {
+  "id": "bonerush",
+  "name": "Bone Rush",
+  "ko": "본러시",
+  "cat": "Physical",
+  "direct": [
+   "Hits two to five times.",
+   "Has a 35% chance to hit two or three times and a 15% chance to hit four or five times.",
+   "If one of the hits breaks the target's substitute, it will take damage for the remaining hits.",
+   "If the user has the Skill Link Ability, this move will always hit five times.",
+   "If the user is holding Loaded Dice, this move will hit 4-5 times."
+  ],
+  "delegated": [],
+  "unclaimed": []
+ },
+ {
+  "id": "bounce",
+  "name": "Bounce",
+  "ko": "뛰어오르기",
+  "cat": "Physical",
+  "direct": [
+   "This attack charges on the first turn and executes on the second.",
+   "On the first turn, the user avoids all attacks other than Gust, Hurricane, Sky Uppercut, Smack Down, Thousand Arrows, Thunder, and Twister, and Gust and Twister have doubled power when used against it.",
+   "If the user is holding a Power Herb, the move completes in one turn."
+  ],
+  "delegated": [
+   [
+    "Has a 30% chance to paralyze the target.",
+    [
+     "secondary"
+    ]
+   ]
+  ],
+  "unclaimed": []
+ },
+ {
+  "id": "bravebird",
+  "name": "Brave Bird",
+  "ko": "브레이브버드",
+  "cat": "Physical",
+  "direct": [
+   "If the target lost HP, the user takes recoil damage equal to 33% the HP lost by the target, rounded half up, but not less than 1 HP."
+  ],
+  "delegated": [],
+  "unclaimed": []
+ },
+ {
+  "id": "breakingswipe",
+  "name": "Breaking Swipe",
+  "ko": "와이드브레이커",
+  "cat": "Physical",
+  "direct": [],
+  "delegated": [
+   [
+    "Has a 100% chance to lower the target's Attack by 1 stage.",
+    [
+     "secondary"
+    ]
+   ]
+  ],
+  "unclaimed": []
+ },
+ {
+  "id": "brickbreak",
+  "name": "Brick Break",
+  "ko": "깨뜨리다",
+  "cat": "Physical",
+  "direct": [],
+  "delegated": [
+   [
+    "If this attack does not miss, the effects of Reflect, Light Screen, and Aurora Veil end for the target's side of the field before damage is calculated.",
+    [
+     "screenbreakers"
+    ]
+   ]
+  ],
+  "unclaimed": []
+ },
+ {
+  "id": "bugbite",
+  "name": "Bug Bite",
+  "ko": "벌레먹기",
+  "cat": "Physical",
+  "direct": [
+   "Items lost to this move cannot be regained with Recycle or the Harvest Ability."
+  ],
+  "delegated": [
+   [
+    "If this move is successful and the user has not fainted, it steals the target's held Berry if it is holding one and eats it immediately, gaining its effects even if the user's item is being ignored.",
+    [
+     "restated"
+    ]
+   ]
+  ],
+  "unclaimed": []
+ },
+ {
+  "id": "bugbuzz",
+  "name": "Bug Buzz",
+  "ko": "벌레의야단법석",
+  "cat": "Special",
+  "direct": [],
+  "delegated": [
+   [
+    "Has a 10% chance to lower the target's Special Defense by 1 stage.",
+    [
+     "secondary"
+    ]
+   ]
+  ],
+  "unclaimed": []
+ },
+ {
+  "id": "bulkup",
+  "name": "Bulk Up",
+  "ko": "벌크업",
+  "cat": "Status",
+  "direct": [],
+  "delegated": [
+   [
+    "Raises the user's Attack and Defense by 1 stage.",
+    [
+     "declaredboosts"
+    ]
+   ]
+  ],
+  "unclaimed": []
+ },
+ {
+  "id": "bulldoze",
+  "name": "Bulldoze",
+  "ko": "땅고르기",
+  "cat": "Physical",
+  "direct": [],
+  "delegated": [
+   [
+    "Has a 100% chance to lower the target's Speed by 1 stage.",
+    [
+     "secondary"
+    ]
+   ]
+  ],
+  "unclaimed": []
+ },
+ {
+  "id": "bulletseed",
+  "name": "Bullet Seed",
+  "ko": "씨기관총",
+  "cat": "Physical",
+  "direct": [
+   "Hits two to five times.",
+   "Has a 35% chance to hit two or three times and a 15% chance to hit four or five times.",
+   "If one of the hits breaks the target's substitute, it will take damage for the remaining hits.",
+   "If the user has the Skill Link Ability, this move will always hit five times.",
+   "If the user is holding Loaded Dice, this move will hit 4-5 times."
+  ],
+  "delegated": [],
+  "unclaimed": []
+ },
+ {
+  "id": "burningjealousy",
+  "name": "Burning Jealousy",
+  "ko": "질투의불꽃",
+  "cat": "Special",
+  "direct": [],
+  "delegated": [
+   [
+    "Has a 100% chance to burn the target if it had a stat stage raised this turn.",
+    [
+     "secondary"
+    ]
+   ]
+  ],
+  "unclaimed": []
+ },
+ {
+  "id": "burnup",
+  "name": "Burn Up",
+  "ko": "불사르기",
+  "cat": "Special",
+  "direct": [
+   "Fails unless the user is a Fire type."
+  ],
+  "delegated": [],
+  "unclaimed": [
+   "If this move is successful and the user is not Terastallized, the user's Fire type becomes typeless as long as it remains active."
+  ]
+ },
+ {
+  "id": "calmmind",
+  "name": "Calm Mind",
+  "ko": "명상",
+  "cat": "Status",
+  "direct": [],
+  "delegated": [
+   [
+    "Raises the user's Special Attack and Special Defense by 1 stage.",
+    [
+     "declaredboosts"
+    ]
+   ]
+  ],
+  "unclaimed": []
+ },
+ {
+  "id": "ceaselessedge",
+  "name": "Ceaseless Edge",
+  "ko": "비검천중파",
+  "cat": "Physical",
+  "direct": [
+   "If this move is successful, it sets up a hazard on the opposing side of the field, damaging each opposing Pokemon that switches in, unless it is a Flying-type Pokemon or has the Levitate Ability.",
+   "A maximum of three layers may be set, and opponents lose 1/8 of their maximum HP with one layer, 1/6 of their maximum HP with two layers, and 1/4 of their maximum HP with three layers, all rounded down.",
+   "Can be removed from the opposing side if any Pokemon uses Tidy Up, or if any opposing Pokemon uses Mortal Spin, Rapid Spin, or Defog successfully, or is hit by Defog."
+  ],
+  "delegated": [],
+  "unclaimed": []
+ },
+ {
+  "id": "charge",
+  "name": "Charge",
+  "ko": "충전",
+  "cat": "Status",
+  "direct": [],
+  "delegated": [
+   [
+    "Raises the user's Special Defense by 1 stage.",
+    [
+     "declaredboosts"
+    ]
+   ],
+   [
+    "The user's next Electric-type attack will have its power doubled; the effect ends when the user is no longer active, or after the user attempts to use any Electric-type move besides Charge, even if it is not successful.",
+    [
+     "restated"
+    ]
+   ]
+  ],
+  "unclaimed": []
+ },
+ {
+  "id": "chargebeam",
+  "name": "Charge Beam",
+  "ko": "차지빔",
+  "cat": "Special",
+  "direct": [],
+  "delegated": [
+   [
+    "Has a 70% chance to raise the user's Special Attack by 1 stage.",
+    [
+     "secondary"
+    ]
+   ]
+  ],
+  "unclaimed": []
+ },
+ {
+  "id": "charm",
+  "name": "Charm",
+  "ko": "애교부리기",
+  "cat": "Status",
+  "direct": [],
+  "delegated": [
+   [
+    "Lowers the target's Attack by 2 stages.",
+    [
+     "declaredboosts"
+    ]
+   ]
+  ],
+  "unclaimed": []
+ },
+ {
+  "id": "chillingwater",
+  "name": "Chilling Water",
+  "ko": "찬물끼얹기",
+  "cat": "Special",
+  "direct": [],
+  "delegated": [
+   [
+    "Has a 100% chance to lower the target's Attack by 1 stage.",
+    [
+     "secondary"
+    ]
+   ]
+  ],
+  "unclaimed": []
+ },
+ {
+  "id": "chillyreception",
+  "name": "Chilly Reception",
+  "ko": "썰렁개그",
+  "cat": "Status",
+  "direct": [
+   "For 5 turns, the weather becomes Snow.",
+   "The user does not switch out if there are no unfainted party members."
+  ],
+  "delegated": [
+   [
+    "The user switches out even if it is trapped and is replaced immediately by a selected party member.",
+    [
+     "restated"
+    ]
+   ]
+  ],
+  "unclaimed": []
+ },
+ {
+  "id": "circlethrow",
+  "name": "Circle Throw",
+  "ko": "배대뒤치기",
+  "cat": "Physical",
+  "direct": [
+   "If both the user and the target have not fainted, the target is forced to switch out and be replaced with a random unfainted ally."
+  ],
+  "delegated": [
+   [
+    "This effect fails if the target is under the effect of Ingrain, has the Suction Cups Ability, or this move hit a substitute.",
+    [
+     "restated"
+    ]
+   ]
+  ],
+  "unclaimed": []
+ },
+ {
+  "id": "clangingscales",
+  "name": "Clanging Scales",
+  "ko": "스케일노이즈",
+  "cat": "Special",
+  "direct": [],
+  "delegated": [
+   [
+    "Lowers the user's Defense by 1 stage.",
+    [
+     "declaredboosts"
+    ]
+   ]
+  ],
+  "unclaimed": []
+ },
+ {
+  "id": "clangoroussoul",
+  "name": "Clangorous Soul",
+  "ko": "소울비트",
+  "cat": "Status",
+  "direct": [],
+  "delegated": [
+   [
+    "Raises the user's Attack, Defense, Special Attack, Special Defense, and Speed by 1 stage in exchange for the user losing 33% of its maximum HP, rounded down.",
+    [
+     "declaredboosts"
+    ]
+   ],
+   [
+    "Fails if the user would faint or if its Attack, Defense, Special Attack, Special Defense, and Speed stat stages would not change.",
+    [
+     "restated"
+    ]
+   ]
+  ],
+  "unclaimed": []
+ },
+ {
+  "id": "clearsmog",
+  "name": "Clear Smog",
+  "ko": "클리어스모그",
+  "cat": "Special",
+  "direct": [
+   "Resets all of the target's stat stages to 0."
+  ],
+  "delegated": [],
+  "unclaimed": []
+ },
+ {
+  "id": "closecombat",
+  "name": "Close Combat",
+  "ko": "인파이트",
+  "cat": "Physical",
+  "direct": [],
+  "delegated": [
+   [
+    "Lowers the user's Defense and Special Defense by 1 stage.",
+    [
+     "declaredboosts"
+    ]
+   ]
+  ],
+  "unclaimed": []
+ },
+ {
+  "id": "coaching",
+  "name": "Coaching",
+  "ko": "코칭",
+  "cat": "Status",
+  "direct": [
+   "Fails if there is no ally adjacent to the user."
+  ],
+  "delegated": [
+   [
+    "Raises the target's Attack and Defense by 1 stage.",
+    [
+     "declaredboosts"
+    ]
+   ]
+  ],
+  "unclaimed": []
+ },
+ {
+  "id": "coil",
+  "name": "Coil",
+  "ko": "똬리틀기",
+  "cat": "Status",
+  "direct": [],
+  "delegated": [
+   [
+    "Raises the user's Attack, Defense, and accuracy by 1 stage.",
+    [
+     "declaredboosts"
+    ]
+   ]
+  ],
+  "unclaimed": []
+ },
+ {
+  "id": "comeuppance",
+  "name": "Comeuppance",
+  "ko": "앙갚음",
+  "cat": "Physical",
+  "direct": [
+   "If the user did not lose HP from that attack, this move deals 1 HP of damage instead.",
+   "If that opposing Pokemon's position is no longer in use and there is another opposing Pokemon on the field, the damage is done to it instead.",
+   "Only the last hit of a multi-hit attack is counted.",
+   "Fails if the user was not hit by an opposing Pokemon's physical or special attack this turn."
+  ],
+  "delegated": [
+   [
+    "Deals damage to the last opposing Pokemon to hit the user with a physical or special attack this turn equal to 1.5 times the HP lost by the user from that attack, rounded down.",
+    [
+     "counterhalfagain"
+    ]
+   ]
+  ],
+  "unclaimed": []
+ },
+ {
+  "id": "confuseray",
+  "name": "Confuse Ray",
+  "ko": "이상한빛",
+  "cat": "Status",
+  "direct": [],
+  "delegated": [
+   [
+    "Causes the target to become confused.",
+    [
+     "plainstatus"
+    ]
+   ]
+  ],
+  "unclaimed": []
+ },
+ {
+  "id": "copycat",
+  "name": "Copycat",
+  "ko": "흉내쟁이",
+  "cat": "Status",
+  "direct": [
+   "Fails if no move has been used, or if the last move used was Assist, Baneful Bunker, Beak Blast, Behemoth Bash, Behemoth Blade, Belch, Bestow, Blazing Torque, Celebrate, Chatter, Circle Throw, Combat Torque, Copycat, Counter, Covet, Destiny Bond, Detect, Dragon Tail, Dynamax Cannon, Endure, Feint, Focus Punch, Follow Me, Helping Hand, Hold Hands, King's Shield, Magical Torque, Mat Block, Me First, Metronome, Mimic, Mirror Move, Nature Power, Noxious Torque, Protect, Rage Powder, Roar, Shell Trap, Sketch, Sleep Talk, Snatch, Spiky Shield, Spotlight, Struggle, Switcheroo, Tera Starstorm, Thief, Transform, Trick, Whirlwind, or Wicked Torque."
+  ],
+  "delegated": [
+   [
+    "The user uses the last move used by any Pokemon, including itself.",
+    [
+     "restated"
+    ]
+   ]
+  ],
+  "unclaimed": []
+ },
+ {
+  "id": "corrosivegas",
+  "name": "Corrosive Gas",
+  "ko": "부식가스",
+  "cat": "Status",
+  "direct": [
+   "The target loses its held item.",
+   "In this case, Paradox Pokemon include every species with the Protosynthesis and Quark Drive Abilities, except Gouging Fire, Raging Bolt, Iron Boulder, and Iron Crown.",
+   "Items lost to this move cannot be regained with Recycle or the Harvest Ability."
+  ],
+  "delegated": [
+   [
+    "This move cannot cause Pokemon with the Sticky Hold Ability to lose their held item or cause a Kyogre, Groudon, Dialga, Palkia, Giratina, Arceus, Genesect, Silvally, Zacian, Zamazenta, Paradox Pokemon, or Ogerpon to lose their Blue Orb, Red Orb, Adamant Crystal, Lustrous Globe, Griseous Core, Plate, Drive, Memory, Rusted Sword, Rusted Shield, Booster Energy, or Mask, respectively.",
+    [
+     "restated"
+    ]
+   ]
+  ],
+  "unclaimed": []
+ },
+ {
+  "id": "cosmicpower",
+  "name": "Cosmic Power",
+  "ko": "코스믹파워",
+  "cat": "Status",
+  "direct": [],
+  "delegated": [
+   [
+    "Raises the user's Defense and Special Defense by 1 stage.",
+    [
+     "declaredboosts"
+    ]
+   ]
+  ],
+  "unclaimed": []
+ },
+ {
+  "id": "cottonguard",
+  "name": "Cotton Guard",
+  "ko": "코튼가드",
+  "cat": "Status",
+  "direct": [],
+  "delegated": [
+   [
+    "Raises the user's Defense by 3 stages.",
+    [
+     "declaredboosts"
+    ]
+   ]
+  ],
+  "unclaimed": []
+ },
+ {
+  "id": "cottonspore",
+  "name": "Cotton Spore",
+  "ko": "목화포자",
+  "cat": "Status",
+  "direct": [],
+  "delegated": [
+   [
+    "Lowers the target's Speed by 2 stages.",
+    [
+     "declaredboosts"
+    ]
+   ]
+  ],
+  "unclaimed": []
+ },
+ {
+  "id": "counter",
+  "name": "Counter",
+  "ko": "카운터",
+  "cat": "Physical",
+  "direct": [
+   "If the user did not lose HP from the attack, this move deals 1 HP of damage instead.",
+   "If that opposing Pokemon's position is no longer in use and there is another opposing Pokemon on the field, the damage is done to it instead.",
+   "Only the last hit of a multi-hit attack is counted.",
+   "Fails if the user was not hit by an opposing Pokemon's physical attack this turn."
+  ],
+  "delegated": [
+   [
+    "Deals damage to the last opposing Pokemon to hit the user with a physical attack this turn equal to twice the HP lost by the user from that attack.",
+    [
+     "counterdoubles"
+    ]
+   ]
+  ],
+  "unclaimed": []
+ },
+ {
+  "id": "covet",
+  "name": "Covet",
+  "ko": "탐내다",
+  "cat": "Physical",
+  "direct": [
+   "If this attack was successful and the user has not fainted, it steals the target's held item if the user is not holding one.",
+   "A target with the Sticky Hold Ability does not lose its held item if it has not fainted.",
+   "In this case, Paradox Pokemon include every species with the Protosynthesis and Quark Drive Abilities, except Gouging Fire, Raging Bolt, Iron Boulder, and Iron Crown.",
+   "Items lost to this move cannot be regained with Recycle or the Harvest Ability."
+  ],
+  "delegated": [],
+  "unclaimed": [
+   "The target's item is not stolen if it is a Blue Orb, Red Orb, Adamant Crystal, Lustrous Globe, Griseous Core, Plate, Drive, Memory, Rusted Sword, Rusted Shield, Booster Energy, or Mask held by a Kyogre, Groudon, Dialga, Palkia, Giratina, Arceus, Genesect, Silvally, Zacian, Zamazenta, Paradox Pokemon, or Ogerpon, respectively, or if the user is one of those species and the target is holding the respective item."
+  ]
+ },
+ {
+  "id": "crabhammer",
+  "name": "Crabhammer",
+  "ko": "집게해머",
+  "cat": "Physical",
+  "direct": [
+   "Has a higher chance for a critical hit."
+  ],
+  "delegated": [],
+  "unclaimed": []
+ },
+ {
+  "id": "crosschop",
+  "name": "Cross Chop",
+  "ko": "크로스촙",
+  "cat": "Physical",
+  "direct": [
+   "Has a higher chance for a critical hit."
+  ],
+  "delegated": [],
+  "unclaimed": []
+ },
+ {
+  "id": "crosspoison",
+  "name": "Cross Poison",
+  "ko": "크로스포이즌",
+  "cat": "Physical",
+  "direct": [],
+  "delegated": [
+   [
+    "Has a 10% chance to poison the target and a higher chance for a critical hit.",
+    [
+     "secondary"
+    ]
+   ]
+  ],
+  "unclaimed": []
+ },
+ {
+  "id": "crunch",
+  "name": "Crunch",
+  "ko": "깨물어부수기",
+  "cat": "Physical",
+  "direct": [],
+  "delegated": [
+   [
+    "Has a 20% chance to lower the target's Defense by 1 stage.",
+    [
+     "secondary"
+    ]
+   ]
+  ],
+  "unclaimed": []
+ },
+ {
+  "id": "crushclaw",
+  "name": "Crush Claw",
+  "ko": "브레이크클로",
+  "cat": "Physical",
+  "direct": [],
+  "delegated": [
+   [
+    "Has a 50% chance to lower the target's Defense by 1 stage.",
+    [
+     "secondary"
+    ]
+   ]
+  ],
+  "unclaimed": []
+ },
+ {
+  "id": "curse",
+  "name": "Curse",
+  "ko": "저주",
+  "cat": "Status",
+  "direct": [
+   "If the user is not a Ghost type, lowers the user's Speed by 1 stage and raises the user's Attack and Defense by 1 stage.",
+   "If the user is a Ghost type, the user loses 1/2 of its maximum HP, rounded down and even if it would cause fainting, in exchange for the target losing 1/4 of its maximum HP, rounded down, at the end of each turn while it is active.",
+   "If the target uses Baton Pass, the replacement will continue to be affected.",
+   "Fails if there is no target or if the target is already affected."
+  ],
+  "delegated": [],
+  "unclaimed": []
+ },
+ {
+  "id": "darkestlariat",
+  "name": "Darkest Lariat",
+  "ko": "DD래리어트",
+  "cat": "Physical",
+  "direct": [
+   "Ignores the target's stat stage changes, including evasiveness."
+  ],
+  "delegated": [],
+  "unclaimed": []
+ },
+ {
+  "id": "darkpulse",
+  "name": "Dark Pulse",
+  "ko": "악의파동",
+  "cat": "Special",
+  "direct": [],
+  "delegated": [
+   [
+    "Has a 20% chance to make the target flinch.",
+    [
+     "secondary"
+    ]
+   ]
+  ],
+  "unclaimed": []
+ },
+ {
+  "id": "decorate",
+  "name": "Decorate",
+  "ko": "데코레이션",
+  "cat": "Status",
+  "direct": [],
+  "delegated": [
+   [
+    "Raises the target's Attack and Special Attack by 2 stages.",
+    [
+     "declaredboosts"
+    ]
+   ]
+  ],
+  "unclaimed": []
+ },
+ {
+  "id": "defog",
+  "name": "Defog",
+  "ko": "안개제거",
+  "cat": "Status",
+  "direct": [
+   "If there is a terrain active and this move is successful, the terrain will be cleared."
+  ],
+  "delegated": [
+   [
+    "Lowers the target's evasiveness by 1 stage.",
+    [
+     "declaredboosts"
+    ]
+   ],
+   [
+    "If this move is successful and whether or not the target's evasiveness was affected, the effects of Reflect, Light Screen, Aurora Veil, Safeguard, Mist, Spikes, Toxic Spikes, Stealth Rock, and Sticky Web end for the target's side, and the effects of Spikes, Toxic Spikes, Stealth Rock, and Sticky Web end for the user's side.",
+    [
+     "restated"
+    ]
+   ],
+   [
+    "Ignores a target's substitute, although a substitute will still block the lowering of evasiveness.",
+    [
+     "restated"
+    ]
+   ]
+  ],
+  "unclaimed": []
+ },
+ {
+  "id": "destinybond",
+  "name": "Destiny Bond",
+  "ko": "길동무",
+  "cat": "Status",
+  "direct": [
+   "Fails if the user used this move successfully as its last move, disregarding moves used through the Dancer Ability."
+  ],
+  "delegated": [
+   [
+    "Until the user's next move, if an opposing Pokemon's attack knocks the user out, that Pokemon faints as well, unless the attack was Doom Desire or Future Sight.",
+    [
+     "restated"
+    ]
+   ]
+  ],
+  "unclaimed": []
+ },
+ {
+  "id": "detect",
+  "name": "Detect",
+  "ko": "판별",
+  "cat": "Status",
+  "direct": [
+   "The user is protected from most attacks made by other Pokemon during this turn.",
+   "This move has a 1/X chance of being successful, where X starts at 1 and triples each time this move is successfully used.",
+   "X resets to 1 if this move fails, if the user's last move used is not Baneful Bunker, Burning Bulwark, Detect, Endure, King's Shield, Max Guard, Obstruct, Protect, Quick Guard, Silk Trap, Spiky Shield, or Wide Guard, or if it was one of those moves and the user's protection was broken.",
+   "Fails if the user moves last this turn."
+  ],
+  "delegated": [],
+  "unclaimed": []
+ },
+ {
+  "id": "dig",
+  "name": "Dig",
+  "ko": "구멍파기",
+  "cat": "Physical",
+  "direct": [
+   "This attack charges on the first turn and executes on the second.",
+   "On the first turn, the user avoids all attacks other than Earthquake and Magnitude but takes double damage from them, and is also unaffected by weather.",
+   "If the user is holding a Power Herb, the move completes in one turn."
+  ],
+  "delegated": [],
+  "unclaimed": []
+ },
+ {
+  "id": "direclaw",
+  "name": "Dire Claw",
+  "ko": "페이탈클로",
+  "cat": "Physical",
+  "direct": [],
+  "delegated": [
+   [
+    "Has a 50% chance to cause the target to either fall asleep, become poisoned, or become paralyzed.",
+    [
+     "secondary"
+    ]
+   ]
+  ],
+  "unclaimed": []
+ },
+ {
+  "id": "disable",
+  "name": "Disable",
+  "ko": "사슬묶기",
+  "cat": "Status",
+  "direct": [
+   "For 4 turns, the target's last move used becomes disabled.",
+   "Fails if one of the target's moves is already disabled, if the target has not made a move, if the target no longer knows the move, or if the move was a Max or G-Max Move."
+  ],
+  "delegated": [],
+  "unclaimed": []
+ },
+ {
+  "id": "discharge",
+  "name": "Discharge",
+  "ko": "방전",
+  "cat": "Special",
+  "direct": [],
+  "delegated": [
+   [
+    "Has a 30% chance to paralyze the target.",
+    [
+     "secondary"
+    ]
+   ]
+  ],
+  "unclaimed": []
+ },
+ {
+  "id": "dive",
+  "name": "Dive",
+  "ko": "다이빙",
+  "cat": "Physical",
+  "direct": [
+   "This attack charges on the first turn and executes on the second.",
+   "On the first turn, the user avoids all attacks other than Surf and Whirlpool but takes double damage from them, and is also unaffected by weather.",
+   "If the user is holding a Power Herb, the move completes in one turn."
+  ],
+  "delegated": [],
+  "unclaimed": []
+ },
+ {
+  "id": "doubleedge",
+  "name": "Double-Edge",
+  "ko": "이판사판태클",
+  "cat": "Physical",
+  "direct": [
+   "If the target lost HP, the user takes recoil damage equal to 33% the HP lost by the target, rounded half up, but not less than 1 HP."
+  ],
+  "delegated": [],
+  "unclaimed": []
+ },
+ {
+  "id": "doublehit",
+  "name": "Double Hit",
+  "ko": "더블어택",
+  "cat": "Physical",
+  "direct": [
+   "Hits twice.",
+   "If the first hit breaks the target's substitute, it will take damage for the second hit."
+  ],
+  "delegated": [],
+  "unclaimed": []
+ },
+ {
+  "id": "doubleteam",
+  "name": "Double Team",
+  "ko": "그림자분신",
+  "cat": "Status",
+  "direct": [],
+  "delegated": [
+   [
+    "Raises the user's evasiveness by 1 stage.",
+    [
+     "declaredboosts"
+    ]
+   ]
+  ],
+  "unclaimed": []
+ },
+ {
+  "id": "dracometeor",
+  "name": "Draco Meteor",
+  "ko": "용성군",
+  "cat": "Special",
+  "direct": [],
+  "delegated": [
+   [
+    "Lowers the user's Special Attack by 2 stages.",
+    [
+     "declaredboosts"
+    ]
+   ]
+  ],
+  "unclaimed": []
+ },
+ {
+  "id": "dragoncheer",
+  "name": "Dragon Cheer",
+  "ko": "드래곤옐",
+  "cat": "Status",
+  "direct": [
+   "Raises the target's chance for a critical hit by 1 stage, or by 2 stages if the target is Dragon type.",
+   "Fails if there is no ally adjacent to the user, or if the target already has this effect or the Focus Energy effect.",
+   "Baton Pass can be used to transfer this effect to an ally."
+  ],
+  "delegated": [],
+  "unclaimed": []
+ },
+ {
+  "id": "dragondance",
+  "name": "Dragon Dance",
+  "ko": "용의춤",
+  "cat": "Status",
+  "direct": [],
+  "delegated": [
+   [
+    "Raises the user's Attack and Speed by 1 stage.",
+    [
+     "declaredboosts"
+    ]
+   ]
+  ],
+  "unclaimed": []
+ },
+ {
+  "id": "dragondarts",
+  "name": "Dragon Darts",
+  "ko": "드래곤애로",
+  "cat": "Physical",
+  "direct": [
+   "Hits twice.",
+   "If the first hit breaks the target's substitute, it will take damage for the second hit.",
+   "In Double Battles, this move attempts to hit the targeted Pokemon and its ally once each.",
+   "If hitting one of these Pokemon would be prevented by immunity, protection, semi-invulnerability, an Ability, or accuracy, it attempts to hit the other Pokemon twice instead.",
+   "If this move is redirected, it hits that target twice."
+  ],
+  "delegated": [],
+  "unclaimed": []
+ },
+ {
+  "id": "dragonrush",
+  "name": "Dragon Rush",
+  "ko": "드래곤다이브",
+  "cat": "Physical",
+  "direct": [
+   "Damage doubles and no accuracy check is done if the target has used Minimize while active."
+  ],
+  "delegated": [
+   [
+    "Has a 20% chance to make the target flinch.",
+    [
+     "secondary"
+    ]
+   ]
+  ],
+  "unclaimed": []
+ },
+ {
+  "id": "dragontail",
+  "name": "Dragon Tail",
+  "ko": "드래곤테일",
+  "cat": "Physical",
+  "direct": [
+   "If both the user and the target have not fainted, the target is forced to switch out and be replaced with a random unfainted ally."
+  ],
+  "delegated": [
+   [
+    "This effect fails if the target used Ingrain previously, has the Suction Cups Ability, or this move hit a substitute.",
+    [
+     "restated"
+    ]
+   ]
+  ],
+  "unclaimed": []
+ },
+ {
+  "id": "drainingkiss",
+  "name": "Draining Kiss",
+  "ko": "드레인키스",
+  "cat": "Special",
+  "direct": [
+   "The user recovers 3/4 the HP lost by the target, rounded half up.",
+   "If Big Root is held by the user, the HP recovered is 1.3x normal, rounded half down."
+  ],
+  "delegated": [],
+  "unclaimed": []
+ },
+ {
+  "id": "drainpunch",
+  "name": "Drain Punch",
+  "ko": "드레인펀치",
+  "cat": "Physical",
+  "direct": [
+   "The user recovers 1/2 the HP lost by the target, rounded half up.",
+   "If Big Root is held by the user, the HP recovered is 1.3x normal, rounded half down."
+  ],
+  "delegated": [],
+  "unclaimed": []
+ },
+ {
+  "id": "drillrun",
+  "name": "Drill Run",
+  "ko": "드릴라이너",
+  "cat": "Physical",
+  "direct": [
+   "Has a higher chance for a critical hit."
+  ],
+  "delegated": [],
+  "unclaimed": []
+ },
+ {
+  "id": "dualwingbeat",
+  "name": "Dual Wingbeat",
+  "ko": "더블윙",
+  "cat": "Physical",
+  "direct": [
+   "Hits twice.",
+   "If the first hit breaks the target's substitute, it will take damage for the second hit."
+  ],
+  "delegated": [],
+  "unclaimed": []
+ },
+ {
+  "id": "dynamicpunch",
+  "name": "Dynamic Punch",
+  "ko": "폭발펀치",
+  "cat": "Physical",
+  "direct": [],
+  "delegated": [
+   [
+    "Has a 100% chance to confuse the target.",
+    [
+     "secondary"
+    ]
+   ]
+  ],
+  "unclaimed": []
+ },
+ {
+  "id": "earthpower",
+  "name": "Earth Power",
+  "ko": "대지의힘",
+  "cat": "Special",
+  "direct": [],
+  "delegated": [
+   [
+    "Has a 10% chance to lower the target's Special Defense by 1 stage.",
+    [
+     "secondary"
+    ]
+   ]
+  ],
+  "unclaimed": []
+ },
+ {
+  "id": "earthquake",
+  "name": "Earthquake",
+  "ko": "지진",
+  "cat": "Physical",
+  "direct": [
+   "Damage doubles if the target is using Dig."
+  ],
+  "delegated": [],
+  "unclaimed": []
+ },
+ {
+  "id": "eerieimpulse",
+  "name": "Eerie Impulse",
+  "ko": "괴전파",
+  "cat": "Status",
+  "direct": [],
+  "delegated": [
+   [
+    "Lowers the target's Special Attack by 2 stages.",
+    [
+     "declaredboosts"
+    ]
+   ]
+  ],
+  "unclaimed": []
+ },
+ {
+  "id": "eeriespell",
+  "name": "Eerie Spell",
+  "ko": "섬뜩한주문",
+  "cat": "Special",
+  "direct": [
+   "If this move is successful and the user has not fainted, the target loses 3 PP from its last move."
+  ],
+  "delegated": [],
+  "unclaimed": []
+ },
+ {
+  "id": "electricterrain",
+  "name": "Electric Terrain",
+  "ko": "일렉트릭필드",
+  "cat": "Status",
+  "direct": [
+   "During the effect, the power of Electric-type attacks made by grounded Pokemon is multiplied by 1.3 and grounded Pokemon cannot fall asleep; Pokemon already asleep do not wake up.",
+   "Grounded Pokemon cannot become affected by Yawn or fall asleep from its effect.",
+   "Camouflage transforms the user into an Electric type, Nature Power becomes Thunderbolt, and Secret Power has a 30% chance to cause paralysis.",
+   "Fails if the current terrain is Electric Terrain."
+  ],
+  "delegated": [
+   [
+    "For 5 turns, the terrain becomes Electric Terrain.",
+    [
+     "statedduration"
+    ]
+   ]
+  ],
+  "unclaimed": []
+ },
+ {
+  "id": "electrify",
+  "name": "Electrify",
+  "ko": "송전",
+  "cat": "Status",
+  "direct": [
+   "Causes the target's move to become Electric type this turn.",
+   "Fails if the target already moved this turn."
+  ],
+  "delegated": [
+   [
+    "Among effects that can change a move's type, this effect happens last.",
+    [
+     "restated"
+    ]
+   ]
+  ],
+  "unclaimed": []
+ },
+ {
+  "id": "electroball",
+  "name": "Electro Ball",
+  "ko": "일렉트릭볼",
+  "cat": "Special",
+  "direct": [
+   "The power of this move depends on (user's current Speed / target's current Speed), rounded down.",
+   "Power is equal to 150 if the result is 4 or more, 120 if 3, 80 if 2, 60 if 1, 40 if less than 1.",
+   "If the target's current Speed is 0, this move's power is 40."
+  ],
+  "delegated": [],
+  "unclaimed": []
+ },
+ {
+  "id": "electroshot",
+  "name": "Electro Shot",
+  "ko": "일렉트로빔",
+  "cat": "Special",
+  "direct": [
+   "This attack charges on the first turn and executes on the second.",
+   "If the user is holding a Power Herb or the weather is Primordial Sea or Rain Dance, the move completes in one turn."
+  ],
+  "delegated": [
+   [
+    "Raises the user's Special Attack by 1 stage on the first turn.",
+    [
+     "declaredboosts"
+    ]
+   ],
+   [
+    "If the user is holding Utility Umbrella and the weather is Primordial Sea or Rain Dance, the move still requires a turn to charge.",
+    [
+     "restated"
+    ]
+   ]
+  ],
+  "unclaimed": []
+ },
+ {
+  "id": "electroweb",
+  "name": "Electroweb",
+  "ko": "일렉트릭네트",
+  "cat": "Special",
+  "direct": [],
+  "delegated": [
+   [
+    "Has a 100% chance to lower the target's Speed by 1 stage.",
+    [
+     "secondary"
+    ]
+   ]
+  ],
+  "unclaimed": []
+ },
+ {
+  "id": "encore",
+  "name": "Encore",
+  "ko": "앙코르",
+  "cat": "Status",
+  "direct": [
+   "For its next 3 turns, the target is forced to repeat its last move used.",
+   "If the affected move runs out of PP, the effect ends.",
+   "Fails if the target is already under this effect, if it has not made a move, if the move has 0 PP, or if the move is Assist, Blazing Torque, Combat Torque, Copycat, Dynamax Cannon, Encore, Magical Torque, Me First, Metronome, Mimic, Mirror Move, Nature Power, Noxious Torque, Sketch, Sleep Talk, Struggle, Transform, or Wicked Torque."
+  ],
+  "delegated": [],
+  "unclaimed": []
+ },
+ {
+  "id": "endeavor",
+  "name": "Endeavor",
+  "ko": "죽기살기",
+  "cat": "Physical",
+  "direct": [
+   "Deals damage to the target equal to (target's current HP - user's current HP).",
+   "The target is unaffected if its current HP is less than or equal to the user's current HP."
+  ],
+  "delegated": [],
+  "unclaimed": []
+ },
+ {
+  "id": "endure",
+  "name": "Endure",
+  "ko": "버티기",
+  "cat": "Status",
+  "direct": [
+   "This move has a 1/X chance of being successful, where X starts at 1 and triples each time this move is successfully used.",
+   "X resets to 1 if this move fails, if the user's last move used is not Baneful Bunker, Burning Bulwark, Detect, Endure, King's Shield, Max Guard, Obstruct, Protect, Quick Guard, Silk Trap, Spiky Shield, or Wide Guard, or if it was one of those moves and the user's protection was broken.",
+   "Fails if the user moves last this turn."
+  ],
+  "delegated": [
+   [
+    "The user will survive attacks made by other Pokemon during this turn with at least 1 HP.",
+    [
+     "restated"
+    ]
+   ]
+  ],
+  "unclaimed": []
+ },
+ {
+  "id": "energyball",
+  "name": "Energy Ball",
+  "ko": "에너지볼",
+  "cat": "Special",
+  "direct": [],
+  "delegated": [
+   [
+    "Has a 10% chance to lower the target's Special Defense by 1 stage.",
+    [
+     "secondary"
+    ]
+   ]
+  ],
+  "unclaimed": []
+ },
+ {
+  "id": "entrainment",
+  "name": "Entrainment",
+  "ko": "동료만들기",
+  "cat": "Status",
+  "direct": [
+   "Causes the target's Ability to become the same as the user's.",
+   "Fails if the target's Ability is As One, Battle Bond, Comatose, Disguise, Gulp Missile, Ice Face, Multitype, Power Construct, RKS System, Schooling, Shields Down, Stance Change, Tera Shift, Truant, Zen Mode, or Zero to Hero, or the same Ability as the user, or if the user's Ability is As One, Battle Bond, Comatose, Commander, Disguise, Embody Aspect, Flower Gift, Forecast, Hunger Switch, Ice Face, Illusion, Imposter, Multitype, Neutralizing Gas, Poison Puppeteer, Power Construct, Power of Alchemy, Protosynthesis, Quark Drive, Receiver, RKS System, Schooling, Shields Down, Stance Change, Tera Shell, Tera Shift, Teraform Zero, Trace, Wonder Guard, Zen Mode, or Zero to Hero."
+  ],
+  "delegated": [],
+  "unclaimed": []
+ },
+ {
+  "id": "eruption",
+  "name": "Eruption",
+  "ko": "분화",
+  "cat": "Special",
+  "direct": [
+   "Power is equal to (user's current HP * 150 / user's maximum HP), rounded down, but not less than 1."
+  ],
+  "delegated": [],
+  "unclaimed": []
+ },
+ {
+  "id": "expandingforce",
+  "name": "Expanding Force",
+  "ko": "와이드포스",
+  "cat": "Special",
+  "direct": [
+   "If the current terrain is Psychic Terrain and the user is grounded, this move hits all opposing Pokemon and has its power multiplied by 1.5."
+  ],
+  "delegated": [],
+  "unclaimed": []
+ },
+ {
+  "id": "explosion",
+  "name": "Explosion",
+  "ko": "대폭발",
+  "cat": "Physical",
+  "direct": [
+   "The user faints after using this move, even if this move fails for having no target.",
+   "This move is prevented from executing if any active Pokemon has the Damp Ability."
+  ],
+  "delegated": [],
+  "unclaimed": []
+ },
+ {
+  "id": "extrasensory",
+  "name": "Extrasensory",
+  "ko": "신통력",
+  "cat": "Special",
+  "direct": [],
+  "delegated": [
+   [
+    "Has a 10% chance to make the target flinch.",
+    [
+     "secondary"
+    ]
+   ]
+  ],
+  "unclaimed": []
+ },
+ {
+  "id": "facade",
+  "name": "Facade",
+  "ko": "객기",
+  "cat": "Physical",
+  "direct": [
+   "Power doubles if the user is burned, paralyzed, or poisoned."
+  ],
+  "delegated": [
+   [
+    "The physical damage halving effect from the user's burn is ignored.",
+    [
+     "restated"
+    ]
+   ]
+  ],
+  "unclaimed": []
+ },
+ {
+  "id": "fairylock",
+  "name": "Fairy Lock",
+  "ko": "페어리록",
+  "cat": "Status",
+  "direct": [
+   "Prevents all active Pokemon from switching next turn.",
+   "A Pokemon can still switch out if it is holding Shed Shell or uses Baton Pass, Flip Turn, Parting Shot, Teleport, U-turn, or Volt Switch.",
+   "Fails if the effect is already active."
+  ],
+  "delegated": [],
+  "unclaimed": []
+ },
+ {
+  "id": "fakeout",
+  "name": "Fake Out",
+  "ko": "속이기",
+  "cat": "Physical",
+  "direct": [
+   "Fails unless it is the user's first turn on the field."
+  ],
+  "delegated": [
+   [
+    "Has a 100% chance to make the target flinch.",
+    [
+     "secondary"
+    ]
+   ]
+  ],
+  "unclaimed": []
+ },
+ {
+  "id": "faketears",
+  "name": "Fake Tears",
+  "ko": "거짓울음",
+  "cat": "Status",
+  "direct": [],
+  "delegated": [
+   [
+    "Lowers the target's Special Defense by 2 stages.",
+    [
+     "declaredboosts"
+    ]
+   ]
+  ],
+  "unclaimed": []
+ },
+ {
+  "id": "featherdance",
+  "name": "Feather Dance",
+  "ko": "깃털댄스",
+  "cat": "Status",
+  "direct": [],
+  "delegated": [
+   [
+    "Lowers the target's Attack by 2 stages.",
+    [
+     "declaredboosts"
+    ]
+   ]
+  ],
+  "unclaimed": []
+ },
+ {
+  "id": "feint",
+  "name": "Feint",
+  "ko": "페인트",
+  "cat": "Physical",
+  "direct": [
+   "If this move is successful, it breaks through the target's Baneful Bunker, Detect, King's Shield, Protect, or Spiky Shield for this turn, allowing other Pokemon to attack the target normally.",
+   "If the target's side is protected by Crafty Shield, Mat Block, Quick Guard, or Wide Guard, that protection is also broken for this turn and other Pokemon may attack the target's side normally."
+  ],
+  "delegated": [],
+  "unclaimed": []
+ },
+ {
+  "id": "fellstinger",
+  "name": "Fell Stinger",
+  "ko": "마지막일침",
+  "cat": "Physical",
+  "direct": [],
+  "delegated": [
+   [
+    "Raises the user's Attack by 3 stages if this move knocks out the target.",
+    [
+     "declaredboosts"
+    ]
+   ]
+  ],
+  "unclaimed": []
+ },
+ {
+  "id": "ficklebeam",
+  "name": "Fickle Beam",
+  "ko": "변덕레이저",
+  "cat": "Special",
+  "direct": [],
+  "delegated": [
+   [
+    "Has a 30% chance this move's power is doubled.",
+    [
+     "secondary"
+    ]
+   ]
+  ],
+  "unclaimed": []
+ },
+ {
+  "id": "fierydance",
+  "name": "Fiery Dance",
+  "ko": "불꽃춤",
+  "cat": "Special",
+  "direct": [],
+  "delegated": [
+   [
+    "Has a 50% chance to raise the user's Special Attack by 1 stage.",
+    [
+     "secondary"
+    ]
+   ]
+  ],
+  "unclaimed": []
+ },
+ {
+  "id": "finalgambit",
+  "name": "Final Gambit",
+  "ko": "목숨걸기",
+  "cat": "Special",
+  "direct": [
+   "Deals damage to the target equal to the user's current HP.",
+   "If this move is successful, the user faints."
+  ],
+  "delegated": [],
+  "unclaimed": []
+ },
+ {
+  "id": "fireblast",
+  "name": "Fire Blast",
+  "ko": "불대문자",
+  "cat": "Special",
+  "direct": [],
+  "delegated": [
+   [
+    "Has a 10% chance to burn the target.",
+    [
+     "secondary"
+    ]
+   ]
+  ],
+  "unclaimed": []
+ },
+ {
+  "id": "firefang",
+  "name": "Fire Fang",
+  "ko": "불꽃엄니",
+  "cat": "Physical",
+  "direct": [],
+  "delegated": [
+   [
+    "Has a 10% chance to burn the target and a 10% chance to make it flinch.",
+    [
+     "secondary"
+    ]
+   ]
+  ],
+  "unclaimed": []
+ },
+ {
+  "id": "firelash",
+  "name": "Fire Lash",
+  "ko": "불꽃채찍",
+  "cat": "Physical",
+  "direct": [],
+  "delegated": [
+   [
+    "Has a 100% chance to lower the target's Defense by 1 stage.",
+    [
+     "secondary"
+    ]
+   ]
+  ],
+  "unclaimed": []
+ },
+ {
+  "id": "firepunch",
+  "name": "Fire Punch",
+  "ko": "불꽃펀치",
+  "cat": "Physical",
+  "direct": [],
+  "delegated": [
+   [
+    "Has a 10% chance to burn the target.",
+    [
+     "secondary"
+    ]
+   ]
+  ],
+  "unclaimed": []
+ },
+ {
+  "id": "firespin",
+  "name": "Fire Spin",
+  "ko": "회오리불꽃",
+  "cat": "Special",
+  "direct": [
+   "Prevents the target from switching for four or five turns (seven turns if the user is holding Grip Claw).",
+   "Causes damage to the target equal to 1/8 of its maximum HP (1/6 if the user is holding Binding Band), rounded down, at the end of each turn during effect.",
+   "The target can still switch out if it is holding Shed Shell or uses Baton Pass, Flip Turn, Parting Shot, Shed Tail, Teleport, U-turn, or Volt Switch.",
+   "The effect ends if either the user or the target leaves the field, or if the target uses Mortal Spin, Rapid Spin, or Substitute successfully.",
+   "This effect is not stackable or reset by using this or another binding move."
+  ],
+  "delegated": [],
+  "unclaimed": []
+ },
+ {
+  "id": "firstimpression",
+  "name": "First Impression",
+  "ko": "만나자마자",
+  "cat": "Physical",
+  "direct": [
+   "Fails unless it is the user's first turn on the field."
+  ],
+  "delegated": [],
+  "unclaimed": []
+ },
+ {
+  "id": "fissure",
+  "name": "Fissure",
+  "ko": "땅가르기",
+  "cat": "Physical",
+  "direct": [
+   "Deals damage to the target equal to the target's maximum HP.",
+   "Ignores accuracy and evasiveness modifiers.",
+   "This attack's accuracy is equal to (user's level - target's level + 30)%, and fails if the target is at a higher level.",
+   "Pokemon with the Sturdy Ability are immune."
+  ],
+  "delegated": [],
+  "unclaimed": []
+ },
+ {
+  "id": "flail",
+  "name": "Flail",
+  "ko": "바둥바둥",
+  "cat": "Physical",
+  "direct": [
+   "The power of this move is 20 if X is 33 to 48, 40 if X is 17 to 32, 80 if X is 10 to 16, 100 if X is 5 to 9, 150 if X is 2 to 4, and 200 if X is 0 or 1, where X is equal to (user's current HP * 48 / user's maximum HP), rounded down."
+  ],
+  "delegated": [],
+  "unclaimed": []
+ },
+ {
+  "id": "flamecharge",
+  "name": "Flame Charge",
+  "ko": "니트로차지",
+  "cat": "Physical",
+  "direct": [],
+  "delegated": [
+   [
+    "Has a 100% chance to raise the user's Speed by 1 stage.",
+    [
+     "secondary"
+    ]
+   ]
+  ],
+  "unclaimed": []
+ },
+ {
+  "id": "flamethrower",
+  "name": "Flamethrower",
+  "ko": "화염방사",
+  "cat": "Special",
+  "direct": [],
+  "delegated": [
+   [
+    "Has a 10% chance to burn the target.",
+    [
+     "secondary"
+    ]
+   ]
+  ],
+  "unclaimed": []
+ },
+ {
+  "id": "flareblitz",
+  "name": "Flare Blitz",
+  "ko": "플레어드라이브",
+  "cat": "Physical",
+  "direct": [
+   "If the target lost HP, the user takes recoil damage equal to 33% the HP lost by the target, rounded half up, but not less than 1 HP."
+  ],
+  "delegated": [
+   [
+    "Has a 10% chance to burn the target.",
+    [
+     "secondary"
+    ]
+   ]
+  ],
+  "unclaimed": []
+ },
+ {
+  "id": "flashcannon",
+  "name": "Flash Cannon",
+  "ko": "러스터캐논",
+  "cat": "Special",
+  "direct": [],
+  "delegated": [
+   [
+    "Has a 10% chance to lower the target's Special Defense by 1 stage.",
+    [
+     "secondary"
+    ]
+   ]
+  ],
+  "unclaimed": []
+ },
+ {
+  "id": "flatter",
+  "name": "Flatter",
+  "ko": "부추기기",
+  "cat": "Status",
+  "direct": [],
+  "delegated": [
+   [
+    "Raises the target's Special Attack by 1 stage and confuses it.",
+    [
+     "declaredboosts"
+    ]
+   ]
+  ],
+  "unclaimed": []
+ },
+ {
+  "id": "fling",
+  "name": "Fling",
+  "ko": "내던지기",
+  "cat": "Physical",
+  "direct": [
+   "The power of this move is based on the user's held item.",
+   "The held item is lost and it activates for the target if applicable.",
+   "If there is no target or the target avoids this move by protecting itself, the user's held item is still lost.",
+   "The user can regain a thrown item with Recycle or the Harvest Ability.",
+   "Fails if the user has no held item, if the held item cannot be thrown, if the user is under the effect of Embargo or Magic Room, or if the user has the Klutz Ability."
+  ],
+  "delegated": [],
+  "unclaimed": []
+ },
+ {
+  "id": "flipturn",
+  "name": "Flip Turn",
+  "ko": "퀵턴",
+  "cat": "Physical",
+  "direct": [
+   "If this move is successful and the user has not fainted, the user switches out even if it is trapped and is replaced immediately by a selected party member.",
+   "The user does not switch out if there are no unfainted party members, or if the target switched out using an Eject Button or through the effect of the Emergency Exit or Wimp Out Abilities."
+  ],
+  "delegated": [],
+  "unclaimed": []
+ },
+ {
+  "id": "flowertrick",
+  "name": "Flower Trick",
+  "ko": "트릭플라워",
+  "cat": "Physical",
+  "direct": [
+   "This move is always a critical hit unless the target is under the effect of Lucky Chant or has the Battle Armor or Shell Armor Abilities.",
+   "This move does not check accuracy."
+  ],
+  "delegated": [],
+  "unclaimed": []
+ },
+ {
+  "id": "fly",
+  "name": "Fly",
+  "ko": "공중날기",
+  "cat": "Physical",
+  "direct": [
+   "This attack charges on the first turn and executes on the second.",
+   "On the first turn, the user avoids all attacks other than Gust, Hurricane, Sky Uppercut, Smack Down, Thousand Arrows, Thunder, and Twister, and Gust and Twister have doubled power when used against it.",
+   "If the user is holding a Power Herb, the move completes in one turn."
+  ],
+  "delegated": [],
+  "unclaimed": []
+ },
+ {
+  "id": "flyingpress",
+  "name": "Flying Press",
+  "ko": "플라잉프레스",
+  "cat": "Physical",
+  "direct": [
+   "Damage doubles and no accuracy check is done if the target has used Minimize while active."
+  ],
+  "delegated": [
+   [
+    "This move combines Flying in its type effectiveness against the target.",
+    [
+     "restated"
+    ]
+   ]
+  ],
+  "unclaimed": []
+ },
+ {
+  "id": "focusblast",
+  "name": "Focus Blast",
+  "ko": "기합구슬",
+  "cat": "Special",
+  "direct": [],
+  "delegated": [
+   [
+    "Has a 10% chance to lower the target's Special Defense by 1 stage.",
+    [
+     "secondary"
+    ]
+   ]
+  ],
+  "unclaimed": []
+ },
+ {
+  "id": "focusenergy",
+  "name": "Focus Energy",
+  "ko": "기충전",
+  "cat": "Status",
+  "direct": [
+   "Raises the user's chance for a critical hit by 2 stages.",
+   "Fails if the user already has the effect.",
+   "Baton Pass can be used to transfer this effect to an ally."
+  ],
+  "delegated": [],
+  "unclaimed": []
+ },
+ {
+  "id": "focuspunch",
+  "name": "Focus Punch",
+  "ko": "힘껏펀치",
+  "cat": "Physical",
+  "direct": [],
+  "delegated": [
+   [
+    "The user loses its focus and does nothing if it is hit by a damaging attack this turn before it can execute the move.",
+    [
+     "restated"
+    ]
+   ]
+  ],
+  "unclaimed": []
+ },
+ {
+  "id": "followme",
+  "name": "Follow Me",
+  "ko": "날따름",
+  "cat": "Status",
+  "direct": [
+   "Until the end of the turn, all single-target attacks from the opposing side are redirected to the user.",
+   "Fails if it is not a Double Battle or Battle Royal."
+  ],
+  "delegated": [],
+  "unclaimed": [
+   "Such attacks are redirected to the user before they can be reflected by Magic Coat or the Magic Bounce Ability, or drawn in by the Lightning Rod or Storm Drain Abilities.",
+   "This effect is ignored while the user is under the effect of Sky Drop."
+  ]
+ },
+ {
+  "id": "forestscurse",
+  "name": "Forest's Curse",
+  "ko": "숲의저주",
+  "cat": "Status",
+  "direct": [
+   "Causes the Grass type to be added to the target, effectively making it have two or three types.",
+   "Fails if the target is already a Grass type.",
+   "If Trick-or-Treat adds a type to the target, it replaces the type added by this move and vice versa."
+  ],
+  "delegated": [],
+  "unclaimed": []
+ },
+ {
+  "id": "foulplay",
+  "name": "Foul Play",
+  "ko": "속임수",
+  "cat": "Physical",
+  "direct": [
+   "Damage is calculated using the target's Attack stat, including stat stage changes."
+  ],
+  "delegated": [
+   [
+    "The user's Ability, item, and burn are used as normal.",
+    [
+     "restated"
+    ]
+   ]
+  ],
+  "unclaimed": []
+ },
+ {
+  "id": "freezedry",
+  "name": "Freeze-Dry",
+  "ko": "프리즈드라이",
+  "cat": "Special",
+  "direct": [],
+  "delegated": [
+   [
+    "Has a 10% chance to freeze the target.",
+    [
+     "secondary"
+    ]
+   ],
+   [
+    "This move's type effectiveness against Water is changed to be super effective no matter what this move's type is.",
+    [
+     "restated"
+    ]
+   ]
+  ],
+  "unclaimed": []
+ },
+ {
+  "id": "frenzyplant",
+  "name": "Frenzy Plant",
+  "ko": "하드플랜트",
+  "cat": "Special",
+  "direct": [
+   "If this move is successful, the user must recharge on the following turn and cannot select a move."
+  ],
+  "delegated": [],
+  "unclaimed": []
+ },
+ {
+  "id": "frostbreath",
+  "name": "Frost Breath",
+  "ko": "얼음숨결",
+  "cat": "Special",
+  "direct": [
+   "This move is always a critical hit unless the target is under the effect of Lucky Chant or has the Battle Armor or Shell Armor Abilities."
+  ],
+  "delegated": [],
+  "unclaimed": []
+ },
+ {
+  "id": "futuresight",
+  "name": "Future Sight",
+  "ko": "미래예지",
+  "cat": "Special",
+  "direct": [
+   "Deals damage two turns after this move is used.",
+   "At the end of that turn, the damage is calculated at that time and dealt to the Pokemon at the position the target had when the move was used."
+  ],
+  "delegated": [
+   [
+    "If the user is no longer active at the time, damage is calculated based on the user's natural Special Attack stat, types, and level, with no boosts from its held item or Ability.",
+    [
+     "restated"
+    ]
+   ],
+   [
+    "Fails if this move or Doom Desire is already in effect for the target's position.",
+    [
+     "restated"
+    ]
+   ]
+  ],
+  "unclaimed": []
+ },
+ {
+  "id": "gastroacid",
+  "name": "Gastro Acid",
+  "ko": "위액",
+  "cat": "Status",
+  "direct": [
+   "Causes the target's Ability to be rendered ineffective as long as it remains active.",
+   "If the target uses Baton Pass, the replacement will remain under this effect.",
+   "If the target's Ability is As One, Battle Bond, Comatose, Disguise, Gulp Missile, Ice Face, Multitype, Power Construct, RKS System, Schooling, Shields Down, Stance Change, Tera Shift, Zen Mode, or Zero to Hero, this move fails, and receiving the effect through Baton Pass ends the effect immediately."
+  ],
+  "delegated": [],
+  "unclaimed": []
+ },
+ {
+  "id": "gigadrain",
+  "name": "Giga Drain",
+  "ko": "기가드레인",
+  "cat": "Special",
+  "direct": [
+   "The user recovers 1/2 the HP lost by the target, rounded half up.",
+   "If Big Root is held by the user, the HP recovered is 1.3x normal, rounded half down."
+  ],
+  "delegated": [],
+  "unclaimed": []
+ },
+ {
+  "id": "gigaimpact",
+  "name": "Giga Impact",
+  "ko": "기가임팩트",
+  "cat": "Physical",
+  "direct": [
+   "If this move is successful, the user must recharge on the following turn and cannot select a move."
+  ],
+  "delegated": [],
+  "unclaimed": []
+ },
+ {
+  "id": "gigatonhammer",
+  "name": "Gigaton Hammer",
+  "ko": "거대해머",
+  "cat": "Physical",
+  "direct": [
+   "Cannot be selected the turn after it's used."
+  ],
+  "delegated": [],
+  "unclaimed": []
+ },
+ {
+  "id": "glare",
+  "name": "Glare",
+  "ko": "뱀눈초리",
+  "cat": "Status",
+  "direct": [],
+  "delegated": [
+   [
+    "Paralyzes the target.",
+    [
+     "plainstatus"
+    ]
+   ]
+  ],
+  "unclaimed": []
+ },
+ {
+  "id": "grassknot",
+  "name": "Grass Knot",
+  "ko": "풀묶기",
+  "cat": "Special",
+  "direct": [
+   "This move's power is 20 if the target weighs less than 10 kg, 40 if less than 25 kg, 60 if less than 50 kg, 80 if less than 100 kg, 100 if less than 200 kg, and 120 if greater than or equal to 200 kg."
+  ],
+  "delegated": [],
+  "unclaimed": []
+ },
+ {
+  "id": "grassyglide",
+  "name": "Grassy Glide",
+  "ko": "그래스슬라이더",
+  "cat": "Physical",
+  "direct": [
+   "If the current terrain is Grassy Terrain and the user is grounded, this move has its priority increased by 1."
+  ],
+  "delegated": [],
+  "unclaimed": []
+ },
+ {
+  "id": "grassyterrain",
+  "name": "Grassy Terrain",
+  "ko": "그래스필드",
+  "cat": "Status",
+  "direct": [
+   "During the effect, the power of Grass-type attacks used by grounded Pokemon is multiplied by 1.3, the power of Bulldoze, Earthquake, and Magnitude used against grounded Pokemon is multiplied by 0.5, and grounded Pokemon have 1/16 of their maximum HP, rounded down, restored at the end of each turn, including the last turn.",
+   "Camouflage transforms the user into a Grass type, Nature Power becomes Energy Ball, and Secret Power has a 30% chance to cause sleep.",
+   "Fails if the current terrain is Grassy Terrain."
+  ],
+  "delegated": [
+   [
+    "For 5 turns, the terrain becomes Grassy Terrain.",
+    [
+     "statedduration"
+    ]
+   ]
+  ],
+  "unclaimed": []
+ },
+ {
+  "id": "gravapple",
+  "name": "Grav Apple",
+  "ko": "G의힘",
+  "cat": "Physical",
+  "direct": [
+   "Power is multiplied by 1.5 during Gravity's effect."
+  ],
+  "delegated": [
+   [
+    "Has a 100% chance to lower the target's Defense by 1 stage.",
+    [
+     "secondary"
+    ]
+   ]
+  ],
+  "unclaimed": []
+ },
+ {
+  "id": "gravity",
+  "name": "Gravity",
+  "ko": "중력",
+  "cat": "Status",
+  "direct": [
+   "For 5 turns, the evasiveness of all active Pokemon is multiplied by 0.6.",
+   "At the time of use, Bounce, Fly, Magnet Rise, Sky Drop, and Telekinesis end immediately for all active Pokemon.",
+   "During the effect, Bounce, Fly, Flying Press, High Jump Kick, Jump Kick, Magnet Rise, Sky Drop, Splash, and Telekinesis are prevented from being used by all active Pokemon.",
+   "Ground-type attacks, Spikes, Toxic Spikes, Sticky Web, and the Arena Trap Ability can affect Flying types or Pokemon with the Levitate Ability.",
+   "Fails if this move is already in effect."
+  ],
+  "delegated": [],
+  "unclaimed": []
+ },
+ {
+  "id": "growth",
+  "name": "Growth",
+  "ko": "성장",
+  "cat": "Status",
+  "direct": [
+   "If the weather is Sunny Day or Desolate Land, this move raises the user's Attack and Special Attack by 2 stages."
+  ],
+  "delegated": [
+   [
+    "Raises the user's Attack and Special Attack by 1 stage.",
+    [
+     "declaredboosts"
+    ]
+   ],
+   [
+    "If the user is holding Utility Umbrella, this move will only raise the user's Attack and Special Attack by 1 stage, even if the weather is Sunny Day or Desolate Land.",
+    [
+     "restated"
+    ]
+   ]
+  ],
+  "unclaimed": []
+ },
+ {
+  "id": "guardsplit",
+  "name": "Guard Split",
+  "ko": "가드셰어",
+  "cat": "Status",
+  "direct": [
+   "Stat stage changes are unaffected."
+  ],
+  "delegated": [
+   [
+    "The user and the target have their Defense and Special Defense stats set to be equal to the average of the user and the target's Defense and Special Defense stats, respectively, rounded down.",
+    [
+     "restated"
+    ]
+   ]
+  ],
+  "unclaimed": []
+ },
+ {
+  "id": "guardswap",
+  "name": "Guard Swap",
+  "ko": "가드스왑",
+  "cat": "Status",
+  "direct": [],
+  "delegated": [
+   [
+    "The user swaps its Defense and Special Defense stat stage changes with the target.",
+    [
+     "restated"
+    ]
+   ]
+  ],
+  "unclaimed": []
+ },
+ {
+  "id": "guillotine",
+  "name": "Guillotine",
+  "ko": "가위자르기",
+  "cat": "Physical",
+  "direct": [
+   "Deals damage to the target equal to the target's maximum HP.",
+   "Ignores accuracy and evasiveness modifiers.",
+   "This attack's accuracy is equal to (user's level - target's level + 30)%, and fails if the target is at a higher level.",
+   "Pokemon with the Sturdy Ability are immune."
+  ],
+  "delegated": [],
+  "unclaimed": []
+ },
+ {
+  "id": "gunkshot",
+  "name": "Gunk Shot",
+  "ko": "더스트슈트",
+  "cat": "Physical",
+  "direct": [],
+  "delegated": [
+   [
+    "Has a 30% chance to poison the target.",
+    [
+     "secondary"
+    ]
+   ]
+  ],
+  "unclaimed": []
+ },
+ {
+  "id": "gyroball",
+  "name": "Gyro Ball",
+  "ko": "자이로볼",
+  "cat": "Physical",
+  "direct": [
+   "If the user's current Speed is 0, this move's power is 1."
+  ],
+  "delegated": [
+   [
+    "Power is equal to (25 * target's current Speed / user's current Speed) + 1, rounded down, but not more than 150.",
+    [
+     "restated"
+    ]
+   ]
+  ],
+  "unclaimed": []
+ },
+ {
+  "id": "hammerarm",
+  "name": "Hammer Arm",
+  "ko": "암해머",
+  "cat": "Physical",
+  "direct": [],
+  "delegated": [
+   [
+    "Lowers the user's Speed by 1 stage.",
+    [
+     "declaredboosts"
+    ]
+   ]
+  ],
+  "unclaimed": []
+ },
+ {
+  "id": "hardpress",
+  "name": "Hard Press",
+  "ko": "하드프레스",
+  "cat": "Physical",
+  "direct": [
+   "Power is equal to 100 * (target's current HP / target's maximum HP), rounded half down, but not less than 1."
+  ],
+  "delegated": [],
+  "unclaimed": []
+ },
+ {
+  "id": "haze",
+  "name": "Haze",
+  "ko": "흑안개",
+  "cat": "Status",
+  "direct": [
+   "Resets the stat stages of all active Pokemon to 0."
+  ],
+  "delegated": [],
+  "unclaimed": []
+ },
+ {
+  "id": "headlongrush",
+  "name": "Headlong Rush",
+  "ko": "들이받기",
+  "cat": "Physical",
+  "direct": [],
+  "delegated": [
+   [
+    "Lowers the user's Defense and Special Defense by 1 stage.",
+    [
+     "declaredboosts"
+    ]
+   ]
+  ],
+  "unclaimed": []
+ },
+ {
+  "id": "headsmash",
+  "name": "Head Smash",
+  "ko": "양날박치기",
+  "cat": "Physical",
+  "direct": [
+   "If the target lost HP, the user takes recoil damage equal to 1/2 the HP lost by the target, rounded half up, but not less than 1 HP."
+  ],
+  "delegated": [],
+  "unclaimed": []
+ },
+ {
+  "id": "healbell",
+  "name": "Heal Bell",
+  "ko": "치료방울",
+  "cat": "Status",
+  "direct": [
+   "Every Pokemon in the user's party is cured of its non-volatile status condition.",
+   "Active Pokemon with the Soundproof Ability are not cured, unless they are the user."
+  ],
+  "delegated": [],
+  "unclaimed": []
+ },
+ {
+  "id": "healingwish",
+  "name": "Healing Wish",
+  "ko": "치유소원",
+  "cat": "Status",
+  "direct": [
+   "Fails if the user is the last unfainted Pokemon in its party."
+  ],
+  "delegated": [
+   [
+    "The user faints, and if the Pokemon brought out to replace it does not have full HP or has a non-volatile status condition, its HP is fully restored along with having any non-volatile status condition cured.",
+    [
+     "restated"
+    ]
+   ],
+   [
+    "The replacement is sent out at the end of the turn, and the healing happens before hazards take effect.",
+    [
+     "restated"
+    ]
+   ],
+   [
+    "This effect continues until a Pokemon that meets either of these conditions switches in at the user's position or gets swapped into the position with Ally Switch.",
+    [
+     "restated"
+    ]
+   ]
+  ],
+  "unclaimed": []
+ },
+ {
+  "id": "healpulse",
+  "name": "Heal Pulse",
+  "ko": "치유파동",
+  "cat": "Status",
+  "direct": [
+   "The target restores 1/2 of its maximum HP, rounded half up."
+  ],
+  "delegated": [
+   [
+    "If the user has the Mega Launcher Ability, the target instead restores 3/4 of its maximum HP, rounded half down.",
+    [
+     "restated"
+    ]
+   ]
+  ],
+  "unclaimed": []
+ },
+ {
+  "id": "heatcrash",
+  "name": "Heat Crash",
+  "ko": "히트스탬프",
+  "cat": "Physical",
+  "direct": [
+   "The power of this move depends on (user's weight / target's weight), rounded down.",
+   "Power is equal to 120 if the result is 5 or more, 100 if 4, 80 if 3, 60 if 2, and 40 if 1 or less.",
+   "Damage doubles and no accuracy check is done if the target has used Minimize while active."
+  ],
+  "delegated": [],
+  "unclaimed": []
+ },
+ {
+  "id": "heatwave",
+  "name": "Heat Wave",
+  "ko": "열풍",
+  "cat": "Special",
+  "direct": [],
+  "delegated": [
+   [
+    "Has a 10% chance to burn the target.",
+    [
+     "secondary"
+    ]
+   ]
+  ],
+  "unclaimed": []
+ },
+ {
+  "id": "heavyslam",
+  "name": "Heavy Slam",
+  "ko": "헤비봄버",
+  "cat": "Physical",
+  "direct": [
+   "The power of this move depends on (user's weight / target's weight), rounded down.",
+   "Power is equal to 120 if the result is 5 or more, 100 if 4, 80 if 3, 60 if 2, and 40 if 1 or less.",
+   "Damage doubles and no accuracy check is done if the target has used Minimize while active."
+  ],
+  "delegated": [],
+  "unclaimed": []
+ },
+ {
+  "id": "helpinghand",
+  "name": "Helping Hand",
+  "ko": "도우미",
+  "cat": "Status",
+  "direct": [
+   "The power of the target's attack this turn is multiplied by 1.5 (this effect is stackable).",
+   "Fails if there is no ally adjacent to the user or if the ally already moved this turn, but does not fail if the ally is using a two-turn move."
+  ],
+  "delegated": [],
+  "unclaimed": []
+ },
+ {
+  "id": "hex",
+  "name": "Hex",
+  "ko": "병상첨병",
+  "cat": "Special",
+  "direct": [
+   "Power doubles if the target has a non-volatile status condition."
+  ],
+  "delegated": [],
+  "unclaimed": []
+ },
+ {
+  "id": "highjumpkick",
+  "name": "High Jump Kick",
+  "ko": "무릎차기",
+  "cat": "Physical",
+  "direct": [
+   "If this attack is not successful, the user loses half of its maximum HP, rounded down, as crash damage.",
+   "Pokemon with the Magic Guard Ability are unaffected by crash damage."
+  ],
+  "delegated": [],
+  "unclaimed": []
+ },
+ {
+  "id": "horndrill",
+  "name": "Horn Drill",
+  "ko": "뿔드릴",
+  "cat": "Physical",
+  "direct": [
+   "Deals damage to the target equal to the target's maximum HP.",
+   "Ignores accuracy and evasiveness modifiers.",
+   "This attack's accuracy is equal to (user's level - target's level + 30)%, and fails if the target is at a higher level.",
+   "Pokemon with the Sturdy Ability are immune."
+  ],
+  "delegated": [],
+  "unclaimed": []
+ },
+ {
+  "id": "hornleech",
+  "name": "Horn Leech",
+  "ko": "우드혼",
+  "cat": "Physical",
+  "direct": [
+   "The user recovers 1/2 the HP lost by the target, rounded half up.",
+   "If Big Root is held by the user, the HP recovered is 1.3x normal, rounded half down."
+  ],
+  "delegated": [],
+  "unclaimed": []
+ },
+ {
+  "id": "howl",
+  "name": "Howl",
+  "ko": "멀리짖기",
+  "cat": "Status",
+  "direct": [],
+  "delegated": [
+   [
+    "Raises the Attack of the user and all allies 1 stage.",
+    [
+     "declaredboosts"
+    ]
+   ]
+  ],
+  "unclaimed": []
+ },
+ {
+  "id": "hurricane",
+  "name": "Hurricane",
+  "ko": "폭풍",
+  "cat": "Special",
+  "direct": [
+   "This move can hit a target using Bounce, Fly, or Sky Drop, or is under the effect of Sky Drop.",
+   "If the weather is Primordial Sea or Rain Dance, this move does not check accuracy.",
+   "If the weather is Desolate Land or Sunny Day, this move's accuracy is 50%."
+  ],
+  "delegated": [
+   [
+    "Has a 30% chance to confuse the target.",
+    [
+     "secondary"
+    ]
+   ]
+  ],
+  "unclaimed": [
+   "If this move is used against a Pokemon holding Utility Umbrella, this move's accuracy remains at 70%."
+  ]
+ },
+ {
+  "id": "hydrocannon",
+  "name": "Hydro Cannon",
+  "ko": "하이드로캐논",
+  "cat": "Special",
+  "direct": [
+   "If this move is successful, the user must recharge on the following turn and cannot select a move."
+  ],
+  "delegated": [],
+  "unclaimed": []
+ },
+ {
+  "id": "hyperbeam",
+  "name": "Hyper Beam",
+  "ko": "파괴광선",
+  "cat": "Special",
+  "direct": [
+   "If this move is successful, the user must recharge on the following turn and cannot select a move."
+  ],
+  "delegated": [],
+  "unclaimed": []
+ },
+ {
+  "id": "hypnosis",
+  "name": "Hypnosis",
+  "ko": "최면술",
+  "cat": "Status",
+  "direct": [],
+  "delegated": [
+   [
+    "Causes the target to fall asleep.",
+    [
+     "plainstatus"
+    ]
+   ]
+  ],
+  "unclaimed": []
+ },
+ {
+  "id": "icebeam",
+  "name": "Ice Beam",
+  "ko": "냉동빔",
+  "cat": "Special",
+  "direct": [],
+  "delegated": [
+   [
+    "Has a 10% chance to freeze the target.",
+    [
+     "secondary"
+    ]
+   ]
+  ],
+  "unclaimed": []
+ },
+ {
+  "id": "icefang",
+  "name": "Ice Fang",
+  "ko": "얼음엄니",
+  "cat": "Physical",
+  "direct": [],
+  "delegated": [
+   [
+    "Has a 10% chance to freeze the target and a 10% chance to make it flinch.",
+    [
+     "secondary"
+    ]
+   ]
+  ],
+  "unclaimed": []
+ },
+ {
+  "id": "icehammer",
+  "name": "Ice Hammer",
+  "ko": "아이스해머",
+  "cat": "Physical",
+  "direct": [],
+  "delegated": [
+   [
+    "Lowers the user's Speed by 1 stage.",
+    [
+     "declaredboosts"
+    ]
+   ]
+  ],
+  "unclaimed": []
+ },
+ {
+  "id": "icepunch",
+  "name": "Ice Punch",
+  "ko": "냉동펀치",
+  "cat": "Physical",
+  "direct": [],
+  "delegated": [
+   [
+    "Has a 10% chance to freeze the target.",
+    [
+     "secondary"
+    ]
+   ]
+  ],
+  "unclaimed": []
+ },
+ {
+  "id": "icespinner",
+  "name": "Ice Spinner",
+  "ko": "아이스스피너",
+  "cat": "Physical",
+  "direct": [
+   "Ends the effects of Electric Terrain, Grassy Terrain, Misty Terrain, and Psychic Terrain."
+  ],
+  "delegated": [],
+  "unclaimed": []
+ },
+ {
+  "id": "iciclecrash",
+  "name": "Icicle Crash",
+  "ko": "고드름떨구기",
+  "cat": "Physical",
+  "direct": [],
+  "delegated": [
+   [
+    "Has a 30% chance to make the target flinch.",
+    [
+     "secondary"
+    ]
+   ]
+  ],
+  "unclaimed": []
+ },
+ {
+  "id": "iciclespear",
+  "name": "Icicle Spear",
+  "ko": "고드름침",
+  "cat": "Physical",
+  "direct": [
+   "Hits two to five times.",
+   "Has a 35% chance to hit two or three times and a 15% chance to hit four or five times.",
+   "If one of the hits breaks the target's substitute, it will take damage for the remaining hits.",
+   "If the user has the Skill Link Ability, this move will always hit five times.",
+   "If the user is holding Loaded Dice, this move will hit 4-5 times."
+  ],
+  "delegated": [],
+  "unclaimed": []
+ },
+ {
+  "id": "icywind",
+  "name": "Icy Wind",
+  "ko": "얼어붙은바람",
+  "cat": "Special",
+  "direct": [],
+  "delegated": [
+   [
+    "Has a 100% chance to lower the target's Speed by 1 stage.",
+    [
+     "secondary"
+    ]
+   ]
+  ],
+  "unclaimed": []
+ },
+ {
+  "id": "imprison",
+  "name": "Imprison",
+  "ko": "봉인",
+  "cat": "Status",
+  "direct": [],
+  "delegated": [
+   [
+    "The user prevents all opposing Pokemon from using any moves that the user also knows as long as the user remains active.",
+    [
+     "restated"
+    ]
+   ]
+  ],
+  "unclaimed": []
+ },
+ {
+  "id": "infernalparade",
+  "name": "Infernal Parade",
+  "ko": "백귀야행",
+  "cat": "Special",
+  "direct": [
+   "Power doubles if the target has a non-volatile status condition."
+  ],
+  "delegated": [
+   [
+    "Has a 30% chance to burn the target.",
+    [
+     "secondary"
+    ]
+   ]
+  ],
+  "unclaimed": []
+ },
+ {
+  "id": "inferno",
+  "name": "Inferno",
+  "ko": "연옥",
+  "cat": "Special",
+  "direct": [],
+  "delegated": [
+   [
+    "Has a 100% chance to burn the target.",
+    [
+     "secondary"
+    ]
+   ]
+  ],
+  "unclaimed": []
+ },
+ {
+  "id": "infestation",
+  "name": "Infestation",
+  "ko": "엉겨붙기",
+  "cat": "Special",
+  "direct": [
+   "Prevents the target from switching for four or five turns (seven turns if the user is holding Grip Claw).",
+   "Causes damage to the target equal to 1/8 of its maximum HP (1/6 if the user is holding Binding Band), rounded down, at the end of each turn during effect.",
+   "The target can still switch out if it is holding Shed Shell or uses Baton Pass, Flip Turn, Parting Shot, Shed Tail, Teleport, U-turn, or Volt Switch.",
+   "The effect ends if either the user or the target leaves the field, or if the target uses Mortal Spin, Rapid Spin, or Substitute successfully.",
+   "This effect is not stackable or reset by using this or another binding move."
+  ],
+  "delegated": [],
+  "unclaimed": []
+ },
+ {
+  "id": "ingrain",
+  "name": "Ingrain",
+  "ko": "뿌리박기",
+  "cat": "Status",
+  "direct": [
+   "The user can still switch out if it uses Baton Pass, Flip Turn, Parting Shot, Teleport, U-turn, or Volt Switch.",
+   "If the user leaves the field using Baton Pass, the replacement will remain trapped and still receive the healing effect.",
+   "During the effect, the user can be hit normally by Ground-type attacks and be affected by Spikes, Toxic Spikes, and Sticky Web, even if the user is a Flying type or has the Levitate Ability."
+  ],
+  "delegated": [
+   [
+    "The user has 1/16 of its maximum HP restored at the end of each turn, but it is prevented from switching out and other Pokemon cannot force the user to switch out.",
+    [
+     "restated"
+    ]
+   ]
+  ],
+  "unclaimed": []
+ },
+ {
+  "id": "instruct",
+  "name": "Instruct",
+  "ko": "지휘",
+  "cat": "Status",
+  "direct": [
+   "The target immediately uses its last used move.",
+   "Fails if the target has not made a move, if the move has 0 PP, if the target is preparing to use Beak Blast, Focus Punch, or Shell Trap, or if the move is Assist, Beak Blast, Belch, Bide, Blazing Torque, Celebrate, Chatter, Combat Torque, Copycat, Dynamax Cannon, Focus Punch, Hold Hands, Ice Ball, Instruct, King's Shield, Magical Torque, Me First, Metronome, Mimic, Mirror Move, Nature Power, Noxious Torque, Obstruct, Outrage, Petal Dance, Rollout, Shell Trap, Sketch, Sleep Talk, Struggle, Thrash, Transform, Uproar, Wicked Torque, any two-turn move, or any recharge move."
+  ],
+  "delegated": [],
+  "unclaimed": []
+ },
+ {
+  "id": "irondefense",
+  "name": "Iron Defense",
+  "ko": "철벽",
+  "cat": "Status",
+  "direct": [],
+  "delegated": [
+   [
+    "Raises the user's Defense by 2 stages.",
+    [
+     "declaredboosts"
+    ]
+   ]
+  ],
+  "unclaimed": []
+ },
+ {
+  "id": "ironhead",
+  "name": "Iron Head",
+  "ko": "아이언헤드",
+  "cat": "Physical",
+  "direct": [],
+  "delegated": [
+   [
+    "Has a 30% chance to make the target flinch.",
+    [
+     "secondary"
+    ]
+   ]
+  ],
+  "unclaimed": []
+ },
+ {
+  "id": "irontail",
+  "name": "Iron Tail",
+  "ko": "아이언테일",
+  "cat": "Physical",
+  "direct": [],
+  "delegated": [
+   [
+    "Has a 30% chance to lower the target's Defense by 1 stage.",
+    [
+     "secondary"
+    ]
+   ]
+  ],
+  "unclaimed": []
+ },
+ {
+  "id": "kingsshield",
+  "name": "King's Shield",
+  "ko": "킹실드",
+  "cat": "Status",
+  "direct": [
+   "Non-damaging moves go through this protection.",
+   "This move has a 1/X chance of being successful, where X starts at 1 and triples each time this move is successfully used.",
+   "X resets to 1 if this move fails, if the user's last move used is not Baneful Bunker, Burning Bulwark, Detect, Endure, King's Shield, Max Guard, Obstruct, Protect, Quick Guard, Silk Trap, Spiky Shield, or Wide Guard, or if it was one of those moves and the user's protection was broken.",
+   "Fails if the user moves last this turn."
+  ],
+  "delegated": [
+   [
+    "The user is protected from most attacks made by other Pokemon during this turn, and Pokemon trying to make contact with the user have their Attack lowered by 1 stage.",
+    [
+     "restated"
+    ]
+   ]
+  ],
+  "unclaimed": []
+ },
+ {
+  "id": "knockoff",
+  "name": "Knock Off",
+  "ko": "탁쳐서떨구기",
+  "cat": "Physical",
+  "direct": [
+   "A target with the Sticky Hold Ability does not lose its held item if it has not fainted.",
+   "In this case, Paradox Pokemon include every species with the Protosynthesis and Quark Drive Abilities, except Gouging Fire, Raging Bolt, Iron Boulder, and Iron Crown.",
+   "Items lost to this move cannot be regained with Recycle or the Harvest Ability."
+  ],
+  "delegated": [
+   [
+    "This move's power is multiplied by 1.5 if the target is holding an item, and the target loses its held item if the user has not fainted.",
+    [
+     "restated"
+    ]
+   ],
+   [
+    "This move does not increase in power or remove the target's item if it is a Blue Orb, Red Orb, Adamant Crystal, Lustrous Globe, Griseous Core, Plate, Drive, Memory, Rusted Sword, Rusted Shield, Booster Energy, or Mask held by a Kyogre, Groudon, Dialga, Palkia, Giratina, Arceus, Genesect, Silvally, Zacian, Zamazenta, Paradox Pokemon, or Ogerpon, respectively, or if the user is one of those species and the target is holding the respective item.",
+    [
+     "restated"
+    ]
+   ]
+  ],
+  "unclaimed": []
+ },
+ {
+  "id": "kowtowcleave",
+  "name": "Kowtow Cleave",
+  "ko": "도각참",
+  "cat": "Physical",
+  "direct": [
+   "This move does not check accuracy."
+  ],
+  "delegated": [],
+  "unclaimed": []
+ },
+ {
+  "id": "lashout",
+  "name": "Lash Out",
+  "ko": "분풀이",
+  "cat": "Physical",
+  "direct": [
+   "Power doubles if the user had a stat stage lowered this turn."
+  ],
+  "delegated": [],
+  "unclaimed": []
+ },
+ {
+  "id": "lastresort",
+  "name": "Last Resort",
+  "ko": "비장의무기",
+  "cat": "Physical",
+  "direct": [],
+  "delegated": [
+   [
+    "This move fails unless the user knows this move and at least one other move, and has used all the other moves it knows at least once each since it became active or Transformed.",
+    [
+     "restated"
+    ]
+   ]
+  ],
+  "unclaimed": []
+ },
+ {
+  "id": "lastrespects",
+  "name": "Last Respects",
+  "ko": "성묘",
+  "cat": "Physical",
+  "direct": [],
+  "delegated": [
+   [
+    "Power is equal to 50+(X*50), where X is the total number of times any Pokemon has fainted on the user's side, and X cannot be greater than 100.",
+    [
+     "delegatedpower"
+    ]
+   ]
+  ],
+  "unclaimed": []
+ },
+ {
+  "id": "lavaplume",
+  "name": "Lava Plume",
+  "ko": "분연",
+  "cat": "Special",
+  "direct": [],
+  "delegated": [
+   [
+    "Has a 30% chance to burn the target.",
+    [
+     "secondary"
+    ]
+   ]
+  ],
+  "unclaimed": []
+ },
+ {
+  "id": "leafblade",
+  "name": "Leaf Blade",
+  "ko": "리프블레이드",
+  "cat": "Physical",
+  "direct": [
+   "Has a higher chance for a critical hit."
+  ],
+  "delegated": [],
+  "unclaimed": []
+ },
+ {
+  "id": "leafstorm",
+  "name": "Leaf Storm",
+  "ko": "리프스톰",
+  "cat": "Special",
+  "direct": [],
+  "delegated": [
+   [
+    "Lowers the user's Special Attack by 2 stages.",
+    [
+     "declaredboosts"
+    ]
+   ]
+  ],
+  "unclaimed": []
+ },
+ {
+  "id": "leechlife",
+  "name": "Leech Life",
+  "ko": "흡혈",
+  "cat": "Physical",
+  "direct": [
+   "The user recovers 1/2 the HP lost by the target, rounded half up.",
+   "If Big Root is held by the user, the HP recovered is 1.3x normal, rounded half down."
+  ],
+  "delegated": [],
+  "unclaimed": []
+ },
+ {
+  "id": "leechseed",
+  "name": "Leech Seed",
+  "ko": "씨뿌리기",
+  "cat": "Status",
+  "direct": [
+   "The Pokemon at the user's position steals 1/8 of the target's maximum HP, rounded down, at the end of each turn.",
+   "If Big Root is held by the recipient, the HP recovered is 1.3x normal, rounded half down.",
+   "If the target uses Baton Pass, the replacement will continue being leeched.",
+   "If the target switches out or uses Mortal Spin or Rapid Spin successfully, the effect ends.",
+   "Grass-type Pokemon are immune to this move on use, but not its effect."
+  ],
+  "delegated": [],
+  "unclaimed": []
+ },
+ {
+  "id": "lifedew",
+  "name": "Life Dew",
+  "ko": "생명의물방울",
+  "cat": "Status",
+  "direct": [
+   "Each Pokemon on the user's side restores 1/4 of its maximum HP, rounded half up."
+  ],
+  "delegated": [],
+  "unclaimed": []
+ },
+ {
+  "id": "lightofruin",
+  "name": "Light of Ruin",
+  "ko": "파멸의빛",
+  "cat": "Special",
+  "direct": [
+   "If the target lost HP, the user takes recoil damage equal to 1/2 the HP lost by the target, rounded half up, but not less than 1 HP."
+  ],
+  "delegated": [],
+  "unclaimed": []
+ },
+ {
+  "id": "lightscreen",
+  "name": "Light Screen",
+  "ko": "빛의장막",
+  "cat": "Status",
+  "direct": [
+   "Fails if the effect is already active on the user's side."
+  ],
+  "delegated": [
+   [
+    "For 5 turns, the user and its party members take 0.5x damage from special attacks, or 0.66x damage if in a Double Battle.",
+    [
+     "statedduration"
+    ]
+   ],
+   [
+    "Damage is not reduced further with Aurora Veil.",
+    [
+     "screenbreakers"
+    ]
+   ],
+   [
+    "Critical hits ignore this effect.",
+    [
+     "screenbreakers"
+    ]
+   ],
+   [
+    "It is removed from the user's side if the user or an ally is successfully hit by Brick Break, Psychic Fangs, or Defog.",
+    [
+     "screenbreakers"
+    ]
+   ],
+   [
+    "Lasts for 8 turns if the user is holding Light Clay.",
+    [
+     "screenbreakers"
+    ]
+   ]
+  ],
+  "unclaimed": []
+ },
+ {
+  "id": "liquidation",
+  "name": "Liquidation",
+  "ko": "아쿠아브레이크",
+  "cat": "Physical",
+  "direct": [],
+  "delegated": [
+   [
+    "Has a 20% chance to lower the target's Defense by 1 stage.",
+    [
+     "secondary"
+    ]
+   ]
+  ],
+  "unclaimed": []
+ },
+ {
+  "id": "lockon",
+  "name": "Lock-On",
+  "ko": "록온",
+  "cat": "Status",
+  "direct": [
+   "The effect ends if either the user or the target leaves the field.",
+   "Fails if this effect is active for the user."
+  ],
+  "delegated": [
+   [
+    "Until the end of the next turn, the target cannot avoid the user's moves, even if the target is in the middle of a two-turn move.",
+    [
+     "restated"
+    ]
+   ]
+  ],
+  "unclaimed": []
+ },
+ {
+  "id": "lowkick",
+  "name": "Low Kick",
+  "ko": "안다리걸기",
+  "cat": "Physical",
+  "direct": [
+   "This move's power is 20 if the target weighs less than 10 kg, 40 if less than 25 kg, 60 if less than 50 kg, 80 if less than 100 kg, 100 if less than 200 kg, and 120 if greater than or equal to 200 kg."
+  ],
+  "delegated": [],
+  "unclaimed": []
+ },
+ {
+  "id": "lowsweep",
+  "name": "Low Sweep",
+  "ko": "로킥",
+  "cat": "Physical",
+  "direct": [],
+  "delegated": [
+   [
+    "Has a 100% chance to lower the target's Speed by 1 stage.",
+    [
+     "secondary"
+    ]
+   ]
+  ],
+  "unclaimed": []
+ },
+ {
+  "id": "luminacrash",
+  "name": "Lumina Crash",
+  "ko": "루미나콜리전",
+  "cat": "Special",
+  "direct": [],
+  "delegated": [
+   [
+    "Has a 100% chance to lower the target's Special Defense by 2 stages.",
+    [
+     "secondary"
+    ]
+   ]
+  ],
+  "unclaimed": []
+ },
+ {
+  "id": "lunge",
+  "name": "Lunge",
+  "ko": "덤벼들기",
+  "cat": "Physical",
+  "direct": [],
+  "delegated": [
+   [
+    "Has a 100% chance to lower the target's Attack by 1 stage.",
+    [
+     "secondary"
+    ]
+   ]
+  ],
+  "unclaimed": []
+ },
+ {
+  "id": "magicpowder",
+  "name": "Magic Powder",
+  "ko": "마법가루",
+  "cat": "Status",
+  "direct": [
+   "Causes the target to become a Psychic type."
+  ],
+  "delegated": [
+   [
+    "Fails if the target is an Arceus or a Silvally, if the target is already purely Psychic type, or if the target is Terastallized.",
+    [
+     "restated"
+    ]
+   ]
+  ],
+  "unclaimed": []
+ },
+ {
+  "id": "magicroom",
+  "name": "Magic Room",
+  "ko": "매직룸",
+  "cat": "Status",
+  "direct": [
+   "For 5 turns, the held items of all active Pokemon have no effect.",
+   "During the effect, Fling and Natural Gift are prevented from being used by all active Pokemon.",
+   "If this move is used during the effect, the effect ends."
+  ],
+  "delegated": [
+   [
+    "An item's effect of causing forme changes is unaffected, but any other effects from such items are negated.",
+    [
+     "restated"
+    ]
+   ]
+  ],
+  "unclaimed": []
+ },
+ {
+  "id": "magneticflux",
+  "name": "Magnetic Flux",
+  "ko": "자기장조작",
+  "cat": "Status",
+  "direct": [],
+  "delegated": [
+   [
+    "Raises the Defense and Special Defense of Pokemon on the user's side with the Plus or Minus Abilities by 1 stage.",
+    [
+     "declaredboosts"
+    ]
+   ]
+  ],
+  "unclaimed": []
+ },
+ {
+  "id": "magnetrise",
+  "name": "Magnet Rise",
+  "ko": "전자부유",
+  "cat": "Status",
+  "direct": [
+   "For 5 turns, the user is immune to Ground-type attacks and the effects of Spikes, Toxic Spikes, Sticky Web, and the Arena Trap Ability as long as it remains active.",
+   "If the user uses Baton Pass, the replacement will gain the effect.",
+   "Ingrain, Smack Down, Thousand Arrows, and Iron Ball override this move if the user is under any of their effects.",
+   "Fails if the user is already under this effect or the effects of Ingrain, Smack Down, or Thousand Arrows."
+  ],
+  "delegated": [],
+  "unclaimed": []
+ },
+ {
+  "id": "makeitrain",
+  "name": "Make It Rain",
+  "ko": "골드러시",
+  "cat": "Special",
+  "direct": [],
+  "delegated": [
+   [
+    "Lowers the user's Special Attack by 1 stage.",
+    [
+     "declaredboosts"
+    ]
+   ]
+  ],
+  "unclaimed": []
+ },
+ {
+  "id": "matchagotcha",
+  "name": "Matcha Gotcha",
+  "ko": "휘적휘적포",
+  "cat": "Special",
+  "direct": [
+   "The user recovers 1/2 the HP lost by the target, rounded half up.",
+   "If Big Root is held by the user, the HP recovered is 1.3x normal, rounded half down.",
+   "The target thaws out if it is frozen."
+  ],
+  "delegated": [
+   [
+    "Has a 20% chance to burn the target.",
+    [
+     "secondary"
+    ]
+   ]
+  ],
+  "unclaimed": []
+ },
+ {
+  "id": "meanlook",
+  "name": "Mean Look",
+  "ko": "검은눈빛",
+  "cat": "Status",
+  "direct": [
+   "Prevents the target from switching out.",
+   "The target can still switch out if it is holding Shed Shell or uses Baton Pass, Flip Turn, Parting Shot, Teleport, U-turn, or Volt Switch.",
+   "The effect ends if either the user or the target leaves the field."
+  ],
+  "delegated": [],
+  "unclaimed": []
+ },
+ {
+  "id": "memento",
+  "name": "Memento",
+  "ko": "추억의선물",
+  "cat": "Status",
+  "direct": [
+   "Fails entirely if this move hits a substitute, but does not fail if the target's stats cannot be changed."
+  ],
+  "delegated": [
+   [
+    "Lowers the target's Attack and Special Attack by 2 stages.",
+    [
+     "declaredboosts"
+    ]
+   ],
+   [
+    "The user faints unless this move misses or there is no target.",
+    [
+     "restated"
+    ]
+   ]
+  ],
+  "unclaimed": []
+ },
+ {
+  "id": "metalburst",
+  "name": "Metal Burst",
+  "ko": "메탈버스트",
+  "cat": "Physical",
+  "direct": [
+   "If the user did not lose HP from that attack, this move deals 1 HP of damage instead.",
+   "If that opposing Pokemon's position is no longer in use and there is another opposing Pokemon on the field, the damage is done to it instead.",
+   "Only the last hit of a multi-hit attack is counted.",
+   "Fails if the user was not hit by an opposing Pokemon's physical or special attack this turn."
+  ],
+  "delegated": [
+   [
+    "Deals damage to the last opposing Pokemon to hit the user with a physical or special attack this turn equal to 1.5 times the HP lost by the user from that attack, rounded down.",
+    [
+     "counterhalfagain"
+    ]
+   ]
+  ],
+  "unclaimed": []
+ },
+ {
+  "id": "metalsound",
+  "name": "Metal Sound",
+  "ko": "금속음",
+  "cat": "Status",
+  "direct": [],
+  "delegated": [
+   [
+    "Lowers the target's Special Defense by 2 stages.",
+    [
+     "declaredboosts"
+    ]
+   ]
+  ],
+  "unclaimed": []
+ },
+ {
+  "id": "meteorbeam",
+  "name": "Meteor Beam",
+  "ko": "메테오빔",
+  "cat": "Special",
+  "direct": [
+   "This attack charges on the first turn and executes on the second.",
+   "If the user is holding a Power Herb, the move completes in one turn."
+  ],
+  "delegated": [
+   [
+    "Raises the user's Special Attack by 1 stage on the first turn.",
+    [
+     "declaredboosts"
+    ]
+   ]
+  ],
+  "unclaimed": []
+ },
+ {
+  "id": "meteormash",
+  "name": "Meteor Mash",
+  "ko": "코멧펀치",
+  "cat": "Physical",
+  "direct": [],
+  "delegated": [
+   [
+    "Has a 20% chance to raise the user's Attack by 1 stage.",
+    [
+     "secondary"
+    ]
+   ]
+  ],
+  "unclaimed": []
+ },
+ {
+  "id": "minimize",
+  "name": "Minimize",
+  "ko": "작아지기",
+  "cat": "Status",
+  "direct": [],
+  "delegated": [
+   [
+    "Raises the user's evasiveness by 2 stages.",
+    [
+     "declaredboosts"
+    ]
+   ],
+   [
+    "Whether or not the user's evasiveness was changed, Body Slam, Dragon Rush, Flying Press, Heat Crash, Heavy Slam, Malicious Moonsault, Steamroller, Stomp, and Supercell Slam will not check accuracy and have their damage doubled if used against the user while it is active.",
+    [
+     "restated"
+    ]
+   ]
+  ],
+  "unclaimed": []
+ },
+ {
+  "id": "mirrorcoat",
+  "name": "Mirror Coat",
+  "ko": "미러코트",
+  "cat": "Special",
+  "direct": [
+   "If the user did not lose HP from the attack, this move deals 1 HP of damage instead.",
+   "If that opposing Pokemon's position is no longer in use and there is another opposing Pokemon on the field, the damage is done to it instead.",
+   "Only the last hit of a multi-hit attack is counted.",
+   "Fails if the user was not hit by an opposing Pokemon's special attack this turn."
+  ],
+  "delegated": [
+   [
+    "Deals damage to the last opposing Pokemon to hit the user with a special attack this turn equal to twice the HP lost by the user from that attack.",
+    [
+     "counterdoubles"
+    ]
+   ]
+  ],
+  "unclaimed": []
+ },
+ {
+  "id": "mistyexplosion",
+  "name": "Misty Explosion",
+  "ko": "미스트버스트",
+  "cat": "Special",
+  "direct": [
+   "If the current terrain is Misty Terrain and the user is grounded, this move's power is multiplied by 1.5.",
+   "The user faints after using this move, even if this move fails for having no target.",
+   "This move is prevented from executing if any active Pokemon has the Damp Ability."
+  ],
+  "delegated": [],
+  "unclaimed": []
+ },
+ {
+  "id": "mistyterrain",
+  "name": "Misty Terrain",
+  "ko": "미스트필드",
+  "cat": "Status",
+  "direct": [
+   "During the effect, the power of Dragon-type attacks used against grounded Pokemon is multiplied by 0.5 and grounded Pokemon cannot be inflicted with a non-volatile status condition nor confusion.",
+   "Grounded Pokemon can become affected by Yawn but cannot fall asleep from its effect.",
+   "Camouflage transforms the user into a Fairy type, Nature Power becomes Moonblast, and Secret Power has a 30% chance to lower Special Attack by 1 stage.",
+   "Fails if the current terrain is Misty Terrain."
+  ],
+  "delegated": [
+   [
+    "For 5 turns, the terrain becomes Misty Terrain.",
+    [
+     "statedduration"
+    ]
+   ]
+  ],
+  "unclaimed": []
+ },
+ {
+  "id": "moonblast",
+  "name": "Moonblast",
+  "ko": "문포스",
+  "cat": "Special",
+  "direct": [],
+  "delegated": [
+   [
+    "Has a 30% chance to lower the target's Special Attack by 1 stage.",
+    [
+     "secondary"
+    ]
+   ]
+  ],
+  "unclaimed": []
+ },
+ {
+  "id": "moonlight",
+  "name": "Moonlight",
+  "ko": "달빛",
+  "cat": "Status",
+  "direct": [
+   "The user restores 1/2 of its maximum HP if Delta Stream or no weather conditions are in effect or if the user is holding Utility Umbrella, 2/3 of its maximum HP if the weather is Desolate Land or Sunny Day, and 1/4 of its maximum HP if the weather is Primordial Sea, Rain Dance, Sandstorm, or Snow, all rounded half down."
+  ],
+  "delegated": [],
+  "unclaimed": []
+ },
+ {
+  "id": "morningsun",
+  "name": "Morning Sun",
+  "ko": "아침햇살",
+  "cat": "Status",
+  "direct": [
+   "The user restores 1/2 of its maximum HP if Delta Stream or no weather conditions are in effect or if the user is holding Utility Umbrella, 2/3 of its maximum HP if the weather is Desolate Land or Sunny Day, and 1/4 of its maximum HP if the weather is Primordial Sea, Rain Dance, Sandstorm, or Snow, all rounded half down."
+  ],
+  "delegated": [],
+  "unclaimed": []
+ },
+ {
+  "id": "mortalspin",
+  "name": "Mortal Spin",
+  "ko": "킬러스핀",
+  "cat": "Physical",
+  "direct": [
+   "If this move is successful and the user has not fainted, the effects of Leech Seed and binding moves end for the user, and all hazards are removed from the user's side of the field."
+  ],
+  "delegated": [
+   [
+    "Has a 100% chance to poison the target.",
+    [
+     "secondary"
+    ]
+   ]
+  ],
+  "unclaimed": []
+ },
+ {
+  "id": "mountaingale",
+  "name": "Mountain Gale",
+  "ko": "빙산바람",
+  "cat": "Physical",
+  "direct": [],
+  "delegated": [
+   [
+    "Has a 30% chance to make the target flinch.",
+    [
+     "secondary"
+    ]
+   ]
+  ],
+  "unclaimed": []
+ },
+ {
+  "id": "muddywater",
+  "name": "Muddy Water",
+  "ko": "탁류",
+  "cat": "Special",
+  "direct": [],
+  "delegated": [
+   [
+    "Has a 30% chance to lower the target's accuracy by 1 stage.",
+    [
+     "secondary"
+    ]
+   ]
+  ],
+  "unclaimed": []
+ },
+ {
+  "id": "mudshot",
+  "name": "Mud Shot",
+  "ko": "머드샷",
+  "cat": "Special",
+  "direct": [],
+  "delegated": [
+   [
+    "Has a 100% chance to lower the target's Speed by 1 stage.",
+    [
+     "secondary"
+    ]
+   ]
+  ],
+  "unclaimed": []
+ },
+ {
+  "id": "mudslap",
+  "name": "Mud-Slap",
+  "ko": "진흙뿌리기",
+  "cat": "Special",
+  "direct": [],
+  "delegated": [
+   [
+    "Has a 100% chance to lower the target's accuracy by 1 stage.",
+    [
+     "secondary"
+    ]
+   ]
+  ],
+  "unclaimed": []
+ },
+ {
+  "id": "mysticalfire",
+  "name": "Mystical Fire",
+  "ko": "매지컬플레임",
+  "cat": "Special",
+  "direct": [],
+  "delegated": [
+   [
+    "Has a 100% chance to lower the target's Special Attack by 1 stage.",
+    [
+     "secondary"
+    ]
+   ]
+  ],
+  "unclaimed": []
+ },
+ {
+  "id": "nastyplot",
+  "name": "Nasty Plot",
+  "ko": "나쁜음모",
+  "cat": "Status",
+  "direct": [],
+  "delegated": [
+   [
+    "Raises the user's Special Attack by 2 stages.",
+    [
+     "declaredboosts"
+    ]
+   ]
+  ],
+  "unclaimed": []
+ },
+ {
+  "id": "nightdaze",
+  "name": "Night Daze",
+  "ko": "나이트버스트",
+  "cat": "Special",
+  "direct": [],
+  "delegated": [
+   [
+    "Has a 40% chance to lower the target's accuracy by 1 stage.",
+    [
+     "secondary"
+    ]
+   ]
+  ],
+  "unclaimed": []
+ },
+ {
+  "id": "nightshade",
+  "name": "Night Shade",
+  "ko": "나이트헤드",
+  "cat": "Special",
+  "direct": [
+   "Deals damage to the target equal to the user's level."
+  ],
+  "delegated": [],
+  "unclaimed": []
+ },
+ {
+  "id": "nightslash",
+  "name": "Night Slash",
+  "ko": "깜짝베기",
+  "cat": "Physical",
+  "direct": [
+   "Has a higher chance for a critical hit."
+  ],
+  "delegated": [],
+  "unclaimed": []
+ },
+ {
+  "id": "nobleroar",
+  "name": "Noble Roar",
+  "ko": "부르짖기",
+  "cat": "Status",
+  "direct": [],
+  "delegated": [
+   [
+    "Lowers the target's Attack and Special Attack by 1 stage.",
+    [
+     "declaredboosts"
+    ]
+   ]
+  ],
+  "unclaimed": []
+ },
+ {
+  "id": "noretreat",
+  "name": "No Retreat",
+  "ko": "배수의진",
+  "cat": "Status",
+  "direct": [
+   "The user can still switch out if it uses Baton Pass, Flip Turn, Parting Shot, Teleport, U-turn, or Volt Switch.",
+   "Fails if the user has already been prevented from switching by this effect."
+  ],
+  "delegated": [
+   [
+    "Raises the user's Attack, Defense, Special Attack, Special Defense, and Speed by 1 stage, but it becomes prevented from switching out.",
+    [
+     "declaredboosts"
+    ]
+   ]
+  ],
+  "unclaimed": []
+ },
+ {
+  "id": "nuzzle",
+  "name": "Nuzzle",
+  "ko": "볼부비부비",
+  "cat": "Physical",
+  "direct": [],
+  "delegated": [
+   [
+    "Has a 100% chance to paralyze the target.",
+    [
+     "secondary"
+    ]
+   ]
+  ],
+  "unclaimed": []
+ },
+ {
+  "id": "outrage",
+  "name": "Outrage",
+  "ko": "역린",
+  "cat": "Physical",
+  "direct": [
+   "The user spends two or three turns locked into this move and becomes confused immediately after its move on the last turn of the effect if it is not already.",
+   "This move targets an opposing Pokemon at random on each turn.",
+   "If the user is prevented from moving, is asleep at the beginning of a turn, or the attack is not successful against the target on the first turn of the effect or the second turn of a three-turn effect, the effect ends without causing confusion.",
+   "If this move is called by Sleep Talk and the user is asleep, the move is used for one turn and does not confuse the user."
+  ],
+  "delegated": [],
+  "unclaimed": []
+ },
+ {
+  "id": "overheat",
+  "name": "Overheat",
+  "ko": "오버히트",
+  "cat": "Special",
+  "direct": [],
+  "delegated": [
+   [
+    "Lowers the user's Special Attack by 2 stages.",
+    [
+     "declaredboosts"
+    ]
+   ]
+  ],
+  "unclaimed": []
+ },
+ {
+  "id": "painsplit",
+  "name": "Pain Split",
+  "ko": "아픔나누기",
+  "cat": "Status",
+  "direct": [],
+  "delegated": [
+   [
+    "The user and the target's HP become the average of their current HP, rounded down, but not more than the maximum HP of either one.",
+    [
+     "restated"
+    ]
+   ]
+  ],
+  "unclaimed": []
+ },
+ {
+  "id": "paraboliccharge",
+  "name": "Parabolic Charge",
+  "ko": "파라볼라차지",
+  "cat": "Special",
+  "direct": [
+   "The user recovers 1/2 the HP lost by the target, rounded half up.",
+   "If Big Root is held by the user, the HP recovered is 1.3x normal, rounded half down."
+  ],
+  "delegated": [],
+  "unclaimed": []
+ },
+ {
+  "id": "partingshot",
+  "name": "Parting Shot",
+  "ko": "막말내뱉기",
+  "cat": "Status",
+  "direct": [
+   "If this move is successful, the user switches out even if it is trapped and is replaced immediately by a selected party member."
+  ],
+  "delegated": [
+   [
+    "Lowers the target's Attack and Special Attack by 1 stage.",
+    [
+     "declaredboosts"
+    ]
+   ],
+   [
+    "The user does not switch out if the target's Attack and Special Attack stat stages were both unchanged, or if there are no unfainted party members.",
+    [
+     "restated"
+    ]
+   ]
+  ],
+  "unclaimed": []
+ },
+ {
+  "id": "payback",
+  "name": "Payback",
+  "ko": "보복",
+  "cat": "Physical",
+  "direct": [
+   "Power doubles if the user moves after the target this turn, including actions taken through Instruct or the Dancer Ability."
+  ],
+  "delegated": [
+   [
+    "Switching in does not count as an action.",
+    [
+     "restated"
+    ]
+   ]
+  ],
+  "unclaimed": []
+ },
+ {
+  "id": "perishsong",
+  "name": "Perish Song",
+  "ko": "멸망의노래",
+  "cat": "Status",
+  "direct": [
+   "Each active Pokemon receives a perish count of 4 if it doesn't already have a perish count.",
+   "At the end of each turn including the turn used, the perish count of all active Pokemon lowers by 1 and Pokemon faint if the number reaches 0.",
+   "The perish count is removed from Pokemon that switch out.",
+   "If a Pokemon uses Baton Pass while it has a perish count, the replacement will gain the perish count and continue to count down."
+  ],
+  "delegated": [],
+  "unclaimed": []
+ },
+ {
+  "id": "petaldance",
+  "name": "Petal Dance",
+  "ko": "꽃잎댄스",
+  "cat": "Special",
+  "direct": [
+   "The user spends two or three turns locked into this move and becomes confused immediately after its move on the last turn of the effect if it is not already.",
+   "This move targets an opposing Pokemon at random on each turn.",
+   "If the user is prevented from moving, is asleep at the beginning of a turn, or the attack is not successful against the target on the first turn of the effect or the second turn of a three-turn effect, the effect ends without causing confusion.",
+   "If this move is called by Sleep Talk and the user is asleep, the move is used for one turn and does not confuse the user."
+  ],
+  "delegated": [],
+  "unclaimed": []
+ },
+ {
+  "id": "phantomforce",
+  "name": "Phantom Force",
+  "ko": "고스트다이브",
+  "cat": "Physical",
+  "direct": [
+   "If this move is successful, it breaks through the target's Baneful Bunker, Detect, King's Shield, Protect, or Spiky Shield for this turn, allowing other Pokemon to attack the target normally.",
+   "If the target's side is protected by Crafty Shield, Mat Block, Quick Guard, or Wide Guard, that protection is also broken for this turn and other Pokemon may attack the target's side normally.",
+   "This attack charges on the first turn and executes on the second.",
+   "On the first turn, the user avoids all attacks.",
+   "If the user is holding a Power Herb, the move completes in one turn."
+  ],
+  "delegated": [],
+  "unclaimed": []
+ },
+ {
+  "id": "pinmissile",
+  "name": "Pin Missile",
+  "ko": "바늘미사일",
+  "cat": "Physical",
+  "direct": [
+   "Hits two to five times.",
+   "Has a 35% chance to hit two or three times and a 15% chance to hit four or five times.",
+   "If one of the hits breaks the target's substitute, it will take damage for the remaining hits.",
+   "If the user has the Skill Link Ability, this move will always hit five times.",
+   "If the user is holding Loaded Dice, this move will hit 4-5 times."
+  ],
+  "delegated": [],
+  "unclaimed": []
+ },
+ {
+  "id": "playrough",
+  "name": "Play Rough",
+  "ko": "치근거리기",
+  "cat": "Physical",
+  "direct": [],
+  "delegated": [
+   [
+    "Has a 10% chance to lower the target's Attack by 1 stage.",
+    [
+     "secondary"
+    ]
+   ]
+  ],
+  "unclaimed": []
+ },
+ {
+  "id": "pluck",
+  "name": "Pluck",
+  "ko": "쪼아대기",
+  "cat": "Physical",
+  "direct": [
+   "Items lost to this move cannot be regained with Recycle or the Harvest Ability."
+  ],
+  "delegated": [
+   [
+    "If this move is successful and the user has not fainted, it steals the target's held Berry if it is holding one and eats it immediately, gaining its effects even if the user's item is being ignored.",
+    [
+     "restated"
+    ]
+   ]
+  ],
+  "unclaimed": []
+ },
+ {
+  "id": "poisonfang",
+  "name": "Poison Fang",
+  "ko": "맹독엄니",
+  "cat": "Physical",
+  "direct": [],
+  "delegated": [
+   [
+    "Has a 50% chance to badly poison the target.",
+    [
+     "secondary"
+    ]
+   ]
+  ],
+  "unclaimed": []
+ },
+ {
+  "id": "poisonjab",
+  "name": "Poison Jab",
+  "ko": "독찌르기",
+  "cat": "Physical",
+  "direct": [],
+  "delegated": [
+   [
+    "Has a 30% chance to poison the target.",
+    [
+     "secondary"
+    ]
+   ]
+  ],
+  "unclaimed": []
+ },
+ {
+  "id": "poisonpowder",
+  "name": "Poison Powder",
+  "ko": "독가루",
+  "cat": "Status",
+  "direct": [],
+  "delegated": [
+   [
+    "Poisons the target.",
+    [
+     "plainstatus"
+    ]
+   ]
+  ],
+  "unclaimed": []
+ },
+ {
+  "id": "pollenpuff",
+  "name": "Pollen Puff",
+  "ko": "꽃가루경단",
+  "cat": "Special",
+  "direct": [
+   "If the target is an ally, this move restores 1/2 of its maximum HP, rounded down, instead of dealing damage."
+  ],
+  "delegated": [],
+  "unclaimed": []
+ },
+ {
+  "id": "poltergeist",
+  "name": "Poltergeist",
+  "ko": "폴터가이스트",
+  "cat": "Physical",
+  "direct": [
+   "Fails if the target has no held item."
+  ],
+  "delegated": [],
+  "unclaimed": []
+ },
+ {
+  "id": "populationbomb",
+  "name": "Population Bomb",
+  "ko": "찍찍베기",
+  "cat": "Physical",
+  "direct": [
+   "Hits ten times.",
+   "This move checks accuracy for each hit, and the attack ends if the target avoids a hit.",
+   "If one of the hits breaks the target's substitute, it will take damage for the remaining hits.",
+   "If the user has the Skill Link Ability, this move will always hit ten times."
+  ],
+  "delegated": [],
+  "unclaimed": [
+   "If the user is holding Loaded Dice, this move hits four to ten times at random without checking accuracy between hits."
+  ]
+ },
+ {
+  "id": "pounce",
+  "name": "Pounce",
+  "ko": "달려들기",
+  "cat": "Physical",
+  "direct": [],
+  "delegated": [
+   [
+    "Has a 100% chance to lower the target's Speed by 1 stage.",
+    [
+     "secondary"
+    ]
+   ]
+  ],
+  "unclaimed": []
+ },
+ {
+  "id": "powersplit",
+  "name": "Power Split",
+  "ko": "파워셰어",
+  "cat": "Status",
+  "direct": [
+   "Stat stage changes are unaffected."
+  ],
+  "delegated": [
+   [
+    "The user and the target have their Attack and Special Attack stats set to be equal to the average of the user and the target's Attack and Special Attack stats, respectively, rounded down.",
+    [
+     "restated"
+    ]
+   ]
+  ],
+  "unclaimed": []
+ },
+ {
+  "id": "powerswap",
+  "name": "Power Swap",
+  "ko": "파워스왑",
+  "cat": "Status",
+  "direct": [],
+  "delegated": [
+   [
+    "The user swaps its Attack and Special Attack stat stage changes with the target.",
+    [
+     "restated"
+    ]
+   ]
+  ],
+  "unclaimed": []
+ },
+ {
+  "id": "powertrick",
+  "name": "Power Trick",
+  "ko": "파워트릭",
+  "cat": "Status",
+  "direct": [
+   "The user swaps its Attack and Defense stats, and stat stage changes remain on their respective stats.",
+   "This move can be used again to swap the stats back.",
+   "If the user uses Baton Pass, the replacement will have its Attack and Defense stats swapped if the effect is active."
+  ],
+  "delegated": [
+   [
+    "If the user has its stats recalculated by changing forme while its stats are swapped, this effect is ignored but is still active for the purposes of Baton Pass.",
+    [
+     "restated"
+    ]
+   ]
+  ],
+  "unclaimed": []
+ },
+ {
+  "id": "powertrip",
+  "name": "Power Trip",
+  "ko": "기어오르기",
+  "cat": "Physical",
+  "direct": [
+   "Power is equal to 20+(X*20), where X is the user's total stat stage changes that are greater than 0."
+  ],
+  "delegated": [],
+  "unclaimed": []
+ },
+ {
+  "id": "protect",
+  "name": "Protect",
+  "ko": "방어",
+  "cat": "Status",
+  "direct": [
+   "The user is protected from most attacks made by other Pokemon during this turn.",
+   "This move has a 1/X chance of being successful, where X starts at 1 and triples each time this move is successfully used.",
+   "X resets to 1 if this move fails, if the user's last move used is not Baneful Bunker, Burning Bulwark, Detect, Endure, King's Shield, Max Guard, Obstruct, Protect, Quick Guard, Silk Trap, Spiky Shield, or Wide Guard, or if it was one of those moves and the user's protection was broken.",
+   "Fails if the user moves last this turn."
+  ],
+  "delegated": [],
+  "unclaimed": []
+ },
+ {
+  "id": "psychic",
+  "name": "Psychic",
+  "ko": "사이코키네시스",
+  "cat": "Special",
+  "direct": [],
+  "delegated": [
+   [
+    "Has a 10% chance to lower the target's Special Defense by 1 stage.",
+    [
+     "secondary"
+    ]
+   ]
+  ],
+  "unclaimed": []
+ },
+ {
+  "id": "psychicfangs",
+  "name": "Psychic Fangs",
+  "ko": "사이코팽",
+  "cat": "Physical",
+  "direct": [],
+  "delegated": [
+   [
+    "If this attack does not miss, the effects of Reflect, Light Screen, and Aurora Veil end for the target's side of the field before damage is calculated.",
+    [
+     "screenbreakers"
+    ]
+   ]
+  ],
+  "unclaimed": []
+ },
+ {
+  "id": "psychicnoise",
+  "name": "Psychic Noise",
+  "ko": "사이코노이즈",
+  "cat": "Special",
+  "direct": [
+   "During the effect, healing and draining moves are unusable, and Abilities and items that grant healing will not heal the user.",
+   "If an affected Pokemon uses Baton Pass, the replacement will remain unable to restore its HP."
+  ],
+  "delegated": [
+   [
+    "For 2 turns, the target is prevented from restoring any HP as long as it remains active.",
+    [
+     "statedduration"
+    ]
+   ],
+   [
+    "Pain Split and the Regenerator Ability are unaffected.",
+    [
+     "restated"
+    ]
+   ]
+  ],
+  "unclaimed": []
+ },
+ {
+  "id": "psychicterrain",
+  "name": "Psychic Terrain",
+  "ko": "사이코필드",
+  "cat": "Status",
+  "direct": [
+   "During the effect, the power of Psychic-type attacks made by grounded Pokemon is multiplied by 1.3 and grounded Pokemon cannot be hit by moves with priority greater than 0, unless the target is an ally.",
+   "Camouflage transforms the user into a Psychic type, Nature Power becomes Psychic, and Secret Power has a 30% chance to lower the target's Speed by 1 stage.",
+   "Fails if the current terrain is Psychic Terrain."
+  ],
+  "delegated": [
+   [
+    "For 5 turns, the terrain becomes Psychic Terrain.",
+    [
+     "statedduration"
+    ]
+   ]
+  ],
+  "unclaimed": []
+ },
+ {
+  "id": "psychocut",
+  "name": "Psycho Cut",
+  "ko": "사이코커터",
+  "cat": "Physical",
+  "direct": [
+   "Has a higher chance for a critical hit."
+  ],
+  "delegated": [],
+  "unclaimed": []
+ },
+ {
+  "id": "psychup",
+  "name": "Psych Up",
+  "ko": "자기암시",
+  "cat": "Status",
+  "direct": [],
+  "delegated": [
+   [
+    "The user copies all of the target's current stat stage changes.",
+    [
+     "restated"
+    ]
+   ]
+  ],
+  "unclaimed": []
+ },
+ {
+  "id": "psyshieldbash",
+  "name": "Psyshield Bash",
+  "ko": "배리어러시",
+  "cat": "Physical",
+  "direct": [],
+  "delegated": [
+   [
+    "Has a 100% chance to raise the user's Defense by 1 stage.",
+    [
+     "secondary"
+    ]
+   ]
+  ],
+  "unclaimed": []
+ },
+ {
+  "id": "psyshock",
+  "name": "Psyshock",
+  "ko": "사이코쇼크",
+  "cat": "Special",
+  "direct": [
+   "Deals damage to the target based on its Defense instead of Special Defense."
+  ],
+  "delegated": [],
+  "unclaimed": []
+ },
+ {
+  "id": "quash",
+  "name": "Quash",
+  "ko": "순서미루기",
+  "cat": "Status",
+  "direct": [
+   "Causes the target to take its turn after all other Pokemon this turn, no matter the priority of its selected move.",
+   "Fails if the target already moved this turn."
+  ],
+  "delegated": [],
+  "unclaimed": []
+ },
+ {
+  "id": "quickguard",
+  "name": "Quick Guard",
+  "ko": "패스트가드",
+  "cat": "Status",
+  "direct": [
+   "The user and its party members are protected from attacks with original or altered priority greater than 0 made by other Pokemon, including allies, during this turn.",
+   "This move modifies the same 1/X chance of being successful used by other protection moves, where X starts at 1 and triples each time this move is successfully used, but does not use the chance to check for failure.",
+   "X resets to 1 if this move fails, if the user's last move used is not Baneful Bunker, Burning Bulwark, Detect, Endure, King's Shield, Max Guard, Obstruct, Protect, Quick Guard, Silk Trap, Spiky Shield, or Wide Guard, or if it was one of those moves and the user's protection was broken.",
+   "Fails if the user moves last this turn or if this move is already in effect for the user's side."
+  ],
+  "delegated": [],
+  "unclaimed": []
+ },
+ {
+  "id": "quiverdance",
+  "name": "Quiver Dance",
+  "ko": "나비춤",
+  "cat": "Status",
+  "direct": [],
+  "delegated": [
+   [
+    "Raises the user's Special Attack, Special Defense, and Speed by 1 stage.",
+    [
+     "declaredboosts"
+    ]
+   ]
+  ],
+  "unclaimed": []
+ },
+ {
+  "id": "ragefist",
+  "name": "Rage Fist",
+  "ko": "분노의주먹",
+  "cat": "Physical",
+  "direct": [
+   "Each hit of a multi-hit attack is counted, but confusion damage is not counted."
+  ],
+  "delegated": [
+   [
+    "Power is equal to 50+(X*50), where X is the total number of times the user has been hit by a damaging attack during the battle, even if the user did not lose HP from the attack.",
+    [
+     "restated"
+    ]
+   ],
+   [
+    "X cannot be greater than 6 and does not reset upon switching out or fainting.",
+    [
+     "restated"
+    ]
+   ]
+  ],
+  "unclaimed": []
+ },
+ {
+  "id": "ragepowder",
+  "name": "Rage Powder",
+  "ko": "분노가루",
+  "cat": "Status",
+  "direct": [
+   "Until the end of the turn, all single-target attacks from the opposing side are redirected to the user.",
+   "Fails if it is not a Double Battle or Battle Royal."
+  ],
+  "delegated": [],
+  "unclaimed": [
+   "Such attacks are redirected to the user before they can be reflected by Magic Coat or the Magic Bounce Ability, or drawn in by the Lightning Rod or Storm Drain Abilities.",
+   "This effect is ignored while the user is under the effect of Sky Drop."
+  ]
+ },
+ {
+  "id": "ragingbull",
+  "name": "Raging Bull",
+  "ko": "레이징불",
+  "cat": "Physical",
+  "direct": [
+   "If the user's current form is a Paldean Tauros, this move's type changes to match.",
+   "Fighting type for Combat Breed, Fire type for Blaze Breed, and Water type for Aqua Breed."
+  ],
+  "delegated": [
+   [
+    "If this attack does not miss, the effects of Reflect, Light Screen, and Aurora Veil end for the target's side of the field before damage is calculated.",
+    [
+     "screenbreakers"
+    ]
+   ]
+  ],
+  "unclaimed": []
+ },
+ {
+  "id": "ragingfury",
+  "name": "Raging Fury",
+  "ko": "대격분",
+  "cat": "Physical",
+  "direct": [
+   "The user spends two or three turns locked into this move and becomes confused immediately after its move on the last turn of the effect if it is not already.",
+   "This move targets an opposing Pokemon at random on each turn.",
+   "If the user is prevented from moving, is asleep at the beginning of a turn, or the attack is not successful against the target on the first turn of the effect or the second turn of a three-turn effect, the effect ends without causing confusion.",
+   "If this move is called by Sleep Talk and the user is asleep, the move is used for one turn and does not confuse the user."
+  ],
+  "delegated": [],
+  "unclaimed": []
+ },
+ {
+  "id": "raindance",
+  "name": "Rain Dance",
+  "ko": "비바라기",
+  "cat": "Status",
+  "direct": [
+   "The damage of Water-type attacks is multiplied by 1.5 and the damage of Fire-type attacks is multiplied by 0.5 during the effect.",
+   "Lasts for 8 turns if the user is holding Damp Rock.",
+   "Fails if the current weather is Rain Dance."
+  ],
+  "delegated": [
+   [
+    "For 5 turns, the weather becomes Rain Dance.",
+    [
+     "statedduration"
+    ]
+   ]
+  ],
+  "unclaimed": []
+ },
+ {
+  "id": "rapidspin",
+  "name": "Rapid Spin",
+  "ko": "고속스핀",
+  "cat": "Physical",
+  "direct": [
+   "If this move is successful and the user has not fainted, the effects of Leech Seed and binding moves end for the user, and all hazards are removed from the user's side of the field."
+  ],
+  "delegated": [
+   [
+    "Has a 100% chance to raise the user's Speed by 1 stage.",
+    [
+     "secondary"
+    ]
+   ]
+  ],
+  "unclaimed": []
+ },
+ {
+  "id": "razorshell",
+  "name": "Razor Shell",
+  "ko": "셸블레이드",
+  "cat": "Physical",
+  "direct": [],
+  "delegated": [
+   [
+    "Has a 50% chance to lower the target's Defense by 1 stage.",
+    [
+     "secondary"
+    ]
+   ]
+  ],
+  "unclaimed": []
+ },
+ {
+  "id": "recover",
+  "name": "Recover",
+  "ko": "HP회복",
+  "cat": "Status",
+  "direct": [
+   "The user restores 1/2 of its maximum HP, rounded half up."
+  ],
+  "delegated": [],
+  "unclaimed": []
+ },
+ {
+  "id": "recycle",
+  "name": "Recycle",
+  "ko": "리사이클",
+  "cat": "Status",
+  "direct": [
+   "Fails if the user is holding an item, if the user has not held an item, if the item was a popped Air Balloon, if the item was picked up by a Pokemon with the Pickup Ability, or if the item was lost to Bug Bite, Corrosive Gas, Covet, Incinerate, Knock Off, Pluck, or Thief."
+  ],
+  "delegated": [
+   [
+    "The user regains the item it last used.",
+    [
+     "restated"
+    ]
+   ],
+   [
+    "Items thrown with Fling can be regained.",
+    [
+     "restated"
+    ]
+   ]
+  ],
+  "unclaimed": []
+ },
+ {
+  "id": "reflect",
+  "name": "Reflect",
+  "ko": "리플렉터",
+  "cat": "Status",
+  "direct": [
+   "Fails if the effect is already active on the user's side."
+  ],
+  "delegated": [
+   [
+    "For 5 turns, the user and its party members take 0.5x damage from physical attacks, or 0.66x damage if in a Double Battle.",
+    [
+     "statedduration"
+    ]
+   ],
+   [
+    "Damage is not reduced further with Aurora Veil.",
+    [
+     "screenbreakers"
+    ]
+   ],
+   [
+    "Critical hits ignore this effect.",
+    [
+     "screenbreakers"
+    ]
+   ],
+   [
+    "It is removed from the user's side if the user or an ally is successfully hit by Brick Break, Psychic Fangs, or Defog.",
+    [
+     "screenbreakers"
+    ]
+   ],
+   [
+    "Lasts for 8 turns if the user is holding Light Clay.",
+    [
+     "screenbreakers"
+    ]
+   ]
+  ],
+  "unclaimed": []
+ },
+ {
+  "id": "reflecttype",
+  "name": "Reflect Type",
+  "ko": "미러타입",
+  "cat": "Status",
+  "direct": [
+   "Causes the user's types to become the same as the current types of the target."
+  ],
+  "delegated": [
+   [
+    "If the target's current types include typeless and a non-added type, typeless is ignored.",
+    [
+     "restated"
+    ]
+   ],
+   [
+    "If the target's current types include typeless and an added type from Forest's Curse or Trick-or-Treat, typeless is copied as the Normal type instead.",
+    [
+     "restated"
+    ]
+   ],
+   [
+    "Fails if the user is an Arceus or a Silvally, if the user is Terastallized, or if the target's current type is typeless alone.",
+    [
+     "restated"
+    ]
+   ]
+  ],
+  "unclaimed": []
+ },
+ {
+  "id": "rest",
+  "name": "Rest",
+  "ko": "잠자기",
+  "cat": "Status",
+  "direct": [
+   "Fails if the user has full HP, is already asleep, or if another effect is preventing sleep."
+  ],
+  "delegated": [
+   [
+    "The user falls asleep for the next two turns and restores all of its HP, curing itself of any non-volatile status condition in the process.",
+    [
+     "restated"
+    ]
+   ]
+  ],
+  "unclaimed": []
+ },
+ {
+  "id": "reversal",
+  "name": "Reversal",
+  "ko": "기사회생",
+  "cat": "Physical",
+  "direct": [
+   "The power of this move is 20 if X is 33 to 48, 40 if X is 17 to 32, 80 if X is 10 to 16, 100 if X is 5 to 9, 150 if X is 2 to 4, and 200 if X is 0 or 1, where X is equal to (user's current HP * 48 / user's maximum HP), rounded down."
+  ],
+  "delegated": [],
+  "unclaimed": []
+ },
+ {
+  "id": "risingvoltage",
+  "name": "Rising Voltage",
+  "ko": "라이징볼트",
+  "cat": "Special",
+  "direct": [
+   "If the current terrain is Electric Terrain and the target is grounded, this move's power is doubled."
+  ],
+  "delegated": [],
+  "unclaimed": []
+ },
+ {
+  "id": "roar",
+  "name": "Roar",
+  "ko": "울부짖기",
+  "cat": "Status",
+  "direct": [
+   "Fails if the target is the last unfainted Pokemon in its party, or if the target used Ingrain previously or has the Suction Cups Ability."
+  ],
+  "delegated": [
+   [
+    "The target is forced to switch out and be replaced with a random unfainted ally.",
+    [
+     "restated"
+    ]
+   ]
+  ],
+  "unclaimed": []
+ },
+ {
+  "id": "rockblast",
+  "name": "Rock Blast",
+  "ko": "록블라스트",
+  "cat": "Physical",
+  "direct": [
+   "Hits two to five times.",
+   "Has a 35% chance to hit two or three times and a 15% chance to hit four or five times.",
+   "If one of the hits breaks the target's substitute, it will take damage for the remaining hits.",
+   "If the user has the Skill Link Ability, this move will always hit five times.",
+   "If the user is holding Loaded Dice, this move will hit 4-5 times."
+  ],
+  "delegated": [],
+  "unclaimed": []
+ },
+ {
+  "id": "rockpolish",
+  "name": "Rock Polish",
+  "ko": "록커트",
+  "cat": "Status",
+  "direct": [],
+  "delegated": [
+   [
+    "Raises the user's Speed by 2 stages.",
+    [
+     "declaredboosts"
+    ]
+   ]
+  ],
+  "unclaimed": []
+ },
+ {
+  "id": "rockslide",
+  "name": "Rock Slide",
+  "ko": "스톤샤워",
+  "cat": "Physical",
+  "direct": [],
+  "delegated": [
+   [
+    "Has a 30% chance to make the target flinch.",
+    [
+     "secondary"
+    ]
+   ]
+  ],
+  "unclaimed": []
+ },
+ {
+  "id": "rocktomb",
+  "name": "Rock Tomb",
+  "ko": "암석봉인",
+  "cat": "Physical",
+  "direct": [],
+  "delegated": [
+   [
+    "Has a 100% chance to lower the target's Speed by 1 stage.",
+    [
+     "secondary"
+    ]
+   ]
+  ],
+  "unclaimed": []
+ },
+ {
+  "id": "rockwrecker",
+  "name": "Rock Wrecker",
+  "ko": "암석포",
+  "cat": "Physical",
+  "direct": [
+   "If this move is successful, the user must recharge on the following turn and cannot select a move."
+  ],
+  "delegated": [],
+  "unclaimed": []
+ },
+ {
+  "id": "roleplay",
+  "name": "Role Play",
+  "ko": "역할",
+  "cat": "Status",
+  "direct": [
+   "Fails if the user's Ability is As One, Battle Bond, Comatose, Disguise, Gulp Missile, Ice Face, Multitype, Power Construct, RKS System, Schooling, Shields Down, Stance Change, Tera Shift, Zen Mode, Zero to Hero, or already matches the target, or if the target's Ability is As One, Battle Bond, Comatose, Commander, Disguise, Embody Aspect, Flower Gift, Forecast, Hunger Switch, Ice Face, Illusion, Imposter, Multitype, Neutralizing Gas, Poison Puppeteer, Power Construct, Power of Alchemy, Protosynthesis, Quark Drive, Receiver, RKS System, Schooling, Shields Down, Stance Change, Tera Shell, Tera Shift, Teraform Zero, Trace, Wonder Guard, Zen Mode, or Zero to Hero."
+  ],
+  "delegated": [
+   [
+    "The user's Ability changes to match the target's Ability.",
+    [
+     "restated"
+    ]
+   ]
+  ],
+  "unclaimed": []
+ },
+ {
+  "id": "roost",
+  "name": "Roost",
+  "ko": "날개쉬기",
+  "cat": "Status",
+  "direct": [
+   "The user restores 1/2 of its maximum HP, rounded half up.",
+   "Does nothing if the user's HP is full."
+  ],
+  "delegated": [],
+  "unclaimed": [
+   "If the user is not Terastallized, until the end of the turn Flying-type users lose their Flying type and pure Flying-type users become Normal type."
+  ]
+ },
+ {
+  "id": "round",
+  "name": "Round",
+  "ko": "돌림노래",
+  "cat": "Special",
+  "direct": [
+   "If there are other active Pokemon that chose this move for use this turn, those Pokemon take their turn immediately after the user, in Speed order, and this move's power is 120 for each other user."
+  ],
+  "delegated": [],
+  "unclaimed": []
+ },
+ {
+  "id": "sacredsword",
+  "name": "Sacred Sword",
+  "ko": "성스러운칼",
+  "cat": "Physical",
+  "direct": [
+   "Ignores the target's stat stage changes, including evasiveness."
+  ],
+  "delegated": [],
+  "unclaimed": []
+ },
+ {
+  "id": "safeguard",
+  "name": "Safeguard",
+  "ko": "신비의부적",
+  "cat": "Status",
+  "direct": [
+   "For 5 turns, the user and its party members cannot have non-volatile status conditions or confusion inflicted on them by other Pokemon.",
+   "Pokemon on the user's side cannot become affected by Yawn but can fall asleep from its effect.",
+   "It is removed from the user's side if the user or an ally is successfully hit by Defog.",
+   "Fails if the effect is already active on the user's side."
+  ],
+  "delegated": [],
+  "unclaimed": []
+ },
+ {
+  "id": "saltcure",
+  "name": "Salt Cure",
+  "ko": "소금절이",
+  "cat": "Physical",
+  "direct": [
+   "Causes damage to the target equal to 1/8 of its maximum HP (1/4 if the target is Steel or Water type), rounded down, at the end of each turn during effect.",
+   "This effect ends when the target is no longer active."
+  ],
+  "delegated": [],
+  "unclaimed": []
+ },
+ {
+  "id": "sandstorm",
+  "name": "Sandstorm",
+  "ko": "모래바람",
+  "cat": "Status",
+  "direct": [
+   "At the end of each turn except the last, all active Pokemon lose 1/16 of their maximum HP, rounded down, unless they are a Ground, Rock, or Steel type, or have the Magic Guard, Overcoat, Sand Force, Sand Rush, or Sand Veil Abilities.",
+   "During the effect, the Special Defense of Rock-type Pokemon is multiplied by 1.5 when taking damage from a special attack.",
+   "Lasts for 8 turns if the user is holding Smooth Rock.",
+   "Fails if the current weather is Sandstorm."
+  ],
+  "delegated": [
+   [
+    "For 5 turns, the weather becomes Sandstorm.",
+    [
+     "statedduration"
+    ]
+   ]
+  ],
+  "unclaimed": []
+ },
+ {
+  "id": "sandtomb",
+  "name": "Sand Tomb",
+  "ko": "모래지옥",
+  "cat": "Physical",
+  "direct": [
+   "Prevents the target from switching for four or five turns (seven turns if the user is holding Grip Claw).",
+   "Causes damage to the target equal to 1/8 of its maximum HP (1/6 if the user is holding Binding Band), rounded down, at the end of each turn during effect.",
+   "The target can still switch out if it is holding Shed Shell or uses Baton Pass, Flip Turn, Parting Shot, Shed Tail, Teleport, U-turn, or Volt Switch.",
+   "The effect ends if either the user or the target leaves the field, or if the target uses Mortal Spin, Rapid Spin, or Substitute successfully.",
+   "This effect is not stackable or reset by using this or another binding move."
+  ],
+  "delegated": [],
+  "unclaimed": []
+ },
+ {
+  "id": "scald",
+  "name": "Scald",
+  "ko": "열탕",
+  "cat": "Special",
+  "direct": [
+   "The target thaws out if it is frozen."
+  ],
+  "delegated": [
+   [
+    "Has a 30% chance to burn the target.",
+    [
+     "secondary"
+    ]
+   ]
+  ],
+  "unclaimed": []
+ },
+ {
+  "id": "scaleshot",
+  "name": "Scale Shot",
+  "ko": "스케일샷",
+  "cat": "Physical",
+  "direct": [
+   "Hits two to five times.",
+   "Has a 35% chance to hit two or three times and a 15% chance to hit four or five times.",
+   "If one of the hits breaks the target's substitute, it will take damage for the remaining hits.",
+   "If the user has the Skill Link Ability, this move will always hit five times.",
+   "If the user is holding Loaded Dice, this move will hit 4-5 times."
+  ],
+  "delegated": [
+   [
+    "Lowers the user's Defense by 1 stage and raises the user's Speed by 1 stage after the last hit.",
+    [
+     "declaredboosts"
+    ]
+   ]
+  ],
+  "unclaimed": []
+ },
+ {
+  "id": "scaryface",
+  "name": "Scary Face",
+  "ko": "겁나는얼굴",
+  "cat": "Status",
+  "direct": [],
+  "delegated": [
+   [
+    "Lowers the target's Speed by 2 stages.",
+    [
+     "declaredboosts"
+    ]
+   ]
+  ],
+  "unclaimed": []
+ },
+ {
+  "id": "scorchingsands",
+  "name": "Scorching Sands",
+  "ko": "열사의대지",
+  "cat": "Special",
+  "direct": [
+   "The target thaws out if it is frozen."
+  ],
+  "delegated": [
+   [
+    "Has a 30% chance to burn the target.",
+    [
+     "secondary"
+    ]
+   ]
+  ],
+  "unclaimed": []
+ },
+ {
+  "id": "screech",
+  "name": "Screech",
+  "ko": "싫은소리",
+  "cat": "Status",
+  "direct": [],
+  "delegated": [
+   [
+    "Lowers the target's Defense by 2 stages.",
+    [
+     "declaredboosts"
+    ]
+   ]
+  ],
+  "unclaimed": []
+ },
+ {
+  "id": "seismictoss",
+  "name": "Seismic Toss",
+  "ko": "지구던지기",
+  "cat": "Physical",
+  "direct": [
+   "Deals damage to the target equal to the user's level."
+  ],
+  "delegated": [],
+  "unclaimed": []
+ },
+ {
+  "id": "selfdestruct",
+  "name": "Self-Destruct",
+  "ko": "자폭",
+  "cat": "Physical",
+  "direct": [
+   "The user faints after using this move, even if this move fails for having no target.",
+   "This move is prevented from executing if any active Pokemon has the Damp Ability."
+  ],
+  "delegated": [],
+  "unclaimed": []
+ },
+ {
+  "id": "shadowball",
+  "name": "Shadow Ball",
+  "ko": "섀도볼",
+  "cat": "Special",
+  "direct": [],
+  "delegated": [
+   [
+    "Has a 20% chance to lower the target's Special Defense by 1 stage.",
+    [
+     "secondary"
+    ]
+   ]
+  ],
+  "unclaimed": []
+ },
+ {
+  "id": "shadowclaw",
+  "name": "Shadow Claw",
+  "ko": "섀도클로",
+  "cat": "Physical",
+  "direct": [
+   "Has a higher chance for a critical hit."
+  ],
+  "delegated": [],
+  "unclaimed": []
+ },
+ {
+  "id": "shadowpunch",
+  "name": "Shadow Punch",
+  "ko": "섀도펀치",
+  "cat": "Physical",
+  "direct": [
+   "This move does not check accuracy."
+  ],
+  "delegated": [],
+  "unclaimed": []
+ },
+ {
+  "id": "shedtail",
+  "name": "Shed Tail",
+  "ko": "꼬리자르기",
+  "cat": "Status",
+  "direct": [
+   "Fails if the user would faint, or if there are no unfainted party members."
+  ],
+  "delegated": [
+   [
+    "The user takes 1/2 of its maximum HP, rounded up, and creates a substitute that has 1/4 of the user's maximum HP, rounded down.",
+    [
+     "restated"
+    ]
+   ],
+   [
+    "The user is replaced with another Pokemon in its party and the selected Pokemon has the substitute transferred to it.",
+    [
+     "restated"
+    ]
+   ]
+  ],
+  "unclaimed": []
+ },
+ {
+  "id": "sheercold",
+  "name": "Sheer Cold",
+  "ko": "절대영도",
+  "cat": "Special",
+  "direct": [
+   "Deals damage to the target equal to the target's maximum HP.",
+   "Ignores accuracy and evasiveness modifiers.",
+   "This attack's accuracy is equal to (user's level - target's level + X)%, where X is 30 if the user is an Ice type and 20 otherwise, and fails if the target is at a higher level.",
+   "Ice-type Pokemon and Pokemon with the Sturdy Ability are immune."
+  ],
+  "delegated": [],
+  "unclaimed": []
+ },
+ {
+  "id": "shellsidearm",
+  "name": "Shell Side Arm",
+  "ko": "셸암즈",
+  "cat": "Special",
+  "direct": [
+   "If the two values are equal, this move chooses a damage category at random."
+  ],
+  "delegated": [
+   [
+    "Has a 20% chance to poison the target.",
+    [
+     "secondary"
+    ]
+   ],
+   [
+    "This move becomes a physical attack that makes contact if the value of ((((2 * the user's level / 5 + 2) * 90 * X) / Y) / 50), where X is the user's Attack stat and Y is the target's Defense stat, is greater than the same value where X is the user's Special Attack stat and Y is the target's Special Defense stat.",
+    [
+     "restated"
+    ]
+   ],
+   [
+    "No stat modifiers other than stat stage changes are considered for this purpose.",
+    [
+     "restated"
+    ]
+   ]
+  ],
+  "unclaimed": []
+ },
+ {
+  "id": "shellsmash",
+  "name": "Shell Smash",
+  "ko": "껍질깨기",
+  "cat": "Status",
+  "direct": [],
+  "delegated": [
+   [
+    "Lowers the user's Defense and Special Defense by 1 stage.",
+    [
+     "declaredboosts"
+    ]
+   ],
+   [
+    "Raises the user's Attack, Special Attack, and Speed by 2 stages.",
+    [
+     "declaredboosts"
+    ]
+   ]
+  ],
+  "unclaimed": []
+ },
+ {
+  "id": "shelter",
+  "name": "Shelter",
+  "ko": "농성",
+  "cat": "Status",
+  "direct": [],
+  "delegated": [
+   [
+    "Raises the user's Defense by 2 stages.",
+    [
+     "declaredboosts"
+    ]
+   ]
+  ],
+  "unclaimed": []
+ },
+ {
+  "id": "simplebeam",
+  "name": "Simple Beam",
+  "ko": "심플빔",
+  "cat": "Status",
+  "direct": [
+   "Causes the target's Ability to become Simple.",
+   "Fails if the target's Ability is As One, Battle Bond, Comatose, Disguise, Gulp Missile, Ice Face, Multitype, Power Construct, RKS System, Schooling, Shields Down, Simple, Stance Change, Tera Shift, Truant, Zen Mode, or Zero to Hero."
+  ],
+  "delegated": [],
+  "unclaimed": []
+ },
+ {
+  "id": "sing",
+  "name": "Sing",
+  "ko": "노래하기",
+  "cat": "Status",
+  "direct": [],
+  "delegated": [
+   [
+    "Causes the target to fall asleep.",
+    [
+     "plainstatus"
+    ]
+   ]
+  ],
+  "unclaimed": []
+ },
+ {
+  "id": "skillswap",
+  "name": "Skill Swap",
+  "ko": "스킬스왑",
+  "cat": "Status",
+  "direct": [],
+  "delegated": [
+   [
+    "The user swaps its Ability with the target's Ability.",
+    [
+     "restated"
+    ]
+   ],
+   [
+    "Fails if either the user or the target's Ability is As One, Battle Bond, Comatose, Commander, Disguise, Embody Aspect, Hunger Switch, Ice Face, Illusion, Multitype, Neutralizing Gas, Poison Puppeteer, Power Construct, Protosynthesis, Quark Drive, RKS System, Schooling, Shields Down, Stance Change, Tera Shell, Tera Shift, Teraform Zero, Wonder Guard, Zen Mode, or Zero to Hero.",
+    [
+     "restated"
+    ]
+   ]
+  ],
+  "unclaimed": []
+ },
+ {
+  "id": "skittersmack",
+  "name": "Skitter Smack",
+  "ko": "엄습하는일격",
+  "cat": "Physical",
+  "direct": [],
+  "delegated": [
+   [
+    "Has a 100% chance to lower the target's Special Attack by 1 stage.",
+    [
+     "secondary"
+    ]
+   ]
+  ],
+  "unclaimed": []
+ },
+ {
+  "id": "skyattack",
+  "name": "Sky Attack",
+  "ko": "불새",
+  "cat": "Physical",
+  "direct": [
+   "This attack charges on the first turn and executes on the second.",
+   "If the user is holding a Power Herb, the move completes in one turn."
+  ],
+  "delegated": [
+   [
+    "Has a 30% chance to make the target flinch and a higher chance for a critical hit.",
+    [
+     "secondary"
+    ]
+   ]
+  ],
+  "unclaimed": []
+ },
+ {
+  "id": "slackoff",
+  "name": "Slack Off",
+  "ko": "게으름피우기",
+  "cat": "Status",
+  "direct": [
+   "The user restores 1/2 of its maximum HP, rounded half up."
+  ],
+  "delegated": [],
+  "unclaimed": []
+ },
+ {
+  "id": "sleeppowder",
+  "name": "Sleep Powder",
+  "ko": "수면가루",
+  "cat": "Status",
+  "direct": [],
+  "delegated": [
+   [
+    "Causes the target to fall asleep.",
+    [
+     "plainstatus"
+    ]
+   ]
+  ],
+  "unclaimed": []
+ },
+ {
+  "id": "sleeptalk",
+  "name": "Sleep Talk",
+  "ko": "잠꼬대",
+  "cat": "Status",
+  "direct": [
+   "One of the user's known moves, besides this move, is selected for use at random.",
+   "Fails if the user is not asleep.",
+   "The selected move does not have PP deducted from it, and can currently have 0 PP.",
+   "This move cannot select Assist, Beak Blast, Belch, Bide, Blazing Torque, Celebrate, Chatter, Combat Torque, Copycat, Dynamax Cannon, Focus Punch, Hold Hands, Magical Torque, Me First, Metronome, Mimic, Mirror Move, Nature Power, Noxious Torque, Shell Trap, Sketch, Sleep Talk, Struggle, Uproar, Wicked Torque, or any two-turn move."
+  ],
+  "delegated": [],
+  "unclaimed": []
+ },
+ {
+  "id": "sludgebomb",
+  "name": "Sludge Bomb",
+  "ko": "오물폭탄",
+  "cat": "Special",
+  "direct": [],
+  "delegated": [
+   [
+    "Has a 30% chance to poison the target.",
+    [
+     "secondary"
+    ]
+   ]
+  ],
+  "unclaimed": []
+ },
+ {
+  "id": "sludgewave",
+  "name": "Sludge Wave",
+  "ko": "오물웨이브",
+  "cat": "Special",
+  "direct": [],
+  "delegated": [
+   [
+    "Has a 10% chance to poison the target.",
+    [
+     "secondary"
+    ]
+   ]
+  ],
+  "unclaimed": []
+ },
+ {
+  "id": "smackdown",
+  "name": "Smack Down",
+  "ko": "떨어뜨리기",
+  "cat": "Physical",
+  "direct": [
+   "This move can hit a target using Bounce, Fly, or Sky Drop, or is under the effect of Sky Drop.",
+   "If this move hits a target under the effect of Bounce, Fly, Magnet Rise, or Telekinesis, the effect ends.",
+   "If the target is a Flying type that has not used Roost this turn or a Pokemon with the Levitate Ability, it loses its immunity to Ground-type attacks and the Arena Trap Ability as long as it remains active.",
+   "During the effect, Magnet Rise fails for the target and Telekinesis fails against the target."
+  ],
+  "delegated": [],
+  "unclaimed": []
+ },
+ {
+  "id": "smartstrike",
+  "name": "Smart Strike",
+  "ko": "스마트혼",
+  "cat": "Physical",
+  "direct": [
+   "This move does not check accuracy."
+  ],
+  "delegated": [],
+  "unclaimed": []
+ },
+ {
+  "id": "snaptrap",
+  "name": "Snap Trap",
+  "ko": "집게덫",
+  "cat": "Physical",
+  "direct": [
+   "Prevents the target from switching for four or five turns (seven turns if the user is holding Grip Claw).",
+   "Causes damage to the target equal to 1/8 of its maximum HP (1/6 if the user is holding Binding Band), rounded down, at the end of each turn during effect.",
+   "The target can still switch out if it is holding Shed Shell or uses Baton Pass, Flip Turn, Parting Shot, Shed Tail, Teleport, U-turn, or Volt Switch.",
+   "The effect ends if either the user or the target leaves the field, or if the target uses Mortal Spin, Rapid Spin, or Substitute successfully.",
+   "This effect is not stackable or reset by using this or another binding move."
+  ],
+  "delegated": [],
+  "unclaimed": []
+ },
+ {
+  "id": "snarl",
+  "name": "Snarl",
+  "ko": "바크아웃",
+  "cat": "Special",
+  "direct": [],
+  "delegated": [
+   [
+    "Has a 100% chance to lower the target's Special Attack by 1 stage.",
+    [
+     "secondary"
+    ]
+   ]
+  ],
+  "unclaimed": []
+ },
+ {
+  "id": "snore",
+  "name": "Snore",
+  "ko": "코골기",
+  "cat": "Special",
+  "direct": [
+   "Fails if the user is not asleep."
+  ],
+  "delegated": [
+   [
+    "Has a 30% chance to make the target flinch.",
+    [
+     "secondary"
+    ]
+   ]
+  ],
+  "unclaimed": []
+ },
+ {
+  "id": "snowscape",
+  "name": "Snowscape",
+  "ko": "설경",
+  "cat": "Status",
+  "direct": [
+   "For 5 turns, the weather becomes Snow.",
+   "During the effect, the Defense of Ice-type Pokemon is multiplied by 1.5 when taking damage from a physical attack.",
+   "Lasts for 8 turns if the user is holding Icy Rock.",
+   "Fails if the current weather is Snow."
+  ],
+  "delegated": [],
+  "unclaimed": []
+ },
+ {
+  "id": "soak",
+  "name": "Soak",
+  "ko": "물붓기",
+  "cat": "Status",
+  "direct": [
+   "Causes the target to become a Water type."
+  ],
+  "delegated": [],
+  "unclaimed": [
+   "Fails if the target is an Arceus or a Silvally, if the target is already purely Water type, or if the target is Terastallized."
+  ]
+ },
+ {
+  "id": "solarbeam",
+  "name": "Solar Beam",
+  "ko": "솔라빔",
+  "cat": "Special",
+  "direct": [
+   "This attack charges on the first turn and executes on the second.",
+   "Power is halved if the weather is Primordial Sea, Rain Dance, Sandstorm, or Snow and the user is not holding Utility Umbrella.",
+   "If the user is holding a Power Herb or the weather is Desolate Land or Sunny Day, the move completes in one turn."
+  ],
+  "delegated": [
+   [
+    "If the user is holding Utility Umbrella and the weather is Desolate Land or Sunny Day, the move still requires a turn to charge.",
+    [
+     "restated"
+    ]
+   ]
+  ],
+  "unclaimed": []
+ },
+ {
+  "id": "solarblade",
+  "name": "Solar Blade",
+  "ko": "솔라블레이드",
+  "cat": "Physical",
+  "direct": [
+   "This attack charges on the first turn and executes on the second.",
+   "Power is halved if the weather is Hail, Primordial Sea, Rain Dance, or Sandstorm and the user is not holding Utility Umbrella.",
+   "If the user is holding a Power Herb or the weather is Desolate Land or Sunny Day, the move completes in one turn."
+  ],
+  "delegated": [
+   [
+    "If the user is holding Utility Umbrella and the weather is Desolate Land or Sunny Day, the move still requires a turn to charge.",
+    [
+     "restated"
+    ]
+   ]
+  ],
+  "unclaimed": []
+ },
+ {
+  "id": "sparklingaria",
+  "name": "Sparkling Aria",
+  "ko": "물거품아리아",
+  "cat": "Special",
+  "direct": [
+   "If the user has not fainted, the target is cured of its burn."
+  ],
+  "delegated": [],
+  "unclaimed": []
+ },
+ {
+  "id": "speedswap",
+  "name": "Speed Swap",
+  "ko": "스피드스왑",
+  "cat": "Status",
+  "direct": [
+   "Stat stage changes are unaffected."
+  ],
+  "delegated": [
+   [
+    "The user swaps its Speed stat with the target.",
+    [
+     "restated"
+    ]
+   ]
+  ],
+  "unclaimed": []
+ },
+ {
+  "id": "spicyextract",
+  "name": "Spicy Extract",
+  "ko": "하바네로엑기스",
+  "cat": "Status",
+  "direct": [],
+  "delegated": [
+   [
+    "Raises the target's Attack by 2 stages and lowers its Defense by 2 stages.",
+    [
+     "declaredboosts"
+    ]
+   ]
+  ],
+  "unclaimed": []
+ },
+ {
+  "id": "spikes",
+  "name": "Spikes",
+  "ko": "압정뿌리기",
+  "cat": "Status",
+  "direct": [
+   "Sets up a hazard on the opposing side of the field, damaging each opposing Pokemon that switches in, unless it is a Flying-type Pokemon or has the Levitate Ability.",
+   "Can be used up to three times before failing.",
+   "Opponents lose 1/8 of their maximum HP with one layer, 1/6 of their maximum HP with two layers, and 1/4 of their maximum HP with three layers, all rounded down.",
+   "Can be removed from the opposing side if any Pokemon uses Tidy Up, or if any opposing Pokemon uses Mortal Spin, Rapid Spin, or Defog successfully, or is hit by Defog."
+  ],
+  "delegated": [],
+  "unclaimed": []
+ },
+ {
+  "id": "spikyshield",
+  "name": "Spiky Shield",
+  "ko": "니들가드",
+  "cat": "Status",
+  "direct": [
+   "This move has a 1/X chance of being successful, where X starts at 1 and triples each time this move is successfully used.",
+   "X resets to 1 if this move fails, if the user's last move used is not Baneful Bunker, Burning Bulwark, Detect, Endure, King's Shield, Max Guard, Obstruct, Protect, Quick Guard, Silk Trap, Spiky Shield, or Wide Guard, or if it was one of those moves and the user's protection was broken.",
+   "Fails if the user moves last this turn."
+  ],
+  "delegated": [
+   [
+    "The user is protected from most attacks made by other Pokemon during this turn, and Pokemon making contact with the user lose 1/8 of their maximum HP, rounded down.",
+    [
+     "restated"
+    ]
+   ]
+  ],
+  "unclaimed": []
+ },
+ {
+  "id": "spiritbreak",
+  "name": "Spirit Break",
+  "ko": "소울크래시",
+  "cat": "Physical",
+  "direct": [],
+  "delegated": [
+   [
+    "Has a 100% chance to lower the target's Special Attack by 1 stage.",
+    [
+     "secondary"
+    ]
+   ]
+  ],
+  "unclaimed": []
+ },
+ {
+  "id": "spiritshackle",
+  "name": "Spirit Shackle",
+  "ko": "그림자꿰매기",
+  "cat": "Physical",
+  "direct": [
+   "Prevents the target from switching out.",
+   "The target can still switch out if it is holding Shed Shell or uses Baton Pass, Flip Turn, Parting Shot, Teleport, U-turn, or Volt Switch.",
+   "The effect ends if either the user or the target leaves the field."
+  ],
+  "delegated": [],
+  "unclaimed": []
+ },
+ {
+  "id": "spite",
+  "name": "Spite",
+  "ko": "원한",
+  "cat": "Status",
+  "direct": [
+   "Causes the target's last move used to lose 4 PP.",
+   "Fails if the target has not made a move, if the move has 0 PP, or if it no longer knows the move."
+  ],
+  "delegated": [],
+  "unclaimed": []
+ },
+ {
+  "id": "spitup",
+  "name": "Spit Up",
+  "ko": "토해내기",
+  "cat": "Special",
+  "direct": [
+   "Power is equal to 100 times the user's Stockpile count.",
+   "Fails if the user's Stockpile count is 0."
+  ],
+  "delegated": [
+   [
+    "Whether or not this move is successful, the user's Defense and Special Defense decrease by as many stages as Stockpile had increased them, and the user's Stockpile count resets to 0.",
+    [
+     "restated"
+    ]
+   ]
+  ],
+  "unclaimed": []
+ },
+ {
+  "id": "stealthrock",
+  "name": "Stealth Rock",
+  "ko": "스텔스록",
+  "cat": "Status",
+  "direct": [
+   "Sets up a hazard on the opposing side of the field, damaging each opposing Pokemon that switches in.",
+   "Fails if the effect is already active on the opposing side.",
+   "Foes lose 1/32, 1/16, 1/8, 1/4, or 1/2 of their maximum HP, rounded down, based on their weakness to the Rock type; 0.25x, 0.5x, neutral, 2x, or 4x, respectively.",
+   "Can be removed from the opposing side if any Pokemon uses Tidy Up, or if any opposing Pokemon uses Mortal Spin, Rapid Spin, or Defog successfully, or is hit by Defog."
+  ],
+  "delegated": [],
+  "unclaimed": []
+ },
+ {
+  "id": "steelbeam",
+  "name": "Steel Beam",
+  "ko": "철제광선",
+  "cat": "Special",
+  "direct": [],
+  "delegated": [
+   [
+    "Whether or not this move is successful and even if it would cause fainting, the user loses 1/2 of its maximum HP, rounded up, unless the user has the Magic Guard Ability.",
+    [
+     "restated"
+    ]
+   ]
+  ],
+  "unclaimed": []
+ },
+ {
+  "id": "steelroller",
+  "name": "Steel Roller",
+  "ko": "아이언롤러",
+  "cat": "Physical",
+  "direct": [
+   "Fails if there is no terrain active.",
+   "Ends the effects of Electric Terrain, Grassy Terrain, Misty Terrain, and Psychic Terrain."
+  ],
+  "delegated": [],
+  "unclaimed": []
+ },
+ {
+  "id": "steelwing",
+  "name": "Steel Wing",
+  "ko": "강철날개",
+  "cat": "Physical",
+  "direct": [],
+  "delegated": [
+   [
+    "Has a 10% chance to raise the user's Defense by 1 stage.",
+    [
+     "secondary"
+    ]
+   ]
+  ],
+  "unclaimed": []
+ },
+ {
+  "id": "stickyweb",
+  "name": "Sticky Web",
+  "ko": "끈적끈적네트",
+  "cat": "Status",
+  "direct": [
+   "Sets up a hazard on the opposing side of the field, lowering the Speed by 1 stage of each opposing Pokemon that switches in, unless it is a Flying-type Pokemon or has the Levitate Ability.",
+   "Fails if the effect is already active on the opposing side.",
+   "Can be removed from the opposing side if any Pokemon uses Tidy Up, or if any opposing Pokemon uses Mortal Spin, Rapid Spin, or Defog successfully, or is hit by Defog."
+  ],
+  "delegated": [],
+  "unclaimed": []
+ },
+ {
+  "id": "stockpile",
+  "name": "Stockpile",
+  "ko": "비축하기",
+  "cat": "Status",
+  "direct": [
+   "Fails if the user's Stockpile count is 3."
+  ],
+  "delegated": [
+   [
+    "Raises the user's Defense and Special Defense by 1 stage.",
+    [
+     "declaredboosts"
+    ]
+   ],
+   [
+    "The user's Stockpile count increases by 1.",
+    [
+     "restated"
+    ]
+   ],
+   [
+    "The user's Stockpile count is reset to 0 when it is no longer active.",
+    [
+     "restated"
+    ]
+   ]
+  ],
+  "unclaimed": []
+ },
+ {
+  "id": "stompingtantrum",
+  "name": "Stomping Tantrum",
+  "ko": "분함의발구르기",
+  "cat": "Physical",
+  "direct": [
+   "Power doubles if the user's last move on the previous turn, including moves called by other moves or those used through Instruct, Magic Coat, Snatch, or the Dancer or Magic Bounce Abilities, failed to do any of its normal effects, not including damage from an unsuccessful High Jump Kick, Jump Kick, or Mind Blown, or if the user was prevented from moving by any effect other than recharging or Sky Drop.",
+   "A move that was blocked by Baneful Bunker, Detect, King's Shield, Protect, Spiky Shield, Crafty Shield, Mat Block, Quick Guard, or Wide Guard will not double this move's power, nor will Bounce or Fly ending early due to the effect of Gravity, Smack Down, or Thousand Arrows."
+  ],
+  "delegated": [],
+  "unclaimed": []
+ },
+ {
+  "id": "stoneaxe",
+  "name": "Stone Axe",
+  "ko": "암석액스",
+  "cat": "Physical",
+  "direct": [
+   "If this move is successful, it sets up a hazard on the opposing side of the field, damaging each opposing Pokemon that switches in.",
+   "Foes lose 1/32, 1/16, 1/8, 1/4, or 1/2 of their maximum HP, rounded down, based on their weakness to the Rock type; 0.25x, 0.5x, neutral, 2x, or 4x, respectively.",
+   "Can be removed from the opposing side if any Pokemon uses Tidy Up, or if any opposing Pokemon uses Mortal Spin, Rapid Spin, or Defog successfully, or is hit by Defog."
+  ],
+  "delegated": [],
+  "unclaimed": []
+ },
+ {
+  "id": "stoneedge",
+  "name": "Stone Edge",
+  "ko": "스톤에지",
+  "cat": "Physical",
+  "direct": [
+   "Has a higher chance for a critical hit."
+  ],
+  "delegated": [],
+  "unclaimed": []
+ },
+ {
+  "id": "storedpower",
+  "name": "Stored Power",
+  "ko": "어시스트파워",
+  "cat": "Special",
+  "direct": [
+   "Power is equal to 20+(X*20), where X is the user's total stat stage changes that are greater than 0."
+  ],
+  "delegated": [],
+  "unclaimed": []
+ },
+ {
+  "id": "stormthrow",
+  "name": "Storm Throw",
+  "ko": "업어후리기",
+  "cat": "Physical",
+  "direct": [
+   "This move is always a critical hit unless the target is under the effect of Lucky Chant or has the Battle Armor or Shell Armor Abilities."
+  ],
+  "delegated": [],
+  "unclaimed": []
+ },
+ {
+  "id": "strengthsap",
+  "name": "Strength Sap",
+  "ko": "힘흡수",
+  "cat": "Status",
+  "direct": [
+   "If Big Root is held by the user, the HP recovered is 1.3x normal, rounded half down.",
+   "Fails if the target's Attack stat stage is -6."
+  ],
+  "delegated": [
+   [
+    "Lowers the target's Attack by 1 stage.",
+    [
+     "declaredboosts"
+    ]
+   ],
+   [
+    "The user restores its HP equal to the target's Attack stat calculated with its stat stage before this move was used.",
+    [
+     "restated"
+    ]
+   ]
+  ],
+  "unclaimed": []
+ },
+ {
+  "id": "stringshot",
+  "name": "String Shot",
+  "ko": "실뿜기",
+  "cat": "Status",
+  "direct": [],
+  "delegated": [
+   [
+    "Lowers the target's Speed by 2 stages.",
+    [
+     "declaredboosts"
+    ]
+   ]
+  ],
+  "unclaimed": []
+ },
+ {
+  "id": "struggle",
+  "name": "Struggle",
+  "ko": "발버둥",
+  "cat": "Physical",
+  "direct": [
+   "Deals typeless damage to a random opposing Pokemon.",
+   "If this move was successful, the user loses 1/4 of its maximum HP, rounded half up, and the Rock Head Ability does not prevent this."
+  ],
+  "delegated": [
+   [
+    "This move is automatically used if none of the user's known moves can be selected.",
+    [
+     "restated"
+    ]
+   ]
+  ],
+  "unclaimed": []
+ },
+ {
+  "id": "strugglebug",
+  "name": "Struggle Bug",
+  "ko": "벌레의저항",
+  "cat": "Special",
+  "direct": [],
+  "delegated": [
+   [
+    "Has a 100% chance to lower the target's Special Attack by 1 stage.",
+    [
+     "secondary"
+    ]
+   ]
+  ],
+  "unclaimed": []
+ },
+ {
+  "id": "stuffcheeks",
+  "name": "Stuff Cheeks",
+  "ko": "볼가득넣기",
+  "cat": "Status",
+  "direct": [
+   "Fails if the user is not holding a Berry."
+  ],
+  "delegated": [
+   [
+    "This move cannot be selected unless the user is holding a Berry.",
+    [
+     "restated"
+    ]
+   ],
+   [
+    "The user eats its Berry and raises its Defense by 2 stages.",
+    [
+     "restated"
+    ]
+   ],
+   [
+    "This effect is not prevented by the Klutz or Unnerve Abilities, or the effects of Embargo or Magic Room.",
+    [
+     "restated"
+    ]
+   ]
+  ],
+  "unclaimed": []
+ },
+ {
+  "id": "stunspore",
+  "name": "Stun Spore",
+  "ko": "저리가루",
+  "cat": "Status",
+  "direct": [],
+  "delegated": [
+   [
+    "Paralyzes the target.",
+    [
+     "plainstatus"
+    ]
+   ]
+  ],
+  "unclaimed": []
+ },
+ {
+  "id": "substitute",
+  "name": "Substitute",
+  "ko": "대타출동",
+  "cat": "Status",
+  "direct": [
+   "Baton Pass can be used to transfer the substitute to an ally, and the substitute will keep its remaining HP.",
+   "Sound-based moves and Pokemon with the Infiltrator Ability ignore substitutes.",
+   "If a substitute is created while the user is trapped by a binding move, the binding effect ends immediately.",
+   "Fails if the user does not have enough HP remaining to create a substitute without fainting, or if it already has a substitute."
+  ],
+  "delegated": [
+   [
+    "The user takes 1/4 of its maximum HP, rounded down, and puts it into a substitute to take its place in battle.",
+    [
+     "restated"
+    ]
+   ],
+   [
+    "The substitute is removed once enough damage is inflicted on it, if the user switches out or faints, or if any Pokemon uses Tidy Up.",
+    [
+     "restated"
+    ]
+   ],
+   [
+    "Until the substitute is broken, it receives damage from all attacks made by other Pokemon and shields the user from status effects and stat stage changes caused by other Pokemon.",
+    [
+     "restated"
+    ]
+   ],
+   [
+    "The user still takes normal damage from weather and status effects while behind its substitute.",
+    [
+     "restated"
+    ]
+   ],
+   [
+    "If the substitute breaks during a multi-hit attack, the user will take damage from any remaining hits.",
+    [
+     "restated"
+    ]
+   ]
+  ],
+  "unclaimed": []
+ },
+ {
+  "id": "suckerpunch",
+  "name": "Sucker Punch",
+  "ko": "기습",
+  "cat": "Physical",
+  "direct": [],
+  "delegated": [],
+  "unclaimed": [
+   "Fails if the target did not select a physical attack, special attack, or Me First for use this turn, or if the target moves before the user."
+  ]
+ },
+ {
+  "id": "sunnyday",
+  "name": "Sunny Day",
+  "ko": "쾌청",
+  "cat": "Status",
+  "direct": [
+   "The damage of Fire-type attacks is multiplied by 1.5 and the damage of Water-type attacks is multiplied by 0.5 during the effect.",
+   "Lasts for 8 turns if the user is holding Heat Rock.",
+   "Fails if the current weather is Sunny Day."
+  ],
+  "delegated": [
+   [
+    "For 5 turns, the weather becomes Sunny Day.",
+    [
+     "statedduration"
+    ]
+   ]
+  ],
+  "unclaimed": []
+ },
+ {
+  "id": "supercellslam",
+  "name": "Supercell Slam",
+  "ko": "썬더다이브",
+  "cat": "Physical",
+  "direct": [
+   "If this attack is not successful, the user loses half of its maximum HP, rounded down, as crash damage.",
+   "Pokemon with the Magic Guard Ability are unaffected by crash damage.",
+   "Damage doubles and no accuracy check is done if the target has used Minimize while active."
+  ],
+  "delegated": [],
+  "unclaimed": []
+ },
+ {
+  "id": "superfang",
+  "name": "Super Fang",
+  "ko": "분노의앞니",
+  "cat": "Physical",
+  "direct": [
+   "Deals damage to the target equal to half of its current HP, rounded down, but not less than 1 HP."
+  ],
+  "delegated": [],
+  "unclaimed": []
+ },
+ {
+  "id": "superpower",
+  "name": "Superpower",
+  "ko": "엄청난힘",
+  "cat": "Physical",
+  "direct": [],
+  "delegated": [
+   [
+    "Lowers the user's Attack and Defense by 1 stage.",
+    [
+     "declaredboosts"
+    ]
+   ]
+  ],
+  "unclaimed": []
+ },
+ {
+  "id": "surf",
+  "name": "Surf",
+  "ko": "파도타기",
+  "cat": "Special",
+  "direct": [
+   "Damage doubles if the target is using Dive."
+  ],
+  "delegated": [],
+  "unclaimed": []
+ },
+ {
+  "id": "swagger",
+  "name": "Swagger",
+  "ko": "뽐내기",
+  "cat": "Status",
+  "direct": [],
+  "delegated": [
+   [
+    "Raises the target's Attack by 2 stages and confuses it.",
+    [
+     "declaredboosts"
+    ]
+   ]
+  ],
+  "unclaimed": []
+ },
+ {
+  "id": "swallow",
+  "name": "Swallow",
+  "ko": "꿀꺽",
+  "cat": "Status",
+  "direct": [
+   "Restores 1/4 of its maximum HP if it's 1, 1/2 of its maximum HP if it's 2, both rounded half down, and all of its HP if it's 3.",
+   "Fails if the user's Stockpile count is 0."
+  ],
+  "delegated": [
+   [
+    "The user restores its HP based on its Stockpile count.",
+    [
+     "restated"
+    ]
+   ],
+   [
+    "The user's Defense and Special Defense decrease by as many stages as Stockpile had increased them, and the user's Stockpile count resets to 0.",
+    [
+     "restated"
+    ]
+   ]
+  ],
+  "unclaimed": []
+ },
+ {
+  "id": "sweetkiss",
+  "name": "Sweet Kiss",
+  "ko": "천사의키스",
+  "cat": "Status",
+  "direct": [],
+  "delegated": [
+   [
+    "Causes the target to become confused.",
+    [
+     "plainstatus"
+    ]
+   ]
+  ],
+  "unclaimed": []
+ },
+ {
+  "id": "sweetscent",
+  "name": "Sweet Scent",
+  "ko": "달콤한향기",
+  "cat": "Status",
+  "direct": [],
+  "delegated": [
+   [
+    "Lowers the target's evasiveness by 2 stages.",
+    [
+     "declaredboosts"
+    ]
+   ]
+  ],
+  "unclaimed": []
+ },
+ {
+  "id": "switcheroo",
+  "name": "Switcheroo",
+  "ko": "바꿔치기",
+  "cat": "Status",
+  "direct": [
+   "The user swaps its held item with the target's held item.",
+   "In this case, Paradox Pokemon include every species with the Protosynthesis and Quark Drive Abilities, except Gouging Fire, Raging Bolt, Iron Boulder, and Iron Crown.",
+   "The target is immune to this move if it has the Sticky Hold Ability."
+  ],
+  "delegated": [],
+  "unclaimed": [
+   "Fails if both the user and the target have no held item, or if the user is trying to give or take a Blue Orb, Red Orb, Adamant Crystal, Lustrous Globe, Griseous Core, Plate, Drive, Memory, Rusted Sword, Rusted Shield, Booster Energy, or Mask to or from a Kyogre, Groudon, Dialga, Palkia, Giratina, Arceus, Genesect, Silvally, Zacian, Zamazenta, Paradox Pokemon, or Ogerpon, respectively."
+  ]
+ },
+ {
+  "id": "swordsdance",
+  "name": "Swords Dance",
+  "ko": "칼춤",
+  "cat": "Status",
+  "direct": [],
+  "delegated": [
+   [
+    "Raises the user's Attack by 2 stages.",
+    [
+     "declaredboosts"
+    ]
+   ]
+  ],
+  "unclaimed": []
+ },
+ {
+  "id": "synthesis",
+  "name": "Synthesis",
+  "ko": "광합성",
+  "cat": "Status",
+  "direct": [
+   "The user restores 1/2 of its maximum HP if Delta Stream or no weather conditions are in effect or if the user is holding Utility Umbrella, 2/3 of its maximum HP if the weather is Desolate Land or Sunny Day, and 1/4 of its maximum HP if the weather is Primordial Sea, Rain Dance, Sandstorm, or Snow, all rounded half down."
+  ],
+  "delegated": [],
+  "unclaimed": []
+ },
+ {
+  "id": "syrupbomb",
+  "name": "Syrup Bomb",
+  "ko": "시럽봄",
+  "cat": "Special",
+  "direct": [
+   "If this move is successful, it causes the target's Speed to be lowered by 1 stage at the end of each turn for 3 turns."
+  ],
+  "delegated": [],
+  "unclaimed": []
+ },
+ {
+  "id": "tailslap",
+  "name": "Tail Slap",
+  "ko": "스위프뺨치기",
+  "cat": "Physical",
+  "direct": [
+   "Hits two to five times.",
+   "Has a 35% chance to hit two or three times and a 15% chance to hit four or five times.",
+   "If one of the hits breaks the target's substitute, it will take damage for the remaining hits.",
+   "If the user has the Skill Link Ability, this move will always hit five times.",
+   "If the user is holding Loaded Dice, this move will hit 4-5 times."
+  ],
+  "delegated": [],
+  "unclaimed": []
+ },
+ {
+  "id": "tailwind",
+  "name": "Tailwind",
+  "ko": "순풍",
+  "cat": "Status",
+  "direct": [
+   "For 4 turns, the user and its party members have their Speed doubled.",
+   "Fails if this move is already in effect for the user's side."
+  ],
+  "delegated": [],
+  "unclaimed": []
+ },
+ {
+  "id": "taunt",
+  "name": "Taunt",
+  "ko": "도발",
+  "cat": "Status",
+  "direct": [
+   "Prevents the target from using non-damaging moves for its next three turns.",
+   "Pokemon with the Oblivious Ability or protected by the Aroma Veil Ability are immune."
+  ],
+  "delegated": [],
+  "unclaimed": []
+ },
+ {
+  "id": "tearfullook",
+  "name": "Tearful Look",
+  "ko": "눈물그렁그렁",
+  "cat": "Status",
+  "direct": [],
+  "delegated": [
+   [
+    "Lowers the target's Attack and Special Attack by 1 stage.",
+    [
+     "declaredboosts"
+    ]
+   ]
+  ],
+  "unclaimed": []
+ },
+ {
+  "id": "teatime",
+  "name": "Teatime",
+  "ko": "다과회",
+  "cat": "Status",
+  "direct": [
+   "All active Pokemon consume their held Berries.",
+   "Fails if no active Pokemon is holding a Berry."
+  ],
+  "delegated": [
+   [
+    "This effect is not prevented by substitutes, the Klutz or Unnerve Abilities, or the effects of Embargo or Magic Room.",
+    [
+     "restated"
+    ]
+   ]
+  ],
+  "unclaimed": []
+ },
+ {
+  "id": "teeterdance",
+  "name": "Teeter Dance",
+  "ko": "흔들흔들댄스",
+  "cat": "Status",
+  "direct": [],
+  "delegated": [
+   [
+    "Causes the target to become confused.",
+    [
+     "plainstatus"
+    ]
+   ]
+  ],
+  "unclaimed": []
+ },
+ {
+  "id": "temperflare",
+  "name": "Temper Flare",
+  "ko": "열불내기",
+  "cat": "Physical",
+  "direct": [
+   "Power doubles if the user's last move on the previous turn, including moves called by other moves or those used through Instruct, Magic Coat, Snatch, or the Dancer or Magic Bounce Abilities, failed to do any of its normal effects, not including damage from an unsuccessful High Jump Kick, Jump Kick, or Mind Blown, or if the user was prevented from moving by any effect other than recharging or Sky Drop.",
+   "A move that was blocked by Baneful Bunker, Detect, King's Shield, Protect, Spiky Shield, Crafty Shield, Mat Block, Quick Guard, or Wide Guard will not double this move's power, nor will Bounce or Fly ending early due to the effect of Gravity, Smack Down, or Thousand Arrows."
+  ],
+  "delegated": [],
+  "unclaimed": []
+ },
+ {
+  "id": "terrainpulse",
+  "name": "Terrain Pulse",
+  "ko": "대지의파동",
+  "cat": "Special",
+  "direct": [
+   "Electric type during Electric Terrain, Grass type during Grassy Terrain, Fairy type during Misty Terrain, and Psychic type during Psychic Terrain."
+  ],
+  "delegated": [
+   [
+    "Power doubles if the user is grounded and a terrain is active, and this move's type changes to match.",
+    [
+     "delegatedpower"
+    ]
+   ]
+  ],
+  "unclaimed": []
+ },
+ {
+  "id": "thief",
+  "name": "Thief",
+  "ko": "도둑질",
+  "cat": "Physical",
+  "direct": [
+   "If this attack was successful and the user has not fainted, it steals the target's held item if the user is not holding one.",
+   "A target with the Sticky Hold Ability does not lose its held item if it has not fainted.",
+   "In this case, Paradox Pokemon include every species with the Protosynthesis and Quark Drive Abilities, except Gouging Fire, Raging Bolt, Iron Boulder, and Iron Crown.",
+   "Items lost to this move cannot be regained with Recycle or the Harvest Ability."
+  ],
+  "delegated": [],
+  "unclaimed": [
+   "The target's item is not stolen if it is a Blue Orb, Red Orb, Adamant Crystal, Lustrous Globe, Griseous Core, Plate, Drive, Memory, Rusted Sword, Rusted Shield, Booster Energy, or Mask held by a Kyogre, Groudon, Dialga, Palkia, Giratina, Arceus, Genesect, Silvally, Zacian, Zamazenta, Paradox Pokemon, or Ogerpon, respectively, or if the user is one of those species and the target is holding the respective item."
+  ]
+ },
+ {
+  "id": "thrash",
+  "name": "Thrash",
+  "ko": "난동부리기",
+  "cat": "Physical",
+  "direct": [
+   "The user spends two or three turns locked into this move and becomes confused immediately after its move on the last turn of the effect if it is not already.",
+   "This move targets an opposing Pokemon at random on each turn.",
+   "If the user is prevented from moving, is asleep at the beginning of a turn, or the attack is not successful against the target on the first turn of the effect or the second turn of a three-turn effect, the effect ends without causing confusion.",
+   "If this move is called by Sleep Talk and the user is asleep, the move is used for one turn and does not confuse the user."
+  ],
+  "delegated": [],
+  "unclaimed": []
+ },
+ {
+  "id": "throatchop",
+  "name": "Throat Chop",
+  "ko": "지옥찌르기",
+  "cat": "Physical",
+  "direct": [
+   "For 2 turns, the target cannot use sound-based moves."
+  ],
+  "delegated": [],
+  "unclaimed": []
+ },
+ {
+  "id": "thunder",
+  "name": "Thunder",
+  "ko": "번개",
+  "cat": "Special",
+  "direct": [
+   "This move can hit a target using Bounce, Fly, or Sky Drop, or is under the effect of Sky Drop.",
+   "If the weather is Primordial Sea or Rain Dance, this move does not check accuracy.",
+   "If the weather is Desolate Land or Sunny Day, this move's accuracy is 50%."
+  ],
+  "delegated": [
+   [
+    "Has a 30% chance to paralyze the target.",
+    [
+     "secondary"
+    ]
+   ]
+  ],
+  "unclaimed": [
+   "If this move is used against a Pokemon holding Utility Umbrella, this move's accuracy remains at 70%."
+  ]
+ },
+ {
+  "id": "thunderbolt",
+  "name": "Thunderbolt",
+  "ko": "10만볼트",
+  "cat": "Special",
+  "direct": [],
+  "delegated": [
+   [
+    "Has a 10% chance to paralyze the target.",
+    [
+     "secondary"
+    ]
+   ]
+  ],
+  "unclaimed": []
+ },
+ {
+  "id": "thunderfang",
+  "name": "Thunder Fang",
+  "ko": "번개엄니",
+  "cat": "Physical",
+  "direct": [],
+  "delegated": [
+   [
+    "Has a 10% chance to paralyze the target and a 10% chance to make it flinch.",
+    [
+     "secondary"
+    ]
+   ]
+  ],
+  "unclaimed": []
+ },
+ {
+  "id": "thunderpunch",
+  "name": "Thunder Punch",
+  "ko": "번개펀치",
+  "cat": "Physical",
+  "direct": [],
+  "delegated": [
+   [
+    "Has a 10% chance to paralyze the target.",
+    [
+     "secondary"
+    ]
+   ]
+  ],
+  "unclaimed": []
+ },
+ {
+  "id": "thunderwave",
+  "name": "Thunder Wave",
+  "ko": "전기자석파",
+  "cat": "Status",
+  "direct": [],
+  "delegated": [
+   [
+    "Paralyzes the target.",
+    [
+     "plainstatus"
+    ]
+   ],
+   [
+    "This move does not ignore type immunity.",
+    [
+     "restated"
+    ]
+   ]
+  ],
+  "unclaimed": []
+ },
+ {
+  "id": "tickle",
+  "name": "Tickle",
+  "ko": "간지르기",
+  "cat": "Status",
+  "direct": [],
+  "delegated": [
+   [
+    "Lowers the target's Attack and Defense by 1 stage.",
+    [
+     "declaredboosts"
+    ]
+   ]
+  ],
+  "unclaimed": []
+ },
+ {
+  "id": "tidyup",
+  "name": "Tidy Up",
+  "ko": "정리정돈",
+  "cat": "Status",
+  "direct": [
+   "Removes substitutes from all active Pokemon and ends the effects of Spikes, Stealth Rock, Sticky Web, and Toxic Spikes for both sides."
+  ],
+  "delegated": [
+   [
+    "Raises the user's Attack and Speed by 1 stage.",
+    [
+     "declaredboosts"
+    ]
+   ]
+  ],
+  "unclaimed": []
+ },
+ {
+  "id": "topsyturvy",
+  "name": "Topsy-Turvy",
+  "ko": "뒤집어엎기",
+  "cat": "Status",
+  "direct": [
+   "The target's positive stat stages become negative and vice versa.",
+   "Fails if all of the target's stat stages are 0."
+  ],
+  "delegated": [],
+  "unclaimed": []
+ },
+ {
+  "id": "torchsong",
+  "name": "Torch Song",
+  "ko": "플레어송",
+  "cat": "Special",
+  "direct": [],
+  "delegated": [
+   [
+    "Has a 100% chance to raise the user's Special Attack by 1 stage.",
+    [
+     "secondary"
+    ]
+   ]
+  ],
+  "unclaimed": []
+ },
+ {
+  "id": "torment",
+  "name": "Torment",
+  "ko": "트집",
+  "cat": "Status",
+  "direct": [
+   "Prevents the target from selecting the same move for use two turns in a row.",
+   "This effect ends when the target is no longer active."
+  ],
+  "delegated": [],
+  "unclaimed": []
+ },
+ {
+  "id": "toxic",
+  "name": "Toxic",
+  "ko": "맹독",
+  "cat": "Status",
+  "direct": [
+   "If a Poison-type Pokemon uses this move, the target cannot avoid the attack, even if the target is in the middle of a two-turn move."
+  ],
+  "delegated": [
+   [
+    "Badly poisons the target.",
+    [
+     "plainstatus"
+    ]
+   ]
+  ],
+  "unclaimed": []
+ },
+ {
+  "id": "toxicspikes",
+  "name": "Toxic Spikes",
+  "ko": "독압정",
+  "cat": "Status",
+  "direct": [
+   "Sets up a hazard on the opposing side of the field, poisoning each opposing Pokemon that switches in, unless it is a Flying-type Pokemon or has the Levitate Ability.",
+   "Can be used up to two times before failing.",
+   "Opposing Pokemon become poisoned with one layer and badly poisoned with two layers.",
+   "Can be removed from the opposing side if any Pokemon uses Tidy Up, or if any opposing Pokemon uses Mortal Spin, Rapid Spin, or Defog successfully, is hit by Defog, or a grounded Poison-type Pokemon switches in."
+  ],
+  "delegated": [
+   [
+    "Safeguard prevents the opposing party from being poisoned on switch-in, but a substitute does not.",
+    [
+     "restated"
+    ]
+   ]
+  ],
+  "unclaimed": []
+ },
+ {
+  "id": "toxicthread",
+  "name": "Toxic Thread",
+  "ko": "독실",
+  "cat": "Status",
+  "direct": [],
+  "delegated": [
+   [
+    "Lowers the target's Speed by 1 stage and poisons it.",
+    [
+     "declaredboosts"
+    ]
+   ]
+  ],
+  "unclaimed": []
+ },
+ {
+  "id": "trailblaze",
+  "name": "Trailblaze",
+  "ko": "개척하기",
+  "cat": "Physical",
+  "direct": [],
+  "delegated": [
+   [
+    "Has a 100% chance to raise the user's Speed by 1 stage.",
+    [
+     "secondary"
+    ]
+   ]
+  ],
+  "unclaimed": []
+ },
+ {
+  "id": "transform",
+  "name": "Transform",
+  "ko": "변신",
+  "cat": "Status",
+  "direct": [],
+  "delegated": [
+   [
+    "The user transforms into the target.",
+    [
+     "restated"
+    ]
+   ],
+   [
+    "The target's current stats, stat stages, types, moves, Ability, weight, gender, and sprite are copied.",
+    [
+     "restated"
+    ]
+   ],
+   [
+    "The user's level and HP remain the same and each copied move receives only 5 PP, with a maximum of 5 PP each.",
+    [
+     "restated"
+    ]
+   ],
+   [
+    "The user can no longer change formes if it would have the ability to do so.",
+    [
+     "restated"
+    ]
+   ],
+   [
+    "This move fails if it hits a substitute, if either the user or the target is already transformed, or if either is behind an Illusion.",
+    [
+     "restated"
+    ]
+   ]
+  ],
+  "unclaimed": []
+ },
+ {
+  "id": "triattack",
+  "name": "Tri Attack",
+  "ko": "트라이어택",
+  "cat": "Special",
+  "direct": [],
+  "delegated": [
+   [
+    "Has a 20% chance to either burn, freeze, or paralyze the target.",
+    [
+     "secondary"
+    ]
+   ]
+  ],
+  "unclaimed": []
+ },
+ {
+  "id": "trick",
+  "name": "Trick",
+  "ko": "트릭",
+  "cat": "Status",
+  "direct": [
+   "The user swaps its held item with the target's held item.",
+   "In this case, Paradox Pokemon include every species with the Protosynthesis and Quark Drive Abilities, except Gouging Fire, Raging Bolt, Iron Boulder, and Iron Crown.",
+   "The target is immune to this move if it has the Sticky Hold Ability."
+  ],
+  "delegated": [],
+  "unclaimed": [
+   "Fails if both the user and the target have no held item, or if the user is trying to give or take a Blue Orb, Red Orb, Adamant Crystal, Lustrous Globe, Griseous Core, Plate, Drive, Memory, Rusted Sword, Rusted Shield, Booster Energy, or Mask to or from a Kyogre, Groudon, Dialga, Palkia, Giratina, Arceus, Genesect, Silvally, Zacian, Zamazenta, Paradox Pokemon, or Ogerpon, respectively."
+  ]
+ },
+ {
+  "id": "trickortreat",
+  "name": "Trick-or-Treat",
+  "ko": "핼러윈",
+  "cat": "Status",
+  "direct": [
+   "Causes the Ghost type to be added to the target, effectively making it have two or three types.",
+   "Fails if the target is already a Ghost type.",
+   "If Forest's Curse adds a type to the target, it replaces the type added by this move and vice versa."
+  ],
+  "delegated": [],
+  "unclaimed": []
+ },
+ {
+  "id": "trickroom",
+  "name": "Trick Room",
+  "ko": "트릭룸",
+  "cat": "Status",
+  "direct": [
+   "During the effect, each Pokemon's Speed is considered to be (10000 - its normal Speed), and if this value is greater than 8191, 8192 is subtracted from it.",
+   "If this move is used during the effect, the effect ends."
+  ],
+  "delegated": [
+   [
+    "For 5 turns, the Speed of every Pokemon is recalculated for the purposes of determining turn order.",
+    [
+     "statedduration"
+    ]
+   ]
+  ],
+  "unclaimed": []
+ },
+ {
+  "id": "triplearrows",
+  "name": "Triple Arrows",
+  "ko": "3연화살",
+  "cat": "Physical",
+  "direct": [],
+  "delegated": [
+   [
+    "Has a 50% chance to lower the target's Defense by 1 stage, a 30% chance to make it flinch, and a higher chance for a critical hit.",
+    [
+     "secondary"
+    ]
+   ]
+  ],
+  "unclaimed": []
+ },
+ {
+  "id": "tripleaxel",
+  "name": "Triple Axel",
+  "ko": "트리플악셀",
+  "cat": "Physical",
+  "direct": [
+   "Hits three times.",
+   "Power increases to 40 for the second hit and 60 for the third.",
+   "This move checks accuracy for each hit, and the attack ends if the target avoids a hit.",
+   "If one of the hits breaks the target's substitute, it will take damage for the remaining hits.",
+   "If the user has the Skill Link Ability, this move will always hit three times."
+  ],
+  "delegated": [],
+  "unclaimed": []
+ },
+ {
+  "id": "tropkick",
+  "name": "Trop Kick",
+  "ko": "트로피컬킥",
+  "cat": "Physical",
+  "direct": [],
+  "delegated": [
+   [
+    "Has a 100% chance to lower the target's Attack by 1 stage.",
+    [
+     "secondary"
+    ]
+   ]
+  ],
+  "unclaimed": []
+ },
+ {
+  "id": "twinbeam",
+  "name": "Twin Beam",
+  "ko": "트윈빔",
+  "cat": "Special",
+  "direct": [
+   "Hits twice.",
+   "If the first hit breaks the target's substitute, it will take damage for the second hit."
+  ],
+  "delegated": [],
+  "unclaimed": []
+ },
+ {
+  "id": "upperhand",
+  "name": "Upper Hand",
+  "ko": "기선제압",
+  "cat": "Physical",
+  "direct": [
+   "Fails if the target did not select a physical or special attack for use this turn with altered priority greater than 0, or if the target moves before the user."
+  ],
+  "delegated": [
+   [
+    "Has a 100% chance to make the target flinch.",
+    [
+     "secondary"
+    ]
+   ]
+  ],
+  "unclaimed": []
+ },
+ {
+  "id": "uproar",
+  "name": "Uproar",
+  "ko": "소란피기",
+  "cat": "Special",
+  "direct": [
+   "On the first of the three turns, all sleeping active Pokemon wake up.",
+   "During the three turns, no active Pokemon can fall asleep by any means, and Pokemon switched in during the effect do not wake up.",
+   "If the user is prevented from moving or the attack is not successful against the target during one of the turns, the effect ends."
+  ],
+  "delegated": [
+   [
+    "The user spends three turns locked into this move.",
+    [
+     "restated"
+    ]
+   ],
+   [
+    "This move targets an opponent at random on each turn.",
+    [
+     "restated"
+    ]
+   ]
+  ],
+  "unclaimed": []
+ },
+ {
+  "id": "uturn",
+  "name": "U-turn",
+  "ko": "유턴",
+  "cat": "Physical",
+  "direct": [
+   "If this move is successful and the user has not fainted, the user switches out even if it is trapped and is replaced immediately by a selected party member.",
+   "The user does not switch out if there are no unfainted party members, or if the target switched out using an Eject Button or through the effect of the Emergency Exit or Wimp Out Abilities."
+  ],
+  "delegated": [],
+  "unclaimed": []
+ },
+ {
+  "id": "venoshock",
+  "name": "Venoshock",
+  "ko": "베놈쇼크",
+  "cat": "Special",
+  "direct": [
+   "Power doubles if the target is poisoned."
+  ],
+  "delegated": [],
+  "unclaimed": []
+ },
+ {
+  "id": "voltswitch",
+  "name": "Volt Switch",
+  "ko": "볼트체인지",
+  "cat": "Special",
+  "direct": [
+   "If this move is successful and the user has not fainted, the user switches out even if it is trapped and is replaced immediately by a selected party member.",
+   "The user does not switch out if there are no unfainted party members, or if the target switched out using an Eject Button or through the effect of the Emergency Exit or Wimp Out Abilities."
+  ],
+  "delegated": [],
+  "unclaimed": []
+ },
+ {
+  "id": "volttackle",
+  "name": "Volt Tackle",
+  "ko": "볼트태클",
+  "cat": "Physical",
+  "direct": [
+   "If the target lost HP, the user takes recoil damage equal to 33% the HP lost by the target, rounded half up, but not less than 1 HP."
+  ],
+  "delegated": [
+   [
+    "Has a 10% chance to paralyze the target.",
+    [
+     "secondary"
+    ]
+   ]
+  ],
+  "unclaimed": []
+ },
+ {
+  "id": "waterfall",
+  "name": "Waterfall",
+  "ko": "폭포오르기",
+  "cat": "Physical",
+  "direct": [],
+  "delegated": [
+   [
+    "Has a 20% chance to make the target flinch.",
+    [
+     "secondary"
+    ]
+   ]
+  ],
+  "unclaimed": []
+ },
+ {
+  "id": "waterpulse",
+  "name": "Water Pulse",
+  "ko": "물의파동",
+  "cat": "Special",
+  "direct": [],
+  "delegated": [
+   [
+    "Has a 20% chance to confuse the target.",
+    [
+     "secondary"
+    ]
+   ]
+  ],
+  "unclaimed": []
+ },
+ {
+  "id": "watershuriken",
+  "name": "Water Shuriken",
+  "ko": "물수리검",
+  "cat": "Special",
+  "direct": [
+   "Hits two to five times.",
+   "Has a 35% chance to hit two or three times and a 15% chance to hit four or five times.",
+   "If one of the hits breaks the target's substitute, it will take damage for the remaining hits.",
+   "If the user has the Skill Link Ability, this move will always hit five times.",
+   "If the user is an Ash-Greninja with the Battle Bond Ability, this move has a power of 20 and always hits three times.",
+   "If the user is holding Loaded Dice, this move will hit 4-5 times."
+  ],
+  "delegated": [],
+  "unclaimed": []
+ },
+ {
+  "id": "waterspout",
+  "name": "Water Spout",
+  "ko": "해수스파우팅",
+  "cat": "Special",
+  "direct": [
+   "Power is equal to (user's current HP * 150 / user's maximum HP), rounded down, but not less than 1."
+  ],
+  "delegated": [],
+  "unclaimed": []
+ },
+ {
+  "id": "wavecrash",
+  "name": "Wave Crash",
+  "ko": "웨이브태클",
+  "cat": "Physical",
+  "direct": [
+   "If the target lost HP, the user takes recoil damage equal to 33% the HP lost by the target, rounded half up, but not less than 1 HP."
+  ],
+  "delegated": [],
+  "unclaimed": []
+ },
+ {
+  "id": "weatherball",
+  "name": "Weather Ball",
+  "ko": "웨더볼",
+  "cat": "Special",
+  "direct": [
+   "Ice type during Snow, Water type during Primordial Sea or Rain Dance, Rock type during Sandstorm, and Fire type during Desolate Land or Sunny Day."
+  ],
+  "delegated": [
+   [
+    "Power doubles if a weather condition other than Delta Stream is active, and this move's type changes to match.",
+    [
+     "delegatedpower"
+    ]
+   ],
+   [
+    "If the user is holding Utility Umbrella and uses Weather Ball during Primordial Sea, Rain Dance, Desolate Land, or Sunny Day, this move remains Normal type and does not double in power.",
+    [
+     "restated"
+    ]
+   ]
+  ],
+  "unclaimed": []
+ },
+ {
+  "id": "whirlpool",
+  "name": "Whirlpool",
+  "ko": "바다회오리",
+  "cat": "Special",
+  "direct": [
+   "Prevents the target from switching for four or five turns (seven turns if the user is holding Grip Claw).",
+   "Causes damage to the target equal to 1/8 of its maximum HP (1/6 if the user is holding Binding Band), rounded down, at the end of each turn during effect.",
+   "The target can still switch out if it is holding Shed Shell or uses Baton Pass, Flip Turn, Parting Shot, Shed Tail, Teleport, U-turn, or Volt Switch.",
+   "The effect ends if either the user or the target leaves the field, or if the target uses Mortal Spin, Rapid Spin, or Substitute successfully.",
+   "This effect is not stackable or reset by using this or another binding move."
+  ],
+  "delegated": [],
+  "unclaimed": []
+ },
+ {
+  "id": "whirlwind",
+  "name": "Whirlwind",
+  "ko": "날려버리기",
+  "cat": "Status",
+  "direct": [
+   "Fails if the target is the last unfainted Pokemon in its party, or if the target used Ingrain previously or has the Suction Cups Ability."
+  ],
+  "delegated": [
+   [
+    "The target is forced to switch out and be replaced with a random unfainted ally.",
+    [
+     "restated"
+    ]
+   ]
+  ],
+  "unclaimed": []
+ },
+ {
+  "id": "wideguard",
+  "name": "Wide Guard",
+  "ko": "와이드가드",
+  "cat": "Status",
+  "direct": [
+   "The user and its party members are protected from moves made by other Pokemon, including allies, during this turn that target all adjacent foes or all adjacent Pokemon.",
+   "This move modifies the same 1/X chance of being successful used by other protection moves, where X starts at 1 and triples each time this move is successfully used, but does not use the chance to check for failure.",
+   "X resets to 1 if this move fails, if the user's last move used is not Baneful Bunker, Burning Bulwark, Detect, Endure, King's Shield, Max Guard, Obstruct, Protect, Quick Guard, Silk Trap, Spiky Shield, or Wide Guard, or if it was one of those moves and the user's protection was broken.",
+   "Fails if the user moves last this turn or if this move is already in effect for the user's side."
+  ],
+  "delegated": [],
+  "unclaimed": []
+ },
+ {
+  "id": "wildcharge",
+  "name": "Wild Charge",
+  "ko": "와일드볼트",
+  "cat": "Physical",
+  "direct": [
+   "If the target lost HP, the user takes recoil damage equal to 1/4 the HP lost by the target, rounded half up, but not less than 1 HP."
+  ],
+  "delegated": [],
+  "unclaimed": []
+ },
+ {
+  "id": "willowisp",
+  "name": "Will-O-Wisp",
+  "ko": "도깨비불",
+  "cat": "Status",
+  "direct": [],
+  "delegated": [
+   [
+    "Burns the target.",
+    [
+     "plainstatus"
+    ]
+   ]
+  ],
+  "unclaimed": []
+ },
+ {
+  "id": "wish",
+  "name": "Wish",
+  "ko": "희망사항",
+  "cat": "Status",
+  "direct": [
+   "At the end of the next turn, the Pokemon at the user's position has 1/2 of the user's maximum HP restored to it, rounded down.",
+   "Fails if this move is already in effect for the user's position."
+  ],
+  "delegated": [],
+  "unclaimed": []
+ },
+ {
+  "id": "wonderroom",
+  "name": "Wonder Room",
+  "ko": "원더룸",
+  "cat": "Status",
+  "direct": [
+   "For 5 turns, all active Pokemon have their Defense and Special Defense stats swapped.",
+   "Stat stage changes are unaffected.",
+   "If this move is used during the effect, the effect ends."
+  ],
+  "delegated": [],
+  "unclaimed": []
+ },
+ {
+  "id": "woodhammer",
+  "name": "Wood Hammer",
+  "ko": "우드해머",
+  "cat": "Physical",
+  "direct": [
+   "If the target lost HP, the user takes recoil damage equal to 33% the HP lost by the target, rounded half up, but not less than 1 HP."
+  ],
+  "delegated": [],
+  "unclaimed": []
+ },
+ {
+  "id": "worryseed",
+  "name": "Worry Seed",
+  "ko": "고민씨",
+  "cat": "Status",
+  "direct": [
+   "Causes the target's Ability to become Insomnia.",
+   "Fails if the target's Ability is As One, Battle Bond, Comatose, Disguise, Gulp Missile, Ice Face, Insomnia, Multitype, Power Construct, RKS System, Schooling, Shields Down, Stance Change, Tera Shift, Truant, Zen Mode, or Zero to Hero."
+  ],
+  "delegated": [],
+  "unclaimed": []
+ },
+ {
+  "id": "wrap",
+  "name": "Wrap",
+  "ko": "김밥말이",
+  "cat": "Physical",
+  "direct": [
+   "Prevents the target from switching for four or five turns (seven turns if the user is holding Grip Claw).",
+   "Causes damage to the target equal to 1/8 of its maximum HP (1/6 if the user is holding Binding Band), rounded down, at the end of each turn during effect.",
+   "The target can still switch out if it is holding Shed Shell or uses Baton Pass, Flip Turn, Parting Shot, Shed Tail, Teleport, U-turn, or Volt Switch.",
+   "The effect ends if either the user or the target leaves the field, or if the target uses Mortal Spin, Rapid Spin, or Substitute successfully.",
+   "This effect is not stackable or reset by using this or another binding move."
+  ],
+  "delegated": [],
+  "unclaimed": []
+ },
+ {
+  "id": "yawn",
+  "name": "Yawn",
+  "ko": "하품",
+  "cat": "Status",
+  "direct": [
+   "Causes the target to fall asleep at the end of the next turn.",
+   "Fails when used if the target cannot fall asleep or if it already has a non-volatile status condition.",
+   "At the end of the next turn, if the target is still active, does not have a non-volatile status condition, and can fall asleep, it falls asleep.",
+   "If the target becomes affected, this effect cannot be prevented by Safeguard or a substitute, or by falling asleep and waking up during the effect."
+  ],
+  "delegated": [],
+  "unclaimed": []
+ },
+ {
+  "id": "zapcannon",
+  "name": "Zap Cannon",
+  "ko": "전자포",
+  "cat": "Special",
+  "direct": [],
+  "delegated": [
+   [
+    "Has a 100% chance to paralyze the target.",
+    [
+     "secondary"
+    ]
+   ]
+  ],
+  "unclaimed": []
+ },
+ {
+  "id": "zenheadbutt",
+  "name": "Zen Headbutt",
+  "ko": "사념의박치기",
+  "cat": "Physical",
+  "direct": [],
+  "delegated": [
+   [
+    "Has a 20% chance to make the target flinch.",
+    [
+     "secondary"
+    ]
+   ]
+  ],
+  "unclaimed": []
+ }
+]

@@ -273,7 +273,10 @@ def _no_retreat(ctx, user, target, move) -> bool:
         return _fail(ctx, user, "already committed")
     mutate.add_volatile(ctx, user, "noretreat")
     mutate.add_volatile(ctx, user, "trapped")
-    boost(ctx, user, {"atk": 1, "def": 1, "spa": 1, "spd": 1, "spe": 1}, source=user)
+    # No boost here: unlike Stockpile, No Retreat declares its five stages in
+    # the data, and the declarative path applies them alongside this handler.
+    # Raising them again made every one of them two, which is the Scale Shot
+    # double-apply in a different move.
     return True
 
 

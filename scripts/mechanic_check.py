@@ -1584,6 +1584,417 @@ def _raging_bull():
             f"their side conditions {f.conditions(1) or 'none'}")
 
 
+# -- moves no field party carries ------------------------------------------- #
+#
+# Nothing here shows up in the 253, so none of it can be reading wrong in a
+# measurement today. They are checked because the party optimizer picks from
+# the whole legal move pool: Minimize sat behind a clause nobody had lifted,
+# and the moment it was lifted two things downstream of an evasion stage had
+# never run once. Anything a mutation can reach can be reached tomorrow.
+
+
+def _power_ratio(move, ours_kw, theirs_a, theirs_b):
+    """Two arms of a damage comparison that differ only in the opponent."""
+    def dealt(theirs):
+        f = Fight([mon(**ours_kw)], [mon(**theirs)])
+        f.turn(Action.move(0), Action.move(0))
+        return f.damage(move)
+    return dealt(theirs_a), dealt(theirs_b)
+
+
+@check("acrobatics", "doubles when the user is holding nothing")
+def _acrobatics():
+    def dealt(item):
+        f = Fight(ours("staraptor", "__none__",
+                       ("acrobatics", "bravebird", "uturn", "protect"),
+                       item, "jolly", (0, 32, 2, 0, 0, 32)),
+                  [wall()])
+        f.turn(Action.move(0), Action.move(0))
+        return f.damage("acrobatics")
+    empty = dealt(None)
+    holding = dealt("leftovers")
+    return (empty > holding * 1.5,
+            f"empty-handed {empty}, holding Leftovers {holding}")
+
+
+@check("aquaring", "gives a little back every turn")
+def _aqua_ring():
+    f = Fight(ours("milotic", "__none__",
+                   ("aquaring", "surf", "recover", "protect"),
+                   None, "serious", (32, 0, 32, 0, 2, 0)),
+              [mon("garchomp", "__none__",
+                   ("earthquake", "dragonclaw", "firefang", "stoneedge"),
+                   None, "jolly", (0, 32, 2, 0, 0, 32))])
+    f.turn(Action.move(1), Action.move(0))     # take a hit to leave room
+    f.turn(Action.move(0), Action.move(3))     # the ring goes up
+    up = "aquaring" in f.volatiles(0)
+    hurt = f.hp(0)
+    f.turn(Action.move(3), Action.move(3))     # Protect, so only the ring acts
+    return (up and f.hp(0) > hurt,
+            f"volatile={up}, {hurt} -> {f.hp(0)} of {f.max_hp(0)}")
+
+
+@check("attract", "an opposite-gender target sometimes cannot act")
+def _attract():
+    f = _until(lambda seed: Fight(
+        [PokemonSet(species="clefable", ability="__none__", gender="F",
+                    moves=("attract", "moonblast", "protect", "splash"),
+                    item=None, nature="timid", sp=(32, 0, 32, 0, 2, 32))],
+        # Both genders stated: a set that does not say leaves the engine with
+        # "unknown", and Attract refuses that rather than guessing -- which
+        # reads exactly like the move doing nothing.
+        [PokemonSet(species="snorlax", ability="__none__", gender="M",
+                    moves=("bodyslam", "splash", "rest", "protect"),
+                    item=None, nature="serious", sp=(32, 0, 32, 0, 2, 0))], seed)
+        .turn(Action.move(0), Action.move(1)),
+        lambda f: "attract" in f.volatiles(1))
+    if f is None:
+        return False, "the volatile never appeared -- genders may be fixed"
+    refused = 0
+    for _ in range(8):
+        if f.state.phase.name != "BATTLE":
+            break
+        f.turn(Action.move(2), Action.move(0))
+        refused += f.said("cant_move")
+    return (refused > 0, f"infatuated, and refused to act {refused} times in 8")
+
+
+@check("block", "the target cannot leave")
+def _block():
+    from pkcm.engine.state import legal_actions
+    f = Fight(ours("dusknoir", "__none__",
+                   ("block", "shadowsneak", "protect", "splash")),
+              [dummy("magikarp")])
+    f.turn(Action.move(0), Action.move(0))
+    switches = [one for one in legal_actions(f.state, 1)
+                if str(one).startswith("switch")]
+    return (not switches,
+            f"they are still offered {len(switches)} switches; "
+            f"volatiles {sorted(f.volatiles(1))}")
+
+
+@check("meanlook", "the target cannot leave")
+def _mean_look():
+    from pkcm.engine.state import legal_actions
+    f = Fight(ours("gengar", "__none__",
+                   ("meanlook", "shadowball", "protect", "splash")),
+              [dummy("magikarp")])
+    f.turn(Action.move(0), Action.move(0))
+    switches = [one for one in legal_actions(f.state, 1)
+                if str(one).startswith("switch")]
+    return (not switches, f"they are still offered {len(switches)} switches")
+
+
+@check("copycat", "uses whatever was used last")
+def _copycat():
+    f = Fight(ours("clefable", "__none__",
+                   ("copycat", "moonblast", "protect", "splash"),
+                   None, "serious", (32, 0, 32, 0, 2, 0)),
+              [mon("snorlax", "__none__",
+                   ("swordsdance", "bodyslam", "rest", "protect"),
+                   None, "serious", (32, 0, 32, 0, 2, 32))])
+    f.turn(Action.move(0), Action.move(0))     # they dance, we copy it
+    return (f.boosts(0).get("atk") == 2,
+            f"our boosts {f.boosts(0) or 'none'} after copying Swords Dance")
+
+
+@check("covet", "takes the item off whatever it hits")
+def _covet():
+    f = _until(lambda seed: Fight(
+        ours("kangaskhan", "__none__",
+             ("covet", "bodyslam", "suckerpunch", "protect"),
+             None, "jolly", (0, 32, 2, 0, 0, 32)),
+        [mon("snorlax", "__none__",
+             ("splash", "bodyslam", "rest", "protect"),
+             "leftovers", "serious", (32, 0, 32, 0, 2, 0))], seed)
+        .turn(Action.move(0), Action.move(0)),
+        lambda f: f.damage("covet") > 0)
+    if f is None:
+        return False, "never connected in ten tries"
+    return (f.item(1) is None and f.item(0) == "leftovers",
+            f"we hold {f.item(0)}, they hold {f.item(1)}")
+
+
+@check("pluck", "eats the berry the target was holding")
+def _pluck():
+    f = _until(lambda seed: Fight(
+        ours("staraptor", "__none__",
+             ("pluck", "bravebird", "uturn", "protect"),
+             None, "jolly", (0, 32, 2, 0, 0, 32)),
+        [mon("snorlax", "__none__",
+             ("splash", "bodyslam", "rest", "protect"),
+             "sitrusberry", "serious", (32, 0, 32, 0, 2, 0))], seed)
+        .turn(Action.move(0), Action.move(0)),
+        lambda f: f.damage("pluck") > 0)
+    if f is None:
+        return False, "never connected in ten tries"
+    return (f.item(1) is None, f"they still hold {f.item(1)}")
+
+
+@check("electroball", "hits harder the more Speed the user has over the target")
+def _electro_ball():
+    fast, slow = _power_ratio(
+        "electroball",
+        dict(species="pikachu", ability="__none__",
+             moves=("electroball", "thunderbolt", "protect", "splash"),
+             nature="timid", sp=(0, 0, 2, 32, 0, 32)),
+        dict(species="snorlax", ability="__none__",
+             moves=("splash", "bodyslam", "rest", "protect"),
+             nature="serious", sp=(32, 0, 32, 0, 2, 0)),
+        dict(species="snorlax", ability="__none__",
+             moves=("splash", "bodyslam", "rest", "protect"),
+             nature="serious", sp=(32, 0, 32, 0, 2, 32)))
+    return (fast > slow,
+            f"against a slow target {fast}, against a faster one {slow}")
+
+
+@check("gyroball", "hits harder the slower the user is")
+def _gyro_ball():
+    def dealt(our_speed):
+        f = Fight(ours("ferrothorn", "__none__",
+                       ("gyroball", "leechseed", "protect", "spikes"),
+                       None, "brave", (0, 32, 2, 0, 0, our_speed)),
+                  [mon("snorlax", "__none__",
+                       ("splash", "bodyslam", "rest", "protect"),
+                       None, "jolly", (32, 0, 32, 0, 2, 32))])
+        f.turn(Action.move(0), Action.move(0))
+        return f.damage("gyroball")
+    crawling = dealt(0)
+    quicker = dealt(32)
+    return (crawling > quicker,
+            f"at rock bottom Speed {crawling}, with Speed invested {quicker}")
+
+
+@check("endure", "survives on one hit point")
+def _endure():
+    f = Fight(ours("magikarp", "__none__",
+                   ("endure", "splash", "tackle", "flail")),
+              [mon("garchomp", "__none__",
+                   ("earthquake", "dragonclaw", "firefang", "stoneedge"),
+                   None, "jolly", (0, 32, 2, 0, 0, 32))])
+    f.turn(Action.move(0), Action.move(0))
+    return (f.hp(0) == 1 and f.state.phase.name == "BATTLE",
+            f"we are on {f.hp(0)} hit points, phase {f.state.phase.name}")
+
+
+@check("flail", "hits hardest when the user is nearly gone")
+def _flail():
+    def dealt(fraction):
+        f = Fight(ours("magikarp", "__none__",
+                       ("flail", "splash", "tackle", "bounce"),
+                       None, "adamant", (0, 32, 2, 0, 0, 32)),
+                  [wall()])
+        slot = f.state.sides[0].active[0]
+        f.state.sides[0].hp[slot] = max(1, f.state.sides[0].hp[slot] // fraction)
+        f.turn(Action.move(0), Action.move(0))
+        return f.damage("flail")
+    healthy = dealt(1)
+    dying = dealt(20)
+    return (dying > healthy,
+            f"at full health {healthy}, at a twentieth {dying}")
+
+
+@check("eruption", "falls off as the user loses HP")
+def _eruption():
+    def dealt(hurt_first):
+        f = Fight(ours("typhlosion", "__none__",
+                       ("eruption", "flamethrower", "protect", "splash"),
+                       None, "modest", (32, 0, 2, 32, 0, 0)),
+                  [mon("archaludon", "__none__",
+                       ("splash", "flashcannon", "dragontail", "protect"),
+                       None, "sassy", (32, 0, 32, 0, 32, 0))])
+        if hurt_first:
+            slot = f.state.sides[0].active[0]
+            f.state.sides[0].hp[slot] //= 4
+        f.turn(Action.move(0), Action.move(0))
+        return f.damage("eruption")
+    healthy = dealt(False)
+    hurt = dealt(True)
+    return (healthy > hurt * 1.5,
+            f"at full health {healthy}, at a quarter {hurt}")
+
+
+@check("heatcrash", "hits harder the heavier the user is next to the target")
+def _heat_crash():
+    def dealt(species):
+        f = Fight(ours("snorlax", "__none__",       # 460 kg
+                       ("heatcrash", "bodyslam", "rest", "protect"),
+                       None, "adamant", (0, 32, 2, 0, 0, 0)),
+                  [mon(species, "__none__",
+                       ("splash", "tackle", "rest", "protect"),
+                       None, "serious", (32, 0, 32, 0, 2, 0))])
+        f.turn(Action.move(0), Action.move(0))
+        return f.damage("heatcrash")
+    # Two pure Water types, so the type chart says the same thing to both and
+    # the only difference left is the weight ratio. Against a 60 kg Archaludon
+    # the ratio was still over five, which is the cap -- so both arms were at
+    # 120 power and what the numbers showed was Fire against Steel.
+    feather = dealt("magikarp")     # 10 kg: ratio 46, the cap
+    whale = dealt("wailord")        # 398 kg: ratio 1.16, the floor
+    return (feather > whale,
+            f"against 10 kg {feather}, against 398 kg {whale}")
+
+
+@check("gastroacid", "switches the target's ability off")
+def _gastro_acid():
+    from pkcm.engine.battle import make_context
+    f = Fight(ours("gengar", "__none__",
+                   ("gastroacid", "shadowball", "protect", "splash")),
+              [mon("snorlax", "thickfat",
+                   ("splash", "bodyslam", "rest", "protect"),
+                   None, "serious", (32, 0, 32, 0, 2, 0))])
+    f.turn(Action.move(0), Action.move(0))
+    ability = make_context(f.state).ability_of((1, f.state.sides[1].active[0]))
+    return (ability is None or ability == "",
+            f"their ability reads {ability!r}, "
+            f"volatiles {sorted(f.volatiles(1))}")
+
+
+@check("gravity", "pulls a Flying type down where Ground can reach it")
+def _gravity():
+    f = Fight(ours("clefable", "__none__",
+                   ("gravity", "moonblast", "protect", "splash"),
+                   None, "timid", (32, 0, 32, 0, 2, 32))
+              + [mon("garchomp", "__none__",
+                     ("earthquake", "dragonclaw", "protect", "splash"),
+                     None, "jolly", (0, 32, 2, 0, 0, 32))],
+              [mon("corviknight", "__none__",
+                   ("roost", "irondefense", "bodypress", "uturn"),
+                   None, "impish", (32, 0, 32, 0, 2, 0))])
+    f.turn(Action.move(0), Action.move(0))
+    up = "gravity" in f.state.field.rooms
+    f.turn(Action.switch(1), Action.move(0))
+    f.turn(Action.move(0), Action.move(0))
+    return (up and f.damage("earthquake") > 0,
+            f"gravity up={up}, Earthquake then took {f.damage('earthquake')}")
+
+
+@check("magnetrise", "floats out of Ground's reach")
+def _magnet_rise():
+    f = Fight(ours("archaludon", "__none__",
+                   ("magnetrise", "flashcannon", "protect", "splash"),
+                   None, "sassy", (32, 0, 32, 0, 32, 0)),
+              [mon("garchomp", "__none__",
+                   ("earthquake", "dragonclaw", "firefang", "stoneedge"),
+                   None, "jolly", (0, 32, 2, 0, 0, 32))])
+    f.turn(Action.move(0), Action.move(3))
+    up = "magnetrise" in f.volatiles(0)
+    f.turn(Action.move(3), Action.move(0))     # they try Earthquake
+    return (up and f.said("immune"),
+            f"volatile={up}, Earthquake was refused={f.said('immune')}")
+
+
+@check("healbell", "clears the status off the whole party")
+def _heal_bell():
+    f = Fight(ours("clefable", "__none__",
+                   ("healbell", "moonblast", "protect", "splash"),
+                   None, "timid", (32, 0, 32, 0, 2, 32)),
+              [dummy("magikarp")])
+    f.state.sides[0].status[f.state.sides[0].active[0]] = "brn"
+    f.state.sides[0].status[1] = "par"
+    f.turn(Action.move(0), Action.move(0))
+    return (f.status(0) is None and f.state.sides[0].status[1] is None,
+            f"active {f.status(0)}, the one on the bench "
+            f"{f.state.sides[0].status[1]}")
+
+
+@check("healpulse", "heals whoever it is aimed at")
+def _heal_pulse():
+    f = Fight(ours("clefable", "__none__",
+                   ("healpulse", "moonblast", "protect", "splash"),
+                   None, "timid", (32, 0, 32, 0, 2, 32)),
+              [mon("snorlax", "__none__",
+                   ("splash", "bodyslam", "rest", "protect"),
+                   None, "serious", (32, 0, 32, 0, 2, 0))])
+    slot = f.state.sides[1].active[0]
+    f.state.sides[1].hp[slot] //= 3
+    hurt = f.hp(1)
+    f.turn(Action.move(0), Action.move(0))
+    return (f.hp(1) > hurt, f"they were on {hurt}, now {f.hp(1)}")
+
+
+@check("imprison", "seals the moves both sides carry")
+def _imprison():
+    from pkcm.engine.state import legal_actions
+    f = Fight(ours("gengar", "__none__",
+                   ("imprison", "shadowball", "protect", "splash")),
+              [mon("snorlax", "__none__",
+                   ("shadowball", "bodyslam", "rest", "protect"),
+                   None, "serious", (32, 0, 32, 0, 2, 0))])
+    f.turn(Action.move(0), Action.move(1))
+    offered = {one.index for one in legal_actions(f.state, 1)
+               if str(one).startswith("move")}
+    return (0 not in offered,
+            f"Shadow Ball is their move 0, and they are offered "
+            f"{sorted(offered)}")
+
+
+@check("lockon", "the next move cannot miss")
+def _lock_on():
+    f = Fight(ours("magikarp", "__none__",
+                   ("lockon", "sheercold", "splash", "tackle")),
+              [dummy("snorlax")])
+    f.turn(Action.move(0), Action.move(0))
+    return ("lockon" in f.volatiles(0) or "lockedon" in f.volatiles(1),
+            f"ours {sorted(f.volatiles(0))}, theirs {sorted(f.volatiles(1))}")
+
+
+@check("magicroom", "held items stop working")
+def _magic_room():
+    f = Fight(ours("clefable", "__none__",
+                   ("magicroom", "moonblast", "protect", "splash"),
+                   None, "timid", (32, 0, 32, 0, 2, 32)),
+              [dummy("magikarp")])
+    f.turn(Action.move(0), Action.move(0))
+    return ("magicroom" in f.state.field.rooms,
+            f"the rooms up are {sorted(f.state.field.rooms) or 'none'}")
+
+
+@check("noretreat", "raises everything and pins the user down")
+def _no_retreat():
+    from pkcm.engine.state import legal_actions
+    f = Fight(ours("falinks", "__none__",
+                   ("noretreat", "closecombat", "protect", "splash"),
+                   None, "adamant", (32, 32, 2, 0, 0, 0)),
+              [dummy("magikarp")])
+    f.turn(Action.move(0), Action.move(0))
+    got = f.boosts(0)
+    switches = [one for one in legal_actions(f.state, 0)
+                if str(one).startswith("switch")]
+    return (all(got.get(stat) == 1 for stat in
+                ("atk", "def", "spa", "spd", "spe")) and not switches,
+            f"boosts {got or 'none'}, switches still offered {len(switches)}")
+
+
+@check("powertrick", "swaps the user's Attack and Defence")
+def _power_trick():
+    f = Fight(ours("shuckle", "__none__",
+                   ("powertrick", "protect", "splash", "tackle"),
+                   None, "serious", (32, 0, 32, 0, 32, 0)),
+              [dummy("magikarp")])
+    f.turn(Action.move(0), Action.move(0))
+    return ("powertrick" in f.volatiles(0),
+            f"our volatiles {sorted(f.volatiles(0))}")
+
+
+@check("powertrip", "grows with the user's own stat stages")
+def _power_trip():
+    def dealt(boosted):
+        f = Fight(ours("kingambit", "__none__",
+                       ("powertrip", "swordsdance", "protect", "splash"),
+                       None, "adamant", (0, 32, 2, 0, 0, 0)),
+                  [wall()])
+        if boosted:
+            f.turn(Action.move(1), Action.move(0))
+            f.turn(Action.move(1), Action.move(0))
+        f.turn(Action.move(0), Action.move(0))
+        return f.damage("powertrip")
+    flat = dealt(False)
+    stacked = dealt(True)
+    return (stacked > flat * 1.5,
+            f"with no stages {flat}, after two Swords Dances {stacked}")
+
+
 # --------------------------------------------------------------------------- #
 
 

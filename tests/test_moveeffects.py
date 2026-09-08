@@ -1605,3 +1605,16 @@ def test_attract_needs_opposite_and_known_genders(dex):
     assert not lands(male, one("magnezone", ("tackle",))), "genderless"
     assert not lands(one("snorlax", ("attract", "tackle")),
                      one("nidoqueen", ("tackle",), "F")), "our gender unknown"
+
+
+def test_no_retreat_raises_each_stat_once(dex, config):
+    """It declares its five stages in the data *and* had a handler applying
+    them, so every one of them came out at two. Scale Shot's double-apply in
+    a different move; Stockpile's handler is right to boost because Stockpile
+    declares nothing."""
+    state = build(config, a_set("falinks", "defiant", ("noretreat",)),
+                  a_set("snorlax", "thickfat", ("splash",)))
+    state, _ = step(state, Action.move(0), Action.move(0))
+    for stat in ("atk", "def", "spa", "spd", "spe"):
+        assert state.sides[0].boost(0, stat) == 1, stat
+    assert state.sides[0].has_volatile(0, "trapped"), "and it is pinned down"

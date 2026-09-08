@@ -724,6 +724,63 @@ def _secondaries():
     return _delegate("secondary")
 
 
+@family("critstages", "chance for a critical hit by")
+def _crit_stages():
+    """A crit-ratio stage is not a stat stage, and the family below cannot
+    tell the difference: the sentence matched "Raises the ... by N stages" and
+    was claimed by a check that measures declared ``boosts``. Dragon Cheer was
+    handing out Focus Energy's two to everyone because of it.
+
+    Stages here are 1/24, 1/8, 1/2, always -- so the rate names the stage.
+    """
+    want = {"focusenergy": [("snorlax", 0.5)],
+            "dragoncheer": [("snorlax", 0.125), ("garchomp", 0.5)]}
+    rows = []
+    for move_id in members("critstages"):
+        off = []
+        for species, share in want[move_id]:
+            crits = hits = 0
+            for seed in range(120):
+                if move_id == "focusenergy":
+                    f = Fight([mon(species, "__none__",
+                                   (move_id, "bodyslam", "protect", "rest"),
+                                   None, "adamant", (32, 32, 0, 0, 2, 32))],
+                              [wall("blissey" if "blissey" in DEX.species
+                                    else "snorlax")], seed=seed)
+                    f.turn(Action.move(0), Action.move(0))
+                    f.turn(Action.move(1), Action.move(0))
+                    landed_hits = [e for e in f.log if e.kind == "damage"
+                                   and (e.side or 0) == 1
+                                   and e.move == "bodyslam"]
+                else:
+                    ours = [mon(UNIVERSAL, "__none__",
+                                (move_id, "splash", "protect", "rest"), None,
+                                "serious", (32, 0, 32, 0, 2, 32)),
+                            mon(species, "__none__",
+                                ("bodyslam", "splash", "protect", "rest"),
+                                None, "adamant", (32, 32, 0, 0, 2, 0))]
+                    theirs = [wall("blissey" if "blissey" in DEX.species
+                                   else "snorlax")] * 2
+                    f = Pair(ours, theirs, seed=seed)
+                    f.turn((Action.move(0, target=TARGET_ALLY),
+                            Action.move(0, target=0)),
+                           (Action.move(0), Action.move(0)))
+                    landed_hits = [e for e in f.log if e.kind == "damage"
+                                   and (e.side or 0) == 1
+                                   and e.move == "bodyslam"]
+                hits += len(landed_hits)
+                crits += sum(1 for e in landed_hits if e.crit)
+            rate = crits / hits if hits else 0.0
+            slack = max(0.08, 3 * (share * (1 - share) / max(1, hits)) ** 0.5)
+            if abs(rate - share) > slack:
+                off.append(f"{species}: {crits} of {hits} critical "
+                           f"({rate:.0%}) against the {share:.0%} that stage "
+                           f"gives")
+        rows.append((move_id, not off, "; ".join(off) or
+                     "the stage the sentence names, counted"))
+    return verdict(rows)
+
+
 @family("declaredboosts", "Lowers the ", "Raises the ", "Raises a ")
 def _declared_boosts():
     """Every "Raises/Lowers the ... by N stages" sentence."""

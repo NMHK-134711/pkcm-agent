@@ -390,15 +390,33 @@ register("volatile", "stockpile", name="Stockpile")
 
 @special("focusenergy", "dragoncheer")
 def _focus_energy(ctx, user, target, move) -> bool:
+    """Focus Energy on the user, Dragon Cheer on the ally -- and they are not
+    the same size. Dragon Cheer "raises the target's chance for a critical hit
+    by 1 stage, or by 2 stages if the target is Dragon type", and it was
+    handing out Focus Energy's flat two to everyone: a cheered Snorlax crit 22
+    times in 40 where it should crit one in eight.
+    """
     who = user if move.id == "focusenergy" else target
-    if "focusenergy" in _volatiles(ctx, who):
+    held = _volatiles(ctx, who)
+    if "focusenergy" in held or "dragoncheer" in held:
         return _fail(ctx, user, "already focused")
-    return mutate.add_volatile(ctx, who, "focusenergy")
+    name = "focusenergy" if move.id == "focusenergy" else "dragoncheer"
+    return mutate.add_volatile(ctx, who, name)
 
 
 register("volatile", "focusenergy", name="Focus Energy",
          modify_crit_ratio=lambda ctx, ref, value, attacker, defender, move, **_:
              value + 2 if ref == attacker else None)
+
+
+def _dragon_cheer_crit(ctx, ref, value, attacker, defender, move, **_):
+    if ref != attacker:
+        return None
+    return value + (2 if "dragon" in ctx.state.types(*attacker) else 1)
+
+
+register("volatile", "dragoncheer", name="Dragon Cheer",
+         modify_crit_ratio=_dragon_cheer_crit)
 
 
 # --------------------------------------------------------------------------- #

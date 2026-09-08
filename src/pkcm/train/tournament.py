@@ -23,6 +23,7 @@ that beats this field.
 from __future__ import annotations
 
 import os
+import random
 from dataclasses import dataclass, field
 from typing import Iterator, Sequence
 
@@ -81,16 +82,51 @@ class Standing:
         return self.wins / self.decided if self.decided else 0.0
 
 
-def fixtures(entrants: Sequence[int], repeats: int) -> list[tuple[int, int, int]]:
+def fixtures(entrants: Sequence[int], repeats: int,
+             opponents: int | None = None,
+             seed: int = 20260909) -> list[tuple[int, int, int]]:
     """Every unordered pair, ``repeats`` times each.
 
     Mirrors are left out: a team against itself is 50% by construction and
     would only dilute the interval.
+
+    With ``opponents`` set, each entrant meets about that many of the others
+    instead of all of them. What the full field buys over a sample was
+    measured on the 253-party run: half the games loses two or three of the
+    top ten, so this is not slack being cut -- it is buying a *shortlist*
+    rather than a ranking, which is all the floor run downstream needs. At
+    full budget the first party is only separable from the ninth, so the
+    ranking was never finer than that anyway.
+
+    The subgraph is drawn from ``seed`` alone, so two machines sharing one
+    output file generate the same one and their halves still join up.
     """
-    return [(a, b, r)
-            for i, a in enumerate(entrants)
-            for b in entrants[i + 1:]
-            for r in range(repeats)]
+    pairs = [(a, b)
+             for i, a in enumerate(entrants)
+             for b in entrants[i + 1:]]
+    if opponents is not None and opponents < len(entrants) - 1:
+        # Greedy over a shuffled edge list: take a pair while both sides still
+        # want one. Close enough to regular, and every entrant is reachable --
+        # a party nobody played would have no win rate at all.
+        degree = {one: 0 for one in entrants}
+        random.Random(seed).shuffle(pairs)
+        kept = []
+        for a, b in pairs:
+            if degree[a] >= opponents or degree[b] >= opponents:
+                continue
+            degree[a] += 1
+            degree[b] += 1
+            kept.append((a, b))
+        # The tail comes out short -- at 60 of 252 the degrees run 51 to 60,
+        # because the last entrants' partners filled up first. A second sweep
+        # picks up nothing, since every pair left has a saturated end, and a
+        # real matching is not worth writing: 51 opponents is 204 games
+        # against 240, which is a standard error of 3.5% against 3.2%.
+        starved = [one for one, count in degree.items() if count == 0]
+        if starved:
+            raise ValueError(f"{len(starved)} entrants drew no opponent at all")
+        pairs = sorted(kept)
+    return [(a, b, r) for a, b in pairs for r in range(repeats)]
 
 
 def play_fixture(dex: Dex, parties: Sequence[Party], config: TournamentConfig,

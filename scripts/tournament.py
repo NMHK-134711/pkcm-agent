@@ -48,6 +48,14 @@ def main() -> int:
 
     parser = argparse.ArgumentParser(description=__doc__,
                                      formatter_class=argparse.RawDescriptionHelpFormatter)
+    parser.add_argument("--opponents", type=int, default=None,
+                        help="play about this many of the other entrants "
+                             "instead of all of them. The 253-party run "
+                             "resolves the first party only from the ninth, "
+                             "so a full field buys a shortlist rather than a "
+                             "ranking; this buys the same shortlist for less. "
+                             "The subgraph is seeded, so two machines sharing "
+                             "one --out draw the same one")
     parser.add_argument("--repeats", type=int, default=6,
                         help="battles per pair per seating. Every entrant "
                              "plays 2 x repeats x (field - 1) games")
@@ -113,7 +121,7 @@ def main() -> int:
                             preview_iterations=args.preview_iterations,
                             evaluation=args.evaluation,
                             determinizations=max(4, iterations // 20)))
-    schedule = fixtures(entrants, args.repeats)
+    schedule = fixtures(entrants, args.repeats, args.opponents)
     workers = args.workers if args.workers is not None else default_workers()
     games = len(schedule) * 2
     print(f"{len(entrants)} parties, {len(schedule)} fixtures, {games} games "

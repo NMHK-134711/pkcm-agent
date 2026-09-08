@@ -390,11 +390,33 @@ hk의 목표는 "웬만한 파티에 대응방법이 있는, 저점이 높은 �
 
 ## 4. 그 다음 — 검사가 끝나면
 
-1. 253파티 라운드로빈 재실행 (`§5`의 명령, 두 기계 26시간)
-2. `python scripts/field_report.py runs/field_rr_800_v2.json` — 저점 집계와 반분 검증
+1. 라운드로빈 재실행. **전체가 아니라 `--opponents 60`** — 아래를 읽을 것.
+   개인PC 혼자 7.3시간, `runs/field_rr_sub60.json` (09-09 진행 중)
+2. `python scripts/field_report.py runs/field_rr_sub60.json` — 저점 집계와 반분 검증
 3. 변화기 상관이 얼마나 남는지 본다. 그게 말단 평가에 대한 깨끗한 질문이 된다
 4. `--evaluation pressure` / `blind` 절제 실험 (`8fccf6f`에서 플래그 추가됨).
    50파티 부분집합 명령은 `runs/eval_ablation_entrants.txt`에 있다
+
+### 전체 라운드로빈을 돌리지 말 것 — 26시간이 사는 게 없다
+
+완주한 v1로 실측했다. **이 측정이 만드는 건 순위가 아니라 후보군이다.**
+
+| 순위 | 통계적으로 분리되는 지점 |
+|---|---|
+| 1위 | 9위부터 — 사실상 "1~8위 중 하나" |
+| 5위 | 22위부터 |
+| 100위 | 171위부터 |
+
+반분 재현성도 같다. 절반씩(파티당 504게임) 독립으로 순위를 매기면 **상위 5개 중
+2개, 상위 10개 중 7개**만 겹친다.
+
+`--opponents 60`은 파티마다 60명씩만 만난다 — 15,156대진, 6~7시간, 그리고 전체
+결과의 상위 10개를 **7/10** 재현한다. 전체가 자기 자신을 재현하는 정확도와 같다.
+남은 20시간은 특정 동전던지기 한 벌과의 일치를 사는 데 쓰였을 뿐이다.
+
+부분그래프는 기계가 아니라 **고정 시드**에서 나오므로, 두 기계가 같은 `--out`을
+쓰면 같은 그래프를 자르고 `--reverse`로 마주볼 수 있다. **양쪽 다 `--opponents`를
+넣어야 한다** — 한쪽만 넣으면 다른 스케줄이라 마주보기가 성립하지 않는다.
 
 **저점(CVaR)은 라운드로빈으로 못 잰다.** 쌍당 4게임에서 "최악의 1/4"은 운으로
 채워진다 — 반분 검증으로 편향 **+39.6%p**를 실측했다(고른 게임으로 1.7%, 다른
@@ -420,7 +442,7 @@ python scripts/clause_check.py bigroot     # 한 계열만
 # 253파티 라운드로빈 (개인PC 19워커 분당 40대진, 랩실 10워커 분당 10대진)
 python scripts/tournament.py --parties data/champions/parties_field.json \
     --repeats 2 --search-iterations 800 --preview-iterations 3200 \
-    --workers <물리 코어> --out runs/field_rr_800_v2.json   # 랩실은 뒤에 --reverse
+    --opponents 60     --workers <물리 코어> --out runs/field_rr_sub60.json   # 두 번째 기계는 뒤에 --reverse
 ```
 
 두 기계가 스케줄 양 끝에서 마주보고 돌린다. `--reverse` 없이 둘이 같이 돌리면

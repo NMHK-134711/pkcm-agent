@@ -266,9 +266,17 @@ def _needs_own_type(type_name: str):
 
 #: Moves that refuse to run under some condition, checked before PP is spent.
 #: The string is the reason, and it reaches the log.
+def _needs_a_stockpile(ctx: Context, attacker: Ref, move: Move) -> str | None:
+    """Spit Up spent nothing and reported success on an empty stomach."""
+    if mutate.volatile(ctx.state, attacker, "stockpile") is None:
+        return "nothing stockpiled"
+    return None
+
+
 MOVE_PRECONDITIONS: dict[str, Callable[[Context, Ref, Move], str | None]] = {
     "steelroller": _needs_terrain,
     "burnup": _needs_own_type("Fire"),
+    "spitup": _needs_a_stockpile,
 }
 
 
@@ -398,8 +406,17 @@ def _last_resort_refusal(ctx: Context, attacker: Ref, defender: Ref,
 #: the user has taken since it arrived. Unlike ``MOVE_PRECONDITIONS`` these
 #: run after the move was used, so a refusal still costs its PP, which is what
 #: happens in the game.
+def _needs_a_target_item(ctx: Context, attacker: Ref, defender: Ref,
+                        move: Move) -> str | None:
+    """Poltergeist: "Fails if the target has no held item", and it did not."""
+    if ctx.item_of(defender) is None:
+        return "the target is holding nothing"
+    return None
+
+
 LATE_REFUSALS: dict[
     str, Callable[[Context, Ref, Ref, Move], str | None]] = {
+    "poltergeist": _needs_a_target_item,
     "suckerpunch": _sucker_punch_refusal,
     "upperhand": _upper_hand_refusal,
     "fakeout": _first_turn_out,
@@ -1799,21 +1816,33 @@ def _apply_field_effects(ctx: Context, attacker: Ref, target: Ref, move: Move) -
 
     weather = raw.get("weather")
     if weather:
-        set_weather(ctx, _to_id(weather), attacker)
-        changed = True
+        # "Fails if the current weather is Rain Dance" -- ``set_weather`` has
+        # always answered that and the answer was thrown away, so re-setting
+        # the weather you already had was a free refresh rather than a wasted
+        # turn. The same for terrain, and for the rooms below.
+        changed |= set_weather(ctx, _to_id(weather), attacker)
 
     terrain = raw.get("terrain")
     if terrain:
-        set_terrain(ctx, _to_id(terrain), attacker)
-        changed = True
+        changed |= set_terrain(ctx, _to_id(terrain), attacker)
 
     pseudo = raw.get("pseudoWeather")
     if pseudo:
         # Five was a guess that happens to be right for Trick Room and wrong
         # for Fairy Lock, whose own condition says two.
+        from pkcm.engine.moveeffects import TOGGLE_ROOMS
+
         turns = (raw.get("condition") or {}).get("duration", 5)
-        ctx.state.field.rooms[_to_id(pseudo)] = turns
-        ctx.emit(Event("room_start", detail=_to_id(pseudo)))
+        name = _to_id(pseudo)
+        if name in TOGGLE_ROOMS:
+            # Those three own their own field change -- using one while it is
+            # up ends it -- and this path was putting it straight back, so no
+            # room could ever be switched off.
+            return changed
+        if name in ctx.state.field.rooms:
+            return changed              # "Fails if this move is already in effect"
+        ctx.state.field.rooms[name] = turns
+        ctx.emit(Event("room_start", detail=name))
         changed = True
 
     condition = raw.get("sideCondition")

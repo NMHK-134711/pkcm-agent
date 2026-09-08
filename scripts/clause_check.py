@@ -592,6 +592,281 @@ def _sticky_hold():
     return verdict(rows)
 
 
+
+def _delegate(name):
+    """Re-run ``mechanic_check``'s own measurement for every member move.
+
+    Not a shortcut: those probes cast the move two hundred times and count.
+    What is added here is refusing the "[inconclusive]" that used to pass.
+    """
+    rows = []
+    for move_id in members(name):
+        entry = mc.CHECKS.get(move_id)
+        if entry is None:
+            rows.append((move_id, False, "no check written"))
+            continue
+        try:
+            ok, detail = entry[1]()
+        except Exception as error:
+            ok, detail = False, f"{type(error).__name__}: {error}"
+        blind = "[inconclusive]" in str(detail)
+        rows.append((move_id, bool(ok) and not blind,
+                     ("unmeasured: " if blind else "") + str(detail)[:90]))
+    return verdict(rows)
+
+
+@family("secondary", "Has a ")
+def _secondaries():
+    """Every "Has a N% chance to ..." sentence, at the rate the data gives."""
+    return _delegate("secondary")
+
+
+@family("declaredboosts", "Lowers the ", "Raises the ", "Raises a ")
+def _declared_boosts():
+    """Every "Raises/Lowers the ... by N stages" sentence."""
+    return _delegate("declaredboosts")
+
+
+@family("drainfraction", "The user recovers ")
+def _drain_fraction():
+    """Half of what it took, or three quarters for Draining Kiss."""
+    rows = []
+    for move_id in members("drainfraction"):
+        want = DEX.moves[move_id].raw.get("drain")
+        if not want:
+            rows.append((move_id, False, "the description drains and the data does not"))
+            continue
+        f = until(lambda seed, move_id=move_id: Fight(
+            [swinger(move_id)], [wall(mc._reachable(DEX.moves[move_id]))], seed=seed),
+            lambda f: True)
+        slot = f.state.sides[0].active[0]
+        f.state.sides[0].hp[slot] = 1
+        f.turn(Action.move(0), Action.move(0))
+        dealt, back = hp_lost(f), f.hp(0) - 1
+        share = want[0] / want[1]
+        rows.append((move_id, dealt > 0 and abs(back - round(dealt * share)) <= 1,
+                     f"took {dealt}, gave back {back}, the data says "
+                     f"{want[0]}/{want[1]} = {round(dealt * share)}"))
+    return verdict(rows)
+
+
+@family("noeffect", "No additional effect.")
+def _no_additional_effect():
+    """It hits, and nothing else happens: no status, no stage, no volatile."""
+    ignore = {"movesused", "moveactions", "lastmove", "lastmovefailed",
+              "tookdamagethisturn", "hurtthisturn"}
+    rows = []
+    for move_id in members("noeffect"):
+        move = DEX.moves[move_id]
+        declared = [key for key in ("boosts", "status", "volatileStatus",
+                                    "secondary", "secondaries", "self",
+                                    "sideCondition", "weather", "terrain",
+                                    "heal", "drain", "recoil", "forceSwitch",
+                                    "selfSwitch")
+                    if move.raw.get(key)]
+        f = until(lambda seed, move=move: _cast_once(move, seed),
+                  lambda f: landed(f, f.under_test))
+        if f is None:
+            rows.append((move_id, False, "never connected in thirty tries"))
+            continue
+        left = (set(f.volatiles(1)) | set(f.volatiles(0))) - ignore
+        rows.append((move_id,
+                     not declared and not left and f.status(1) is None
+                     and not f.boosts(1) and not f.boosts(0),
+                     f"declares {declared or 'nothing'}; afterwards "
+                     f"status={f.status(1)}, boosts={f.boosts(1) or None}/"
+                     f"{f.boosts(0) or None}, volatiles={sorted(left) or 'none'}"))
+    return verdict(rows)
+
+
+def _cast_once(move, seed):
+    f = Fight([swinger(move.id)], [wall(mc._reachable(move))], seed=seed)
+    f.under_test = move.id
+    f.turn(Action.move(0), Action.move(0))
+    return f
+
+
+
+def failed(f, side=0):
+    """Whether the move the side just used reported failure."""
+    if any(e.kind == "move_failed" and (e.side or 0) == side for e in f.log):
+        return True
+    volatiles = f.state.sides[side].volatiles[f.state.sides[side].active[0]]
+    return bool(volatiles.get("lastmovefailed"))
+
+
+@family("roomtoggle", "If this move is used during the effect, the effect ends.")
+def _room_toggle():
+    """Trick, Magic and Wonder Room switch off; the declarative path put them
+    straight back, so none of the three could ever be switched off."""
+    rows = []
+    for move_id in members("roomtoggle"):
+        f = Fight([swinger(move_id)], [wall()], seed=7)
+        f.turn(Action.move(0), Action.move(0))
+        up = dict(f.state.field.rooms)
+        f.turn(Action.move(0), Action.move(0))
+        down = dict(f.state.field.rooms)
+        rows.append((move_id, move_id in up and move_id not in down,
+                     f"after one cast {up or 'nothing'}, after two "
+                     f"{down or 'nothing'}"))
+    return verdict(rows)
+
+
+@family("alreadyup",
+        "Fails if the effect is already active on the user's side.",
+        "Fails if the effect is already active on the opposing side.",
+        "Fails if the effect is already active.",
+        "Fails if this move is already in effect for the user's side.",
+        "Fails if this move is already in effect for the user's position.",
+        "Fails if this move is already in effect.",
+        "Fails if this effect is active for the user.",
+        "Fails if the user already has the effect.",
+        "Fails if the current weather is",
+        "Fails if the current terrain is",
+        "Fails if the user is already under this effect",
+        "Fails if the user has already been prevented from switching by this "
+        "effect.")
+def _already_up():
+    """Cast it, then cast it again: the second one has to refuse."""
+    rows = []
+    for move_id in members("alreadyup"):
+        f = Fight([swinger(move_id)],
+                  [wall(mc._reachable(DEX.moves[move_id]))], seed=7)
+        f.turn(Action.move(0), Action.move(0))
+        first = failed(f)
+        f.turn(Action.move(0), Action.move(0))
+        again = failed(f)
+        rows.append((move_id, not first and again,
+                     f"the first cast failed={first}, the second={again}"))
+    return verdict(rows)
+
+
+@family("needsally", "Fails if there is no ally adjacent to the user",
+        "Fails if it is not a Double Battle or Battle Royal.",
+        "Fails if the user is the only Pokemon on its side.")
+def _needs_an_ally():
+    """Singles has nobody to point at, so every one of these must refuse."""
+    rows = []
+    for move_id in members("needsally"):
+        f = Fight([swinger(move_id)],
+                  [wall(mc._reachable(DEX.moves[move_id]))], seed=7)
+        f.turn(Action.move(0), Action.move(0))
+        rows.append((move_id, failed(f), f"failed in singles={failed(f)}"))
+    return verdict(rows)
+
+
+@family("firstturn", "Fails unless it is the user's first turn on the field.")
+def _first_turn_only():
+    rows = []
+    for move_id in members("firstturn"):
+        f = Fight([swinger(move_id)],
+                  [wall(mc._reachable(DEX.moves[move_id]))], seed=7)
+        f.turn(Action.move(0), Action.move(0))
+        first = failed(f)
+        f.turn(Action.move(0), Action.move(0))
+        later = failed(f)
+        rows.append((move_id, not first and later,
+                     f"on the first turn it failed={first}, on the second={later}"))
+    return verdict(rows)
+
+
+@family("needsasleep", "Fails if the user is not asleep.")
+def _needs_to_be_asleep():
+    rows = []
+    for move_id in members("needsasleep"):
+        awake = Fight([swinger(move_id)],
+                      [wall(mc._reachable(DEX.moves[move_id]))], seed=7)
+        awake.turn(Action.move(0), Action.move(0))
+        dozing = Fight([swinger(move_id)],
+                       [wall(mc._reachable(DEX.moves[move_id]))], seed=7)
+        side = dozing.state.sides[0]
+        side.status[side.active[0]] = "slp"
+        dozing.turn(Action.move(0), Action.move(0))
+        rows.append((move_id, failed(awake) and not failed(dozing),
+                     f"awake it failed={failed(awake)}, asleep={failed(dozing)}"))
+    return verdict(rows)
+
+
+@family("counterneedsahit",
+        "Fails if the user was not hit by an opposing Pokemon's physical attack "
+        "this turn.",
+        "Fails if the user was not hit by an opposing Pokemon's special attack "
+        "this turn.",
+        "Fails if the user was not hit by an opposing Pokemon's physical or "
+        "special attack this turn.")
+def _counter_needs_a_hit():
+    #: Mirror Coat answers special attacks, the other three physical ones.
+    kind = {"mirrorcoat": "shadowball"}
+    rows = []
+    for move_id in members("counterneedsahit"):
+        swing = kind.get(move_id, "bodyslam")
+
+        def bout(move_id=move_id):
+            return Fight(
+                [mon("wobbuffet", "__none__",
+                     (move_id, "splash", "protect", "rest"), None, "sassy",
+                     (32, 0, 32, 0, 32, 0))],
+                # Not a Weavile: Mirror Coat comes back Psychic and a Dark
+                # type is immune to it, which reads exactly like a refusal.
+                [mon("garchomp", "__none__", ("splash", swing, "protect", "rest"),
+                     None, "jolly", (0, 32, 2, 32, 0, 32))], seed=7)
+
+        quiet = bout()
+        quiet.turn(Action.move(0), Action.move(0))          # they Splash
+        hit = bout()
+        hit.turn(Action.move(0), Action.move(1))            # they swing
+        rows.append((move_id, failed(quiet) and not failed(hit),
+                     f"against Splash it failed={failed(quiet)}, against a "
+                     f"{swing}={failed(hit)}"))
+    return verdict(rows)
+
+
+@family("stockpilecount", "Fails if the user's Stockpile count is 0.",
+        "Fails if the user's Stockpile count is 3.")
+def _stockpile_count():
+    rows = []
+    for move_id in members("stockpilecount"):
+        empty = Fight([swinger(move_id, extra=("stockpile", "splash", "protect"))],
+                      [wall()], seed=7)
+        empty.turn(Action.move(0), Action.move(0))
+        full = Fight([swinger(move_id, extra=("stockpile", "splash", "protect"))],
+                     [wall()], seed=7)
+        slot = full.state.sides[0].active[0]
+        full.state.sides[0].hp[slot] //= 2      # Swallow needs room to heal
+        for _ in range(3):
+            full.turn(Action.move(1), Action.move(0))
+        full.turn(Action.move(0), Action.move(0))
+        if move_id == "stockpile":
+            rows.append((move_id, not failed(empty) and failed(full),
+                         f"from empty it failed={failed(empty)}, on three "
+                         f"layers={failed(full)}"))
+        else:
+            rows.append((move_id, failed(empty) and not failed(full),
+                         f"from empty it failed={failed(empty)}, on three "
+                         f"layers={failed(full)}"))
+    return verdict(rows)
+
+
+@family("needsanitem", "Fails if the target has no held item.",
+        "Fails if the user is not holding a Berry.",
+        "Fails if no active Pokemon is holding a Berry.")
+def _needs_an_item():
+    rows = []
+    for move_id in members("needsanitem"):
+        theirs = move_id == "poltergeist"
+        def cast(item, theirs=theirs, move_id=move_id):
+            f = Fight([swinger(move_id, item=None if theirs else item)],
+                      [wall(mc._reachable(DEX.moves[move_id]),
+                            item=item if theirs else None)], seed=7)
+            f.turn(Action.move(0), Action.move(0))
+            return failed(f)
+
+        rows.append((move_id, cast(None) and not cast("sitrusberry"),
+                     f"with nothing it failed={cast(None)}, with a berry="
+                     f"{cast('sitrusberry')}"))
+    return verdict(rows)
+
+
 # --------------------------------------------------------------------------- #
 # The report
 # --------------------------------------------------------------------------- #

@@ -958,6 +958,12 @@ def _teatime(ctx, user, target, move) -> bool:
 # --------------------------------------------------------------------------- #
 
 
+#: "If this move is used during the effect, the effect ends" -- the three
+#: rooms toggle, and Gravity does not: its own description says it fails when
+#: it is already up. Gravity was on this list and turned itself off.
+TOGGLE_ROOMS = frozenset({"trickroom", "magicroom", "wonderroom"})
+
+
 def _room(name: str):
     def handler(ctx, user, target, move) -> bool:
         rooms = ctx.state.field.rooms
@@ -985,9 +991,8 @@ def _steel_roller(ctx, user, target, move) -> bool:
     return True
 
 
-SPECIAL_MOVES["gravity"] = _room("gravity")
-SPECIAL_MOVES["magicroom"] = _room("magicroom")
-SPECIAL_MOVES["wonderroom"] = _room("wonderroom")
+for _toggling in TOGGLE_ROOMS:
+    SPECIAL_MOVES[_toggling] = _room(_toggling)
 
 #: Gravity steadies everyone's aim by a third (5/3 in Showdown).
 GRAVITY_ACCURACY = (5, 3)

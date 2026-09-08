@@ -530,7 +530,10 @@ IMPLEMENTED_SIDE_CONDITIONS = frozenset({"reflect", "lightscreen", "auroraveil",
 IMPLEMENTED_WEATHER = frozenset({"sunnyday", "raindance", "sandstorm", "snowscape"})
 IMPLEMENTED_TERRAIN = frozenset({"electricterrain", "grassyterrain", "mistyterrain",
                                  "psychicterrain"})
-#: Fairy Lock is here because ``_is_trapped`` reads it. The other rooms the
-#: engine understands -- Gravity, Magic Room, Wonder Room -- reach the field
-#: through handlers of their own in ``moveeffects`` and are claimed there.
-IMPLEMENTED_ROOMS = frozenset({"trickroom", "fairylock"})
+#: Gravity and Fairy Lock reach the field through the declarative path, and
+#: both are read from it: ``is_grounded`` and ``GRAVITY_ACCURACY`` for the one,
+#: ``_is_trapped`` for the other. The three that toggle -- Trick Room, Magic
+#: Room, Wonder Room -- own their own handlers in ``moveeffects`` and are
+#: claimed there. Gravity used to be one of those, which is how using it twice
+#: turned it off instead of failing.
+IMPLEMENTED_ROOMS = frozenset({"trickroom", "fairylock", "gravity"})

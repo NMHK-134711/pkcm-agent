@@ -2769,6 +2769,9 @@ _USER_SPECIES = {"burnup": "charizard"}
 #: What the target holds, for the moves that need it to do something specific.
 _TARGET_MOVES = {"upperhand": ("splash", "aquajet", "protect", "rest")}
 
+#: Poltergeist refuses a target with empty hands, so the probe has to fill them.
+_TARGET_ITEM = {"poltergeist": "leftovers"}
+
 #: Which of the target's moves it uses while the probe casts.
 _TARGET_MOVE = {"suckerpunch": 1, "upperhand": 1}
 
@@ -2802,7 +2805,7 @@ _SETUP = {
 def _bout(move, extra=("splash", "tackle", "protect"), target=None, seed=7):
     them = mon(target or _reachable(move), "__none__",
                _TARGET_MOVES.get(move.id, ("splash", "tackle", "protect", "rest")),
-               None, "serious", (32, 0, 32, 0, 2, 0))
+               _TARGET_ITEM.get(move.id), "serious", (32, 0, 32, 0, 2, 0))
     user = _swinger(move, (move.id,) + extra)
     species = _USER_SPECIES.get(move.id)
     if species is not None:

@@ -91,12 +91,33 @@ def force_switch(ctx: Context, target: Ref) -> bool:
     return True
 
 
-def self_switch(ctx: Context, user: Ref) -> bool:
+#: What a Baton Pass carries besides the stat stages. An allow-list rather
+#: than "everything the data does not mark ``noCopy``", because the volatiles
+#: dictionary also holds this engine's own bookkeeping -- the two-turn charge,
+#: the Protect counter, which move was used last -- and handing that to a
+#: different Pokemon makes states no rule describes. Every name here is one
+#: the game passes and this engine implements; ``test_tactics`` checks none of
+#: them is marked ``noCopy`` in the move data.
+PASSED_ON = frozenset({
+    "substitute", "ingrain", "aquaring", "magnetrise", "leechseed",
+    "confusion", "perishsong", "focusenergy", "healblock", "embargo",
+    "telekinesis", "powertrick", "gastroacid", "curse", "noretreat",
+})
+
+
+def self_switch(ctx: Context, user: Ref, move=None) -> bool:
     """U-turn and friends: the user leaves, and the player picks who replaces it.
 
     Marking ``must_switch`` is what makes the turn loop suspend -- the
     replacement has to be on the field before the opponent moves, which is the
     whole point of the move.
+
+    ``selfSwitch`` is not a flag. It is ``True`` for U-turn, ``'copyvolatile'``
+    for Baton Pass and ``'shedtail'`` for Shed Tail, and reading it as truthy
+    is what turned a Baton Pass into a U-turn that deals no damage: the stat
+    stages were wiped by the switch-out with nothing left to carry them. What
+    is passed is parked on the side, because the replacement is chosen in a
+    later decision and the passer's own copy is gone by then.
     """
     side = ctx.state.sides[user[0]]
     if not [slot for slot in side.living_slots() if slot not in side.active]:
@@ -104,6 +125,20 @@ def self_switch(ctx: Context, user: Ref) -> bool:
     position = side.position_of(user[1])
     if position is None:
         return False
+    kind = move.raw.get("selfSwitch") if move is not None else True
+    if kind in ("copyvolatile", "shedtail"):
+        volatiles = side.volatiles[user[1]]
+        # Shed Tail hands over the doll it just built and nothing else; the
+        # stat stages stay behind, which is the whole difference between it
+        # and a Baton Pass.
+        carried = (PASSED_ON if kind == "copyvolatile" else {"substitute"})
+        side.handover[position] = {
+            "move": move.id,
+            "boosts": list(side.boosts[user[1]]) if kind == "copyvolatile"
+            else [0] * len(side.boosts[user[1]]),
+            "volatiles": {name: value for name, value in volatiles.items()
+                          if name in carried},
+        }
     side.must_switch[position] = True
     ctx.emit(Event("self_switch", side=user[0], slot=user[1]))
     return True

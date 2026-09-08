@@ -82,6 +82,19 @@ def _heal_pulse(ctx, user, target, move) -> bool:
     return bool(heal(ctx, target, max_hp(ctx.state, target) // 2, reason=move.id))
 
 
+@special("partingshot")
+def _parting_shot(ctx, user, target, move) -> bool:
+    """Drop both attacking stats, then leave.
+
+    Showdown puts the drops in an ``onHit`` handler rather than a ``boosts``
+    field, so the declarative path found a status move with nothing to declare
+    and only the switch happened. It read as working from the outside because
+    the Pokemon most likely to be holding it is Incineroar, whose Intimidate
+    had already taken an Attack stage on the way in.
+    """
+    return bool(mutate.boost(ctx, target, {"atk": -1, "spa": -1}, source=user))
+
+
 @special("painsplit")
 def _pain_split(ctx, user, target, move) -> bool:
     """Both end on the average of the two current HP values."""

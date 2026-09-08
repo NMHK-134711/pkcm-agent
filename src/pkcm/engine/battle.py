@@ -132,6 +132,7 @@ def _resolve_team_preview(ctx: Context, choices: Choices) -> None:
         # slot 1 to position 1.
         side.active = list(range(positions))
         side.must_switch = [False] * positions
+        side.handover = [{} for _ in range(positions)]
         state.overrides[player].extend({} for _ in brought)
         ctx.emit(ev.team_preview(player, brought))
 
@@ -167,6 +168,11 @@ def _take_replacements(ctx: Context, choices: Choices) -> None:
             _leave_field(ctx, player, position)
             ctx.state.sides[player].active[position] = action.index
             ctx.state.sides[player].must_switch[position] = False
+            # This path does the three steps itself rather than calling
+            # ``switch_into``, because in doubles both replacements have to be
+            # standing before either greets the field. The handover belongs in
+            # both places: a Baton Pass is resolved here.
+            _take_handover(ctx, player, position)
             _announce_arrival(ctx, player, position)
             arrived.append((player, position))
 
@@ -341,8 +347,30 @@ def switch_into(ctx: Context, player: int, position: int, slot: int) -> None:
     """
     _leave_field(ctx, player, position)
     ctx.state.sides[player].active[position] = slot
+    _take_handover(ctx, player, position)
     _announce_arrival(ctx, player, position)
     _greet_field(ctx, player, position)
+
+
+def _take_handover(ctx: Context, player: int, position: int) -> None:
+    """Collect what a Baton Pass left in this position.
+
+    Before hazards, so a passed Substitute is standing when the Spikes land --
+    which changes nothing, since a Substitute does not block them, but it is
+    the order the pass happens in and the one anything added later will expect.
+    """
+    side = ctx.state.sides[player]
+    parcel = side.handover[position] if position < len(side.handover) else None
+    if not parcel:
+        return
+    side.handover[position] = {}
+    slot = side.active[position]
+    if slot < 0 or side.hp[slot] <= 0:
+        return
+    side.boosts[slot] = list(parcel["boosts"])
+    side.volatiles[slot].update(parcel["volatiles"])
+    ctx.emit(Event("handover", side=player, slot=slot, move=parcel["move"],
+                   detail=",".join(sorted(parcel["volatiles"])) or None))
 
 
 def _mega_evolve(ctx: Context, player: int, position: int) -> None:

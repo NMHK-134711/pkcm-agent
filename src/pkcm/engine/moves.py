@@ -564,6 +564,7 @@ VARIABLE_POWER.update({
     "hex": _doubled_when(_target_statused),
     "infernalparade": _doubled_when(_target_statused),
     "avalanche": _doubled_when(_was_hit_by_target),
+    "revenge": _doubled_when(_was_hit_by_target),
     "assurance": _doubled_when(_target_took_damage),
     "payback": _doubled_when(_target_already_moved),
     "stompingtantrum": _doubled_when(_own_last_move_failed),
@@ -1285,8 +1286,10 @@ def _apply_damaging_move(ctx: Context, attacker: Ref, defender: Ref, move) -> bo
         if type_effectiveness(ctx, attacker, defender, move) == 0.0:
             ctx.emit(ev.immune(defender[0], defender[1], move.id))
             return False
-        apply_damage(ctx, defender, amount, "damage", move=move.id, effectiveness=1.0,
-                     __source__=attacker, __move__=move)
+        dealt = apply_damage(ctx, defender, amount, "damage", move=move.id,
+                             effectiveness=1.0,
+                             __source__=attacker, __move__=move)
+        tactics.record_hit(ctx, defender, attacker, move, dealt)
         return True
 
     fixed = move.raw.get("damage")
@@ -1295,7 +1298,12 @@ def _apply_damaging_move(ctx: Context, attacker: Ref, defender: Ref, move) -> bo
         if type_effectiveness(ctx, attacker, defender, move) == 0.0:
             ctx.emit(ev.immune(defender[0], defender[1], move.id))
             return False
-        apply_damage(ctx, defender, amount, "damage", move=move.id, effectiveness=1.0)
+        dealt = apply_damage(ctx, defender, amount, "damage", move=move.id,
+                             effectiveness=1.0)
+        # Damage that skips the formula still has to reach the ledger. It did
+        # not, so Counter answered Seismic Toss with "the move failed" and
+        # Avalanche stayed at sixty base power after taking a Night Shade.
+        tactics.record_hit(ctx, defender, attacker, move, dealt)
         return True
 
     hits = _hit_count(ctx, move)
@@ -1401,7 +1409,7 @@ def _after_effects(ctx: Context, attacker: Ref, defender: Ref, move, landed: boo
                            detail="nobody to drag in"))
 
     if move.raw.get("selfSwitch") and landed:
-        tactics.self_switch(ctx, attacker)
+        tactics.self_switch(ctx, attacker, move)
 
 
 #: The events whose handlers change what the analytic damage formula says.
@@ -1565,6 +1573,13 @@ def _deal_or_break_substitute(
 
 
 def _apply_ohko(ctx: Context, attacker: Ref, defender: Ref, move: Move) -> bool:
+    # ``ohko`` is ``True`` for Guillotine and friends, and the *name of a type*
+    # for Sheer Cold: an Ice type cannot be hit by it at all. Both are truthy,
+    # so reading the field as a flag knocked Weavile out with it.
+    barred = move.raw.get("ohko")
+    if isinstance(barred, str) and barred.lower() in ctx.state.types(*defender):
+        ctx.emit(ev.immune(defender[0], defender[1], move.id))
+        return False
     if type_effectiveness(ctx, attacker, defender, move) == 0.0:
         ctx.emit(ev.immune(defender[0], defender[1], move.id))
         return False
@@ -1616,7 +1631,13 @@ def _apply_status_move(ctx: Context, attacker: Ref, target: Ref, move) -> bool:
     # would honour by creating one with no HP at all -- and the first hit on it
     # would then raise rather than break it.
     if move.id == "shedtail":
-        return _apply_substitute(ctx, attacker, SHED_TAIL_FRACTION, "shedtail")
+        # Not a bare ``return``: the doll is only half of it. Shed Tail also
+        # switches, and returning here skipped the ``selfSwitch`` branch in
+        # ``_after_effects`` entirely, so it read as a costly Substitute.
+        if not _apply_substitute(ctx, attacker, SHED_TAIL_FRACTION, "shedtail"):
+            return False
+        _after_effects(ctx, attacker, target, move, landed=True)
+        return True
 
     if "boosts" in raw and raw["boosts"]:
         did_something |= bool(mutate.boost(ctx, target, raw["boosts"], source=attacker))

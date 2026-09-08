@@ -487,3 +487,23 @@ def test_the_oracle_is_not_something_to_imitate(dex):
         "this position was meant to have something unrevealed")
     assert all(known.species_id is not None for known in cheating.foe)
     assert all(known.item_known for known in cheating.foe)
+
+
+def test_nothing_baton_pass_carries_is_marked_nocopy(dex):
+    """The allow-list is a judgement; the data gets to veto it.
+
+    ``PASSED_ON`` names volatiles by hand because the volatiles dictionary
+    also holds this engine's bookkeeping, which must not travel. That leaves
+    the risk of naming one the game does not actually pass -- and Showdown
+    says which those are, on the move that causes them.
+    """
+    from pkcm.engine.tactics import PASSED_ON
+
+    for name in PASSED_ON:
+        move = dex.moves.get(name)
+        if move is None:
+            continue                       # not every volatile has a move
+        condition = move.raw.get("condition") or {}
+        assert not condition.get("noCopy"), (
+            f"{name} is marked noCopy in the move data, so a Baton Pass "
+            "leaves it behind")

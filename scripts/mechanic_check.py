@@ -117,8 +117,10 @@ def ours(species, ability, moves, *rest, **kw):
 
 @check("partingshot", "foe loses Atk and SpA, then the user leaves")
 def _parting_shot():
-    f = Fight(ours("incineroar", "intimidate",
-                   ("partingshot", "flareblitz", "knockoff", "uturn"))
+    # Not Incineroar: its Intimidate takes an Attack stage on the way in and
+    # would look exactly like Parting Shot working.
+    f = Fight(ours("gourgeist", "frisk",
+                   ("partingshot", "shadowsneak", "leechseed", "protect"))
               + [mon(*CHOMP)], [mon(*IDLE)])
     f.turn(Action.move(0), Action.move(0))
     dropped = f.boosts(1)

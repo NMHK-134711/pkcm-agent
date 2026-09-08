@@ -138,6 +138,10 @@ class SideState:
     active: list[int] = field(default_factory=list)
     #: Per position: this one's occupant fainted and owes a replacement.
     must_switch: list[bool] = field(default_factory=list)
+    #: Per position: what a Baton Pass left for whoever comes in. Empty except
+    #: between the pass and the replacement arriving, because the passer's own
+    #: copy is wiped by ``clear_on_switch_out`` on the way off the field.
+    handover: list[dict[str, Any]] = field(default_factory=list)
 
     # -- slot-persistent, survives switching --------------------------------- #
     status: list[str | None] = field(default_factory=list)
@@ -159,6 +163,7 @@ class SideState:
             pp=[slot.copy() for slot in self.pp],
             active=self.active.copy(),
             must_switch=self.must_switch.copy(),
+            handover=[dict(one) for one in self.handover],
             status=self.status.copy(),
             status_data=[data.copy() for data in self.status_data],
             boosts=[slot.copy() for slot in self.boosts],

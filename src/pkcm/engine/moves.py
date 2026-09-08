@@ -195,6 +195,12 @@ TERRAIN_PULSE_TYPES = {
 WEATHER_BALL_TYPES = {"snowscape": "ice", "raindance": "water",
                       "sandstorm": "rock", "sunnyday": "fire"}
 
+#: "Fighting type for Combat Breed, Fire type for Blaze Breed, and Water type
+#: for Aqua Breed." Raging Bull stayed Normal in all three.
+RAGING_BULL_TYPES = {"taurospaldeacombat": "fighting",
+                     "taurospaldeablaze": "fire",
+                     "taurospaldeaaqua": "water"}
+
 
 def _rewrite_for_terrain(ctx: Context, active, attacker: Ref) -> None:
     """The two rewrites that must happen before the move resolves.
@@ -206,6 +212,10 @@ def _rewrite_for_terrain(ctx: Context, active, attacker: Ref) -> None:
     """
     if active.id == "expandingforce" and _stands_on(ctx, attacker, "psychicterrain"):
         active.target = "allAdjacentFoes"
+    elif active.id == "ragingbull":
+        kind = RAGING_BULL_TYPES.get(ctx.state.species_id(*attacker))
+        if kind is not None:
+            active.type = kind
     elif active.id == "weatherball":
         kind = WEATHER_BALL_TYPES.get(ctx.state.field.weather)
         if kind is not None:
@@ -2144,8 +2154,12 @@ def _apply_drain(ctx: Context, attacker: Ref, move: Move, damage: int) -> None:
 
 def _apply_recoil(ctx: Context, attacker: Ref, move: Move, damage: int) -> None:
     if move.id == STRUGGLE_ID:
-        amount = mutate.fraction_of_max(ctx.state, attacker, STRUGGLE_RECOIL_FRACTION)
-        apply_damage(ctx, attacker, amount, "recoil")
+        # "the user loses 1/4 of its maximum HP, rounded half up, and the Rock
+        # Head Ability does not prevent this" -- it was rounded down and Rock
+        # Head zeroed it, so a Struggle behind Rock Head cost nothing at all.
+        whole = mutate.max_hp(ctx.state, attacker)
+        amount = (whole + STRUGGLE_RECOIL_FRACTION // 2) // STRUGGLE_RECOIL_FRACTION
+        apply_damage(ctx, attacker, amount, "recoil", detail="struggle")
         return
 
     recoil = move.raw.get("recoil")

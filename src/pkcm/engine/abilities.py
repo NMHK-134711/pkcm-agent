@@ -92,8 +92,10 @@ register("ability", "poisonheal", name="Poison Heal", modify_indirect_damage=_po
 register("ability", "magicguard", name="Magic Guard",
          modify_indirect_damage=lambda ctx, ref, value, **_: 0)
 register("ability", "rockhead", name="Rock Head",
-         modify_indirect_damage=lambda ctx, ref, value, source_kind, **_:
-             0 if source_kind == "recoil" else None)
+         # Struggle is the exception the move states itself: "the Rock Head
+         # Ability does not prevent this".
+         modify_indirect_damage=lambda ctx, ref, value, source_kind, cause=None, **_:
+             0 if source_kind == "recoil" and cause != "struggle" else None)
 
 
 # --------------------------------------------------------------------------- #

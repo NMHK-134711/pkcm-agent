@@ -4172,6 +4172,254 @@ def _round_is_a_doubles_move():
     return verdict(rows)
 
 
+
+@family("formetype",
+        "Fighting type for Combat Breed, Fire type for Blaze Breed, and Water "
+        "type for Aqua Breed.",
+        "If the user's current form is a Paldean Tauros, this move's type "
+        "changes to match.",
+        "If the user is a Morpeko in Full Belly Mode, this move is Electric "
+        "type.",
+        "If the user is a Morpeko in Hangry Mode, this move is Dark type.",
+        "This move cannot be used successfully unless the user's current form, "
+        "while considering Transform, is Full Belly or Hangry Mode Morpeko.")
+def _type_follows_the_forme():
+    """Raging Bull and Aura Wheel read the species they are standing in."""
+    rows = []
+    for move_id in members("formetype"):
+        holders = {"ragingbull": [("taurospaldeacombat", "fighting"),
+                                  ("taurospaldeablaze", "fire"),
+                                  ("taurospaldeaaqua", "water")],
+                   "aurawheel": [("morpeko", "electric")]}[move_id]
+        off = []
+        for species, kind in holders:
+            if species not in DEX.species:
+                off.append(f"{species} is not in the dex")
+                continue
+            target = "snorlax" if move_id == "aurawheel" else "garchomp"
+            f = Fight([mon(species, "__none__",
+                           (move_id, "splash", "protect", "rest"), None,
+                           "adamant", (32, 32, 0, 0, 2, 0))],
+                      [wall(target)], seed=7)
+            f.turn(Action.move(0), Action.move(0))
+            hits = [e for e in f.log if e.kind == "damage" and (e.side or 0) == 1]
+            got = hits[0].effectiveness if hits else None
+            want = DEX.type_chart.multiplier(kind, DEX.species[target].types)
+            if got is None or abs(got - want) > 0.01:
+                off.append(f"{species}: effectiveness {got}, and a {kind} move "
+                           f"would be {want}")
+        rows.append((move_id, not off, "; ".join(off) or
+                     "the type followed the forme"))
+    return verdict(rows)
+
+
+@family("blizzardinsnow", "If the weather is Snow, this move does not check "
+                          "accuracy.")
+def _blizzard_in_snow():
+    rows = []
+    for move_id in members("blizzardinsnow"):
+        def rate(weather):
+            hits = 0
+            for seed in range(40):
+                f = Fight([swinger(move_id)],
+                          [mon("snorlax", "__none__",
+                               ("doubleteam", "splash", "protect", "rest"),
+                               None, "sassy", (32, 0, 32, 0, 32, 0))], seed=seed)
+                if weather:
+                    f.state.field.weather, f.state.field.weather_turns = weather, 8
+                f.turn(Action.move(0), Action.move(1))
+                hits += landed(f, move_id)
+            return hits / 40
+
+        snowed, plain = rate("snowscape"), rate(None)
+        rows.append((move_id, snowed == 1.0 and plain < 1.0,
+                     f"in snow it landed {snowed:.0%}, in clear weather "
+                     f"{plain:.0%}"))
+    return verdict(rows)
+
+
+@family("electroshotrain",
+        "If the user is holding a Power Herb or the weather is Primordial Sea "
+        "or Rain Dance, the move completes in one turn.")
+def _electro_shot_in_rain():
+    rows = []
+    for move_id in members("electroshotrain"):
+        f = Fight([swinger(move_id)],
+                  [wall(mc._reachable(DEX.moves[move_id]))], seed=7)
+        f.state.field.weather, f.state.field.weather_turns = "raindance", 8
+        f.turn(Action.move(0), Action.move(0))
+        rows.append((move_id, hp_lost(f) > 0,
+                     f"in rain it struck on the first turn={hp_lost(f) > 0}"))
+    return verdict(rows)
+
+
+@family("finalgambitfaints", "If this move is successful, the user faints.")
+def _final_gambit_faints():
+    rows = []
+    for move_id in members("finalgambitfaints"):
+        f = Fight([swinger(move_id),
+                   mon("magikarp", "__none__", ("splash", "tackle"))],
+                  [wall(mc._reachable(DEX.moves[move_id]))], seed=7)
+        f.turn(Action.move(0), Action.move(0))
+        rows.append((move_id, f.state.sides[0].hp[0] == 0,
+                     f"the user came out on {f.state.sides[0].hp[0]}"))
+    return verdict(rows)
+
+
+@family("strugglerecoil",
+        "If this move was successful, the user loses 1/4 of its maximum HP, "
+        "rounded half up, and the Rock Head Ability does not prevent this.")
+def _struggle_recoil():
+    rows = []
+    for move_id in members("strugglerecoil"):
+        def paid(ability):
+            f = Fight([mon("snorlax", ability,
+                           ("bodyslam", "splash", "protect", "rest"), None,
+                           "adamant", (32, 32, 0, 0, 2, 0))],
+                      [wall("garchomp")], seed=7)
+            slot = f.state.sides[0].active[0]
+            for index in range(len(f.state.sides[0].pp[slot])):
+                f.state.sides[0].pp[slot][index] = 0
+            whole = f.max_hp(0)
+            before = f.hp(0)
+            f.turn(Action.struggle(), Action.move(0))
+            return before - f.hp(0), whole
+
+        plain, whole = paid("__none__")
+        headstrong, _ = paid("rockhead")
+        want = (whole + 2) // 4
+        rows.append((move_id, abs(plain - want) <= 1 and abs(headstrong - want) <= 1,
+                     f"it cost {plain} of {whole} (a quarter is {want}); with "
+                     f"Rock Head it still cost {headstrong}"))
+    return verdict(rows)
+
+
+@family("defogscreens",
+        "If this move is successful and whether or not the target's "
+        "evasiveness was affected, the effects of Reflect, Light Screen, "
+        "Safeguard, Mist, Spikes, Toxic Spikes, Stealth Rock, and Sticky Web "
+        "end for the target's side",
+        "It is removed from the user's side if the user or an ally is "
+        "successfully hit by Defog.")
+def _defog_sweeps_the_far_side():
+    rows = []
+    for move_id in members("defogscreens"):
+        f = Fight([mon(UNIVERSAL, "__none__",
+                       ("defog", "splash", "protect", "rest"), None, "adamant",
+                       (32, 32, 0, 0, 2, 0))],
+                  [wall()], seed=7)
+        for name in ("reflect", "lightscreen", "safeguard", "spikes",
+                     "toxicspikes", "stealthrock", "stickyweb"):
+            f.state.sides[1].conditions[name] = 1
+        f.turn(Action.move(0), Action.move(0))
+        left = dict(f.conditions(1))
+        rows.append((move_id, not left,
+                     f"the far side kept {left or 'nothing'}"))
+    return verdict(rows)
+
+
+@family("magnetriseoverridden",
+        "Ingrain, Smack Down, Thousand Arrows, and Iron Ball override this "
+        "move if the user is under any of their effects.")
+def _magnet_rise_is_overridden():
+    rows = []
+    for move_id in members("magnetriseoverridden"):
+        f = Fight([mon("snorlax", "__none__",
+                       (move_id, "ingrain", "splash", "protect"), None, "sassy",
+                       (32, 0, 32, 0, 32, 0))],
+                  [mon("garchomp", "__none__",
+                       ("earthquake", "splash", "protect", "rest"), None,
+                       "jolly", (0, 32, 2, 0, 0, 32))], seed=7)
+        f.turn(Action.move(0), Action.move(1))          # up we go
+        f.turn(Action.move(1), Action.move(1))          # and then we root
+        f.turn(Action.move(2), Action.move(0))
+        took = sum(e.amount or 0 for e in f.log
+                   if e.kind == "damage" and (e.side or 0) == 0)
+        rows.append((move_id, took > 0,
+                     f"rooted while afloat, the Earthquake took {took}"))
+    return verdict(rows)
+
+
+@family("expandingforceterrain",
+        "If the current terrain is Psychic Terrain and the user is grounded, "
+        "this move hits all opposing Pokemon and has its power multiplied by "
+        "1.5.")
+def _expanding_force():
+    rows = []
+    for move_id in members("expandingforceterrain"):
+        def dealt(terrain):
+            f = Fight([swinger(move_id)], [wall()], seed=7)
+            if terrain:
+                f.state.field.terrain, f.state.field.terrain_turns = terrain, 8
+            f.turn(Action.move(0), Action.move(0))
+            return hp_lost(f)
+
+        plain, charged = dealt(None), dealt("psychicterrain")
+        share = charged / plain if plain else 0.0
+        # The terrain's own 1.3 rides on top of the move's 1.5.
+        rows.append((move_id, 1.85 <= share <= 2.05,
+                     f"{plain} on bare ground, {charged} on Psychic Terrain "
+                     f"(x{share:.2f}, the move's 1.5 and the terrain's 1.3)"))
+    return verdict(rows)
+
+
+@family("powertrickswap",
+        "The user swaps its Attack and Defense stats, and stat stage changes "
+        "remain on their respective stats.",
+        "This move can be used again to swap the stats back.")
+def _power_trick_swaps():
+    from pkcm.data.dex import Stat
+    from pkcm.engine.battle import make_context
+    from pkcm.engine.mutate import effective_stat
+
+    rows = []
+    for move_id in members("powertrickswap"):
+        f = Fight([swinger(move_id, species="snorlax")], [wall()], seed=7)
+        us = (0, f.state.sides[0].active[0])
+        before = (effective_stat(make_context(f.state), us, Stat.ATK),
+                  effective_stat(make_context(f.state), us, Stat.DEF))
+        f.turn(Action.move(0), Action.move(0))
+        after = (effective_stat(make_context(f.state), us, Stat.ATK),
+                 effective_stat(make_context(f.state), us, Stat.DEF))
+        f.turn(Action.move(0), Action.move(0))
+        again = (effective_stat(make_context(f.state), us, Stat.ATK),
+                 effective_stat(make_context(f.state), us, Stat.DEF))
+        rows.append((move_id, after == (before[1], before[0]) and again == before,
+                     f"{before} -> {after} -> {again}"))
+    return verdict(rows)
+
+
+@family("yawnthroughsafeguard",
+        "If the target becomes affected, this effect cannot be prevented by "
+        "Safeguard or a substitute, or by falling asleep")
+def _yawn_lands_through_safeguard():
+    rows = []
+    for move_id in members("yawnthroughsafeguard"):
+        f = Fight([swinger(move_id)],
+                  [wall(mc._reachable(DEX.moves[move_id]))], seed=7)
+        f.state.sides[1].conditions["safeguard"] = 5
+        f.turn(Action.move(0), Action.move(0))
+        yawning = "yawn" in f.volatiles(1)
+        f.turn(Action.move(1), Action.move(0))
+        rows.append((move_id, yawning and f.status(1) == "slp",
+                     f"behind Safeguard the Yawn took hold={yawning} and the "
+                     f"target came out {f.status(1)}"))
+    return verdict(rows)
+
+
+@family("counterdoubles",
+        "Deals damage to the last opposing Pokemon to hit the user with a "
+        "physical attack this turn equal to twice the HP lost by the user from "
+        "that attack.",
+        "Deals damage to the last opposing Pokemon to hit the user with a "
+        "special attack this turn equal to twice the HP lost by the user from "
+        "that attack.")
+def _counter_doubles():
+    """The same two moves as ``counterdamage``, and the sentence that gives
+    the multiplier rather than the one that gives the fallback."""
+    return _delegate("counterdoubles")
+
+
 # --------------------------------------------------------------------------- #
 # The report
 # --------------------------------------------------------------------------- #

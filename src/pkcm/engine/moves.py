@@ -266,6 +266,27 @@ def _needs_own_type(type_name: str):
 
 #: Moves that refuse to run under some condition, checked before PP is spent.
 #: The string is the reason, and it reaches the log.
+def _needs_something_to_throw(ctx: Context, attacker: Ref,
+                              move: Move) -> str | None:
+    """Fling with empty hands used its turn and did nothing at all."""
+    if ctx.item_of(attacker) is None:
+        return "nothing to throw"
+    return None
+
+
+def _needs_somebody_to_follow(ctx: Context, attacker: Ref,
+                              move: Move) -> str | None:
+    """Healing Wish and Shed Tail both buy something for a replacement, and
+    both paid for it with nobody on the bench: the Healing Wish user fainted
+    for nothing and Shed Tail spent half its health on a doll it could not
+    hand over."""
+    side = ctx.state.sides[attacker[0]]
+    for slot in range(len(side.hp)):
+        if slot not in side.active and side.hp[slot] > 0:
+            return None
+    return "there is nobody to come in"
+
+
 def _needs_a_stockpile(ctx: Context, attacker: Ref, move: Move) -> str | None:
     """Spit Up spent nothing and reported success on an empty stomach."""
     if mutate.volatile(ctx.state, attacker, "stockpile") is None:
@@ -277,6 +298,9 @@ MOVE_PRECONDITIONS: dict[str, Callable[[Context, Ref, Move], str | None]] = {
     "steelroller": _needs_terrain,
     "burnup": _needs_own_type("Fire"),
     "spitup": _needs_a_stockpile,
+    "fling": _needs_something_to_throw,
+    "healingwish": _needs_somebody_to_follow,
+    "shedtail": _needs_somebody_to_follow,
 }
 
 

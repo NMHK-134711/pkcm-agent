@@ -3144,6 +3144,117 @@ def _gravity_grounds_the_flying():
     return verdict(rows)
 
 
+
+#: Each entry arranges the position the clause describes and says whether the
+#: move should refuse it. ``arrange`` is given the fight before the first turn.
+def _refusal_cases():
+    def hurt(f, share=2):
+        slot = f.state.sides[0].active[0]
+        f.state.sides[0].hp[slot] = max(1, f.max_hp(0) // share)
+
+    def cases():
+        yield ("strengthsap", "the target's Attack is already at -6",
+               lambda f: f.state.sides[1].boosts[f.state.sides[1].active[0]]
+               .__setitem__(mc.BOOST_INDEX["atk"], -6), True)
+        yield ("strengthsap", "an ordinary target", lambda f: None, False)
+        yield ("substitute", "not enough HP to pay for it",
+               lambda f: f.state.sides[0].hp.__setitem__(
+                   f.state.sides[0].active[0], 4), True)
+        yield ("substitute", "room to pay for it", hurt, False)
+        yield ("rest", "already at full health", lambda f: None, True)
+        yield ("rest", "hurt", hurt, False)
+        yield ("bellydrum", "Attack already at six",
+               lambda f: f.state.sides[0].boosts[f.state.sides[0].active[0]]
+               .__setitem__(mc.BOOST_INDEX["atk"], 6), True)
+        yield ("bellydrum", "room to raise it", lambda f: None, False)
+        yield ("topsyturvy", "every stage at zero", lambda f: None, True)
+        yield ("topsyturvy", "a stage to turn over",
+               lambda f: f.state.sides[1].boosts[f.state.sides[1].active[0]]
+               .__setitem__(mc.BOOST_INDEX["atk"], 2), False)
+        # Curse is only a curse in a Ghost's hands; on anything else it is a
+        # self-boost with no target at all.
+        yield ("curse", "the target already cursed",
+               lambda f: f.state.sides[1].volatiles[f.state.sides[1].active[0]]
+               .__setitem__("curse", {}), True, "gengar")
+        yield ("steelroller", "bare ground", lambda f: None, True)
+        yield ("burnup", "a user that is not a Fire type", lambda f: None, True)
+        yield ("recycle", "a user that has never held anything",
+               lambda f: None, True)
+        yield ("fling", "a user holding nothing", lambda f: None, True)
+        yield ("spite", "a target that has not moved", lambda f: None, True)
+        yield ("disable", "a target that has not moved", lambda f: None, True)
+        yield ("encore", "a target that has not moved", lambda f: None, True)
+        yield ("instruct", "a target that has not moved", lambda f: None, True)
+        yield ("copycat", "nothing used yet", lambda f: None, True)
+        yield ("afteryou", "no ally to move up", lambda f: None, True)
+        yield ("upperhand", "a target with no priority move coming",
+               lambda f: None, True)
+        yield ("acupressure", "every stage already at six",
+               lambda f: f.state.sides[0].boosts.__setitem__(
+                   f.state.sides[0].active[0],
+                   [6] * len(f.state.sides[0].boosts[f.state.sides[0].active[0]])),
+               True)
+        yield ("healingwish", "the last one standing",
+               lambda f: [f.state.sides[0].hp.__setitem__(slot, 0)
+                          for slot in range(1, len(f.state.sides[0].hp))], True)
+        yield ("shedtail", "nobody to hand it to",
+               lambda f: [f.state.sides[0].hp.__setitem__(slot, 0)
+                          for slot in range(1, len(f.state.sides[0].hp))], True)
+    return list(cases())
+
+
+@family("refusals",
+        "Fails if the target's Attack stat stage is -6.",
+        "Fails if the user does not have enough HP remaining to create a "
+        "substitute without fainting, or if it already has a substitute.",
+        "Fails if the user has full HP, is already asleep, or if another "
+        "effect is preventing sleep.",
+        "Fails if the user would faint or if its Attack stat stage is 6.",
+        "Fails if all of the target's stat stages are 0.",
+        "Fails if there is no target or if the target is already affected.",
+        "Fails if there is no terrain active.",
+        "Fails unless the user is a Fire type.",
+        "Fails if the user is holding an item, if the user has not held an item",
+        "Fails if the user has no held item, if the held item cannot be thrown",
+        "Fails if the target has not made a move, if the move has 0 PP, or if "
+        "it no longer knows the move.",
+        "Fails if one of the target's moves is already disabled, if the target "
+        "has not made a move",
+        "Fails if the target is already under this effect, if it has not made "
+        "a move",
+        "Fails if the target has not made a move, if the move has 0 PP, if the "
+        "target is preparing to use Beak Blast",
+        "Fails if no move has been used, or if the last move used was Assist",
+        "Fails if the target would have moved next anyway, or if the target "
+        "already moved this turn.",
+        "Fails if the target did not select a physical or special attack for "
+        "use this turn with altered priority greater than 0",
+        "Fails if no stat stage can be raised or if used on an ally with a "
+        "substitute.",
+        "Fails if the user is the last unfainted Pokemon in its party.",
+        "Fails if the user would faint, or if there are no unfainted party "
+        "members.")
+def _refusals():
+    """Each move put in the position its own sentence says it refuses."""
+    rows = []
+    for case in _refusal_cases():
+        move_id, what, arrange, should_fail = case[:4]
+        user = case[4] if len(case) > 4 else None
+        move = DEX.moves[move_id]
+        f = Fight([swinger(move_id, species=user),
+                   mon("magikarp", "__none__", ("splash", "tackle")),
+                   mon("pikachu", "__none__", ("splash", "tackle"))],
+                  [wall(mc._reachable(move)),
+                   mon("magikarp", "__none__", ("splash", "tackle"))], seed=7)
+        arrange(f)
+        f.turn(Action.move(0), Action.move(0))
+        refused = failed(f)
+        rows.append((f"{move_id} with {what}", refused == should_fail,
+                     f"refused={refused}, and the clause says "
+                     f"{should_fail}"))
+    return verdict(rows)
+
+
 # --------------------------------------------------------------------------- #
 # The report
 # --------------------------------------------------------------------------- #

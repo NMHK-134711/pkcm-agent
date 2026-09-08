@@ -620,8 +620,16 @@ def main() -> int:
         for ability in doubles:
             korean = NAMES.get("abilities", {}).get(ability, ability)
             print(f"   doubles {korean:<14} {ability}")
-        print(f"\n   and {len(reachable - have)} reachable abilities have no "
-              f"registered effect at all")
+        # "Reachable" is anything on a legal species; the roster is narrower.
+        # Reporting only the first number made 49 look like 49 holes.
+        roster = DEX.regulation("m_b")
+        on_roster = {one
+                     for species_id in roster.legal_species | roster.legal_megas
+                     for one in DEX.species[species_id].abilities}
+        pending = sorted(on_roster - have)
+        print(f"\n   {len(reachable - have)} more are reachable with no "
+              f"registered effect; {len(pending)} of those are on the legal "
+              f"roster: {pending}")
         print()
 
     if args.items or everything:

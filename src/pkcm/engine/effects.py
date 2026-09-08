@@ -139,6 +139,7 @@ EVENTS: dict[str, str] = {
     "ally_modify_damage": "Friend Guard -- soften what the partner takes",
     "ally_modify_accuracy": "Victory Star -- steady the partner's aim",
     "ally_try_status": "Sweet Veil -- refuse a status on the partner's behalf",
+    "ally_try_boost": "Flower Veil -- refuse a stat drop on the partner's behalf",
     "ally_try_volatile": "Sweet Veil again, for Yawn",
     "ally_after_use_item": "Symbiosis -- hand the partner your own item",
     "ally_faint": "Receiver, Power of Alchemy -- inherit the partner's ability",
@@ -213,6 +214,10 @@ class Context:
         this is the question everything that *acts* on an item should ask.
         """
         if "magicroom" in self.state.field.rooms:
+            return None
+        # Klutz is Magic Room for one Pokemon, so it belongs at the same
+        # gate rather than in each of the items that would have to ask.
+        if self.ability_of(ref) == "klutz":
             return None
         return self.state.item_id(*ref)
 

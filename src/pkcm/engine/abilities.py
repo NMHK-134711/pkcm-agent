@@ -222,9 +222,24 @@ register("ability", "guts", name="Guts", modify_stat=_flat_stat(Stat.ATK, X1_5, 
 register("ability", "furcoat", name="Fur Coat", modify_stat=_flat_stat(Stat.DEF, X2))
 register("ability", "marvelscale", name="Marvel Scale",
          modify_stat=_flat_stat(Stat.DEF, X1_5, _has_status))
+#: An eighth of the maximum every turn the sun is out, which is what the
+#: half again in Special Attack is paid for.
+SOLAR_POWER_FRACTION = 8
+
+
+def _solar_power_burns(ctx, ref, **_):
+    if ctx.state.field.weather != "sunnyday":
+        return
+    announce(ctx, ref, "solarpower")
+    mutate.apply_damage(ctx, ref,
+                        fraction_of_max(ctx.state, ref, SOLAR_POWER_FRACTION),
+                        "weather_damage", detail="solarpower")
+
+
 register("ability", "solarpower", name="Solar Power",
          modify_stat=_flat_stat(Stat.SPA, X1_5,
-                                lambda ctx, ref: ctx.state.field.weather == "sunnyday"))
+                                lambda ctx, ref: ctx.state.field.weather == "sunnyday"),
+         residual=_solar_power_burns)
 
 
 def _defeatist(ctx, ref, value, **kwargs):
@@ -303,6 +318,19 @@ register("ability", "waterbubble", name="Water Bubble",
          modify_damage=_defender_damage(_halves_types("fire")))
 register("ability", "purifyingsalt", name="Purifying Salt",
          modify_damage=_defender_damage(_halves_types("ghost")))
+def _purifying_salt_status(ctx, ref, status, source, **_):
+    """Champions: 상태 이상이 되지 않는다. Not only the Ghost half."""
+    announce(ctx, ref, "purifyingsalt")
+    return False
+
+
+def _purifying_salt_yawn(ctx, ref, volatile, source, **_):
+    if volatile != "yawn":
+        return None
+    announce(ctx, ref, "purifyingsalt")
+    return False
+
+
 register("ability", "icescales", name="Ice Scales",
          modify_damage=_defender_damage(lambda ctx, a, d, move:
              X0_5 if move.category == "Special" else 0))
@@ -2039,6 +2067,9 @@ def _redirect_to_me(move_type: str | None, name: str):
     return handler
 
 
+REGISTRY[("ability", "purifyingsalt")].handlers["try_status"] = _purifying_salt_status
+REGISTRY[("ability", "purifyingsalt")].handlers["try_volatile"] = _purifying_salt_yawn
+
 REGISTRY[("ability", "lightningrod")].handlers["redirect_target"] = \
     _redirect_to_me("electric", "lightningrod")
 REGISTRY[("ability", "stormdrain")].handlers["redirect_target"] = \
@@ -2230,23 +2261,179 @@ def damp_on_field(ctx) -> bool:
 register("ability", "damp", name="Damp", try_move=_damp_smothers)
 
 
+# --------------------------------------------------------------------------- #
+# The seven that were called inert and were not
+#
+# ``INERT`` is a promise that the battle cannot tell the difference, and the
+# differ in ``scripts/effect_check.py`` caught it lying about seven: Aroma Veil
+# refuses six volatiles, Flower Veil shields a Grass partner, Cheek Pouch heals
+# off any berry, Klutz turns the holder's own item off, Pickpocket takes what
+# touched it, Pickup takes what was thrown away, and Rattled runs.
+# --------------------------------------------------------------------------- #
+
+#: What Aroma Veil refuses, for itself and its partner. All six are in the
+#: format, and all six are volatiles rather than statuses.
+AROMA_VEIL_BLOCKS = frozenset({"taunt", "encore", "attract", "disable",
+                               "torment", "healblock"})
+
+
+def _aroma_veil(ctx, ref, volatile, source, holder=None, **_):
+    if volatile not in AROMA_VEIL_BLOCKS:
+        return None
+    announce(ctx, holder or ref, "aromaveil")
+    return False
+
+
+register("ability", "aromaveil", name="Aroma Veil",
+         try_volatile=_aroma_veil, ally_try_volatile=_aroma_veil)
+
+
+def _is_grass(ctx, ref) -> bool:
+    return "grass" in ctx.state.types(*ref)
+
+
+def _flower_veil_status(ctx, ref, status, source, holder=None, **_):
+    """Grass types on this side take no status while it is out."""
+    if not _is_grass(ctx, ref):
+        return None
+    announce(ctx, holder or ref, "flowerveil")
+    return False
+
+
+def _flower_veil_boost(ctx, ref, value, stat, source=None, holder=None, **_):
+    """``try_boost`` passes the stages as ``value`` and takes back a number."""
+    if value >= 0 or not _is_grass(ctx, ref):
+        return None
+    if source is not None and source[0] == ref[0]:
+        return None          # what it does to itself is its own business
+    announce(ctx, holder or ref, "flowerveil")
+    return 0
+
+
+register("ability", "flowerveil", name="Flower Veil",
+         try_status=_flower_veil_status, try_boost=_flower_veil_boost,
+         ally_try_status=_flower_veil_status, ally_try_boost=_flower_veil_boost)
+
+
+#: A third of the maximum, on top of whatever the berry itself gave.
+CHEEK_POUCH_FRACTION = 3
+
+
+def _cheek_pouch(ctx, ref, item, **_):
+    if not item.endswith("berry"):
+        return
+    announce(ctx, ref, "cheekpouch")
+    heal(ctx, ref, fraction_of_max(ctx.state, ref, CHEEK_POUCH_FRACTION),
+         reason="cheekpouch")
+
+
+register("ability", "cheekpouch", name="Cheek Pouch", after_use_item=_cheek_pouch)
+
+
+def _pickpocket(ctx, ref, attacker, defender, move, damage, **_):
+    """Whatever touched us leaves its item behind, if our own hands are empty."""
+    from pkcm.engine.moveeffects import _holds_removable
+
+    if ref != defender or CONTACT not in move.flags:
+        return
+    if ctx.state.item_id(*defender) is not None:
+        return
+    if ctx.state.sides[defender[0]].hp[defender[1]] <= 0:
+        return
+    stolen = _holds_removable(ctx, attacker)
+    if stolen is None:
+        return
+    announce(ctx, defender, "pickpocket")
+    ctx.state.set_override(attacker[0], attacker[1], "item", None, permanent=True)
+    ctx.state.set_override(defender[0], defender[1], "item", stolen, permanent=True)
+    ctx.emit(Event("item_stolen", side=defender[0], slot=defender[1],
+                   detail=stolen))
+
+
+register("ability", "pickpocket", name="Pickpocket", after_damage=_pickpocket)
+
+
+def _pickup(ctx, ref, **_):
+    """End of turn, empty-handed: take up the last item anybody used.
+
+    ``ctx.log`` is exactly this turn's events, which is the window the ability
+    describes -- it picks up what was spent this turn, not what was spent at
+    any point in the battle.
+    """
+    if ctx.state.item_id(*ref) is not None:
+        return
+    for event in reversed(ctx.log):
+        if event.kind != "item_used" or event.detail is None:
+            continue
+        who = (event.side or 0, event.slot or 0)
+        if who == ref or ctx.state.item_id(*who) is not None:
+            continue
+        ctx.state.set_override(ref[0], ref[1], "item", event.detail,
+                               permanent=True)
+        announce(ctx, ref, "pickup")
+        ctx.emit(Event("item_restored", side=ref[0], slot=ref[1],
+                       detail=event.detail))
+        return
+
+
+register("ability", "pickup", name="Pickup", residual=_pickup)
+
+
+#: Bug, Dark and Ghost -- and an Intimidate, which is not a move at all.
+RATTLED_TYPES = frozenset({"bug", "dark", "ghost"})
+
+
+def _rattled(ctx, ref, attacker, defender, move, damage, **_):
+    if ref != defender or move.type not in RATTLED_TYPES:
+        return
+    announce(ctx, defender, "rattled")
+    boost(ctx, defender, {"spe": 1}, source=defender)
+
+
+def _rattled_by_intimidate(ctx, ref, boosted, stat, stages, source=None, **_):
+    if ref != boosted or stat != "atk" or stages >= 0:
+        return
+    if source is None or ctx.ability_of(source) != "intimidate":
+        return
+    announce(ctx, ref, "rattled")
+    boost(ctx, ref, {"spe": 1}, source=ref)
+
+
+register("ability", "rattled", name="Rattled", after_damage=_rattled,
+         after_boost=_rattled_by_intimidate)
+
+
 #: Abilities that do nothing in a battle at all -- registering them keeps the
 #: coverage report honest, because "implemented as nothing" is not "forgotten".
+#: Each line says why. The differ found seven entries here that were simply
+#: unwritten, and "inert" is the easiest place in the engine for that to hide.
 INERT = frozenset({
-    "honeygather", "pickup", "runaway", "ballfetch",
-    # Flower Veil shields Grass types on its own side, and the only holder in
-    # the format is a Fairy with no ally to shield in singles. Inert here, and
-    # not inert in general -- if a Grass type with it ever becomes legal, this
-    # line is the bug.
-    "flowerveil",
-    "cheekpouch", "gluttony", "klutz", "pickpocket",
-    "rattled", "aromaveil",
+    # Outside battle, all three: Honey Gather collects Honey between fights,
+    # Run Away leaves a wild encounter, Ball Fetch retrieves a thrown Poke
+    # Ball. None of the three has a legal holder in the format either.
+    "honeygather", "runaway", "ballfetch",
+    # Gluttony moves a berry's threshold from a quarter of the maximum to a
+    # half, and Regulation M-B has no berry with a quarter threshold: its 28
+    # legal berries trigger at a half (Oran, Sitrus), on a status, on empty
+    # PP, or on a super-effective hit. Inert in this format, not in general.
+    "gluttony",
 })
 
 #: Registered here rather than as a handler: what Suction Cups does is refuse a
 #: drag, and the drag is decided in ``tactics.force_switch``, which reads the
 #: ability directly the way it reads Ingrain.
 register("ability", "suctioncups", name="Suction Cups")
+
+#: Both engine-side for the same reason: what they change is a decision taken
+#: somewhere else. Sticky Hold is asked by ``moveeffects._holds_removable``,
+#: which is the one gate every item-taker goes through, and Ripen by
+#: ``items.ripened`` where a berry works out how much it is worth.
+#: Klutz is the third of the same shape: what it changes is whether the
+#: holder has an item at all, which ``Context.item_of`` answers for every
+#: item in the game at once.
+register("ability", "klutz", name="Klutz")
+register("ability", "stickyhold", name="Sticky Hold")
+register("ability", "ripen", name="Ripen")
 for _name in INERT:
     # Refusing to overwrite is the point. This loop used to register
     # unconditionally, and it silently replaced five real implementations with

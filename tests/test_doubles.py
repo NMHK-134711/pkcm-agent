@@ -385,6 +385,102 @@ def test_sweet_veil_keeps_the_partner_awake(config, dex):
 # --------------------------------------------------------------------------- #
 
 
+def test_flower_veil_shields_a_grass_partner(config, dex):
+    """The holders in this format are Fairies, so it only ever acts on an ally."""
+    def status(ability, partner="meganium"):
+        state = build(config, a_set(partner, "__none__"),
+                      red2=a_set("florges", ability),
+                      blue=a_set("gengar", "__none__", ("willowisp",)))
+        ctx = make_context(state)
+        cast(ctx, dex, "willowisp", attacker=BLUE_A, defender=RED_A)
+        return state.sides[0].status[0]
+
+    assert status("flowerveil") is None
+    assert status("unaware") == "brn"
+    assert status("flowerveil", partner="snorlax") == "brn", "Grass types only"
+
+
+def test_flower_veil_refuses_a_stat_drop_on_the_partner(config):
+    def atk(ability):
+        state = build(config, a_set("meganium", "__none__"),
+                      red2=a_set("florges", ability))
+        ctx = make_context(state)
+        mutate.boost(ctx, RED_A, {"atk": -1}, source=BLUE_A)
+        return state.sides[0].boost(0, "atk")
+
+    assert atk("flowerveil") == 0
+    assert atk("unaware") == -1
+
+
+def test_power_spot_boosts_whatever_the_partner_swings(config, dex):
+    """Battery asks for a special move; Power Spot does not ask."""
+    from pkcm.engine.moves import _both_sides
+
+    def power(move_id, partner_ability):
+        state = build(config, a_set("garchomp", "roughskin", (move_id,)),
+                      red2=a_set("stonjourner", partner_ability))
+        ctx = make_context(state)
+        move = dex.moves[move_id]
+        return _both_sides(ctx, "modify_base_power", move.base_power,
+                           RED_A, BLUE_A, move)
+
+    assert power("dragonpulse", "powerspot") > power("dragonpulse", "unaware")
+    assert power("earthquake", "powerspot") > power("earthquake", "unaware")
+
+
+def test_propeller_tail_hits_what_it_aimed_at(config, dex):
+    state = build(config, a_set("inteleon", "propellertail", ("thunderbolt",)),
+                  blue=a_set("snorlax", "thickfat"),
+                  blue2=a_set("clefable", "unaware", ("followme",)))
+    ctx = make_context(state)
+    cast(ctx, dex, "followme", attacker=BLUE_B)
+    cast(ctx, dex, "thunderbolt", target_code=0)
+    assert state.sides[1].hp[0] < state.pokemon(1, 0).max_hp, "Follow Me did not move it"
+
+
+def test_symbiosis_hands_its_item_over_when_the_partner_spends_one(config):
+    """The berry goes across the moment the partner's own is gone."""
+    def held(ability):
+        state = build(config,
+                      a_set("florges", ability, ("splash",), item="sitrusberry"),
+                      red2=a_set("snorlax", "thickfat", ("splash",),
+                                 item="sitrusberry"),
+                      blue=a_set("snorlax", "thickfat", ("splash",)),
+                      blue2=a_set("snorlax", "thickfat", ("splash",)))
+        state.sides[0].hp[1] = state.pokemon(0, 1).max_hp * 2 // 5
+        both = (Action.move(0), Action.move(0))
+        state, _ = step(state, both, both)
+        return state.item_id(0, 0), state.item_id(0, 1)
+
+    assert held("symbiosis") == (None, "sitrusberry")
+    assert held("unaware") == ("sitrusberry", None), "and stays put otherwise"
+
+
+def _partner_falls(config, ability):
+    """The partner goes down in front of the holder, carrying Intimidate."""
+    state = build(config, a_set("snorlax", ability, ("splash",)),
+                  red2=a_set("snorlax", "intimidate", ("splash",)),
+                  blue=a_set("garchomp", "roughskin", ("bodyslam",)),
+                  blue2=a_set("snorlax", "thickfat", ("splash",)))
+    state.sides[0].hp[1] = 1
+    state, _ = step(state, (Action.move(0), Action.move(0)),
+                    (Action.move(0, target=1), Action.move(0)))
+    return state
+
+
+def test_receiver_takes_up_the_fallen_partners_ability(config):
+    state = _partner_falls(config, "receiver")
+    assert state.sides[0].hp[1] == 0, "the partner did go down"
+    assert state.ability_id(0, 0) == "intimidate"
+    assert _partner_falls(config, "unaware").ability_id(0, 0) == "unaware"
+
+
+def test_power_of_alchemy_takes_up_the_fallen_partners_ability(config):
+    state = _partner_falls(config, "powerofalchemy")
+    assert state.sides[0].hp[1] == 0, "the partner did go down"
+    assert state.ability_id(0, 0) == "intimidate"
+
+
 def test_helping_hand_boosts_the_partners_move(config, dex):
     from pkcm.engine.moves import _both_sides
 

@@ -335,7 +335,11 @@ def test_abilities_with_no_handlers_are_deliberate(dex):
 
     # Suction Cups is read straight out of ``tactics.force_switch``, beside
     # Ingrain, because refusing a drag is that function's decision to make.
-    engine_side = ({"levitate", "corrosion", "suctioncups"}
+    # Read where the decision they change is taken, rather than through a
+    # hook: Sticky Hold at the one gate every item-taker goes through, Ripen
+    # where a berry works out what it is worth.
+    engine_side = ({"levitate", "corrosion", "suctioncups", "stickyhold",
+                    "ripen", "klutz"}
                    | set(MOLD_BREAKER_ABILITIES) | set(IGNORES_REDIRECTION))
     accounted = engine_side | abilities.INERT | abilities.SINGLES_INERT
     for (kind, ability_id), effect in REGISTRY.items():
@@ -538,7 +542,13 @@ def test_disguise_eats_the_first_hit(dex, config):
 
 
 def test_only_item_abilities_remain(dex):
-    """Everything else on the roster is implemented."""
+    """Nothing on the roster is pending any more.
+
+    This asserted a pending pair for months -- Ripen and Sticky Hold, both
+    waiting on the seam where an item changes hands. Sticky Hold turned out
+    to be implemented already, at ``_holds_removable``, and only unregistered;
+    Ripen needed the two lines where a berry decides how much it is worth.
+    """
     from pkcm.engine.effects import registered
 
     regulation = dex.regulation("m_b")
@@ -548,8 +558,9 @@ def test_only_item_abilities_remain(dex):
         for ability in dex.species[species_id].abilities
     }
     missing = roster - set(registered("ability"))
-    assert missing == {"ripen", "stickyhold"}, (
-        f"expected only the held-item abilities to be pending, got {sorted(missing)}"
+    assert missing == set(), (
+        f"every ability on the roster is implemented; got {sorted(missing)} "
+        f"pending"
     )
 
 
@@ -564,24 +575,185 @@ def test_nothing_is_called_inert_that_a_battle_can_notice(dex):
     doubling nothing on a Sneasler built to lose its berry; Magician was two
     Delphox with no ability at all.
 
-    What is left is genuinely nothing to a battle, and Flower Veil, which
-    shields Grass types on its own side and has no Grass holder in this
-    format.
+    Seven of the eleven that were left went the same way once the differ in
+    ``scripts/effect_check.py`` got a control that was honest about gender:
+    Aroma Veil, Flower Veil, Cheek Pouch, Klutz, Pickpocket, Pickup and
+    Rattled all had real effects and no code. What is left is four, and every
+    one of them names the reason a battle cannot see it.
     """
     from pkcm.engine.abilities import INERT
 
     assert INERT == {
-        # nothing a battle can see
-        "honeygather", "pickup", "runaway", "ballfetch",
-        # shields Grass types on its own side; the only holder here is a Fairy
-        # with no ally to shield in singles. Not inert in general.
-        "flowerveil",
-        # real effects, still pending: they all turn on an item changing hands
-        # or being eaten, which is the same seam Ripen and Sticky Hold wait on
-        "cheekpouch", "gluttony", "klutz", "pickpocket",
-        # real effects, still pending
-        "rattled", "aromaveil",
+        # outside battle entirely, and none of the three has a legal holder
+        "honeygather", "runaway", "ballfetch",
+        # moves a berry's trigger from a quarter of HP to a half, and this
+        # format has no berry with a quarter threshold. Not inert in general.
+        "gluttony",
     }, "add a reason before adding a name"
+
+
+# --------------------------------------------------------------------------- #
+# The seven that INERT was wrong about, and the two that were half written
+#
+# All nine came out of the same run: ``scripts/effect_check.py`` plays every
+# ability with and without and compares the traces, and its control used to
+# differ from the real one in two fields rather than one. Every ability passed
+# on that difference alone, so nothing below was being asked anything.
+# --------------------------------------------------------------------------- #
+
+
+def _both_ways(config, ability, red_moves, blue, script, read, red="snorlax",
+               **red_kwargs):
+    """Play the same turns with the ability and without, and read one thing."""
+    def played(which):
+        state = build(config, a_set(red, which, red_moves, **red_kwargs), blue)
+        for ours, theirs in script:
+            state, _ = step(state, ours, theirs)
+        return read(state)
+
+    return played(ability), played("__none__")
+
+
+def test_aroma_veil_refuses_taunt(dex, config):
+    with_it, without = _both_ways(
+        config, "aromaveil", ("splash", "bodyslam"),
+        a_set("gengar", "__none__", ("taunt", "splash")),
+        [(Action.move(0), Action.move(0))],
+        lambda state: "taunt" in state.sides[0].volatiles[0])
+    assert without, "Taunt lands on anything else"
+    assert not with_it
+
+
+def test_cheek_pouch_heals_on_top_of_the_berry(dex, config):
+    def hp_after(ability):
+        state = build(config, a_set("snorlax", ability, ("splash", "bodyslam"),
+                                    item="sitrusberry"),
+                      a_set("snorlax", "__none__", ("splash", "bodyslam")))
+        state.sides[0].hp[0] = state.pokemon(0, 0).max_hp * 2 // 5
+        state, _ = step(state, Action.move(0), Action.move(1))
+        return state.sides[0].hp[0]
+
+    assert hp_after("cheekpouch") > hp_after("__none__"), "the berry, and more"
+
+
+def test_klutz_turns_the_holders_own_item_off(dex, config):
+    def hp_after(ability):
+        state = build(config, a_set("snorlax", ability, ("splash", "bodyslam"),
+                                    item="leftovers"),
+                      a_set("snorlax", "__none__", ("splash", "bodyslam")))
+        state.sides[0].hp[0] = state.pokemon(0, 0).max_hp // 2
+        before = state.sides[0].hp[0]
+        state, _ = step(state, Action.move(0), Action.move(0))
+        return state.sides[0].hp[0] - before
+
+    assert hp_after("__none__") > 0, "Leftovers heals a Pokemon that can use it"
+    assert hp_after("klutz") == 0
+
+
+def test_pickpocket_takes_the_item_off_whatever_touched_it(dex, config):
+    def held(ability):
+        state = build(config, a_set("snorlax", ability, ("splash", "bodyslam")),
+                      a_set("garchomp", "__none__", ("dragonclaw", "splash"),
+                            item="leftovers"))
+        state, _ = step(state, Action.move(0), Action.move(0))
+        return state.item_id(0, 0), state.item_id(1, 0)
+
+    assert held("pickpocket") == ("leftovers", None)
+    assert held("__none__") == (None, "leftovers"), "and stays put otherwise"
+
+
+def test_pickup_takes_up_what_somebody_else_spent(dex, config):
+    def held(ability):
+        state = build(config, a_set("snorlax", ability, ("bodyslam", "splash")),
+                      a_set("garchomp", "__none__", ("splash", "dragonclaw"),
+                            item="sitrusberry"))
+        state.sides[1].hp[0] = state.pokemon(1, 0).max_hp * 2 // 5
+        state, _ = step(state, Action.move(0), Action.move(0))
+        return state.item_id(0, 0), state.item_id(1, 0)
+
+    assert held("pickup") == ("sitrusberry", None), "spent, and picked up"
+    assert held("__none__") == (None, None), "otherwise it is simply gone"
+
+
+def test_rattled_runs_from_a_dark_move(dex, config):
+    with_it, without = _both_ways(
+        config, "rattled", ("splash", "bodyslam"),
+        a_set("weavile", "__none__", ("knockoff", "splash")),
+        [(Action.move(0), Action.move(0))],
+        lambda state: state.sides[0].boost(0, "spe"))
+    assert with_it == 1 and without == 0
+
+
+def test_rattled_runs_from_an_intimidate(dex, config):
+    """Not a move at all, which is why it needs its own hook."""
+    def speed(ability):
+        state = build(config, a_set("snorlax", ability, ("splash", "bodyslam")),
+                      a_set("garchomp", "intimidate", ("splash", "dragonclaw")))
+        return state.sides[0].boost(0, "spe")
+
+    assert speed("rattled") == 1 and speed("__none__") == 0
+
+
+def test_purifying_salt_refuses_every_status(dex, config):
+    with_it, without = _both_ways(
+        config, "purifyingsalt", ("splash", "bodyslam"),
+        a_set("gengar", "__none__", ("willowisp", "splash")),
+        [(Action.move(0), Action.move(0))] * 3,
+        lambda state: state.sides[0].status[0])
+    assert without == "brn"
+    assert with_it is None
+
+
+def test_purifying_salt_still_halves_ghost_damage(dex, config):
+    def damage(ability):
+        state = build(config, a_set("milotic", ability, ("splash", "bodyslam")),
+                      a_set("gengar", "__none__", ("shadowball", "splash")))
+        ctx = make_context(state)
+        cast(ctx, dex, "shadowball", attacker=BLUE, defender=RED)
+        return state.pokemon(0, 0).max_hp - state.sides[0].hp[0]
+
+    assert damage("purifyingsalt") * 2 <= damage("__none__") + 1
+
+
+def test_solar_power_is_paid_for_every_turn_of_sun(dex, config):
+    """The Special Attack was implemented and the sunburn was not."""
+    from pkcm.engine.abilities import SOLAR_POWER_FRACTION
+
+    def lost(ability):
+        state = build(config, a_set("charizard", ability, ("splash", "bodyslam")),
+                      a_set("snorlax", "__none__", ("splash", "bodyslam")))
+        state.field.weather = "sunnyday"
+        state.field.weather_turns = 8
+        whole = state.pokemon(0, 0).max_hp
+        state, _ = step(state, Action.move(0), Action.move(0))
+        return whole - state.sides[0].hp[0], whole
+
+    burnt, whole = lost("solarpower")
+    assert lost("__none__")[0] == 0
+    assert abs(burnt - whole // SOLAR_POWER_FRACTION) <= 1
+
+
+def test_solar_power_costs_nothing_out_of_the_sun(dex, config):
+    state = build(config, a_set("charizard", "solarpower", ("splash", "bodyslam")),
+                  a_set("snorlax", "__none__", ("splash", "bodyslam")))
+    whole = state.pokemon(0, 0).max_hp
+    state, _ = step(state, Action.move(0), Action.move(0))
+    assert state.sides[0].hp[0] == whole
+
+
+def test_leaf_guard_refuses_a_status_only_in_the_sun(dex, config):
+    def status(weather):
+        state = build(config, a_set("meganium", "leafguard", ("splash", "bodyslam")),
+                      a_set("gengar", "__none__", ("willowisp", "splash")))
+        if weather:
+            state.field.weather = weather
+            state.field.weather_turns = 8
+        for _ in range(3):
+            state, _ = step(state, Action.move(0), Action.move(0))
+        return state.sides[0].status[0]
+
+    assert status("sunnyday") is None
+    assert status(None) == "brn"
 
 
 # --------------------------------------------------------------------------- #
@@ -939,3 +1111,38 @@ def test_harvest_grows_back_nothing_when_nothing_was_spent(dex):
     state, events = step(state, Action.move(0), Action.move(0))
     assert not any(e.kind == "item_restored" for e in events)
     assert state.item_id(0, slot) is None
+
+
+def test_ripen_doubles_what_a_berry_is_worth(dex, config):
+    """Two halves and two heals: the only berries in this format with a size."""
+    from pkcm.engine import items
+
+    given = []
+    for ability in ("thickfat", "ripen"):
+        # Nobody attacks: an Earthquake big enough to put it under half was
+        # also big enough to finish it, and then no berry was eaten at all.
+        state = build(config, a_set("snorlax", ability, ("splash",),
+                                    item="sitrusberry"),
+                      a_set("garchomp", "roughskin", ("splash",)))
+        state.sides[0].hp[0] = state.pokemon(0, 0).max_hp // 2 - 1
+        before = state.sides[0].hp[0]
+        state, _ = step(state, Action.move(0), Action.move(0))
+        given.append(state.sides[0].hp[0] - before)
+    assert given[0] > 0, "the plain Sitrus Berry was eaten"
+    assert given[1] == given[0] * 2, f"plain {given[0]}, ripened {given[1]}"
+
+
+def test_sticky_hold_keeps_the_item_through_every_way_of_taking_it(dex, config):
+    """One gate, ``_holds_removable``, and every taker goes through it."""
+    from pkcm.engine.moveeffects import _holds_removable
+    from pkcm.engine.battle import make_context
+
+    state = build(config, a_set("weavile", "pressure",
+                                ("knockoff", "thief", "trick")),
+                  a_set("snorlax", "stickyhold", ("splash",),
+                        item="leftovers"))
+    ctx = make_context(state)
+    assert _holds_removable(ctx, (1, 0)) is None, "nothing may take it"
+
+    state, _ = step(state, Action.move(0), Action.move(0))
+    assert state.item_id(1, 0) == "leftovers", "Knock Off left it there"

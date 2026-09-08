@@ -24,7 +24,7 @@ from pkcm.engine import mutate
 from pkcm.engine.abilities import announce
 from pkcm.engine.effects import Context, Ref, register
 from pkcm.engine.events import Event
-from pkcm.engine.moves import X0_5, X0_9, X1_1, X1_2, X1_3, X1_5, X2, chain_modify
+from pkcm.engine.moves import X0_25, X0_5, X0_9, X1_1, X1_2, X1_3, X1_5, X2, chain_modify
 from pkcm.engine.mutate import boost, consume_item, fraction_of_max, heal
 
 ROSTER_PATH = Path(__file__).resolve().parents[3] / "data" / "champions" / "items_m_b.json"
@@ -428,6 +428,17 @@ def berry_effect(berry: str):
     return keep
 
 
+def ripened(ctx: Context, ref: Ref) -> bool:
+    """Whether this one's berries come out twice as strong.
+
+    Champions on Ripen: 나무열매의 효과가 2배가 된다. In this format the
+    berries that have a size are the two that heal and the eighteen that
+    halve a super-effective hit; the status and PP berries have nothing to
+    double. It was the last ability on the roster with no implementation.
+    """
+    return ctx.ability_of(ref) == "ripen"
+
+
 def eat_berry(ctx: Context, ref: Ref, berry: str) -> bool:
     """Apply a berry's effect without it being held. Cud Chew's whole job."""
     effect = BERRY_EFFECTS.get(berry)
@@ -450,7 +461,9 @@ def _resist_berry(berry_type: str, berry: str):
             return None
         used(ctx, defender, berry)
         consume_item(ctx, defender, berry)
-        return chain_modify(value, X0_5)
+        # Ripen halves it twice over, which is the quarter the ability's own
+        # constant is there for.
+        return chain_modify(value, X0_25 if ripened(ctx, defender) else X0_5)
 
     return handler
 
@@ -526,7 +539,8 @@ register("item", "persimberry", name="Persim Berry", update=_persim_berry)
 def _healing_berry(berry: str, amount, threshold: int = 2):
     @berry_effect(berry)
     def effect(ctx, ref):
-        heal(ctx, ref, amount(mutate.max_hp(ctx.state, ref)), reason=berry)
+        given = amount(mutate.max_hp(ctx.state, ref))
+        heal(ctx, ref, given * 2 if ripened(ctx, ref) else given, reason=berry)
 
     def handler(ctx, ref, **_):
         total = mutate.max_hp(ctx.state, ref)

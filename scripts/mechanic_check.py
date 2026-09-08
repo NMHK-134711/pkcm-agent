@@ -1308,12 +1308,26 @@ def _morning_sun():
 
 @check("focusenergy", "makes the user's hits likelier to be critical")
 def _focus_energy():
-    f = Fight(ours("kingambit", "__none__",
-                   ("focusenergy", "ironhead", "suckerpunch", "swordsdance")),
-              [dummy("magikarp")])
-    f.turn(Action.move(0), Action.move(0))
-    return ("focusenergy" in f.volatiles(0),
-            f"our volatiles {sorted(f.volatiles(0)) or 'none'}")
+    def crits(psyched):
+        seen = 0
+        for seed in range(24):
+            f = Fight(ours("kingambit", "__none__",
+                           ("focusenergy", "ironhead", "suckerpunch",
+                            "swordsdance"), None, "adamant",
+                           (0, 0, 2, 0, 0, 0)),
+                      [wall()], seed)
+            if psyched:
+                f.turn(Action.move(0), Action.move(0))
+            f.turn(Action.move(1), Action.move(0))
+            seen += f.said("crit=True")
+        return seen
+    # Two stages is a coin flip in this generation against one in twenty-four,
+    # and 24 casts separate those comfortably. The volatile on its own says
+    # nothing about whether anything reads it.
+    keyed_up = crits(True)
+    calm = crits(False)
+    return (keyed_up > calm + 4,
+            f"critical hits in 24: keyed up {keyed_up}, calm {calm}")
 
 
 @check("assurance", "doubles on a target already hurt this turn")
@@ -1931,23 +1945,46 @@ def _imprison():
 
 @check("lockon", "the next move cannot miss")
 def _lock_on():
-    f = Fight(ours("magikarp", "__none__",
-                   ("lockon", "sheercold", "splash", "tackle")),
-              [dummy("snorlax")])
-    f.turn(Action.move(0), Action.move(0))
-    return ("lockon" in f.volatiles(0) or "lockedon" in f.volatiles(1),
-            f"ours {sorted(f.volatiles(0))}, theirs {sorted(f.volatiles(1))}")
+    def landed(locked_on):
+        hits = 0
+        for seed in range(12):
+            f = Fight(ours("magikarp", "__none__",
+                           ("lockon", "sheercold", "splash", "tackle")),
+                      [dummy("snorlax")], seed)
+            if locked_on:
+                f.turn(Action.move(0), Action.move(0))
+            f.turn(Action.move(1), Action.move(0))
+            hits += f.said("ohko") or f.said("faint(side=1")
+        return hits
+    # Sheer Cold is thirty percent; locked on it cannot miss. Reading the
+    # volatile proved only that something wrote a word into the state.
+    aimed = landed(True)
+    blind = landed(False)
+    return (aimed == 12 and blind < 12,
+            f"locked on it connected {aimed}/12, unaided {blind}/12")
 
 
 @check("magicroom", "held items stop working")
 def _magic_room():
-    f = Fight(ours("clefable", "__none__",
-                   ("magicroom", "moonblast", "protect", "splash"),
-                   None, "timid", (32, 0, 32, 0, 2, 32)),
-              [dummy("magikarp")])
-    f.turn(Action.move(0), Action.move(0))
-    return ("magicroom" in f.state.field.rooms,
-            f"the rooms up are {sorted(f.state.field.rooms) or 'none'}")
+    def healed(room_up):
+        f = Fight([PokemonSet(species="snorlax", ability="__none__",
+                              gender=None,
+                              moves=("magicroom", "splash", "protect", "rest"),
+                              item="leftovers", nature="serious",
+                              sp=(32, 0, 32, 0, 2, 0))],
+                  [dummy("magikarp")])
+        slot = f.state.sides[0].active[0]
+        f.state.sides[0].hp[slot] //= 2
+        before = f.hp(0)
+        f.turn(Action.move(0 if room_up else 1), Action.move(0))
+        return f.hp(0) - before
+    # Leftovers is the cheapest item to watch: it ticks at the end of every
+    # turn, so a room that suppresses items shows up as the tick not happening.
+    with_room = healed(True)
+    without = healed(False)
+    return (without > 0 and with_room <= 0,
+            f"Leftovers gave back {without} normally and {with_room} "
+            f"inside Magic Room")
 
 
 @check("noretreat", "raises everything and pins the user down")
@@ -1972,9 +2009,13 @@ def _power_trick():
                    ("powertrick", "protect", "splash", "tackle"),
                    None, "serious", (32, 0, 32, 0, 32, 0)),
               [dummy("magikarp")])
+    before = (_stat(f, 0, "atk"), _stat(f, 0, "def"))
     f.turn(Action.move(0), Action.move(0))
-    return ("powertrick" in f.volatiles(0),
-            f"our volatiles {sorted(f.volatiles(0))}")
+    after = (_stat(f, 0, "atk"), _stat(f, 0, "def"))
+    # Shuckle's two are far enough apart that a swap cannot be mistaken for
+    # noise, and the volatile alone said only that a word had been written.
+    return (before[0] != before[1] and after == (before[1], before[0]),
+            f"Attack and Defence were {before}, now {after}")
 
 
 @check("powertrip", "grows with the user's own stat stages")
@@ -2038,18 +2079,19 @@ def _corrosive_gas():
 
 @check("electrify", "the target's move turns Electric")
 def _electrify():
-    f = Fight(ours("pikachu", "__none__",
-                   ("electrify", "thunderbolt", "protect", "splash"),
+    f = Fight(ours("garchomp", "__none__",     # Ground: immune to Electric
+                   ("electrify", "earthquake", "protect", "splash"),
                    None, "timid", (32, 0, 32, 0, 2, 32)),
               [mon("snorlax", "__none__",
                    ("bodyslam", "splash", "rest", "protect"),
                    None, "serious", (32, 0, 32, 0, 2, 0))])
     f.turn(Action.move(0), Action.move(0))
-    # Body Slam turned Electric cannot touch a Ground type; against Pikachu it
-    # simply is not Normal any more, which the log's effectiveness records.
-    return ("electrify" in f.volatiles(1) or f.said("electrify"),
-            f"their volatiles {sorted(f.volatiles(1))}, "
-            f"log {' | '.join(str(e) for e in f.log)[:150]}")
+    # The marker existing proves nothing -- Encore held one for four turns
+    # while enforcing none of it. A Normal move turned Electric cannot touch a
+    # Ground type, so the Garchomp behind us is what answers the question.
+    return (f.said("immune"),
+            f"their Body Slam was refused as Electric={f.said('immune')}; "
+            f"volatiles {sorted(f.volatiles(1))}")
 
 
 @check("entrainment", "hands the user's ability to the target")
@@ -2159,13 +2201,19 @@ def _reflect_type():
 
 @check("guardsplit", "levels the two defences")
 def _guard_split():
-    f = Fight(ours("shuckle", "__none__",
+    f = Fight(ours("shuckle", "__none__",       # famously all defence
                    ("guardsplit", "protect", "splash", "tackle"),
                    None, "serious", (32, 0, 32, 0, 32, 0)),
-              [dummy("magikarp")])
+              [mon("magikarp", "__none__", ("splash", "tackle", "flail",
+                                            "bounce"))])
+    before = (_stat(f, 0, "def"), _stat(f, 1, "def"))
     f.turn(Action.move(0), Action.move(0))
-    return (f.said("guardsplit") or not f.said("move_failed"),
-            f"log {' | '.join(str(e) for e in f.log)[:150]}")
+    after = (_stat(f, 0, "def"), _stat(f, 1, "def"))
+    # "It did not say it failed" was the old verdict, which a move that does
+    # nothing also passes. Shuckle's Defence against a Magikarp's is the widest
+    # gap in the format; splitting it has to close it.
+    return (abs(before[0] - before[1]) > 40 and abs(after[0] - after[1]) <= 1,
+            f"Defence was {before}, now {after}")
 
 
 @check("powersplit", "levels the two attacking stats")
@@ -2173,10 +2221,14 @@ def _power_split():
     f = Fight(ours("shuckle", "__none__",
                    ("powersplit", "protect", "splash", "tackle"),
                    None, "serious", (32, 0, 32, 0, 32, 0)),
-              [dummy("magikarp")])
+              [mon("garchomp", "__none__",
+                   ("splash", "dragonclaw", "protect", "earthquake"),
+                   None, "adamant", (0, 32, 2, 0, 0, 0))])
+    before = (_stat(f, 0, "atk"), _stat(f, 1, "atk"))
     f.turn(Action.move(0), Action.move(0))
-    return (f.said("powersplit") or not f.said("move_failed"),
-            f"log {' | '.join(str(e) for e in f.log)[:150]}")
+    after = (_stat(f, 0, "atk"), _stat(f, 1, "atk"))
+    return (abs(before[0] - before[1]) > 40 and abs(after[0] - after[1]) <= 1,
+            f"Attack was {before}, now {after}")
 
 
 @check("guardswap", "trades the two defensive stat stages over")
@@ -2332,6 +2384,15 @@ def _magnetic_flux():
 def _dragon_cheer():
     return _fails_cleanly("dragonite", ("dragoncheer", "dragonclaw", "roost",
                                         "firepunch"))
+
+
+def _stat(f, side, stat):
+    """The stat the engine would actually use, stages and all."""
+    from pkcm.data.dex import Stat
+    from pkcm.engine.battle import make_context
+    from pkcm.engine.mutate import effective_stat
+    ref = (side, f.state.sides[side].active[0])
+    return effective_stat(make_context(f.state), ref, getattr(Stat, stat.upper()))
 
 
 def _ability_after(f, side):

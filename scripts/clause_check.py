@@ -1662,7 +1662,7 @@ def _five_turns_of_snow():
 
 
 
-def rolls_for(f, move, power, side=0, as_type=None, extra=1.0):
+def rolls_for(f, move, power, side=0, as_type=None, extra=1.0, crit=False):
     """The sixteen damages the formula gives for a power worked out here.
 
     ``mechanic_check._expected_rolls`` reads ``move.base_power``, which is
@@ -1686,7 +1686,7 @@ def rolls_for(f, move, power, side=0, as_type=None, extra=1.0):
     kind = as_type or move.type
     effectiveness = DEX.type_chart.multiplier(kind, f.state.types(*them))
     stab = kind in f.state.types(*us)
-    base = damage_base(power=power, attack=attack, defense=defense)
+    base = damage_base(power=power, attack=attack, defense=defense, crit=crit)
     # ``extra`` is the field's own hand on the damage -- Rain multiplying a
     # Water move by 1.5, a terrain multiplying its own type by 1.3. Not what
     # the clause under test says, but present in the position it needs, and
@@ -6429,6 +6429,390 @@ def _stated_chances():
                     notes.append("and never without the stat raise")
             rows.append((f"{move_id}", not off, "; ".join(off or notes)))
     return verdict(rows)
+
+
+# --------------------------------------------------------------------------- #
+# The status a status move states, and the turns a field effect states
+# --------------------------------------------------------------------------- #
+
+_STATED_STATUS = {
+    "Badly poisons the target.": "tox",
+    "Burns the target.": "brn",
+    "Causes the target to become confused.": "confusion",
+    "Causes the target to fall asleep.": "slp",
+    "Paralyzes the target.": "par",
+    "Poisons the target.": "psn",
+}
+
+
+def _first_species(*names):
+    return next((one for one in names if one in DEX.species), None)
+
+
+#: Something each status simply cannot be put on, so "it landed" can be told
+#: apart from "it lands on anything".
+_PROOF_AGAINST = {"brn": ("charizard", "arcanine", "typhlosion"),
+                  "par": ("pikachu", "raichu", "manectric"),
+                  "psn": ("skarmory", "steelix", "forretress"),
+                  "tox": ("skarmory", "steelix", "forretress")}
+
+
+@family("statedstatus",
+        "Badly poisons the target.", "Burns the target.",
+        "Causes the target to become confused.",
+        "Causes the target to fall asleep.", "Paralyzes the target.",
+        "Poisons the target.",
+        "This move does not ignore type immunity.")
+def _stated_status():
+    """A status move naming its status, put on something that can take it and
+    then on something that cannot.
+
+    ``plainstatus`` re-ran the move's ``mechanic_check`` entry, which checks
+    the ``status`` *field*. Same shape as Dragon Cheer: right almost always,
+    and with nothing to say the one time it is not.
+    """
+    rows = []
+    mine = set(FAMILIES["statedstatus"]["clauses"])
+    for move_id in members("statedstatus"):
+        for sentence in sentences(DEX.moves[move_id]):
+            if sentence not in mine:
+                continue
+            if sentence == "This move does not ignore type immunity.":
+                # Thunder Wave is Electric, and Ground is not standing for it.
+                ground = _first_species("garchomp", "excadrill", "hippowdon")
+                f = until(lambda seed: _use_once(move_id, must_land=False,
+                                                 theirs=[wall(ground)]),
+                          lambda one: one is not None, tries=1)
+                landed_it = f is not None and f.status(1) is not None
+                rows.append((f"{move_id} on a Ground type", not landed_it,
+                             f"a {ground} came away {f.status(1) if f else '?'}"))
+                continue
+
+            code = _STATED_STATUS[sentence]
+            species = _target_that_can_take(DEX.moves[move_id], (code,))
+            f = until(lambda seed, species=species: _cast_at(move_id, species, seed),
+                      lambda one: not failed(one, 0))
+            if f is None:
+                rows.append((move_id, False, "it never got through in thirty tries"))
+                continue
+            if code == "confusion":
+                stuck = "confusion" in f.volatiles(1)
+            else:
+                stuck = f.status(1) == code
+            problems = [] if stuck else [f"nothing took: status={f.status(1)}, "
+                                         f"volatiles={sorted(f.volatiles(1))}"]
+
+            proof = _PROOF_AGAINST.get(code)
+            if proof:
+                immune = _first_species(*proof)
+                other = until(lambda seed, immune=immune: _cast_at(move_id, immune, seed),
+                              lambda one: one is not None, tries=1)
+                if other is not None and other.status(1) == code:
+                    problems.append(f"a {immune} took it too, and its type "
+                                    f"cannot")
+            rows.append((move_id, not problems,
+                         "; ".join(problems) or f"{code} on a {species}"
+                         + (f", and never on a {immune}" if proof else "")))
+    return verdict(rows)
+
+
+def _cast_at(move_id, species, seed):
+    f = Fight([swinger(move_id)], [wall(species)], seed=seed)
+    f.turn(Action.move(0), Action.move(0))
+    return f
+
+
+_WEATHER_IDS = {"Sunny Day": "sunnyday", "Rain Dance": "raindance",
+                "Sandstorm": "sandstorm", "Snow": "snowscape"}
+_TERRAIN_IDS = {"Electric Terrain": "electricterrain",
+                "Grassy Terrain": "grassyterrain",
+                "Misty Terrain": "mistyterrain",
+                "Psychic Terrain": "psychicterrain"}
+
+
+def _turns_of(f, kind):
+    field = f.state.field
+    if kind == "weather":
+        return field.weather, field.weather_turns
+    if kind == "terrain":
+        return field.terrain, field.terrain_turns
+    return ("trickroom" if field.rooms.get("trickroom") else None,
+            field.rooms.get("trickroom", 0))
+
+
+def _sets_the_field(move_id, kind, wanted, turns):
+    """It says five turns, so five turns is what gets counted -- set, still
+    there on the fifth, gone on the sixth."""
+    f = Fight([swinger(move_id)], [wall()], seed=7)
+    f.turn(Action.move(0), Action.move(0))
+    problems = []
+    if _turns_of(f, kind)[0] != wanted:
+        problems.append(f"it set {_turns_of(f, kind)[0]!r}, not {wanted!r}")
+    # Counting the turns it is actually up rather than reading the counter:
+    # the counter is already down to four by the end of the turn that set it,
+    # which is bookkeeping and not the sentence.
+    alive = 1
+    while alive < turns + 4:
+        if _turns_of(f, kind)[0] != wanted:
+            break               # it was not up for the turn about to be played
+        f.turn(Action.move(1), Action.move(0))
+        alive += 1
+    if alive != turns:
+        problems.append(f"it stood for {alive} turns, not {turns}")
+    return (move_id, not problems,
+            "; ".join(problems) or f"{wanted} for {turns} turns and no more")
+
+
+def _trick_room_order():
+    """"the Speed of every Pokemon is recalculated for the purposes of
+    determining turn order" -- so the slow one goes first."""
+    ours = [mon("snorlax", "__none__", ("trickroom", "bodyslam", "protect", "rest"),
+                None, "sassy", (32, 32, 0, 0, 2, 0))]
+    theirs = [mon("weavile" if "weavile" in DEX.species else "pikachu",
+                  "__none__", ("splash", "tackle", "protect", "rest"), None,
+                  "jolly", (0, 32, 0, 0, 0, 32))]
+    f = Fight(ours, theirs, seed=7)
+    f.turn(Action.move(1), Action.move(1))
+    normal = [e for e in f.log if e.kind == "move_used"]
+    ours_first_normally = (normal[0].side or 0) == 0
+    f.turn(Action.move(0), Action.move(0))            # Trick Room goes up
+    f.turn(Action.move(1), Action.move(1))
+    inverted = [e for e in f.log if e.kind == "move_used"]
+    ours_first_inverted = (inverted[0].side or 0) == 0
+    return ("trickroom", not ours_first_normally and ours_first_inverted,
+            f"the slow one led first={ours_first_normally} normally and "
+            f"={ours_first_inverted} in the room")
+
+
+def _psychic_noise_block():
+    """Two turns of no healing, and Pain Split and Regenerator carrying on."""
+    problems = []
+    ours = [mon(UNIVERSAL, "__none__",
+                ("psychicnoise", "painsplit", "splash", "protect"), None,
+                "modest", (32, 0, 0, 32, 2, 0))]
+    theirs = [mon("blissey", "__none__",
+                  ("softboiled", "splash", "painsplit", "protect"), None,
+                  "sassy", (32, 0, 32, 0, 32, 0))]
+    f = Fight(ours, theirs, seed=7)
+    side = f.state.sides[1]
+    side.hp[side.active[0]] = f.max_hp(1) // 2
+    f.turn(Action.move(0), Action.move(1))            # noise lands, they idle
+    for turn in (1, 2):
+        before = f.hp(1)
+        f.turn(Action.move(2), Action.move(0))        # they try Soft-Boiled
+        if f.hp(1) > before:
+            problems.append(f"it healed {f.hp(1) - before} on turn {turn}")
+    before = f.hp(1)
+    f.turn(Action.move(2), Action.move(0))
+    if f.hp(1) <= before:
+        problems.append("it still could not heal on the third turn")
+
+    # Pain Split is not healing, and the sentence says so.
+    g = Fight(ours, theirs, seed=7)
+    side = g.state.sides[1]
+    side.hp[side.active[0]] = g.max_hp(1) // 4
+    g.turn(Action.move(0), Action.move(1))
+    before = g.hp(1)
+    g.turn(Action.move(2), Action.move(2))            # both reach for it
+    if g.hp(1) <= before:
+        problems.append("Pain Split could not move its HP either")
+    return ("psychicnoise", not problems,
+            "; ".join(problems) or "two turns without healing, and Pain Split "
+                                   "through it")
+
+
+@family("statedturns",
+        "For 5 turns, the weather becomes ",
+        "For 5 turns, the terrain becomes ",
+        "For 5 turns, the Speed of every Pokemon is recalculated for the "
+        "purposes of determining turn order.",
+        "For 2 turns, the target is prevented from restoring any HP as long "
+        "as it remains active.",
+        "Pain Split and the Regenerator Ability are unaffected.")
+def _stated_turns():
+    rows = []
+    mine = set(FAMILIES["statedturns"]["clauses"])
+    for move_id in members("statedturns"):
+        if move_id == "trickroom":
+            rows.append(_sets_the_field(move_id, "room", "trickroom", 5))
+            rows.append(_trick_room_order())
+            continue
+        if move_id == "psychicnoise":
+            rows.append(_psychic_noise_block())
+            continue
+        if move_id == "chillyreception":
+            continue          # its own family already watches the switch
+        for sentence in sentences(DEX.moves[move_id]):
+            if sentence not in mine:
+                continue
+            named = sentence.rstrip(".").split("becomes ")[-1]
+            if named in _WEATHER_IDS:
+                rows.append(_sets_the_field(move_id, "weather",
+                                            _WEATHER_IDS[named], 5))
+            elif named in _TERRAIN_IDS:
+                rows.append(_sets_the_field(move_id, "terrain",
+                                            _TERRAIN_IDS[named], 5))
+            else:
+                rows.append((move_id, False,
+                             f"this probe could not read {sentence!r}"))
+    return verdict(rows)
+
+
+# --------------------------------------------------------------------------- #
+# The three screens, and the three moves that take them down
+# --------------------------------------------------------------------------- #
+
+from pkcm.engine.conditions import (SCREEN_MULTIPLIER,        # noqa: E402
+                                    SCREEN_MULTIPLIER_SPREAD)
+
+#: Which category each screen answers, and a move of each kind to test it
+#: with -- one ordinary and one that always crits.
+#: Single-target moves throughout: a spread move loses a further quarter on a
+#: doubles field, which is a different sentence and would be read as the
+#: screen taking too much.
+_SCREENS = {"reflect": ("Physical", "bodyslam", "psychic", "stormthrow"),
+            "lightscreen": ("Special", "psychic", "bodyslam", "frostbreath"),
+            "auroraveil": (None, "bodyslam", None, "stormthrow")}
+
+_BREAKERS = ("brickbreak", "psychicfangs", "ragingbull")
+
+
+def _behind_a_screen(screen, incoming, item=None, doubles=False, seed=7):
+    """Our side puts the screen up on turn one and takes the hit on turn two."""
+    ours = mon("snorlax", "__none__", (screen, "splash", "protect", "rest"),
+               item, "sassy", (32, 0, 32, 0, 32, 0))
+    theirs = mon(UNIVERSAL, "__none__", (incoming, "splash", "protect", "rest"),
+                 None, "adamant" if DEX.moves[incoming].category == "Physical"
+                 else "modest",
+                 (0, 32, 0, 0, 2, 0) if DEX.moves[incoming].category == "Physical"
+                 else (0, 0, 0, 32, 2, 0))
+    if doubles:
+        f = Pair([ours, wall()], [theirs, wall()], seed=seed)
+        if screen == "auroraveil":
+            f.state.field.weather, f.state.field.weather_turns = "snowscape", 8
+        f.turn((Action.move(0), Action.move(0)), (Action.move(1), Action.move(0)))
+        return f
+    f = Fight([ours], [theirs], seed=seed)
+    if screen == "auroraveil":
+        f.state.field.weather, f.state.field.weather_turns = "snowscape", 8
+    f.turn(Action.move(0), Action.move(1))
+    return f
+
+
+def _hit_through(screen, incoming, share, doubles=False, also=None):
+    """One hit taken behind the screen, against what the sentence prices it at."""
+    move = DEX.moves[incoming]
+    f = _behind_a_screen(screen, incoming, doubles=doubles)
+    if also is not None:
+        f.state.sides[0].conditions[also] = 5
+    want = rolls_for(f, move, move.base_power, side=1, extra=share)
+    if doubles:
+        f.turn((Action.move(1), Action.move(0)), (Action.move(0), Action.move(0)))
+    else:
+        f.turn(Action.move(1), Action.move(0))
+    hits = [e for e in f.log if e.kind == "damage" and (e.side or 0) == 0
+            and e.move == incoming]
+    if not hits:
+        return None, "the hit never came"
+    got = hits[0].amount
+    crit = hits[0].crit
+    return got in want, (f"took {got}{' on a crit' if crit else ''} against "
+                         f"{min(want)}-{max(want)} at {share:.4g}x")
+
+
+def _screen_arms(screen):
+    category, matching, other, always_crits = _SCREENS[screen]
+    problems = []
+
+    ok, note = _hit_through(screen, matching, SCREEN_MULTIPLIER)
+    if not ok:
+        problems.append(f"a {matching} in singles {note}")
+    ok, note = _hit_through(screen, matching, SCREEN_MULTIPLIER_SPREAD,
+                            doubles=True)
+    if not ok:
+        problems.append(f"a {matching} on a doubles field {note}")
+    if other is not None:
+        ok, note = _hit_through(screen, other, 1.0)
+        if not ok:
+            problems.append(f"a {other} is the other kind and {note}")
+
+    # "Critical hits ignore this" -- full damage, at the crit multiplier the
+    # formula already carries.
+    move = DEX.moves[always_crits]
+    f = _behind_a_screen(screen, always_crits)
+    want = rolls_for(f, move, move.base_power, side=1, crit=True)
+    f.turn(Action.move(1), Action.move(0))
+    hits = [e for e in f.log if e.kind == "damage" and (e.side or 0) == 0
+            and e.move == always_crits]
+    if not hits:
+        problems.append(f"{always_crits} never landed")
+    elif not hits[0].crit:
+        problems.append(f"{always_crits} did not crit, so nothing was tested")
+    elif hits[0].amount not in want:
+        problems.append(f"a critical {always_crits} took {hits[0].amount}, and "
+                        f"unreduced is {min(want)}-{max(want)}")
+
+    # "Damage is not reduced further with Aurora Veil" -- and the other way
+    # round, Aurora Veil does not stack onto a screen either.
+    stacked = "auroraveil" if screen != "auroraveil" else "reflect"
+    ok, note = _hit_through(screen, matching, SCREEN_MULTIPLIER, also=stacked)
+    if not ok:
+        problems.append(f"with {stacked} up as well it {note}")
+
+    # "Lasts for 8 turns if the user is holding Light Clay."
+    for item, turns in ((None, 5), ("lightclay", 8)):
+        f = _behind_a_screen(screen, matching, item=item)
+        alive = 1
+        while alive < turns + 4:
+            if screen not in f.state.sides[0].conditions:
+                break
+            f.turn(Action.move(1), Action.move(1))
+            alive += 1
+        if alive != turns:
+            problems.append(f"holding {item} it stood {alive} turns, not {turns}")
+
+    # "It is removed ... if the user or an ally is successfully hit by Brick
+    # Break, Psychic Fangs, or Defog", and for the first two, before the
+    # damage is worked out -- so the breaker's own hit is not reduced.
+    for breaker in _BREAKERS + ("defog",):
+        move = DEX.moves[breaker]
+        f = _behind_a_screen(screen, breaker)
+        want = rolls_for(f, move, move.base_power, side=1)
+        f.turn(Action.move(1), Action.move(0))
+        if screen in f.state.sides[0].conditions:
+            problems.append(f"{breaker} did not take it down")
+        hits = [e for e in f.log if e.kind == "damage" and (e.side or 0) == 0
+                and e.move == breaker and not e.crit]
+        if hits and move.category != "Status" and hits[0].amount not in want:
+            problems.append(f"{breaker} was itself reduced: {hits[0].amount} "
+                            f"against {min(want)}-{max(want)}")
+    return (screen, not problems,
+            "; ".join(problems) or "half in singles, two thirds in doubles, "
+                                   "full through a crit, no stacking, five "
+                                   "turns or eight on a Light Clay, and down "
+                                   "to all four breakers")
+
+
+@family("screens",
+        "For 5 turns, the user and its party members take 0.5x damage from ",
+        "Damage is not reduced further with Aurora Veil.",
+        "Critical hits ignore this effect.",
+        "Critical hits ignore this protection.",
+        "It is removed from the user's side if the user or an ally is "
+        "successfully hit by Brick Break, Psychic Fangs, or Defog.",
+        "Lasts for 8 turns if the user is holding Light Clay.",
+        "If this attack does not miss, the effects of Reflect, Light Screen, "
+        "and Aurora Veil end for the target's side of the field before damage "
+        "is calculated.")
+def _screens():
+    """Every number the three screens name, and the three moves that end them.
+
+    ``screenbreakers`` re-ran ``mechanic_check``, which asks whether the screen
+    is gone afterwards. Whether it halved anything, whether a crit went
+    through it, whether a Light Clay bought three more turns, and whether the
+    breaker's own hit was reduced were all sentences nobody had read.
+    """
+    return verdict([_screen_arms(one) for one in _SCREENS])
 
 
 def family_by_move(name: str, moves, probe):

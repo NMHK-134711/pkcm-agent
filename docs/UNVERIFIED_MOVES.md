@@ -1,23 +1,24 @@
 # 효과가 있는데, 그 문장을 직접 재보지는 않은 기술
 
-`python scripts/coverage_audit.py`가 만듭니다. 포맷의 기술 497개 중 설명이 없거나 "No additional effect."뿐인 것 29개를 빼면 **468개**가 효과 문장을 갖고, 그 중 **366개**는 모든 효과 문장마다 그 문장을 읽고 쓴 probe가 붙어 있습니다.
+`python scripts/coverage_audit.py`가 만듭니다. 포맷의 기술 497개 중 설명이 없거나 "No additional effect."뿐인 것 31개를 빼면 **466개**가 효과 문장을 갖고, 그 중 **391개**는 모든 효과 문장마다 그 문장을 읽고 쓴 probe가 붙어 있습니다.
 
-아래 **102개**가 나머지입니다. `clause_check`가 그 문장을 다른 검사에 *위임*했고, "그 검사가 이 문장을 덮는다"는 건 제 판단이지 측정이 아닙니다. 전부 초록이지만, 초록의 근거가 문장이 아니라 제 짐작입니다.
+아래 **75개**가 나머지입니다. `clause_check`가 그 문장을 다른 검사에 *위임*했고, "그 검사가 이 문장을 덮는다"는 건 제 판단이지 측정이 아닙니다. 전부 초록이지만, 초록의 근거가 문장이 아니라 제 짐작입니다.
 
 드래곤옐이 정확히 이 자리에 있었습니다: 문장은 급소율을 말하는데 위임된 검사는 능력치 랭크를 재고 있었고, 잴 것이 없으니 조용히 통과시켰습니다.
 
 (테라스탈·블루오브·하늘가르기처럼 이 포맷에 없는 기전만 언급하는 문장은 도달 불가로 기록되어 있고, 여기서는 세지 않았습니다.)
 
-## B등급 -- 64개
+## B등급 -- 59개
 
 그 기술 전용 수기 검사가 있습니다. 다만 그 검사가 아래 문장을 덮는다는 것은 확인된 적이 없습니다.
-
-### 설명이 기술 그 자체 (mechanic_check의 수기 검사에 통째로 위임) -- 59개
 
 - **아쿠아링** (Aqua Ring, `aquaring`, Status)
   - The user has 1/16 of its maximum HP, rounded down, restored at the end of each turn while it remains active.
 - **헤롱헤롱** (Attract, `attract`, Status)
   - The effect ends when either the user or the target is no longer active.
+- **오로라베일** (Aurora Veil, `auroraveil`, Status)
+  - Brick Break and Psychic Fangs remove the effect before damage is calculated.
+  - Fails unless the weather is Snow.
 - **토치카** (Baneful Bunker, `banefulbunker`, Status)
   - The user is protected from most attacks made by other Pokemon during this turn, and Pokemon making contact with the user become poisoned.
 - **배턴터치** (Baton Pass, `batonpass`, Status)
@@ -32,8 +33,6 @@
   - If this move is successful and the user has not fainted, it steals the target's held Berry if it is holding one and eats it immediately, gaining its effects even if the user's item is being ignored.
 - **흉내쟁이** (Copycat, `copycat`, Status)
   - The user uses the last move used by any Pokemon, including itself.
-- **부식가스** (Corrosive Gas, `corrosivegas`, Status)
-  - This move cannot cause Pokemon with the Sticky Hold Ability to lose their held item or cause a Kyogre, Groudon, Dialga, Palkia, Giratina, Arceus, Genesect, Silvally, Zacian, Zamazenta, Paradox Pokemon, or Ogerpon to lose their Blue Orb, Red Orb, Adamant Crystal, Lustrous Globe, Griseous Core, Plate, Drive, Memory, Rusted Sword, Rusted Shield, Booster Energy, or Mask, respectively.
 - **안개제거** (Defog, `defog`, Status)
   - If this move is successful and whether or not the target's evasiveness was affected, the effects of Reflect, Light Screen, Aurora Veil, Safeguard, Mist, Spikes, Toxic Spikes, Stealth Rock, and Sticky Web end for the target's side, and the effects of Spikes, Toxic Spikes, Stealth Rock, and Sticky Web end for the user's side.
   - Ignores a target's substitute, although a substitute will still block the lowering of evasiveness.
@@ -65,7 +64,6 @@
   - The user is protected from most attacks made by other Pokemon during this turn, and Pokemon trying to make contact with the user have their Attack lowered by 1 stage.
 - **탁쳐서떨구기** (Knock Off, `knockoff`, Physical)
   - This move's power is multiplied by 1.5 if the target is holding an item, and the target loses its held item if the user has not fainted.
-  - This move does not increase in power or remove the target's item if it is a Blue Orb, Red Orb, Adamant Crystal, Lustrous Globe, Griseous Core, Plate, Drive, Memory, Rusted Sword, Rusted Shield, Booster Energy, or Mask held by a Kyogre, Groudon, Dialga, Palkia, Giratina, Arceus, Genesect, Silvally, Zacian, Zamazenta, Paradox Pokemon, or Ogerpon, respectively, or if the user is one of those species and the target is holding the respective item.
 - **록온** (Lock-On, `lockon`, Status)
   - Until the end of the next turn, the target cannot avoid the user's moves, even if the target is in the middle of a two-turn move.
 - **마법가루** (Magic Powder, `magicpowder`, Status)
@@ -99,7 +97,6 @@
 - **미러타입** (Reflect Type, `reflecttype`, Status)
   - If the target's current types include typeless and a non-added type, typeless is ignored.
   - If the target's current types include typeless and an added type from Forest's Curse or Trick-or-Treat, typeless is copied as the Normal type instead.
-  - Fails if the user is an Arceus or a Silvally, if the user is Terastallized, or if the target's current type is typeless alone.
 - **잠자기** (Rest, `rest`, Status)
   - The user falls asleep for the next two turns and restores all of its HP, curing itself of any non-volatile status condition in the process.
 - **울부짖기** (Roar, `roar`, Status)
@@ -154,39 +151,9 @@
 - **날려버리기** (Whirlwind, `whirlwind`, Status)
   - The target is forced to switch out and be replaced with a random unfainted ally.
 
-### 설명이 기술 그 자체 (mechanic_check의 수기 검사에 통째로 위임), 벽 파괴, 지속 턴 수 -- 1개
-
-- **오로라베일** (Aurora Veil, `auroraveil`, Status)
-  - For 5 turns, the user and its party members take 0.5x damage from physical and special attacks, or 0.66x damage if in a Double Battle; does not reduce damage further with Reflect or Light Screen.
-  - Critical hits ignore this protection.
-  - It is removed from the user's side if the user or an ally is successfully hit by Brick Break, Psychic Fangs, or Defog.
-
-### 설명이 기술 그 자체 (mechanic_check의 수기 검사에 통째로 위임), 지속 턴 수 -- 1개
-
-- **사이코노이즈** (Psychic Noise, `psychicnoise`, Special)
-  - For 2 turns, the target is prevented from restoring any HP as long as it remains active.
-  - Pain Split and the Regenerator Ability are unaffected.
-
-### 벽 파괴 -- 1개
-
-- **레이징불** (Raging Bull, `ragingbull`, Physical)
-  - If this attack does not miss, the effects of Reflect, Light Screen, and Aurora Veil end for the target's side of the field before damage is calculated.
-
-### 선언된 상태이상 (status 필드) -- 1개
-
-- **맹독** (Toxic, `toxic`, Status)
-  - Badly poisons the target.
-
-### 지속 턴 수 -- 1개
-
-- **트릭룸** (Trick Room, `trickroom`, Status)
-  - For 5 turns, the Speed of every Pokemon is recalculated for the purposes of determining turn order.
-
-## C등급 -- 38개
+## C등급 -- 16개
 
 기술 데이터의 필드(secondary/boosts/status)가 실제 배틀에 나타나는지 자동 검사합니다. 문장이 필드보다 더 말하는 부분은 측정되지 않습니다.
-
-### 설명이 기술 그 자체 (mechanic_check의 수기 검사에 통째로 위임) -- 16개
 
 - **충전** (Charge, `charge`, Status)
   - The user's next Electric-type attack will have its power doubled; the effect ends when the user is no longer active, or after the user attempts to use any Electric-type move besides Charge, even if it is not successful.
@@ -206,7 +173,6 @@
   - This move's type effectiveness against Water is changed to be super effective no matter what this move's type is.
 - **미래예지** (Future Sight, `futuresight`, Special)
   - If the user is no longer active at the time, damage is calculated based on the user's natural Special Attack stat, types, and level, with no boosts from its held item or Ability.
-  - Fails if this move or Doom Desire is already in effect for the target's position.
 - **성장** (Growth, `growth`, Status)
   - If the user is holding Utility Umbrella, this move will only raise the user's Attack and Special Attack by 1 stage, even if the weather is Sunny Day or Desolate Land.
 - **뿌리박기** (Ingrain, `ingrain`, Status)
@@ -222,68 +188,4 @@
   - Whether or not this move is successful and even if it would cause fainting, the user loses 1/2 of its maximum HP, rounded up, unless the user has the Magic Guard Ability.
 - **발버둥** (Struggle, `struggle`, Physical)
   - This move is automatically used if none of the user's known moves can be selected.
-
-### 선언된 상태이상 (status 필드) -- 10개
-
-- **이상한빛** (Confuse Ray, `confuseray`, Status)
-  - Causes the target to become confused.
-- **뱀눈초리** (Glare, `glare`, Status)
-  - Paralyzes the target.
-- **최면술** (Hypnosis, `hypnosis`, Status)
-  - Causes the target to fall asleep.
-- **독가루** (Poison Powder, `poisonpowder`, Status)
-  - Poisons the target.
-- **노래하기** (Sing, `sing`, Status)
-  - Causes the target to fall asleep.
-- **수면가루** (Sleep Powder, `sleeppowder`, Status)
-  - Causes the target to fall asleep.
-- **저리가루** (Stun Spore, `stunspore`, Status)
-  - Paralyzes the target.
-- **천사의키스** (Sweet Kiss, `sweetkiss`, Status)
-  - Causes the target to become confused.
-- **흔들흔들댄스** (Teeter Dance, `teeterdance`, Status)
-  - Causes the target to become confused.
-- **도깨비불** (Will-O-Wisp, `willowisp`, Status)
-  - Burns the target.
-
-### 지속 턴 수 -- 7개
-
-- **일렉트릭필드** (Electric Terrain, `electricterrain`, Status)
-  - For 5 turns, the terrain becomes Electric Terrain.
-- **그래스필드** (Grassy Terrain, `grassyterrain`, Status)
-  - For 5 turns, the terrain becomes Grassy Terrain.
-- **미스트필드** (Misty Terrain, `mistyterrain`, Status)
-  - For 5 turns, the terrain becomes Misty Terrain.
-- **사이코필드** (Psychic Terrain, `psychicterrain`, Status)
-  - For 5 turns, the terrain becomes Psychic Terrain.
-- **비바라기** (Rain Dance, `raindance`, Status)
-  - For 5 turns, the weather becomes Rain Dance.
-- **모래바람** (Sandstorm, `sandstorm`, Status)
-  - For 5 turns, the weather becomes Sandstorm.
-- **쾌청** (Sunny Day, `sunnyday`, Status)
-  - For 5 turns, the weather becomes Sunny Day.
-
-### 벽 파괴 -- 2개
-
-- **깨뜨리다** (Brick Break, `brickbreak`, Physical)
-  - If this attack does not miss, the effects of Reflect, Light Screen, and Aurora Veil end for the target's side of the field before damage is calculated.
-- **사이코팽** (Psychic Fangs, `psychicfangs`, Physical)
-  - If this attack does not miss, the effects of Reflect, Light Screen, and Aurora Veil end for the target's side of the field before damage is calculated.
-
-### 벽 파괴, 지속 턴 수 -- 2개
-
-- **빛의장막** (Light Screen, `lightscreen`, Status)
-  - For 5 turns, the user and its party members take 0.5x damage from special attacks, or 0.66x damage if in a Double Battle.
-  - Damage is not reduced further with Aurora Veil.
-  - Critical hits ignore this effect.
-- **리플렉터** (Reflect, `reflect`, Status)
-  - For 5 turns, the user and its party members take 0.5x damage from physical attacks, or 0.66x damage if in a Double Battle.
-  - Damage is not reduced further with Aurora Veil.
-  - Critical hits ignore this effect.
-
-### 선언된 상태이상 (status 필드), 설명이 기술 그 자체 (mechanic_check의 수기 검사에 통째로 위임) -- 1개
-
-- **전기자석파** (Thunder Wave, `thunderwave`, Status)
-  - Paralyzes the target.
-  - This move does not ignore type immunity.
 

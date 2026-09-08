@@ -101,10 +101,12 @@ def survey():
             families = by_clause.get(sentence, [])
             if "noeffect" in families:
                 continue                  # "It hits, and nothing else happens"
-            if not families:
-                named, missing = cc.out_of_format(sentence)
-                if named and len(missing) == len(named):
-                    continue              # Terastal, Blue Orb, Sky Drop, ...
+            # Asked of every sentence and not only the unclaimed ones: a
+            # clause about Utility Umbrella is out of reach here whether or
+            # not some family put its hand up for it.
+            named, missing = cc.out_of_format(sentence)
+            if named and len(missing) == len(named):
+                continue                  # Terastal, Blue Orb, Sky Drop, ...
             carries.append((sentence, families))
         if not carries:
             continue                      # damage and nothing else

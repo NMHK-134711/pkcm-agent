@@ -278,6 +278,15 @@ def _needs_own_type(type_name: str):
 
 #: Moves that refuse to run under some condition, checked before PP is spent.
 #: The string is the reason, and it reaches the log.
+def _memento_and_a_substitute(ctx: Context, attacker: Ref, defender: Ref,
+                              move: Move) -> str | None:
+    """"Fails entirely if this move hits a substitute" -- and it did not, so
+    the user threw its life away against a doll."""
+    if mutate.volatile(ctx.state, defender, "substitute") is not None:
+        return "it hit a substitute"
+    return None
+
+
 def _needs_something_to_throw(ctx: Context, attacker: Ref,
                               move: Move) -> str | None:
     """Fling with empty hands used its turn and did nothing at all."""
@@ -461,6 +470,7 @@ def _grass_shrugs_off_the_seed(ctx: Context, attacker: Ref, defender: Ref,
 
 LATE_REFUSALS: dict[
     str, Callable[[Context, Ref, Ref, Move], str | None]] = {
+    "memento": _memento_and_a_substitute,
     "leechseed": _grass_shrugs_off_the_seed,
     "poltergeist": _needs_a_target_item,
     "suckerpunch": _sucker_punch_refusal,
@@ -1497,6 +1507,7 @@ def _apply_damaging_move(ctx: Context, attacker: Ref, defender: Ref, move) -> bo
         # once for the lot -- the second miss ends the move, keeping whatever
         # already landed.
         if hit_number > 0 and move.raw.get("multiaccuracy") \
+                and not getattr(move, "always_max_hits", False) \
                 and not connects(ctx, attacker, defender, move):
             ctx.emit(ev.missed(attacker[0], attacker[1], move.id))
             break
@@ -1785,6 +1796,9 @@ def _hit_count(ctx: Context, move) -> int:
     if multihit is None:
         return 1
     if isinstance(multihit, int):
+        # A fixed count still rolls accuracy per hit for Population Bomb and
+        # Triple Axel; Skill Link is what removes the roll, and the flag was
+        # only being read on the 2-5 moves.
         return multihit
     low, high = multihit
     if getattr(move, "always_max_hits", False):

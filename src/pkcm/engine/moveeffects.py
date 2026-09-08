@@ -443,7 +443,17 @@ def _electrify(ctx, user, target, move) -> bool:
 SPECIAL_MOVES["electrify"] = _electrify
 SPECIAL_MOVES["saltcure"] = _apply_volatile("saltcure")
 SPECIAL_MOVES["syrupbomb"] = _apply_volatile("syrupbomb", turns=4)
-SPECIAL_MOVES["gastroacid"] = _apply_volatile("abilitysuppressed")
+def _gastro_acid(ctx, user, target, move) -> bool:
+    """The same blocklist the four ability-setting moves already respect:
+    "If the target's Ability is As One, Battle Bond, Comatose, Disguise, ...
+    this move fails." Gastro Acid was a bare volatile and suppressed them all.
+    """
+    if ctx.state.ability_id(*target) in UNTOUCHABLE_ABILITIES:
+        return _fail(ctx, user, "that ability cannot be suppressed")
+    return _apply_volatile("abilitysuppressed")(ctx, user, target, move)
+
+
+SPECIAL_MOVES["gastroacid"] = _gastro_acid
 SPECIAL_MOVES["psychicnoise"] = _apply_volatile("healblock", turns=3)
 SPECIAL_MOVES["block"] = _apply_volatile("trapped")
 SPECIAL_MOVES["meanlook"] = _apply_volatile("trapped")

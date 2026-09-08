@@ -3421,37 +3421,25 @@ def _attract_and_gender():
     return verdict(rows)
 
 
-@family("abilityblocklist",
-        "Fails if the target's Ability is As One, Battle Bond, Comatose, "
-        "Disguise, Gulp Missile, Ice Face, Insomnia, Multitype, Power "
-        "Construct, RKS System, Schooling, Shields Down, Simple, Stance Change, "
-        "Truant, Zen Mode, or Zero to Hero.",
-        "Fails if the target's Ability is As One, Battle Bond, Comatose, "
-        "Disguise, Gulp Missile, Ice Face, Multitype, Power Construct, RKS "
-        "System, Schooling, Shields Down, Stance Change, Truant, Zen Mode, or "
-        "Zero to Hero.",
-        "Fails if the user's Ability is As One, Battle Bond, Comatose, "
-        "Disguise, Gulp Missile, Ice Face, Multitype, Power Construct, RKS "
-        "System, Schooling, Shields Down, Stance Change, Truant, Zen Mode, or "
-        "Zero to Hero.",
-        "Fails if either the user or the target's Ability is As One, Battle "
-        "Bond, Comatose, Commander, Disguise, Embody Aspect, Hunger Switch, "
-        "Ice Face, Illusion, Multitype, Neutralizing Gas, Power Construct, "
-        "Protosynthesis, Quark Drive, RKS System, Schooling, Shields Down, "
-        "Stance Change, Tera Shell, Tera Shift, Terastal, Wonder Guard, Zen "
-        "Mode, or Zero to Hero.")
+@family("abilityblocklist", "Power Construct, RKS System, Schooling, Shields")
 def _abilities_that_cannot_be_touched():
-    """Disguise is the one on the list this format actually has."""
+    """Disguise is the one on the blocklist this format actually has.
+
+    Role Play's sentence is about the *user's* ability and the rest are about
+    the target's, so each is asked in its own direction.
+    """
     rows = []
     for move_id in members("abilityblocklist"):
-        theirs = "disguise"
-        mine = "disguise" if move_id in ("roleplay", "skillswap") else "levitate"
+        on_the_user = move_id in ("roleplay", "skillswap")
+        mine = "disguise" if on_the_user else "levitate"
+        theirs = "levitate" if move_id == "roleplay" else "disguise"
         f = Fight([swinger(move_id, ability=mine)],
                   [wall(mc._reachable(DEX.moves[move_id]), ability=theirs)],
                   seed=7)
         f.turn(Action.move(0), Action.move(0))
         rows.append((move_id, failed(f),
-                     f"against Disguise it failed={failed(f)}"))
+                     f"with Disguise on the {'user' if on_the_user else 'target'} "
+                     f"it failed={failed(f)}"))
     return verdict(rows)
 
 
@@ -3576,6 +3564,308 @@ def _ingrain_grounds_the_user():
         rows.append((move_id, took(False) == 0 and took(True) > 0,
                      f"an Earthquake at a Flying type took {took(False)} "
                      f"normally and {took(True)} once it was rooted"))
+    return verdict(rows)
+
+
+
+@family("grassyglide", "If the current terrain is Grassy Terrain and the user "
+                       "is grounded, this move has its priority increased by 1.")
+def _grassy_glide():
+    rows = []
+    for move_id in members("grassyglide"):
+        def first(terrain):
+            f = Fight([mon("snorlax", "__none__",
+                           (move_id, "splash", "protect", "rest"), None,
+                           "brave", (32, 32, 0, 0, 2, 0))],
+                      [mon("weavile", "__none__",
+                           ("bodyslam", "splash", "protect", "rest"), None,
+                           "jolly", (0, 32, 2, 0, 0, 32))], seed=7)
+            if terrain:
+                f.state.field.terrain, f.state.field.terrain_turns = terrain, 8
+            f.turn(Action.move(0), Action.move(0))
+            order = [e for e in f.log if e.kind == "move_used"]
+            return (order[0].side or 0) if order else None
+
+        rows.append((move_id, first(None) == 1 and first("grassyterrain") == 0,
+                     f"the slow user went second on bare ground (side "
+                     f"{first(None)}) and first on grass (side "
+                     f"{first('grassyterrain')})"))
+    return verdict(rows)
+
+
+@family("mistyexplosion", "If the current terrain is Misty Terrain and the user "
+                          "is grounded, this move's power is multiplied by 1.5.")
+def _misty_explosion():
+    rows = []
+    for move_id in members("mistyexplosion"):
+        def dealt(terrain):
+            f = Fight([swinger(move_id)], [wall()], seed=7)
+            if terrain:
+                f.state.field.terrain, f.state.field.terrain_turns = terrain, 8
+            f.turn(Action.move(0), Action.move(0))
+            return hp_lost(f)
+
+        plain, misty = dealt(None), dealt("mistyterrain")
+        share = misty / plain if plain else 0.0
+        rows.append((move_id, 1.4 <= share <= 1.6,
+                     f"{plain} on bare ground, {misty} on Misty Terrain "
+                     f"(x{share:.2f})"))
+    return verdict(rows)
+
+
+@family("electroballspeed", "If the target's current Speed is 0, this move's "
+                            "power is 40.",
+        "The power of this move depends on (user's current Speed / target's "
+        "current Speed), rounded down.",
+        "Power is equal to 150 if the result is 4 or more, 120 if 3, 80 if 2, "
+        "60 if 1, 40 if less than 1.")
+def _electro_ball():
+    """40, 60, 80, 120 or 150 by the speed ratio, worked out here."""
+    def bracket(ratio):
+        """"Power is equal to 150 if the result is 4 or more, 120 if 3, 80 if
+        2, 60 if 1, 40 if less than 1"."""
+        for edge, power in ((4, 150), (3, 120), (2, 80), (1, 60)):
+            if ratio >= edge:
+                return power
+        return 40
+
+    rows = []
+    for move_id in members("electroballspeed"):
+        from pkcm.data.dex import Stat
+        from pkcm.engine.battle import make_context
+        from pkcm.engine.mutate import effective_stat
+
+        f = Fight([mon("weavile", "__none__",
+                       (move_id, "splash", "protect", "rest"), None, "jolly",
+                       (0, 0, 2, 32, 0, 32))],
+                  [mon("snorlax", "__none__",
+                       ("splash", "bodyslam", "protect", "rest"), None, "sassy",
+                       (32, 0, 32, 0, 32, 0))], seed=7)
+        ctx = make_context(f.state)
+        mine = effective_stat(ctx, (0, f.state.sides[0].active[0]), Stat.SPE)
+        theirs = effective_stat(ctx, (1, f.state.sides[1].active[0]), Stat.SPE)
+        want = bracket(mine // max(1, theirs))
+        expected = rolls_for(f, DEX.moves[move_id], want)
+        f.turn(Action.move(0), Action.move(0))
+        hits = [e for e in f.log if e.kind == "damage" and (e.side or 0) == 1
+                and not e.crit]
+        got = hits[0].amount if hits else 0
+        rows.append((move_id, got in expected,
+                     f"{mine} against {theirs} is a ratio of "
+                     f"{mine // max(1, theirs)}, so power {want}: dealt {got}, "
+                     f"expected {min(expected)}-{max(expected)}"))
+    return verdict(rows)
+
+
+@family("quarterrecoil", "If the target lost HP, the user takes recoil damage "
+                         "equal to 1/4 the HP lost by the target, rounded half "
+                         "up, but not less than 1 HP.")
+def _quarter_recoil():
+    rows = []
+    for move_id in members("quarterrecoil"):
+        f = Fight([swinger(move_id)],
+                  [wall(mc._reachable(DEX.moves[move_id]))], seed=7)
+        before = f.hp(0)
+        f.turn(Action.move(0), Action.move(0))
+        dealt, paid = hp_lost(f), before - f.hp(0)
+        want = (dealt + 2) // 4
+        rows.append((move_id, dealt > 0 and abs(paid - want) <= 1,
+                     f"dealt {dealt}, paid {paid}, a quarter being {want}"))
+    return verdict(rows)
+
+
+@family("curesburn", "If the user has not fainted, the target is cured of its "
+                     "burn.")
+def _cures_the_burn():
+    rows = []
+    for move_id in members("curesburn"):
+        f = Fight([swinger(move_id)],
+                  [wall(mc._reachable(DEX.moves[move_id]))], seed=7)
+        side = f.state.sides[1]
+        side.status[side.active[0]] = "brn"
+        f.turn(Action.move(0), Action.move(0))
+        rows.append((move_id, f.status(1) is None,
+                     f"the burnt target came out {f.status(1)}"))
+    return verdict(rows)
+
+
+@family("healpulsehalf", "The target restores 1/2 of its maximum HP, rounded "
+                         "half up.")
+def _heal_pulse():
+    rows = []
+    for move_id in members("healpulsehalf"):
+        f = Fight([swinger(move_id)],
+                  [wall(mc._reachable(DEX.moves[move_id]))], seed=7)
+        side = f.state.sides[1]
+        side.hp[side.active[0]] = 1
+        whole = f.max_hp(1)
+        f.turn(Action.move(0), Action.move(0))
+        got = f.hp(1) - 1
+        rows.append((move_id, abs(got - whole // 2) <= 1,
+                     f"restored {got} of {whole}, half being {whole // 2}"))
+    return verdict(rows)
+
+
+@family("skilllinkmax",
+        "If the user has the Skill Link Ability, this move will always hit ten "
+        "times.",
+        "If the user has the Skill Link Ability, this move will always hit "
+        "three times.")
+def _skill_link_maxes_them():
+    rows = []
+    for move_id in members("skilllinkmax"):
+        want = {"populationbomb": 10, "tripleaxel": 3}[move_id]
+        counts = set()
+        for seed in range(10):
+            f = Fight([swinger(move_id, ability="skilllink")],
+                      [wall("blissey" if "blissey" in DEX.species else "snorlax")],
+                      seed=seed)
+            f.turn(Action.move(0), Action.move(0))
+            hit = len([e for e in f.log if e.kind == "damage"
+                       and (e.side or 0) == 1 and e.move == move_id])
+            if hit:
+                counts.add(hit)
+        rows.append((move_id, counts == {want},
+                     f"hit {sorted(counts)} times, and the clause says {want}"))
+    return verdict(rows)
+
+
+@family("smackdowngrounds",
+        "it loses its immunity to Ground-type attacks",
+        "If this move hits a target under the effect of Bounce, Fly, Magnet "
+        "Rise, or Telekinesis, the effect ends.")
+def _smack_down_grounds_them():
+    rows = []
+    for move_id in members("smackdowngrounds"):
+        def took(smacked):
+            f = Fight([mon("garchomp", "__none__",
+                           (move_id, "earthquake", "protect", "rest"), None,
+                           "adamant", (0, 32, 2, 0, 0, 32))],
+                      [wall("charizard")], seed=7)
+            f.turn(Action.move(0 if smacked else 2), Action.move(0))
+            f.turn(Action.move(1), Action.move(0))
+            return hp_lost(f)
+
+        rows.append((move_id, took(False) == 0 and took(True) > 0,
+                     f"an Earthquake at a Flying type took {took(False)} "
+                     f"normally and {took(True)} after Smack Down"))
+    return verdict(rows)
+
+
+@family("ghostcurse",
+        "If the user is a Ghost type, the user loses 1/2 of its maximum HP, "
+        "rounded down and even if it would cause fainting")
+def _ghost_curse():
+    rows = []
+    for move_id in members("ghostcurse"):
+        f = Fight([swinger(move_id, species="gengar")],
+                  [wall(mc._reachable(DEX.moves[move_id]))], seed=7)
+        whole = f.max_hp(0)
+        f.turn(Action.move(0), Action.move(0))
+        paid = whole - f.hp(0)
+        cursed = "curse" in f.volatiles(1)
+        rows.append((move_id, abs(paid - whole // 2) <= 1 and cursed,
+                     f"the Ghost paid {paid} of {whole}, half being "
+                     f"{whole // 2}; the target is cursed={cursed}"))
+    return verdict(rows)
+
+
+@family("leechseedends",
+        "If the target switches out or uses Mortal Spin or Rapid Spin "
+        "successfully, the effect ends.")
+def _leech_seed_ends_on_a_switch():
+    rows = []
+    for move_id in members("leechseedends"):
+        f = Fight([swinger(move_id)],
+                  [wall("garchomp"),
+                   mon("magikarp", "__none__", ("splash", "tackle"))], seed=7)
+        f.turn(Action.move(0), Action.move(0))
+        planted = "leechseed" in f.volatiles(1)
+        f.turn(Action.move(1), Action.switch(1))
+        rows.append((move_id, planted and "leechseed" not in f.volatiles(1),
+                     f"planted={planted}; the replacement came in holding "
+                     f"{sorted(f.volatiles(1) & {'leechseed'})}"))
+    return verdict(rows)
+
+
+@family("gastroacidbatonpass",
+        "receiving the effect through Baton Pass ends the effect immediately.")
+def _gastro_acid_survives_a_baton_pass():
+    """"If the target uses Baton Pass, the replacement will remain under this
+    effect", and receiving it through one ends it immediately."""
+    rows = []
+    for move_id in members("gastroacidbatonpass"):
+        f = Fight([swinger(move_id)],
+                  [mon("snorlax", "levitate",
+                       ("splash", "batonpass", "protect", "rest"), None,
+                       "sassy", (32, 0, 32, 0, 32, 0)),
+                   mon("magikarp", "__none__", ("splash", "tackle"))], seed=7)
+        f.turn(Action.move(0), Action.move(0))
+        suppressed = "abilitysuppressed" in f.volatiles(1)
+        f.turn(Action.move(1), Action.move(1))          # they Baton Pass
+        while f.state.phase.name in ("MID_TURN_SWITCH", "FORCED_SWITCH"):
+            ours = (Action.switch(1) if f.state.sides[0].must_switch[0]
+                    else Action.PASS)
+            theirs = (Action.switch(1) if f.state.sides[1].must_switch[0]
+                      else Action.PASS)
+            f.turn(ours, theirs)
+        rows.append((move_id, suppressed and "abilitysuppressed" in f.volatiles(1),
+                     f"suppressed={suppressed}; the replacement came in "
+                     f"{sorted(f.volatiles(1) & {'abilitysuppressed'})}"))
+    return verdict(rows)
+
+
+@family("mementofails", "Fails entirely if this move hits a substitute, but "
+                        "does not fail if the target's stats cannot be changed.")
+def _memento_and_a_substitute():
+    rows = []
+    for move_id in members("mementofails"):
+        f = Fight([swinger(move_id)],
+                  [mon("snorlax", "__none__",
+                       ("substitute", "splash", "protect", "rest"), None,
+                       "sassy", (32, 0, 32, 0, 32, 0))], seed=7)
+        f.turn(Action.move(1), Action.move(0))          # they put one up
+        f.turn(Action.move(0), Action.move(1))
+        alive = f.state.sides[0].hp[f.state.sides[0].active[0]] > 0
+        rows.append((move_id, alive and failed(f),
+                     f"against a substitute the user survived={alive} and the "
+                     f"move failed={failed(f)}"))
+    return verdict(rows)
+
+
+@family("ceaselesslayers",
+        "A maximum of three layers may be set, and opponents lose 1/8 of their "
+        "maximum HP with one layer, 1/6 of their maximum HP with two layers, "
+        "and 1/4 of their maximum HP with three layers, all rounded down.")
+def _ceaseless_edge_layers():
+    rows = []
+    for move_id in members("ceaselesslayers"):
+        f = Fight([swinger(move_id)],
+                  [wall(mc._reachable(DEX.moves[move_id])),
+                   mon("magikarp", "__none__", ("splash", "tackle")),
+                   mon("pikachu", "__none__", ("splash", "tackle"))], seed=7)
+        depths = []
+        for _ in range(4):
+            f.turn(Action.move(0), Action.move(0))
+            depths.append(f.conditions(1).get("spikes", 0))
+        rows.append((move_id, depths == [1, 2, 3, 3],
+                     f"each hit laid a layer: {depths}"))
+    return verdict(rows)
+
+
+@family("toxicspikeremoval", "or a grounded Poison-type Pokemon switches in.")
+def _toxic_spikes_are_absorbed():
+    rows = []
+    for move_id in members("toxicspikeremoval"):
+        f = Fight([swinger(move_id)],
+                  [wall("garchomp"),
+                   mon("gengar", "__none__", ("splash", "tackle"))], seed=7)
+        f.turn(Action.move(0), Action.move(0))
+        laid = f.conditions(1).get(move_id, 0)
+        f.turn(Action.move(1), Action.switch(1))
+        rows.append((move_id, laid and move_id not in f.conditions(1),
+                     f"laid {laid}; after a grounded Poison type came in, the "
+                     f"side holds {f.conditions(1) or 'nothing'}"))
     return verdict(rows)
 
 

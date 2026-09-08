@@ -107,8 +107,11 @@ def force_switch(ctx: Context, target: Ref) -> bool:
 #: them is marked ``noCopy`` in the move data.
 PASSED_ON = frozenset({
     "substitute", "ingrain", "aquaring", "magnetrise", "leechseed",
-    "confusion", "perishsong", "focusenergy", "healblock", "embargo",
-    "telekinesis", "powertrick", "gastroacid", "curse", "noretreat",
+    "confusion", "perishsong", "focusenergy", "healblock",
+    # The volatile Gastro Acid leaves is called ``abilitysuppressed``, and
+    # this list said "gastroacid" -- a name nothing ever sets, so the one
+    # effect on it that a Baton Pass is supposed to carry never was.
+    "powertrick", "abilitysuppressed", "curse", "noretreat",
 })
 
 

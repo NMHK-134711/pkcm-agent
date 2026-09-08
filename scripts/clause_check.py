@@ -1016,9 +1016,17 @@ def _needs_an_item():
     for move_id in members("needsanitem"):
         theirs = move_id == "poltergeist"
         def cast(item, theirs=theirs, move_id=move_id):
+            from pkcm.engine.state import legal_actions
+
             f = Fight([swinger(move_id, item=None if theirs else item)],
                       [wall(mc._reachable(DEX.moves[move_id]),
                             item=item if theirs else None)], seed=7)
+            # Stuff Cheeks is not merely refused with empty hands, it is not
+            # offered -- and a move that cannot be picked has certainly failed
+            # its own condition.
+            if not any(one.index == 0 and str(one).startswith("move")
+                       for one in legal_actions(f.state, 0)):
+                return True
             f.turn(Action.move(0), Action.move(0))
             return failed(f)
 
@@ -7478,6 +7486,449 @@ def _damage_formulas():
         else:
             rows.append((move_id, False, "no probe written for it"))
     rows.extend(_flying_press_and_freeze_dry())
+    return verdict(rows)
+
+
+# --------------------------------------------------------------------------- #
+# Clauses whose only condition is an item this format does not have
+# --------------------------------------------------------------------------- #
+
+@family("needsanumbrella",
+        "If the user is holding Utility Umbrella and the weather is Desolate "
+        "Land or Sunny Day, the move still requires a turn to charge.",
+        "If the user is holding Utility Umbrella and the weather is Primordial "
+        "Sea or Rain Dance, the move still requires a turn to charge.",
+        "If the user is holding Utility Umbrella, this move will only raise "
+        "the user's Attack and Special Attack by 1 stage, even if the weather "
+        "is Sunny Day or Desolate Land.",
+        "If the user is holding Utility Umbrella and uses Weather Ball during "
+        "Primordial Sea, Rain Dance, Desolate Land, or Sunny Day, this move "
+        "remains Normal type and does not double in power.",
+        needs_item="utilityumbrella")
+def _needs_an_umbrella():
+    """Five sentences whose whole condition is a Utility Umbrella.
+
+    ``out_of_format`` does not set them aside because each also names a
+    weather this format does have, and a sentence is only recorded as
+    unreachable when *every* mechanic it names is missing. The item is the
+    condition, though, so with no Utility Umbrella in Regulation M-B none of
+    the five can arise. Recorded, not checked -- which is what ``needs_item``
+    says.
+    """
+    return True, "the condition is an item that is not legal here"
+
+
+# --------------------------------------------------------------------------- #
+# What a move costs its own user, and what Stockpile keeps count of
+# --------------------------------------------------------------------------- #
+
+def _stockpile_cycle():
+    """Three sentences across three moves, and they only make sense together:
+    the count goes up, Spit Up spends it, Swallow spends it, and both give
+    back the stages Stockpile handed out."""
+    problems = []
+    for count in (1, 2, 3):
+        f = Fight([mon("snorlax", "__none__",
+                       ("stockpile", "spitup", "swallow", "splash"), None,
+                       "sassy", (32, 0, 32, 0, 32, 0))],
+                  [wall()], seed=7)
+        side = f.state.sides[0]
+        side.hp[side.active[0]] = f.max_hp(0) // 8
+        for _ in range(count):
+            f.turn(Action.move(0), Action.move(0))
+        stages = f.boosts(0)
+        if stages.get("def") != count or stages.get("spd") != count:
+            problems.append(f"after {count} it holds {stages}")
+        stored = f.state.sides[0].volatiles[side.active[0]].get("stockpile")
+        if (stored or {}).get("layers") != count:
+            problems.append(f"the count reads {stored} after {count}")
+
+        before = f.hp(0)
+        f.turn(Action.move(2), Action.move(0))      # Swallow
+        healed = f.hp(0) - before
+        want = {1: f.max_hp(0) // 4, 2: f.max_hp(0) // 2, 3: f.max_hp(0)}[count]
+        if abs(healed - min(want, f.max_hp(0) - before)) > 1:
+            problems.append(f"a Swallow on {count} gave back {healed}, not "
+                            f"{min(want, f.max_hp(0) - before)}")
+        if f.boosts(0):
+            problems.append(f"the stages were not handed back: {f.boosts(0)}")
+
+    # And Spit Up spends the same count, and resets it whether or not it lands.
+    f = Fight([mon("snorlax", "__none__",
+                   ("stockpile", "spitup", "swallow", "splash"), None, "sassy",
+                   (32, 32, 0, 0, 32, 0))],
+              [wall()], seed=7)
+    for _ in range(2):
+        f.turn(Action.move(0), Action.move(0))
+    f.turn(Action.move(1), Action.move(0))
+    if f.boosts(0):
+        problems.append(f"after a Spit Up the stages are still {f.boosts(0)}")
+    f.turn(Action.move(1), Action.move(0))
+    if not failed(f, 0):
+        problems.append("a second Spit Up on an empty stomach did not fail")
+
+    # "reset to 0 when it is no longer active"
+    g = Fight([mon("snorlax", "__none__",
+                   ("stockpile", "spitup", "swallow", "splash"), None, "sassy",
+                   (32, 0, 32, 0, 32, 0)),
+               mon("blissey", "__none__", ("splash", "tackle", "protect", "rest")),
+               mon("magikarp", "__none__", ("splash", "tackle"))],
+              [wall()], seed=7)
+    g.turn(Action.move(0), Action.move(0))
+    g.turn(Action.switch(1), Action.move(0))
+    g.turn(Action.switch(0), Action.move(0))
+    g.turn(Action.move(1), Action.move(0))
+    if not failed(g, 0):
+        problems.append("the count survived a trip to the bench")
+    return ("stockpile", not problems,
+            "; ".join(problems) or "one to three, spent by either, stages "
+                                   "handed back, and gone on a switch")
+
+
+def _steel_beam_pays():
+    """"Whether or not this move is successful and even if it would cause
+    fainting, the user loses 1/2 of its maximum HP, rounded up."""
+    problems = []
+    move = DEX.moves["steelbeam"]
+    for evasive in (False, True):
+        f = Fight([swinger("steelbeam")], [wall(mc._reachable(move))], seed=7)
+        if evasive:
+            side = f.state.sides[1]
+            side.boosts[side.active[0]][mc.BOOST_INDEX["evasion"]] = 6
+        owed = (f.max_hp(0) + 1) // 2
+        before = f.hp(0)
+        f.turn(Action.move(0), Action.move(0))
+        paid = before - f.hp(0)
+        if paid != owed:
+            problems.append(f"{'missing' if evasive else 'connecting'}, it "
+                            f"paid {paid} of the {owed} it owes")
+    return ("steelbeam", not problems,
+            "; ".join(problems) or "half its maximum, rounded up, hit or miss")
+
+
+def _strength_sap_heals():
+    """"restores its HP equal to the target's Attack stat calculated with its
+    stat stage before this move was used"."""
+    from pkcm.data.dex import Stat
+    from pkcm.engine.battle import make_context
+    from pkcm.engine.mutate import effective_stat
+
+    problems = []
+    for stage in (0, 2):
+        f = Fight([mon("blissey", "__none__",
+                       ("strengthsap", "splash", "protect", "rest"), None,
+                       "sassy", (32, 0, 32, 0, 32, 0))],
+                  [mon("snorlax", "__none__",
+                       ("splash", "tackle", "protect", "rest"), None, "adamant",
+                       (0, 32, 0, 0, 2, 0))], seed=7)
+        side = f.state.sides[0]
+        side.hp[side.active[0]] = 1
+        theirs = f.state.sides[1]
+        theirs.boosts[theirs.active[0]][mc.BOOST_INDEX["atk"]] = stage
+        ctx = make_context(f.state)
+        owed = effective_stat(ctx, (1, theirs.active[0]), Stat.ATK)
+        f.turn(Action.move(0), Action.move(0))
+        got = f.hp(0) - 1
+        if got != min(owed, f.max_hp(0) - 1):
+            problems.append(f"at +{stage} their Attack is {owed} and it healed "
+                            f"{got}")
+        if f.boosts(1).get("atk") != stage - 1:
+            problems.append(f"their Attack stage is {f.boosts(1)}, not "
+                            f"{stage - 1}")
+    return ("strengthsap", not problems,
+            "; ".join(problems) or "healed for their Attack as it stood "
+                                   "before the drop")
+
+
+def _struggle_is_what_is_left():
+    """"automatically used if none of the user's known moves can be selected"."""
+    from pkcm.engine.state import legal_actions
+
+    f = Fight([mon("snorlax", "__none__",
+                   ("bodyslam", "splash", "protect", "rest"), None, "sassy",
+                   (32, 0, 32, 0, 32, 0))],
+              [wall()], seed=7)
+    side = f.state.sides[0]
+    side.pp[side.active[0]] = [0] * len(side.pp[side.active[0]])
+    offered = [str(one) for one in legal_actions(f.state, 0)
+               if not str(one).startswith("switch")]
+    f.turn(next(one for one in legal_actions(f.state, 0)
+                if not str(one).startswith("switch")), Action.move(0))
+    struggled = any(e.kind == "move_used" and (e.side or 0) == 0
+                    and e.move == "struggle" for e in f.log)
+    return ("struggle", len(offered) == 1 and struggled,
+            f"with no PP anywhere it may pick {offered}, and what came out "
+            f"was Struggle={struggled}")
+
+
+def _stuff_cheeks():
+    """Three sentences: it cannot be picked without a Berry, it eats the one
+    it has for two stages of Defence, and Magic Room does not stop it."""
+    from pkcm.engine.state import legal_actions
+
+    problems = []
+    for item in (None, "sitrusberry"):
+        f = Fight([mon("snorlax", "__none__",
+                       ("stuffcheeks", "splash", "protect", "rest"), item,
+                       "sassy", (32, 0, 32, 0, 32, 0))],
+                  [wall()], seed=7)
+        offered = [one.index for one in legal_actions(f.state, 0)
+                   if str(one).startswith("move")]
+        if (0 in offered) != (item is not None):
+            problems.append(f"holding {item}, the move list is {offered}")
+        if item is None:
+            continue
+        f.turn(Action.move(0), Action.move(0))
+        if f.boosts(0).get("def") != 2:
+            problems.append(f"it came away with {f.boosts(0)}")
+        if f.item(0) is not None:
+            problems.append(f"the {f.item(0)} is still in its hand")
+
+    # "not prevented by ... the effects of Embargo or Magic Room"
+    f = Fight([mon("snorlax", "__none__",
+                   ("stuffcheeks", "splash", "protect", "rest"), "sitrusberry",
+                   "sassy", (32, 0, 32, 0, 32, 0))],
+              [wall()], seed=7)
+    f.state.field.rooms["magicroom"] = 5
+    f.turn(Action.move(0), Action.move(0))
+    if f.boosts(0).get("def") != 2:
+        problems.append(f"under Magic Room it came away with {f.boosts(0)}")
+    return ("stuffcheeks", not problems,
+            "; ".join(problems) or "unselectable with empty hands, two stages "
+                                   "with a Berry, and through a Magic Room")
+
+
+def _substitute_terms():
+    """The five sentences the doll is described by."""
+    problems = []
+    f = Fight([mon("snorlax", "__none__",
+                   ("substitute", "splash", "protect", "rest"), None, "jolly",
+                   (32, 0, 32, 0, 2, 32)),
+               mon("blissey", "__none__", ("splash", "tackle", "protect", "rest")),
+               mon("magikarp", "__none__", ("splash", "tackle"))],
+              [mon("snorlax", "__none__",
+                   ("bodyslam", "tailwhip", "willowisp", "bulletseed"), None,
+                   "sassy", (0, 32, 0, 0, 2, 0))], seed=7)
+    quarter = f.max_hp(0) // 4
+    before = f.hp(0)
+    f.turn(Action.move(0), Action.move(1))            # they Growl into it
+    if before - f.hp(0) != quarter:
+        problems.append(f"it cost {before - f.hp(0)}, not a quarter ({quarter})")
+    if f.boosts(0):
+        problems.append(f"a Tail Whip got through the doll: {f.boosts(0)}")
+
+    f.turn(Action.move(1), Action.move(2))            # and a Will-O-Wisp
+    if f.status(0) is not None:
+        problems.append(f"a status got through the doll: {f.status(0)}")
+
+    # "The user still takes normal damage from weather"
+    f.state.field.weather, f.state.field.weather_turns = "sandstorm", 8
+    standing = f.hp(0)
+    f.turn(Action.move(1), Action.move(1))
+    if f.hp(0) >= standing:
+        problems.append("the sandstorm did not reach the user behind it")
+
+    # "If the substitute breaks during a multi-hit attack, the user will take
+    # damage from any remaining hits."
+    g = Fight([mon("blissey", "__none__",
+                   ("substitute", "splash", "protect", "rest"), None, "jolly",
+                   (32, 0, 32, 0, 2, 32))],
+              [mon("snorlax", "__none__",
+                   ("bulletseed", "splash", "protect", "rest"), None, "sassy",
+                   (0, 32, 0, 0, 2, 0))], seed=3)
+    g.turn(Action.move(0), Action.move(1))
+    took = None
+    for seed in range(20):
+        h = Fight([mon("magikarp", "__none__",
+                       ("substitute", "splash", "protect", "rest"), None,
+                       "jolly", (32, 0, 32, 0, 2, 32))],
+                  [mon("snorlax", "__none__",
+                       ("bulletseed", "splash", "protect", "rest"), None,
+                       "sassy", (0, 32, 0, 0, 2, 0))], seed=seed)
+        h.turn(Action.move(0), Action.move(1))
+        standing = h.hp(0)
+        h.turn(Action.move(1), Action.move(0))
+        if "substitute" not in h.volatiles(0) and h.hp(0) < standing:
+            took = standing - h.hp(0)
+            break
+    if took is None:
+        problems.append("never saw a multi-hit break the doll and carry on")
+
+    # "removed ... if the user switches out"
+    k = Fight([mon("snorlax", "__none__",
+                   ("substitute", "splash", "protect", "rest"), None, "jolly",
+                   (32, 0, 32, 0, 2, 32)),
+               mon("blissey", "__none__", ("splash", "tackle", "protect", "rest")),
+               mon("magikarp", "__none__", ("splash", "tackle"))],
+              [wall()], seed=7)
+    k.turn(Action.move(0), Action.move(0))
+    k.turn(Action.switch(1), Action.move(0))
+    k.turn(Action.switch(0), Action.move(0))
+    if "substitute" in k.volatiles(0):
+        problems.append("the doll came back from the bench with it")
+    return ("substitute", not problems,
+            "; ".join(problems) or "a quarter to build, blocks stages and "
+                                   "status, lets weather through, breaks and "
+                                   "the rest of a multi-hit lands, and does "
+                                   "not survive a switch")
+
+
+def _ring_and_root():
+    """Aqua Ring and Ingrain both restore a sixteenth; Ingrain also nails the
+    user down, in both directions."""
+    rows = []
+    for move_id in ("aquaring", "ingrain"):
+        f = Fight([mon("snorlax", "__none__",
+                       (move_id, "splash", "protect", "rest"), None, "sassy",
+                       (32, 0, 32, 0, 32, 0)),
+                   mon("blissey", "__none__", ("splash", "tackle", "protect", "rest")),
+                   mon("magikarp", "__none__", ("splash", "tackle"))],
+                  [mon(UNIVERSAL, "__none__",
+                       ("whirlwind", "splash", "protect", "rest"), None,
+                       "serious", (32, 0, 32, 0, 2, 0))], seed=7)
+        side = f.state.sides[0]
+        side.hp[side.active[0]] = f.max_hp(0) // 2
+        f.turn(Action.move(0), Action.move(1))
+        before = f.hp(0)
+        f.turn(Action.move(1), Action.move(1))
+        healed = f.hp(0) - before
+        problems = []
+        if healed != f.max_hp(0) // 16:
+            problems.append(f"it restored {healed}, not a sixteenth "
+                            f"({f.max_hp(0) // 16})")
+        if move_id == "ingrain":
+            from pkcm.engine.state import legal_actions
+
+            if any(str(one).startswith("switch")
+                   for one in legal_actions(f.state, 0)):
+                problems.append("it may still choose to switch out")
+            f.turn(Action.move(1), Action.move(0))     # they try Whirlwind
+            if f.active_species(0) != "snorlax":
+                problems.append("a Whirlwind pulled it out of the ground")
+        rows.append((move_id, not problems,
+                     "; ".join(problems) or "a sixteenth a turn"
+                     + (", and nailed down both ways" if move_id == "ingrain"
+                        else "")))
+    return rows
+
+
+def _endure_survives():
+    f = Fight([mon("magikarp", "__none__",
+                   ("endure", "splash", "protect", "rest"), None, "jolly",
+                   (0, 0, 0, 0, 2, 32))],
+              [mon(UNIVERSAL, "__none__",
+                   ("bodyslam", "splash", "protect", "rest"), None, "adamant",
+                   (0, 32, 0, 0, 2, 0))], seed=7)
+    # Down to a sliver first: a hit it would have survived anyway tests nothing.
+    side = f.state.sides[0]
+    side.hp[side.active[0]] = 5
+    f.turn(Action.move(0), Action.move(0))
+    return ("endure", f.hp(0) == 1 and hp_lost(f, side=0) > 0,
+            f"a Body Slam that should have flattened it left {f.hp(0)} HP")
+
+
+def _rest_sleeps_and_heals():
+    """"falls asleep for the next two turns and restores all of its HP, curing
+    itself of any non-volatile status condition in the process"."""
+    f = Fight([mon("snorlax", "__none__",
+                   ("rest", "splash", "protect", "bodyslam"), None, "sassy",
+                   (32, 0, 32, 0, 32, 0))],
+              [wall()], seed=7)
+    side = f.state.sides[0]
+    side.hp[side.active[0]] = f.max_hp(0) // 3
+    side.status[side.active[0]] = "brn"
+    f.turn(Action.move(0), Action.move(0))
+    problems = []
+    if f.hp(0) != f.max_hp(0):
+        problems.append(f"it woke on {f.hp(0)} of {f.max_hp(0)}")
+    if f.status(0) != "slp":
+        problems.append(f"its status is {f.status(0)}, not sleep")
+    missed = 0
+    for _ in range(4):
+        f.turn(Action.move(3), Action.move(0))
+        if any(e.kind == "cant_move" and (e.side or 0) == 0 for e in f.log):
+            missed += 1
+        else:
+            break
+    if missed != 2:
+        problems.append(f"it lost {missed} turns to the sleep, not two")
+    return ("rest", not problems,
+            "; ".join(problems) or "full HP, the burn gone, and two turns "
+                                   "lost to the sleep")
+
+
+def _memento_faints():
+    f = Fight([mon("snorlax", "__none__",
+                   ("memento", "splash", "protect", "rest"), None, "sassy",
+                   (32, 0, 32, 0, 32, 0)),
+               mon("blissey", "__none__", ("splash", "tackle", "protect", "rest")),
+               mon("magikarp", "__none__", ("splash", "tackle"))],
+              [wall()], seed=7)
+    f.turn(Action.move(0), Action.move(0))
+    return ("memento", f.state.sides[0].hp[f.state.sides[0].active[0]] <= 0
+            or f.state.phase.name in ("MID_TURN_SWITCH", "FORCED_SWITCH"),
+            f"afterwards the user is on "
+            f"{f.state.sides[0].hp[f.state.sides[0].active[0]]} HP")
+
+
+_BODY_PROBES = {"stockpile": _stockpile_cycle, "steelbeam": _steel_beam_pays,
+                "strengthsap": _strength_sap_heals,
+                "struggle": _struggle_is_what_is_left,
+                "stuffcheeks": _stuff_cheeks, "substitute": _substitute_terms,
+                "endure": _endure_survives, "rest": _rest_sleeps_and_heals,
+                "memento": _memento_faints}
+
+
+@family("bodyandbelly",
+        "The user's Stockpile count increases by 1.",
+        "The user's Stockpile count is reset to 0 when it is no longer active.",
+        "Whether or not this move is successful, the user's Defense and "
+        "Special Defense decrease by as many stages as Stockpile had increased "
+        "them, and the user's Stockpile count resets to 0.",
+        "The user restores its HP based on its Stockpile count.",
+        "The user's Defense and Special Defense decrease by as many stages as "
+        "Stockpile had increased them, and the user's Stockpile count resets "
+        "to 0.",
+        "Whether or not this move is successful and even if it would cause "
+        "fainting, the user loses 1/2 of its maximum HP, rounded up",
+        "The user restores its HP equal to the target's Attack stat calculated "
+        "with its stat stage before this move was used.",
+        "This move is automatically used if none of the user's known moves can "
+        "be selected.",
+        "This move cannot be selected unless the user is holding a Berry.",
+        "The user eats its Berry and raises its Defense by 2 stages.",
+        "This effect is not prevented by the Klutz or Unnerve Abilities, or "
+        "the effects of Embargo or Magic Room.",
+        "The user takes 1/4 of its maximum HP, rounded down, and puts it into "
+        "a substitute to take its place in battle.",
+        "The substitute is removed once enough damage is inflicted on it, if "
+        "the user switches out or faints, or if any Pokemon uses Tidy Up.",
+        "Until the substitute is broken, it receives damage from all attacks "
+        "made by other Pokemon and shields the user from status effects and "
+        "stat stage changes caused by other Pokemon.",
+        "The user still takes normal damage from weather and status effects "
+        "while behind its substitute.",
+        "If the substitute breaks during a multi-hit attack, the user will "
+        "take damage from any remaining hits.",
+        "The user has 1/16 of its maximum HP, rounded down, restored at the "
+        "end of each turn while it remains active.",
+        "The user has 1/16 of its maximum HP restored at the end of each turn, "
+        "but it is prevented from switching out",
+        "The user will survive attacks made by other Pokemon during this turn "
+        "with at least 1 HP.",
+        "The user falls asleep for the next two turns and restores all of its "
+        "HP, curing itself of any non-volatile status condition in the process.",
+        "The user faints unless this move misses or there is no target.")
+def _body_and_belly():
+    rows = []
+    for move_id in members("bodyandbelly"):
+        if move_id in _BODY_PROBES:
+            rows.append(_BODY_PROBES[move_id]())
+        elif move_id in ("spitup", "swallow", "aquaring", "ingrain"):
+            continue          # measured beside stockpile and each other
+        else:
+            rows.append((move_id, False, "no probe written for it"))
+    rows.extend(_ring_and_root())
     return verdict(rows)
 
 

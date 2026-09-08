@@ -1496,6 +1496,18 @@ def _resolve(
         _note_move_failed(ctx, attacker, True)
         return
 
+    # "Until the substitute is broken ... it shields the user from status
+    # effects and stat stage changes caused by other Pokemon." The doll only
+    # ever stood in front of damage: a Will-O-Wisp burned straight through it
+    # and a Tail Whip dropped the Defence of the Pokemon standing behind it.
+    if (targets_opponent and move.category == "Status"
+            and mutate.volatile(ctx.state, defender, "substitute") is not None
+            and not bypasses_substitute(move)):
+        ctx.emit(Event("substitute_blocked", side=defender[0], slot=defender[1],
+                       move=move.id))
+        _note_move_failed(ctx, attacker, True)
+        return
+
     if move.category == "Status":
         landed = _apply_status_move(ctx, attacker, target, move)
     else:
@@ -1843,16 +1855,20 @@ def _record_hit(ctx: Context, attacker: Ref, defender: Ref,
     state.observed_hits = kept + (entry,)
 
 
+def bypasses_substitute(move: Move) -> bool:
+    """``authentic`` was the old name for this flag and the data exports it as
+    ``bypasssub``, so nothing sound-based has ever gone through a doll --
+    Hyper Voice, Boomburst, Snore, Perish Song, all of them."""
+    return (getattr(move, "infiltrates", False)
+            or "bypasssub" in move.flags or "authentic" in move.flags)
+
+
 def _deal_or_break_substitute(
     ctx: Context, attacker: Ref, defender: Ref, move: Move,
     damage: int, effectiveness: float, crit: bool,
 ) -> int:
     substitute = mutate.volatile(ctx.state, defender, "substitute")
-    # ``authentic`` was the old name for this flag and the data exports it as
-    # ``bypasssub``, so nothing sound-based has ever gone through a doll --
-    # Hyper Voice, Boomburst, Snore, Perish Song, all of them.
-    bypasses = (getattr(move, "infiltrates", False)
-                or "bypasssub" in move.flags or "authentic" in move.flags)
+    bypasses = bypasses_substitute(move)
     if substitute is not None and not bypasses:
         substitute["hp"] -= damage
         if substitute["hp"] <= 0:

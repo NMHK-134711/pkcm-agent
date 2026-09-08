@@ -569,6 +569,12 @@ RECHARGE_BY_NAME = frozenset({"gigatonhammer", "bloodmoon"})
 #: Cannot be selected until its user has eaten a berry.
 NEEDS_A_BERRY = frozenset({"belch"})
 
+#: "This move cannot be selected unless the user is holding a Berry" -- a
+#: different question from Belch's, and one nothing was asking: Stuff Cheeks
+#: was offered to a Pokemon holding nothing, so the search opened branches on
+#: a move the engine would then refuse.
+HOLDS_A_BERRY = frozenset({"stuffcheeks"})
+
 
 def legal_actions(state: BattleState, player: int, position: int = 0) -> tuple[Action, ...]:
     """Everything ``player`` may legally submit for one field position.
@@ -654,9 +660,13 @@ def legal_actions(state: BattleState, player: int, position: int = 0) -> tuple[A
     recharging_by_name = (RECHARGE_BY_NAME
                           if volatiles.get("lastmove") in RECHARGE_BY_NAME
                           else frozenset())
-    # Belch cannot be picked until its user has eaten a berry.
+    # Belch cannot be picked until its user has eaten a berry; Stuff Cheeks
+    # until it is holding one now.
     unfed = (frozenset() if side.status_data[slot].get("ateberry")
              else NEEDS_A_BERRY)
+    in_hand = state.item_id(player, slot)
+    if not (in_hand and state.config.dex.items[in_hand].raw.get("isBerry")):
+        unfed = unfed | HOLDS_A_BERRY
     # Taunt and Torment refused at the moment of use and were still offered
     # here, so the search opened branches the engine would not run and the net
     # learned from them. Disable and Encore have always been read here; these
@@ -712,7 +722,16 @@ def _is_trapped(state: BattleState, player: int, slot: int) -> bool:
         # Shell does not answer a lock on the field itself.
         return True
     side = state.sides[player]
-    held = side.volatiles[slot].get("trapped")
+    volatiles = side.volatiles[slot]
+    # Ingrain: "it is prevented from switching out and other Pokemon cannot
+    # force the user to switch out". The second half was honoured over in
+    # ``tactics.force_switch``; the first was asked nowhere, so a Pokemon that
+    # had just rooted itself could simply walk away. Both of these are the
+    # holder's own doing, and a Shed Shell answers somebody else's hold rather
+    # than the holder's own roots.
+    if "ingrain" in volatiles or "noretreat" in volatiles:
+        return True
+    held = volatiles.get("trapped")
     if held is None or state.item_id(player, slot) == "shedshell":
         return False
     holder = held.get("by")

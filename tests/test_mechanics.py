@@ -1595,3 +1595,46 @@ def test_charge_is_spent_by_the_electric_move_it_paid_for(dex, config):
 
     state, _ = step(state, Action.move(1), Action.move(0))
     assert "charge" not in state.sides[0].volatiles[0]
+
+
+def test_a_substitute_shields_status_and_stat_drops(dex, config):
+    """"...shields the user from status effects and stat stage changes caused
+    by other Pokemon." The doll only ever stood in front of damage."""
+    state = build(config, a_set("snorlax", ("substitute",)),
+                  a_set("blissey", ("willowisp", "tailwhip", "growl")))
+    ctx = make_context(state)
+    cast(ctx, dex, "substitute")
+    assert "substitute" in state.sides[0].volatiles[0]
+
+    cast(ctx, dex, "willowisp", attacker=BLUE, defender=RED)
+    cast(ctx, dex, "tailwhip", attacker=BLUE, defender=RED)
+    assert state.sides[0].status[0] is None
+    assert state.sides[0].boost(0, "def") == 0
+
+    # Growl is sound, and sound goes through by a rule of its own.
+    cast(ctx, dex, "growl", attacker=BLUE, defender=RED)
+    assert state.sides[0].boost(0, "atk") == -1
+
+
+def test_ingrain_holds_its_own_user_down(dex, config):
+    """"it is prevented from switching out" -- the half nobody was asking."""
+    state = build(config, a_set("snorlax", ("ingrain",)), a_set("blissey", ("tackle",)))
+    ctx = make_context(state)
+    cast(ctx, dex, "ingrain")
+    assert not [one for one in legal_actions(state, 0)
+                if one.kind is ActionKind.SWITCH]
+
+
+def test_stuff_cheeks_is_not_offered_with_empty_hands(dex, config):
+    state = build(config, a_set("snorlax", ("stuffcheeks", "tackle")),
+                  a_set("blissey", ("tackle",)))
+    offered = [one.index for one in legal_actions(state, 0)
+               if one.kind is ActionKind.MOVE]
+    assert offered == [1]
+
+    state = build(config, a_set("snorlax", ("stuffcheeks", "tackle"),
+                                item="sitrusberry"),
+                  a_set("blissey", ("tackle",)))
+    offered = [one.index for one in legal_actions(state, 0)
+               if one.kind is ActionKind.MOVE]
+    assert offered == [0, 1]

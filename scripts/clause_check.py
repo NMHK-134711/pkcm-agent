@@ -1662,7 +1662,7 @@ def _five_turns_of_snow():
 
 
 
-def rolls_for(f, move, power, side=0):
+def rolls_for(f, move, power, side=0, as_type=None, extra=1.0):
     """The sixteen damages the formula gives for a power worked out here.
 
     ``mechanic_check._expected_rolls`` reads ``move.base_power``, which is
@@ -1681,11 +1681,18 @@ def rolls_for(f, move, power, side=0):
     physical = move.category == "Physical"
     attack = effective_stat(ctx, us, Stat.ATK if physical else Stat.SPA)
     defense = effective_stat(ctx, them, Stat.DEF if physical else Stat.SPD)
-    effectiveness = DEX.type_chart.multiplier(move.type, f.state.types(*them))
-    stab = move.type in f.state.types(*us)
+    # Weather Ball and Terrain Pulse change type in the same sentence that
+    # doubles their power, so the expectation has to change type with them.
+    kind = as_type or move.type
+    effectiveness = DEX.type_chart.multiplier(kind, f.state.types(*them))
+    stab = kind in f.state.types(*us)
     base = damage_base(power=power, attack=attack, defense=defense)
-    return {max(1, damage_from_base(base, roll, stab=stab,
-                                    effectiveness=effectiveness))
+    # ``extra`` is the field's own hand on the damage -- Rain multiplying a
+    # Water move by 1.5, a terrain multiplying its own type by 1.3. Not what
+    # the clause under test says, but present in the position it needs, and
+    # written the way the engine writes it so the rounding matches.
+    return {max(1, int(damage_from_base(base, roll, stab=stab,
+                                        effectiveness=effectiveness) * extra))
             for roll in range(mc._ROLL_LOW, mc._ROLL_HIGH + 1)}
 
 
@@ -5891,6 +5898,536 @@ def _stated_stages():
                 continue          # a crit stage is not a stat stage: critstages
             probe = STAGE_PROBES.get(move_id, _plain_stages)
             rows.append(probe(move_id, sentence))
+    return verdict(rows)
+
+
+# --------------------------------------------------------------------------- #
+# What comes back, and what doubles
+# --------------------------------------------------------------------------- #
+
+#: Each of the four says how much of the hit it hands back, which kind of
+#: attack it answers, and -- for the two that are choosy -- which kind it does
+#: not. "Rounded down" is why these are fractions and not floats.
+COUNTER_RETURNS = {
+    "counter": ((2, 1), ("bodyslam",), ("hypervoice",)),
+    "mirrorcoat": ((2, 1), ("hypervoice",), ("bodyslam",)),
+    "comeuppance": ((3, 2), ("bodyslam", "hypervoice"), ()),
+    "metalburst": ((3, 2), ("bodyslam", "hypervoice"), ()),
+}
+
+
+def _counter_turn(move_id, their_move):
+    """They swing, we answer. Ours is slow so the priority-0 pair still go
+    second; Snorlax is the one being answered because Normal takes 1x from
+    Fighting, Psychic, Dark and Steel alike."""
+    physical = their_move == "bodyslam"
+    # Both Snorlax, and ours with nothing in Speed: Metal Burst and Comeuppance
+    # carry no priority, so a Mew at base hundred answered before it had been
+    # hit and handed back nothing at all.
+    ours = [mon("snorlax", "__none__", (move_id, "splash", "protect", "rest"),
+                None, "sassy", (32, 0, 32, 0, 32, 0))]
+    theirs = [mon("snorlax", "__none__",
+                  (their_move, "splash", "protect", "rest"), None,
+                  "adamant" if physical else "modest",
+                  (0, 32, 0, 0, 2, 32) if physical else (0, 0, 0, 32, 2, 32))]
+    f = Fight(ours, theirs, seed=7)
+    f.turn(Action.move(0), Action.move(0 if their_move else 1))
+    return f
+
+
+@family("counterreturns",
+        "equal to twice the HP lost by the user from that attack",
+        "equal to 1.5 times the HP lost by the user from that attack")
+def _counter_returns():
+    """The four say a number: twice, or 1.5 times rounded down, of what the
+    hit took off. ``counterdoubles`` and ``counterhalfagain`` re-ran a check
+    that asks only whether something came back."""
+    rows = []
+    for move_id in members("counterreturns"):
+        (num, den), answers, ignores = COUNTER_RETURNS[move_id]
+        problems = []
+        for their_move in answers:
+            f = _counter_turn(move_id, their_move)
+            lost = sum(e.amount or 0 for e in f.log if e.kind == "damage"
+                       and (e.side or 0) == 0 and e.move == their_move)
+            dealt = sum(e.amount or 0 for e in f.log if e.kind == "damage"
+                        and (e.side or 0) == 1 and e.move == move_id)
+            owed = min(lost * num // den, f.max_hp(1))
+            if not lost:
+                problems.append(f"{their_move} took nothing off us")
+            elif dealt != owed:
+                problems.append(f"it took {lost} and handed back {dealt}, "
+                                f"not {owed}")
+        for their_move in ignores:
+            f = _counter_turn(move_id, their_move)
+            if not failed(f, 0):
+                problems.append(f"it answered {their_move}, which is the "
+                                f"other kind of attack")
+        quiet = _counter_turn(move_id, "splash")
+        if not failed(quiet, 0):
+            problems.append("it did not fail against a turn with no attack")
+        return_note = f"{num}/{den} of the hit, and nothing to answer fails"
+        rows.append((move_id, not problems, "; ".join(problems) or return_note))
+    return verdict(rows)
+
+
+def _pair_for_assurance():
+    """A partner to land the first hit, since one Pokemon cannot hit twice."""
+    quick = next((one for one in ("weavile", "talonflame", "pikachu")
+                  if one in DEX.species), "pikachu")
+    # The partner has to land its hit first, and a Mew at base hundred was
+    # faster than any Snorlax: the sentence needs the *order*, so the slow one
+    # is the one holding Assurance.
+    ours = [mon("snorlax", "__none__", ("assurance", "splash", "protect", "rest"),
+                None, "sassy", (32, 32, 0, 0, 2, 0)),
+            mon(quick, "__none__", ("tackle", "splash", "protect", "rest"),
+                None, "jolly", (0, 2, 0, 0, 32, 32))]
+    return ours, [wall(), wall()]
+
+
+def _assurance_power():
+    """"Power doubles if the target has already taken damage this turn."
+
+    One Pokemon cannot hit the same target twice in a turn, so this is a
+    doubles position: the partner is faster and goes first.
+    """
+    move = DEX.moves["assurance"]
+    problems = []
+    for hit_first in (False, True):
+        ours, theirs = _pair_for_assurance()
+        f = Pair(ours, theirs, seed=7)
+        want = rolls_for(f, move, move.base_power * (2 if hit_first else 1))
+        f.turn((Action.move(0, target=0),
+                Action.move(0 if hit_first else 1, target=0)),
+               (Action.move(0), Action.move(0)))
+        hits = [e for e in f.log if e.kind == "damage" and (e.side or 0) == 1
+                and e.move == "assurance" and not e.crit]
+        if not hits:
+            problems.append(f"no clean hit with hit_first={hit_first}")
+        elif hits[0].amount not in want:
+            problems.append(f"with the target {'already hurt' if hit_first else 'untouched'} "
+                            f"it dealt {hits[0].amount}, and the power the "
+                            f"sentence gives is {min(want)}-{max(want)}")
+    return ("assurance", not problems,
+            "; ".join(problems) or "sixty on a fresh target, one hundred and "
+                                   "twenty on one the partner already hit")
+
+
+def _avalanche_power():
+    """"Power doubles if the user was hit by the target this turn" -- and at
+    minus four priority the target always gets there first."""
+    move = DEX.moves["avalanche"]
+    problems = []
+    for hit_first in (False, True):
+        ours = [mon(UNIVERSAL, "__none__",
+                    ("avalanche", "splash", "protect", "rest"), None, "sassy",
+                    (32, 32, 0, 0, 2, 0))]
+        theirs = [mon("snorlax", "__none__",
+                      ("bodyslam", "splash", "protect", "rest"), None,
+                      "adamant", (0, 32, 0, 0, 2, 32))]
+        f = Fight(ours, theirs, seed=7)
+        want = rolls_for(f, move, move.base_power * (2 if hit_first else 1))
+        f.turn(Action.move(0), Action.move(0 if hit_first else 1))
+        hits = [e for e in f.log if e.kind == "damage" and (e.side or 0) == 1
+                and e.move == "avalanche" and not e.crit]
+        if not hits:
+            problems.append(f"no clean hit with hit_first={hit_first}")
+        elif hits[0].amount not in want:
+            problems.append(f"{'hit first' if hit_first else 'untouched'}: "
+                            f"dealt {hits[0].amount} against "
+                            f"{min(want)}-{max(want)}")
+    return ("avalanche", not problems,
+            "; ".join(problems) or "sixty untouched, one hundred and twenty "
+                                   "after taking a Body Slam")
+
+
+def _last_respects_power():
+    """"50+(X*50), where X is the total number of times any Pokemon has
+    fainted on the user's side." Six to a party, so the cap of a hundred is
+    not something this format can reach; the slope is what is checkable."""
+    move = DEX.moves["lastrespects"]
+    problems = []
+    for fallen in (0, 1, 2):    # three come to a singles battle
+        f = Fight([swinger("lastrespects")], [wall(mc._reachable(move))],
+                  seed=7)
+        side = f.state.sides[0]
+        for slot in range(1, 1 + fallen):
+            side.hp[slot] = 0
+        want = rolls_for(f, move, move.base_power + 50 * fallen)
+        f.turn(Action.move(0), Action.move(0))
+        hits = [e for e in f.log if e.kind == "damage" and (e.side or 0) == 1
+                and e.move == "lastrespects" and not e.crit]
+        if not hits:
+            problems.append(f"no clean hit with {fallen} fallen")
+        elif hits[0].amount not in want:
+            problems.append(f"with {fallen} fallen it dealt {hits[0].amount}, "
+                            f"and {move.base_power + 50 * fallen} power gives "
+                            f"{min(want)}-{max(want)}")
+    return ("lastrespects", not problems,
+            "; ".join(problems) or "fifty, and fifty more for each one down")
+
+
+#: Terrain and weather, the type each turns the pulse into, and whether the
+#: user has to be standing on the ground for it.
+_PULSE_TERRAIN = {"electricterrain": "electric", "grassyterrain": "grass",
+                  "mistyterrain": "fairy", "psychicterrain": "psychic"}
+_BALL_WEATHER = {"sunnyday": "fire", "raindance": "water",
+                 "sandstorm": "rock", "snowscape": "ice"}
+
+#: The field also multiplies a move of its own type, which is a different
+#: sentence on a different page -- but it is in the room, so the expectation
+#: has to carry it or the doubling cannot be read off the number.
+_FIELD_HAND = {"electricterrain": ("electric", 1.3),
+               "grassyterrain": ("grass", 1.3),
+               "psychicterrain": ("psychic", 1.3),
+               "sunnyday": ("fire", 1.5), "raindance": ("water", 1.5)}
+
+
+def _pulse_or_ball(move_id, table, arrange, flier=None):
+    """Both say the same two things in one sentence: the power doubles, and
+    the type follows. Checking one and not the other is how Dragon Cheer got
+    through, so both are checked here."""
+    move = DEX.moves[move_id]
+    problems = []
+    for setting, kind in [(None, "normal")] + list(table.items()):
+        f = Fight([swinger(move_id)], [wall("snorlax")], seed=7)
+        if setting is not None:
+            arrange(f, setting)
+        doubled = setting is not None
+        boosted, factor = _FIELD_HAND.get(setting, (None, 1.0))
+        want = rolls_for(f, move, move.base_power * (2 if doubled else 1),
+                         as_type=kind,
+                         extra=factor if boosted == kind else 1.0)
+        f.turn(Action.move(0), Action.move(0))
+        hits = [e for e in f.log if e.kind == "damage" and (e.side or 0) == 1
+                and e.move == move_id and not e.crit]
+        if not hits:
+            problems.append(f"no clean hit under {setting or 'clear skies'}")
+        elif hits[0].amount not in want:
+            problems.append(f"under {setting or 'clear skies'} it dealt "
+                            f"{hits[0].amount}, and {kind} at "
+                            f"{move.base_power * (2 if doubled else 1)} gives "
+                            f"{min(want)}-{max(want)}")
+
+    if flier is not None:
+        # "if the user is grounded": something in the air keeps its fifty.
+        f = Fight([swinger(move_id, species=flier)], [wall("snorlax")], seed=7)
+        arrange(f, next(iter(table)))
+        want = rolls_for(f, move, move.base_power, as_type="normal")
+        f.turn(Action.move(0), Action.move(0))
+        hits = [e for e in f.log if e.kind == "damage" and (e.side or 0) == 1
+                and e.move == move_id and not e.crit]
+        if hits and hits[0].amount not in want:
+            problems.append(f"a {flier} off the ground still got the terrain: "
+                            f"dealt {hits[0].amount} against "
+                            f"{min(want)}-{max(want)}")
+    return (move_id, not problems,
+            "; ".join(problems) or f"fifty and Normal with nothing up, a "
+                                   f"hundred and the matching type under each")
+
+
+def _terrain_pulse_power():
+    def arrange(f, setting):
+        f.state.field.terrain, f.state.field.terrain_turns = setting, 8
+
+    flier = next((one for one in ("corviknight", "talonflame", "gyarados")
+                  if one in DEX.species), None)
+    return _pulse_or_ball("terrainpulse", _PULSE_TERRAIN, arrange, flier)
+
+
+def _weather_ball_power():
+    def arrange(f, setting):
+        f.state.field.weather, f.state.field.weather_turns = setting, 8
+
+    return _pulse_or_ball("weatherball", _BALL_WEATHER, arrange)
+
+
+CONDITIONAL_POWER = {"assurance": _assurance_power,
+                     "avalanche": _avalanche_power,
+                     "lastrespects": _last_respects_power,
+                     "terrainpulse": _terrain_pulse_power,
+                     "weatherball": _weather_ball_power}
+
+
+@family("conditionalpower",
+        "Power doubles if the target has already taken damage this turn, other "
+        "than direct damage from Belly Drum, confusion, Curse, or Pain Split.",
+        "Power doubles if the user was hit by the target this turn.",
+        "Power doubles if the user is grounded and a terrain is active, and "
+        "this move's type changes to match.",
+        "Power doubles if a weather condition other than Delta Stream is "
+        "active, and this move's type changes to match.",
+        "Power is equal to 50+(X*50), where X is the total number of times any "
+        "Pokemon has fainted on the user's side")
+def _conditional_power():
+    return verdict([CONDITIONAL_POWER[move_id]()
+                    for move_id in members("conditionalpower")])
+
+
+# --------------------------------------------------------------------------- #
+# "Has a N% chance to ...", counted for the effect the sentence names
+# --------------------------------------------------------------------------- #
+#
+# ``secondary`` further up re-runs the move's ``mechanic_check`` entry, which
+# counts the effect the move's ``secondary`` *field* declares. This one reads
+# the percentage and the effect out of the English and counts that instead, so
+# a sentence promising something the field does not carry has somewhere to
+# fail. Four hundred casts an arm; only the casts that connected are counted.
+
+_STATUS_PHRASES = (("badly poison the target", "tox"),
+                   ("burn the target", "brn"),
+                   ("freeze the target", "frz"),
+                   ("paralyze the target", "par"),
+                   ("poison the target", "psn"))
+
+#: Which types simply cannot take a status, so the target can be chosen to be
+#: one that can. A probe that picked a Fire type for a burn would measure 0%
+#: and call the engine wrong.
+_STATUS_PROOF = {"brn": {"fire"}, "frz": {"ice"}, "par": {"electric"},
+                 "psn": {"poison", "steel"}, "tox": {"poison", "steel"},
+                 "slp": set()}
+
+_TARGET_POOL = ("snorlax", "blissey", "milotic", "garchomp", "gengar",
+                "gardevoir", "dragonite", "clefable", "starmie", "skarmory",
+                "tyranitar", "pikachu")
+
+#: Phrases another family already puts in a position, so this one steps over
+#: them rather than guessing at them.
+_NOT_MINE = ("hit two or three times", "hit four or five times",
+             "higher chance for a critical hit")
+
+_CHANCE = re.compile(r"(\d+)% chance (?:to )?")
+_LOWER = re.compile(r"(?i)lower the target's ([A-Za-z, ]+?) by (\d+) stages?")
+_RAISE = re.compile(r"(?i)raise the user's ([A-Za-z, ]+?) by (\d+) stages?")
+
+
+def _chance_parts(sentence):
+    """[(percent, the phrase that percentage governs)], in order."""
+    found = list(_CHANCE.finditer(sentence))
+    parts = []
+    for index, match in enumerate(found):
+        end = found[index + 1].start() if index + 1 < len(found) else len(sentence)
+        tail = sentence[match.end():end]
+        tail = re.sub(r"(?i),?\s*(and\s+)?a\s*$", "", tail.strip().rstrip("."))
+        tail = re.sub(r"(?i),?\s*and a higher chance for a critical hit\.?$",
+                      "", tail).strip().rstrip(",.")
+        parts.append((int(match.group(1)), tail))
+    return parts
+
+
+def _any_status(*codes):
+    def watch(f):
+        return any(e.kind == "status" and (e.side or 0) == 1
+                   and e.detail in codes for e in f.log)
+    return watch
+
+
+def _reads(phrase):
+    """What to look for after a cast, and what the target must be able to take.
+
+    Returns ``(name, watcher, statuses)`` or ``None`` when the phrase is one
+    this probe does not understand -- which the caller turns into a failure,
+    never into a silent pass.
+    """
+    text = phrase.strip().rstrip(".")
+    for words, code in _STATUS_PHRASES:
+        if text == words:
+            # Read off the log, not off the state at the end of the turn: a
+            # freeze thaws one time in five when its owner tries to move, and
+            # reading the state afterwards priced Ice Beam at 5% instead of 10.
+            return (code, lambda f, code=code: any(
+                e.kind == "status" and (e.side or 0) == 1 and e.detail == code
+                for e in f.log), (code,))
+    if text in ("make the target flinch", "make it flinch"):
+        return ("flinch",
+                lambda f: any(e.kind == "cant_move" and (e.side or 0) == 1
+                              and e.detail == "flinch" for e in f.log), ())
+    if text in ("confuse the target", "confuse it"):
+        return ("confusion", lambda f: "confusion" in f.volatiles(1), ())
+    if text == "either burn, freeze, or paralyze the target":
+        return ("burn, freeze or paralysis",
+                _any_status("brn", "frz", "par"), ("brn", "frz", "par"))
+    if text == ("cause the target to either fall asleep, become poisoned, "
+                "or become paralyzed"):
+        return ("sleep, poison or paralysis",
+                _any_status("slp", "psn", "par"), ("slp", "psn", "par"))
+    match = _LOWER.search(text)
+    if match:
+        stats, leftover = _named_stats(match.group(1))
+        if stats and not leftover:
+            count = int(match.group(2))
+            return (f"-{count} {'/'.join(stats)}",
+                    lambda f, stats=stats, count=count: all(
+                        f.boosts(1).get(one, 0) == -count for one in stats), ())
+    match = _RAISE.search(text)
+    if match:
+        stats, leftover = _named_stats(match.group(1))
+        if stats and not leftover:
+            count = int(match.group(2))
+            return (f"+{count} {'/'.join(stats)} on the user",
+                    lambda f, stats=stats, count=count: all(
+                        f.boosts(0).get(one, 0) == count for one in stats), ())
+    return None
+
+
+def _target_that_can_take(move, statuses):
+    """Something the move reaches that the status can still be put on."""
+    banned = set()
+    for one in statuses:
+        banned |= _STATUS_PROOF.get(one, set())
+    for species in _TARGET_POOL:
+        types = DEX.species[species].types
+        if set(types) & banned:
+            continue
+        if DEX.type_chart.multiplier(move.type, types) > 0:
+            return species
+    return None
+
+
+#: Four of them cannot connect from a standing start: two spend a turn in the
+#: air, Snore needs its user asleep, and Upper Hand only answers a priority
+#: attack. Left alone they read as "never connected", which is a failure and
+#: not a pass -- but it is a failure of the probe, so the probe is fixed.
+_CHANCE_SETUP = {"bounce": "charge", "skyattack": "charge",
+                 "snore": "asleep", "upperhand": "answers priority"}
+
+
+def _count_casts(move_id, watches, species, casts=400, boost_first=False):
+    """Cast it ``casts`` times and count the connections and the effects."""
+    move = DEX.moves[move_id]
+    needs = _CHANCE_SETUP.get(move_id)
+    landed_count = 0
+    seen = [0] * len(watches)
+    for seed in range(casts):
+        if needs == "answers priority":
+            ours = [swinger(move_id)]
+            theirs = [mon(species, "__none__",
+                          ("aquajet", "splash", "protect", "rest"), None,
+                          "serious", (32, 0, 32, 0, 2, 0))]
+            f = Fight(ours, theirs, seed=seed)
+            f.turn(Action.move(0), Action.move(0))
+            if not landed(f, move_id):
+                continue
+            landed_count += 1
+            for index, watch in enumerate(watches):
+                if watch(f):
+                    seen[index] += 1
+            continue
+        if boost_first:
+            # "if it had a stat stage raised this turn": the target has to get
+            # there first, so ours is the slow one here.
+            ours = [mon("snorlax", "__none__",
+                        (move_id, "splash", "protect", "rest"), None, "sassy",
+                        (32, 32, 0, 0, 2, 0))]
+            theirs = [mon(species, "__none__",
+                          ("swordsdance", "splash", "protect", "rest"), None,
+                          "jolly", (0, 2, 0, 0, 0, 32))]
+        else:
+            ours = [swinger(move_id)]
+            theirs = [wall(species)]
+        f = Fight(ours, theirs, seed=seed)
+        if needs == "asleep":
+            side = f.state.sides[0]
+            side.status[side.active[0]] = "slp"
+        f.turn(Action.move(0), Action.move(0 if boost_first else 1))
+        if needs == "charge":
+            f.turn(Action.move(0), Action.move(1))   # down it comes
+        if not landed(f, move_id):
+            continue
+        landed_count += 1
+        for index, watch in enumerate(watches):
+            if watch(f):
+                seen[index] += 1
+    return landed_count, seen
+
+
+def _fickle_beam_double():
+    """"Has a 30% chance this move's power is doubled." A rate read off the
+    damage, since there is no flag on the state that says it happened."""
+    move = DEX.moves["ficklebeam"]
+    big = hits = 0
+    for seed in range(400):
+        f = Fight([swinger("ficklebeam")], [wall(mc._reachable(move))],
+                  seed=seed)
+        plain = rolls_for(f, move, move.base_power)
+        doubled = rolls_for(f, move, move.base_power * 2)
+        f.turn(Action.move(0), Action.move(0))
+        clean = [e for e in f.log if e.kind == "damage" and (e.side or 0) == 1
+                 and e.move == "ficklebeam" and not e.crit]
+        if not clean:
+            continue
+        amount = clean[0].amount
+        if amount in doubled and amount not in plain:
+            hits += 1
+            big += 1
+        elif amount in plain and amount not in doubled:
+            hits += 1
+        # A roll that lands in both bands says nothing, and is not counted.
+    rate = big / hits if hits else 0.0
+    slack = max(0.05, 3 * (0.3 * 0.7 / max(1, hits)) ** 0.5)
+    return ("ficklebeam", abs(rate - 0.3) <= slack,
+            f"doubled on {big} of {hits} readable casts ({rate:.0%}) "
+            f"against the 30% it names")
+
+
+@family("statedchances", "Has a ")
+def _stated_chances():
+    rows = []
+    mine = set(FAMILIES["statedchances"]["clauses"])
+    for move_id in members("statedchances"):
+        if move_id == "ficklebeam":
+            rows.append(_fickle_beam_double())
+            continue
+        for sentence in sentences(DEX.moves[move_id]):
+            if sentence not in mine:
+                continue
+            parts = [(share, phrase) for share, phrase in _chance_parts(sentence)
+                     if not any(one in phrase for one in _NOT_MINE)]
+            if not parts:
+                continue
+            reads = [_reads(phrase) for _, phrase in parts]
+            conditional = any("if it had a stat stage raised this turn" in phrase
+                              for _, phrase in parts)
+            if conditional:
+                reads = [_reads(phrase.split(" if it had")[0])
+                         for _, phrase in parts]
+            if any(one is None for one in reads):
+                unread = [phrase for phrase, one in zip([p for _, p in parts], reads)
+                          if one is None]
+                rows.append((move_id, False,
+                             f"this probe could not read {unread}"))
+                continue
+
+            statuses = tuple(one for read in reads for one in read[2])
+            species = _target_that_can_take(DEX.moves[move_id], statuses)
+            if species is None:
+                rows.append((move_id, False,
+                             f"nothing in the pool both takes {move_id} and "
+                             f"can be given {statuses}"))
+                continue
+            total, seen = _count_casts(move_id, [read[1] for read in reads],
+                                       species, boost_first=conditional)
+            if not total:
+                rows.append((move_id, False, "it never connected in 400 casts"))
+                continue
+            off, notes = [], []
+            for (share, _), read, count in zip(parts, reads, seen):
+                rate, want = count / total, share / 100
+                slack = max(0.05, 3 * (want * (1 - want) / total) ** 0.5)
+                notes.append(f"{read[0]} on {count}/{total} ({rate:.0%} "
+                             f"against {share}%)")
+                if abs(rate - want) > slack:
+                    off.append(notes[-1])
+            if conditional and not off:
+                # ...and not when the target raised nothing.
+                idle, quiet = _count_casts(
+                    move_id, [read[1] for read in reads], species)
+                if idle and any(quiet):
+                    off.append(f"it still happened {quiet} times in {idle} "
+                               f"casts where the target raised nothing")
+                else:
+                    notes.append("and never without the stat raise")
+            rows.append((f"{move_id}", not off, "; ".join(off or notes)))
     return verdict(rows)
 
 

@@ -178,6 +178,42 @@ def test_clangorous_soul_fails_when_it_cannot_pay(dex, config):
     assert any(e.kind == "move_failed" for e in ctx.log)
 
 
+@pytest.mark.parametrize("move_id, look_for", [
+    ("burningjealousy", lambda state: state.sides[1].status[0] == "brn"),
+    ("alluringvoice", lambda state: "confusion" in state.sides[1].volatiles[0]),
+])
+def test_the_two_that_punish_a_raised_stage(dex, config, move_id, look_for):
+    """Both carry ``secondary: {"chance": 100}`` and nothing else, so the
+    declarative path read a certainty of nothing and neither move did anything
+    but damage."""
+    state = build(config, a_set("snorlax", "thickfat", (move_id,)),
+                  a_set("blissey", "naturalcure", ("swordsdance",)))
+    ctx = make_context(state)
+
+    cast(ctx, dex, move_id)                      # nothing was raised yet
+    assert not look_for(state)
+
+    mutate.boost(ctx, BLUE, {"atk": 1})
+    cast(ctx, dex, move_id)
+    assert look_for(state)
+
+
+def test_fickle_beam_doubles_about_three_times_in_ten(dex, config):
+    """Its data is a base power and nothing else -- the roll lives in
+    Showdown's handler, so the engine fired eighty every time."""
+    from pkcm.engine.moves import VARIABLE_POWER
+
+    state = build(config, a_set("dudunsparce", "serenegrace", ("ficklebeam",)),
+                  a_set("snorlax"))
+    ctx = make_context(state)
+    move = dex.moves["ficklebeam"]
+    powers = [VARIABLE_POWER["ficklebeam"](ctx, RED, BLUE, move)
+              for _ in range(400)]
+    doubled = powers.count(move.base_power * 2)
+    assert set(powers) == {move.base_power, move.base_power * 2}
+    assert 0.2 < doubled / len(powers) < 0.4, doubled
+
+
 def test_psych_up_copies_and_topsy_turvy_inverts(dex, config):
     state = build(config, a_set("alakazam", "synchronize", ("psychup", "topsyturvy")),
                   a_set("snorlax"))
@@ -667,6 +703,7 @@ ENGINE_SIDE_VOLATILES = {
     "trapped": "state.legal_actions",
     "cudchew": "abilities._cud_chew_residual, which eats the stored berry again",
     "statdropped": "moves._lash_out, which doubles its power for one turn after",
+    "statraised": "moveeffects._punishes_a_raised_stage, for Burning Jealousy",
     "choicelock": "state.legal_actions",
     # These six had handlers of their own, on ``after_damage``, and that is
     # exactly why none of them worked: a shield that blocks the hit stops the

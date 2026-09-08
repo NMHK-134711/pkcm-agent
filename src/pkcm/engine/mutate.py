@@ -261,6 +261,11 @@ def boost(ctx: Context, ref: Ref, changes: dict[str, int], source: Ref | None = 
 
         side.boosts[slot][index] = after
         applied[name] = after - before
+        if applied[name] > 0:
+            # The mirror of the line below, for the two moves that ask whether
+            # this one has been *raised* this turn. Burning Jealousy and
+            # Alluring Voice had nothing to ask, so they did nothing at all.
+            side.volatiles[slot]["statraised"] = {"turn": ctx.state.turn}
         if applied[name] < 0:
             # Lash Out asks whether this one has been dropped *this turn*, and
             # the answer has to be recorded where the drop happens. Set rather

@@ -1,18 +1,18 @@
 # 효과가 있는데, 그 문장을 직접 재보지는 않은 기술
 
-`python scripts/coverage_audit.py`가 만듭니다. 포맷의 기술 497개 중 설명이 없거나 "No additional effect."뿐인 것 29개를 빼면 **468개**가 효과 문장을 갖고, 그 중 **247개**는 모든 효과 문장마다 그 문장을 읽고 쓴 probe가 붙어 있습니다.
+`python scripts/coverage_audit.py`가 만듭니다. 포맷의 기술 497개 중 설명이 없거나 "No additional effect."뿐인 것 29개를 빼면 **468개**가 효과 문장을 갖고, 그 중 **366개**는 모든 효과 문장마다 그 문장을 읽고 쓴 probe가 붙어 있습니다.
 
-아래 **221개**가 나머지입니다. `clause_check`가 그 문장을 다른 검사에 *위임*했고, "그 검사가 이 문장을 덮는다"는 건 제 판단이지 측정이 아닙니다. 전부 초록이지만, 초록의 근거가 문장이 아니라 제 짐작입니다.
+아래 **102개**가 나머지입니다. `clause_check`가 그 문장을 다른 검사에 *위임*했고, "그 검사가 이 문장을 덮는다"는 건 제 판단이지 측정이 아닙니다. 전부 초록이지만, 초록의 근거가 문장이 아니라 제 짐작입니다.
 
 드래곤옐이 정확히 이 자리에 있었습니다: 문장은 급소율을 말하는데 위임된 검사는 능력치 랭크를 재고 있었고, 잴 것이 없으니 조용히 통과시켰습니다.
 
 (테라스탈·블루오브·하늘가르기처럼 이 포맷에 없는 기전만 언급하는 문장은 도달 불가로 기록되어 있고, 여기서는 세지 않았습니다.)
 
-## B등급 -- 77개
+## B등급 -- 64개
 
 그 기술 전용 수기 검사가 있습니다. 다만 그 검사가 아래 문장을 덮는다는 것은 확인된 적이 없습니다.
 
-### 설명이 기술 그 자체 (mechanic_check의 수기 검사에 통째로 위임) -- 58개
+### 설명이 기술 그 자체 (mechanic_check의 수기 검사에 통째로 위임) -- 59개
 
 - **아쿠아링** (Aqua Ring, `aquaring`, Status)
   - The user has 1/16 of its maximum HP, rounded down, restored at the end of each turn while it remains active.
@@ -149,46 +149,10 @@
 - **소란피기** (Uproar, `uproar`, Special)
   - The user spends three turns locked into this move.
   - This move targets an opponent at random on each turn.
+- **웨더볼** (Weather Ball, `weatherball`, Special)
+  - If the user is holding Utility Umbrella and uses Weather Ball during Primordial Sea, Rain Dance, Desolate Land, or Sunny Day, this move remains Normal type and does not double in power.
 - **날려버리기** (Whirlwind, `whirlwind`, Status)
   - The target is forced to switch out and be replaced with a random unfainted ally.
-
-### 추가효과 확률 (데이터의 secondary 필드) -- 5개
-
-- **속이기** (Fake Out, `fakeout`, Physical)
-  - Has a 100% chance to make the target flinch.
-- **G의힘** (Grav Apple, `gravapple`, Physical)
-  - Has a 100% chance to lower the target's Defense by 1 stage.
-- **백귀야행** (Infernal Parade, `infernalparade`, Special)
-  - Has a 30% chance to burn the target.
-- **킬러스핀** (Mortal Spin, `mortalspin`, Physical)
-  - Has a 100% chance to poison the target.
-- **고속스핀** (Rapid Spin, `rapidspin`, Physical)
-  - Has a 100% chance to raise the user's Speed by 1 stage.
-
-### 위력 계산 -- 4개
-
-- **승부굳히기** (Assurance, `assurance`, Physical)
-  - Power doubles if the target has already taken damage this turn, other than direct damage from Belly Drum, confusion, Curse, or Pain Split.
-- **눈사태** (Avalanche, `avalanche`, Physical)
-  - Power doubles if the user was hit by the target this turn.
-- **성묘** (Last Respects, `lastrespects`, Physical)
-  - Power is equal to 50+(X*50), where X is the total number of times any Pokemon has fainted on the user's side, and X cannot be greater than 100.
-- **대지의파동** (Terrain Pulse, `terrainpulse`, Special)
-  - Power doubles if the user is grounded and a terrain is active, and this move's type changes to match.
-
-### 조건부 1.5배 -- 2개
-
-- **앙갚음** (Comeuppance, `comeuppance`, Physical)
-  - Deals damage to the last opposing Pokemon to hit the user with a physical or special attack this turn equal to 1.5 times the HP lost by the user from that attack, rounded down.
-- **메탈버스트** (Metal Burst, `metalburst`, Physical)
-  - Deals damage to the last opposing Pokemon to hit the user with a physical or special attack this turn equal to 1.5 times the HP lost by the user from that attack, rounded down.
-
-### 조건부 2배 -- 2개
-
-- **카운터** (Counter, `counter`, Physical)
-  - Deals damage to the last opposing Pokemon to hit the user with a physical attack this turn equal to twice the HP lost by the user from that attack.
-- **미러코트** (Mirror Coat, `mirrorcoat`, Special)
-  - Deals damage to the last opposing Pokemon to hit the user with a special attack this turn equal to twice the HP lost by the user from that attack.
 
 ### 설명이 기술 그 자체 (mechanic_check의 수기 검사에 통째로 위임), 벽 파괴, 지속 턴 수 -- 1개
 
@@ -218,232 +182,11 @@
 - **트릭룸** (Trick Room, `trickroom`, Status)
   - For 5 turns, the Speed of every Pokemon is recalculated for the purposes of determining turn order.
 
-### 위력 계산, 설명이 기술 그 자체 (mechanic_check의 수기 검사에 통째로 위임) -- 1개
-
-- **웨더볼** (Weather Ball, `weatherball`, Special)
-  - Power doubles if a weather condition other than Delta Stream is active, and this move's type changes to match.
-  - If the user is holding Utility Umbrella and uses Weather Ball during Primordial Sea, Rain Dance, Desolate Land, or Sunny Day, this move remains Normal type and does not double in power.
-
-## C등급 -- 144개
+## C등급 -- 38개
 
 기술 데이터의 필드(secondary/boosts/status)가 실제 배틀에 나타나는지 자동 검사합니다. 문장이 필드보다 더 말하는 부분은 측정되지 않습니다.
 
-### 추가효과 확률 (데이터의 secondary 필드) -- 106개
-
-- **애시드봄** (Acid Spray, `acidspray`, Special)
-  - Has a 100% chance to lower the target's Special Defense by 2 stages.
-- **에어슬래시** (Air Slash, `airslash`, Special)
-  - Has a 30% chance to make the target flinch.
-- **매혹의보이스** (Alluring Voice, `alluringvoice`, Special)
-  - Has a 100% chance to confuse the target if it had a stat stage raised this turn.
-- **원시의힘** (Ancient Power, `ancientpower`, Special)
-  - Has a 10% chance to raise the user's Attack, Defense, Special Attack, Special Defense, and Speed by 1 stage.
-- **사과산** (Apple Acid, `appleacid`, Special)
-  - Has a 100% chance to lower the target's Special Defense by 1 stage.
-- **아쿠아스텝** (Aqua Step, `aquastep`, Physical)
-  - Has a 100% chance to raise the user's Speed by 1 stage.
-- **오라휠** (Aura Wheel, `aurawheel`, Physical)
-  - Has a 100% chance to raise the user's Speed by 1 stage.
-- **발꿈치찍기** (Axe Kick, `axekick`, Physical)
-  - Has a 30% chance to confuse the target.
-- **독침천발** (Barb Barrage, `barbbarrage`, Physical)
-  - Has a 50% chance to poison the target.
-- **물기** (Bite, `bite`, Physical)
-  - Has a 30% chance to make the target flinch.
-- **천추지한** (Bitter Malice, `bittermalice`, Special)
-  - Has a 100% chance to lower the target's Attack by 1 stage.
-- **블레이즈킥** (Blaze Kick, `blazekick`, Physical)
-  - Has a 10% chance to burn the target and a higher chance for a critical hit.
-- **눈보라** (Blizzard, `blizzard`, Special)
-  - Has a 10% chance to freeze the target.
-- **누르기** (Body Slam, `bodyslam`, Physical)
-  - Has a 30% chance to paralyze the target.
-- **뛰어오르기** (Bounce, `bounce`, Physical)
-  - Has a 30% chance to paralyze the target.
-- **와이드브레이커** (Breaking Swipe, `breakingswipe`, Physical)
-  - Has a 100% chance to lower the target's Attack by 1 stage.
-- **벌레의야단법석** (Bug Buzz, `bugbuzz`, Special)
-  - Has a 10% chance to lower the target's Special Defense by 1 stage.
-- **땅고르기** (Bulldoze, `bulldoze`, Physical)
-  - Has a 100% chance to lower the target's Speed by 1 stage.
-- **질투의불꽃** (Burning Jealousy, `burningjealousy`, Special)
-  - Has a 100% chance to burn the target if it had a stat stage raised this turn.
-- **차지빔** (Charge Beam, `chargebeam`, Special)
-  - Has a 70% chance to raise the user's Special Attack by 1 stage.
-- **찬물끼얹기** (Chilling Water, `chillingwater`, Special)
-  - Has a 100% chance to lower the target's Attack by 1 stage.
-- **크로스포이즌** (Cross Poison, `crosspoison`, Physical)
-  - Has a 10% chance to poison the target and a higher chance for a critical hit.
-- **깨물어부수기** (Crunch, `crunch`, Physical)
-  - Has a 20% chance to lower the target's Defense by 1 stage.
-- **브레이크클로** (Crush Claw, `crushclaw`, Physical)
-  - Has a 50% chance to lower the target's Defense by 1 stage.
-- **악의파동** (Dark Pulse, `darkpulse`, Special)
-  - Has a 20% chance to make the target flinch.
-- **페이탈클로** (Dire Claw, `direclaw`, Physical)
-  - Has a 50% chance to cause the target to either fall asleep, become poisoned, or become paralyzed.
-- **방전** (Discharge, `discharge`, Special)
-  - Has a 30% chance to paralyze the target.
-- **드래곤다이브** (Dragon Rush, `dragonrush`, Physical)
-  - Has a 20% chance to make the target flinch.
-- **폭발펀치** (Dynamic Punch, `dynamicpunch`, Physical)
-  - Has a 100% chance to confuse the target.
-- **대지의힘** (Earth Power, `earthpower`, Special)
-  - Has a 10% chance to lower the target's Special Defense by 1 stage.
-- **일렉트릭네트** (Electroweb, `electroweb`, Special)
-  - Has a 100% chance to lower the target's Speed by 1 stage.
-- **에너지볼** (Energy Ball, `energyball`, Special)
-  - Has a 10% chance to lower the target's Special Defense by 1 stage.
-- **신통력** (Extrasensory, `extrasensory`, Special)
-  - Has a 10% chance to make the target flinch.
-- **변덕레이저** (Fickle Beam, `ficklebeam`, Special)
-  - Has a 30% chance this move's power is doubled.
-- **불꽃춤** (Fiery Dance, `fierydance`, Special)
-  - Has a 50% chance to raise the user's Special Attack by 1 stage.
-- **불대문자** (Fire Blast, `fireblast`, Special)
-  - Has a 10% chance to burn the target.
-- **불꽃엄니** (Fire Fang, `firefang`, Physical)
-  - Has a 10% chance to burn the target and a 10% chance to make it flinch.
-- **불꽃채찍** (Fire Lash, `firelash`, Physical)
-  - Has a 100% chance to lower the target's Defense by 1 stage.
-- **불꽃펀치** (Fire Punch, `firepunch`, Physical)
-  - Has a 10% chance to burn the target.
-- **니트로차지** (Flame Charge, `flamecharge`, Physical)
-  - Has a 100% chance to raise the user's Speed by 1 stage.
-- **화염방사** (Flamethrower, `flamethrower`, Special)
-  - Has a 10% chance to burn the target.
-- **플레어드라이브** (Flare Blitz, `flareblitz`, Physical)
-  - Has a 10% chance to burn the target.
-- **러스터캐논** (Flash Cannon, `flashcannon`, Special)
-  - Has a 10% chance to lower the target's Special Defense by 1 stage.
-- **기합구슬** (Focus Blast, `focusblast`, Special)
-  - Has a 10% chance to lower the target's Special Defense by 1 stage.
-- **더스트슈트** (Gunk Shot, `gunkshot`, Physical)
-  - Has a 30% chance to poison the target.
-- **열풍** (Heat Wave, `heatwave`, Special)
-  - Has a 10% chance to burn the target.
-- **폭풍** (Hurricane, `hurricane`, Special)
-  - Has a 30% chance to confuse the target.
-- **냉동빔** (Ice Beam, `icebeam`, Special)
-  - Has a 10% chance to freeze the target.
-- **얼음엄니** (Ice Fang, `icefang`, Physical)
-  - Has a 10% chance to freeze the target and a 10% chance to make it flinch.
-- **냉동펀치** (Ice Punch, `icepunch`, Physical)
-  - Has a 10% chance to freeze the target.
-- **고드름떨구기** (Icicle Crash, `iciclecrash`, Physical)
-  - Has a 30% chance to make the target flinch.
-- **얼어붙은바람** (Icy Wind, `icywind`, Special)
-  - Has a 100% chance to lower the target's Speed by 1 stage.
-- **연옥** (Inferno, `inferno`, Special)
-  - Has a 100% chance to burn the target.
-- **아이언헤드** (Iron Head, `ironhead`, Physical)
-  - Has a 30% chance to make the target flinch.
-- **아이언테일** (Iron Tail, `irontail`, Physical)
-  - Has a 30% chance to lower the target's Defense by 1 stage.
-- **분연** (Lava Plume, `lavaplume`, Special)
-  - Has a 30% chance to burn the target.
-- **아쿠아브레이크** (Liquidation, `liquidation`, Physical)
-  - Has a 20% chance to lower the target's Defense by 1 stage.
-- **로킥** (Low Sweep, `lowsweep`, Physical)
-  - Has a 100% chance to lower the target's Speed by 1 stage.
-- **루미나콜리전** (Lumina Crash, `luminacrash`, Special)
-  - Has a 100% chance to lower the target's Special Defense by 2 stages.
-- **덤벼들기** (Lunge, `lunge`, Physical)
-  - Has a 100% chance to lower the target's Attack by 1 stage.
-- **휘적휘적포** (Matcha Gotcha, `matchagotcha`, Special)
-  - Has a 20% chance to burn the target.
-- **코멧펀치** (Meteor Mash, `meteormash`, Physical)
-  - Has a 20% chance to raise the user's Attack by 1 stage.
-- **문포스** (Moonblast, `moonblast`, Special)
-  - Has a 30% chance to lower the target's Special Attack by 1 stage.
-- **빙산바람** (Mountain Gale, `mountaingale`, Physical)
-  - Has a 30% chance to make the target flinch.
-- **탁류** (Muddy Water, `muddywater`, Special)
-  - Has a 30% chance to lower the target's accuracy by 1 stage.
-- **머드샷** (Mud Shot, `mudshot`, Special)
-  - Has a 100% chance to lower the target's Speed by 1 stage.
-- **진흙뿌리기** (Mud-Slap, `mudslap`, Special)
-  - Has a 100% chance to lower the target's accuracy by 1 stage.
-- **매지컬플레임** (Mystical Fire, `mysticalfire`, Special)
-  - Has a 100% chance to lower the target's Special Attack by 1 stage.
-- **나이트버스트** (Night Daze, `nightdaze`, Special)
-  - Has a 40% chance to lower the target's accuracy by 1 stage.
-- **볼부비부비** (Nuzzle, `nuzzle`, Physical)
-  - Has a 100% chance to paralyze the target.
-- **치근거리기** (Play Rough, `playrough`, Physical)
-  - Has a 10% chance to lower the target's Attack by 1 stage.
-- **맹독엄니** (Poison Fang, `poisonfang`, Physical)
-  - Has a 50% chance to badly poison the target.
-- **독찌르기** (Poison Jab, `poisonjab`, Physical)
-  - Has a 30% chance to poison the target.
-- **달려들기** (Pounce, `pounce`, Physical)
-  - Has a 100% chance to lower the target's Speed by 1 stage.
-- **사이코키네시스** (Psychic, `psychic`, Special)
-  - Has a 10% chance to lower the target's Special Defense by 1 stage.
-- **배리어러시** (Psyshield Bash, `psyshieldbash`, Physical)
-  - Has a 100% chance to raise the user's Defense by 1 stage.
-- **셸블레이드** (Razor Shell, `razorshell`, Physical)
-  - Has a 50% chance to lower the target's Defense by 1 stage.
-- **스톤샤워** (Rock Slide, `rockslide`, Physical)
-  - Has a 30% chance to make the target flinch.
-- **암석봉인** (Rock Tomb, `rocktomb`, Physical)
-  - Has a 100% chance to lower the target's Speed by 1 stage.
-- **열탕** (Scald, `scald`, Special)
-  - Has a 30% chance to burn the target.
-- **열사의대지** (Scorching Sands, `scorchingsands`, Special)
-  - Has a 30% chance to burn the target.
-- **섀도볼** (Shadow Ball, `shadowball`, Special)
-  - Has a 20% chance to lower the target's Special Defense by 1 stage.
-- **엄습하는일격** (Skitter Smack, `skittersmack`, Physical)
-  - Has a 100% chance to lower the target's Special Attack by 1 stage.
-- **불새** (Sky Attack, `skyattack`, Physical)
-  - Has a 30% chance to make the target flinch and a higher chance for a critical hit.
-- **오물폭탄** (Sludge Bomb, `sludgebomb`, Special)
-  - Has a 30% chance to poison the target.
-- **오물웨이브** (Sludge Wave, `sludgewave`, Special)
-  - Has a 10% chance to poison the target.
-- **바크아웃** (Snarl, `snarl`, Special)
-  - Has a 100% chance to lower the target's Special Attack by 1 stage.
-- **코골기** (Snore, `snore`, Special)
-  - Has a 30% chance to make the target flinch.
-- **소울크래시** (Spirit Break, `spiritbreak`, Physical)
-  - Has a 100% chance to lower the target's Special Attack by 1 stage.
-- **강철날개** (Steel Wing, `steelwing`, Physical)
-  - Has a 10% chance to raise the user's Defense by 1 stage.
-- **벌레의저항** (Struggle Bug, `strugglebug`, Special)
-  - Has a 100% chance to lower the target's Special Attack by 1 stage.
-- **번개** (Thunder, `thunder`, Special)
-  - Has a 30% chance to paralyze the target.
-- **10만볼트** (Thunderbolt, `thunderbolt`, Special)
-  - Has a 10% chance to paralyze the target.
-- **번개엄니** (Thunder Fang, `thunderfang`, Physical)
-  - Has a 10% chance to paralyze the target and a 10% chance to make it flinch.
-- **번개펀치** (Thunder Punch, `thunderpunch`, Physical)
-  - Has a 10% chance to paralyze the target.
-- **플레어송** (Torch Song, `torchsong`, Special)
-  - Has a 100% chance to raise the user's Special Attack by 1 stage.
-- **개척하기** (Trailblaze, `trailblaze`, Physical)
-  - Has a 100% chance to raise the user's Speed by 1 stage.
-- **트라이어택** (Tri Attack, `triattack`, Special)
-  - Has a 20% chance to either burn, freeze, or paralyze the target.
-- **3연화살** (Triple Arrows, `triplearrows`, Physical)
-  - Has a 50% chance to lower the target's Defense by 1 stage, a 30% chance to make it flinch, and a higher chance for a critical hit.
-- **트로피컬킥** (Trop Kick, `tropkick`, Physical)
-  - Has a 100% chance to lower the target's Attack by 1 stage.
-- **기선제압** (Upper Hand, `upperhand`, Physical)
-  - Has a 100% chance to make the target flinch.
-- **볼트태클** (Volt Tackle, `volttackle`, Physical)
-  - Has a 10% chance to paralyze the target.
-- **폭포오르기** (Waterfall, `waterfall`, Physical)
-  - Has a 20% chance to make the target flinch.
-- **물의파동** (Water Pulse, `waterpulse`, Special)
-  - Has a 20% chance to confuse the target.
-- **전자포** (Zap Cannon, `zapcannon`, Special)
-  - Has a 100% chance to paralyze the target.
-- **사념의박치기** (Zen Headbutt, `zenheadbutt`, Physical)
-  - Has a 20% chance to make the target flinch.
-
-### 설명이 기술 그 자체 (mechanic_check의 수기 검사에 통째로 위임) -- 14개
+### 설명이 기술 그 자체 (mechanic_check의 수기 검사에 통째로 위임) -- 16개
 
 - **충전** (Charge, `charge`, Status)
   - The user's next Electric-type attack will have its power doubled; the effect ends when the user is no longer active, or after the user attempts to use any Electric-type move besides Charge, even if it is not successful.
@@ -459,6 +202,8 @@
   - The user loses its focus and does nothing if it is hit by a damaging attack this turn before it can execute the move.
 - **속임수** (Foul Play, `foulplay`, Physical)
   - The user's Ability, item, and burn are used as normal.
+- **프리즈드라이** (Freeze-Dry, `freezedry`, Special)
+  - This move's type effectiveness against Water is changed to be super effective no matter what this move's type is.
 - **미래예지** (Future Sight, `futuresight`, Special)
   - If the user is no longer active at the time, damage is calculated based on the user's natural Special Attack stat, types, and level, with no boosts from its held item or Ability.
   - Fails if this move or Doom Desire is already in effect for the target's position.
@@ -470,6 +215,9 @@
   - This move fails unless the user knows this move and at least one other move, and has used all the other moves it knows at least once each since it became active or Transformed.
 - **추억의선물** (Memento, `memento`, Status)
   - The user faints unless this move misses or there is no target.
+- **셸암즈** (Shell Side Arm, `shellsidearm`, Special)
+  - This move becomes a physical attack that makes contact if the value of ((((2 * the user's level / 5 + 2) * 90 * X) / Y) / 50), where X is the user's Attack stat and Y is the target's Defense stat, is greater than the same value where X is the user's Special Attack stat and Y is the target's Special Defense stat.
+  - No stat modifiers other than stat stage changes are considered for this purpose.
 - **철제광선** (Steel Beam, `steelbeam`, Special)
   - Whether or not this move is successful and even if it would cause fainting, the user loses 1/2 of its maximum HP, rounded up, unless the user has the Magic Guard Ability.
 - **발버둥** (Struggle, `struggle`, Physical)
@@ -521,16 +269,6 @@
   - If this attack does not miss, the effects of Reflect, Light Screen, and Aurora Veil end for the target's side of the field before damage is calculated.
 - **사이코팽** (Psychic Fangs, `psychicfangs`, Physical)
   - If this attack does not miss, the effects of Reflect, Light Screen, and Aurora Veil end for the target's side of the field before damage is calculated.
-
-### 설명이 기술 그 자체 (mechanic_check의 수기 검사에 통째로 위임), 추가효과 확률 (데이터의 secondary 필드) -- 2개
-
-- **프리즈드라이** (Freeze-Dry, `freezedry`, Special)
-  - Has a 10% chance to freeze the target.
-  - This move's type effectiveness against Water is changed to be super effective no matter what this move's type is.
-- **셸암즈** (Shell Side Arm, `shellsidearm`, Special)
-  - Has a 20% chance to poison the target.
-  - This move becomes a physical attack that makes contact if the value of ((((2 * the user's level / 5 + 2) * 90 * X) / Y) / 50), where X is the user's Attack stat and Y is the target's Defense stat, is greater than the same value where X is the user's Special Attack stat and Y is the target's Special Defense stat.
-  - No stat modifiers other than stat stage changes are considered for this purpose.
 
 ### 벽 파괴, 지속 턴 수 -- 2개
 

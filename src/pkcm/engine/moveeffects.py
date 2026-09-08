@@ -251,6 +251,27 @@ def _belly_drum(ctx, user, target, move) -> bool:
     return True
 
 
+def _raised_a_stage_this_turn(ctx: Context, ref: Ref) -> bool:
+    raised = _volatiles(ctx, ref).get("statraised")
+    return raised is not None and raised.get("turn") == ctx.state.turn
+
+
+@special("burningjealousy", "alluringvoice")
+def _punishes_a_raised_stage(ctx, user, target, move) -> bool:
+    """"Has a 100% chance to burn / confuse the target if it had a stat stage
+    raised this turn."
+
+    Their data says ``secondary: {"chance": 100}`` and stops there -- the
+    effect is in Showdown's handler code, so the declarative path read a
+    hundred percent chance of nothing and both moves were plain damage.
+    """
+    if not _raised_a_stage_this_turn(ctx, target):
+        return False
+    if move.id == "burningjealousy":
+        return mutate.set_status(ctx, target, "brn", source=user)
+    return mutate.add_volatile(ctx, target, "confusion")
+
+
 #: Moves whose ``boosts`` field their own handler applies. The declarative
 #: path in ``moves._apply_status_move`` skips these, because running it too
 #: would hand out a second set of stages.

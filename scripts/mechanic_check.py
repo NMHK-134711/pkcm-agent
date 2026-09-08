@@ -2701,6 +2701,37 @@ CHECKS["gravapple"] = ("half again under Gravity",
                        _doubles_under("gravapple", _pull_them_down, "Gravity"))
 
 
+@check("ficklebeam", "doubles its own power three times in ten")
+def _fickle_beam():
+    """Adding it to ``VARIABLE_POWER`` took it out of the generated checks,
+    which is the trap this file has now fallen into four times. Two bands, and
+    a count of which one the damage landed in."""
+    move = DEX.moves["ficklebeam"]
+    big = readable = 0
+    for seed in range(300):
+        f = Fight([_swinger(move, ("ficklebeam", "splash", "protect", "rest"))],
+                  [mon(_reachable(move), "__none__",
+                       ("splash", "tackle", "protect", "rest"), None, "sassy",
+                       (32, 0, 32, 0, 32, 0))], seed)
+        plain, _ = _expected_rolls(f, move, power=move.base_power)
+        doubled, _ = _expected_rolls(f, move, power=move.base_power * 2)
+        f.turn(Action.move(0), Action.move(0))
+        hit = [e for e in f.log if e.kind == "damage" and (e.side or 0) == 1
+               and e.move == "ficklebeam" and not e.crit]
+        if not hit:
+            continue
+        amount = hit[0].amount
+        if amount in doubled and amount not in plain:
+            readable += 1
+            big += 1
+        elif amount in plain and amount not in doubled:
+            readable += 1
+    rate = big / readable if readable else 0.0
+    return (readable > 100 and abs(rate - 0.3) <= 0.09,
+            f"doubled on {big} of {readable} readable casts ({rate:.0%}) "
+            f"against the 30% its description names")
+
+
 @check("weatherball", "changes type and doubles in every weather")
 def _weather_ball():
     """Adding it to ``VARIABLE_POWER`` took it out of the generated checks,
@@ -3153,8 +3184,11 @@ _ROLL_LOW, _ROLL_HIGH = 85, 100
 VARIABLE_POWER_IDS: set = set()
 
 
-def _expected_rolls(f, move, side=0):
-    """The sixteen damages the formula gives, computed outside the engine."""
+def _expected_rolls(f, move, side=0, power=None):
+    """The sixteen damages the formula gives, computed outside the engine.
+
+    ``power`` overrides the move's own, for the handful whose description
+    gives a number the data does not carry."""
     from pkcm.data.dex import Stat
     from pkcm.engine.battle import make_context
     from pkcm.engine.moves import damage_base, damage_from_base
@@ -3184,7 +3218,8 @@ def _expected_rolls(f, move, side=0):
     # A move that always crits is always the crit number, and comparing it
     # with the ordinary one is how Flower Trick, Frost Breath and Storm Throw
     # looked wrong from a right engine.
-    base = damage_base(power=move.base_power, attack=attack, defense=defense,
+    base = damage_base(power=move.base_power if power is None else power,
+                       attack=attack, defense=defense,
                        crit=bool(raw.get("willCrit")))
     rolls = {max(1, damage_from_base(base, roll, stab=stab,
                                      effectiveness=effectiveness))

@@ -548,6 +548,19 @@ def _lash_out(ctx: Context, attacker: Ref, defender: Ref, move) -> int:
     return move.base_power
 
 
+def _fickle_beam(ctx: Context, attacker: Ref, defender: Ref, move) -> int:
+    """"Has a 30% chance this move's power is doubled."
+
+    The data carries the eighty and nothing else -- no ``secondary``, no flag
+    -- so it was eighty every time.
+    """
+    if ctx.cursor.percent(30):
+        ctx.emit(Event("move_effect", side=attacker[0], slot=attacker[1],
+                       move=move.id, detail="fired up"))
+        return move.base_power * 2
+    return move.base_power
+
+
 def _solar_power(ctx: Context, attacker: Ref, defender: Ref, move) -> int:
     """Champions: 다른 날씨인 경우 위력이 1/2이 된다.
 
@@ -563,6 +576,7 @@ def _solar_power(ctx: Context, attacker: Ref, defender: Ref, move) -> int:
 VARIABLE_POWER: dict[str, Callable[[Context, Ref, Ref, Move], int]] = {
     "expandingforce": _boosted_on("psychicterrain", X1_5),
     "mistyexplosion": _boosted_on("mistyterrain", X1_5),
+    "ficklebeam": _fickle_beam,
     "risingvoltage": _rising_voltage,
     "terrainpulse": _terrain_pulse_power,
     "weatherball": lambda ctx, attacker, defender, move:

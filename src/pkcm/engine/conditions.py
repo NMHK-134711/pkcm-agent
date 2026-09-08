@@ -255,6 +255,9 @@ register("volatile", "cudchew", name="Cud Chew")
 #: whether it happened this turn. Bookkeeping, not a condition anyone sees.
 register("volatile", "statdropped", name="Stat dropped")
 
+#: And whenever one goes up, for Burning Jealousy and Alluring Voice.
+register("volatile", "statraised", name="Stat raised")
+
 
 def _disabled_expires(ctx, ref, **_):
     data = ctx.state.sides[ref[0]].volatiles[ref[1]].get("disabled")

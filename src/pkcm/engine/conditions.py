@@ -356,6 +356,10 @@ register("terrain", "mistyterrain", name="Misty Terrain",
 
 
 register("room", "trickroom", name="Trick Room")
+# Read by ``_is_trapped`` below rather than by a hook of its own: Fairy Lock
+# holds both sides at once, which is a question the switch list asks, not one
+# any single Pokemon's effects can answer.
+register("room", "fairylock", name="Fairy Lock")
 
 
 # --------------------------------------------------------------------------- #
@@ -488,4 +492,7 @@ IMPLEMENTED_SIDE_CONDITIONS = frozenset({"reflect", "lightscreen", "auroraveil",
 IMPLEMENTED_WEATHER = frozenset({"sunnyday", "raindance", "sandstorm", "snowscape"})
 IMPLEMENTED_TERRAIN = frozenset({"electricterrain", "grassyterrain", "mistyterrain",
                                  "psychicterrain"})
-IMPLEMENTED_ROOMS = frozenset({"trickroom"})
+#: Fairy Lock is here because ``_is_trapped`` reads it. The other rooms the
+#: engine understands -- Gravity, Magic Room, Wonder Room -- reach the field
+#: through handlers of their own in ``moveeffects`` and are claimed there.
+IMPLEMENTED_ROOMS = frozenset({"trickroom", "fairylock"})

@@ -1790,7 +1790,10 @@ def _apply_field_effects(ctx: Context, attacker: Ref, target: Ref, move: Move) -
 
     pseudo = raw.get("pseudoWeather")
     if pseudo:
-        ctx.state.field.rooms[_to_id(pseudo)] = 5
+        # Five was a guess that happens to be right for Trick Room and wrong
+        # for Fairy Lock, whose own condition says two.
+        turns = (raw.get("condition") or {}).get("duration", 5)
+        ctx.state.field.rooms[_to_id(pseudo)] = turns
         ctx.emit(Event("room_start", detail=_to_id(pseudo)))
         changed = True
 

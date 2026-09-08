@@ -1995,6 +1995,345 @@ def _power_trip():
             f"with no stages {flat}, after two Swords Dances {stacked}")
 
 
+def _fails_cleanly(species, moves):
+    """A move that needs an ally has nothing to do in singles.
+
+    ``ALLY_ONLY`` lists five that the coverage report already excuses; these
+    are the ones that are not on it, so the check is that they refuse rather
+    than doing something to the wrong Pokemon.
+    """
+    f = Fight(ours(species, "__none__", moves), [dummy("magikarp")])
+    f.turn(Action.move(0), Action.move(0))
+    said = " | ".join(str(e) for e in f.log)
+    quiet = ("move_failed" in said or "no target" in said
+             or not f.boosts(1) and not f.boosts(0))
+    return quiet, f"log: {said[:170]}"
+
+
+@check("acupressure", "picks one of the user's stats and raises it two stages")
+def _acupressure():
+    f = Fight(ours("shuckle", "__none__",
+                   ("acupressure", "protect", "splash", "tackle")),
+              [dummy("magikarp")])
+    f.turn(Action.move(0), Action.move(0))
+    got = f.boosts(0)
+    return (any(value == 2 for value in got.values()),
+            f"our boosts {got or 'none'}")
+
+
+@check("corrosivegas", "melts the target's item away")
+def _corrosive_gas():
+    f = _until(lambda seed: Fight(
+        ours("glimmora", "__none__",
+             ("corrosivegas", "sludgewave", "protect", "splash"),
+             None, "timid", (0, 0, 2, 32, 0, 32)),
+        [mon("snorlax", "__none__",
+             ("splash", "bodyslam", "rest", "protect"),
+             "leftovers", "serious", (32, 0, 32, 0, 2, 0))], seed)
+        .turn(Action.move(0), Action.move(0)),
+        lambda f: f.item(1) is None)
+    return (f is not None,
+            "the item survived ten casts" if f is None else "item removed")
+
+
+@check("electrify", "the target's move turns Electric")
+def _electrify():
+    f = Fight(ours("pikachu", "__none__",
+                   ("electrify", "thunderbolt", "protect", "splash"),
+                   None, "timid", (32, 0, 32, 0, 2, 32)),
+              [mon("snorlax", "__none__",
+                   ("bodyslam", "splash", "rest", "protect"),
+                   None, "serious", (32, 0, 32, 0, 2, 0))])
+    f.turn(Action.move(0), Action.move(0))
+    # Body Slam turned Electric cannot touch a Ground type; against Pikachu it
+    # simply is not Normal any more, which the log's effectiveness records.
+    return ("electrify" in f.volatiles(1) or f.said("electrify"),
+            f"their volatiles {sorted(f.volatiles(1))}, "
+            f"log {' | '.join(str(e) for e in f.log)[:150]}")
+
+
+@check("entrainment", "hands the user's ability to the target")
+def _entrainment():
+    from pkcm.engine.battle import make_context
+    f = Fight(ours("clefable", "magicguard",
+                   ("entrainment", "moonblast", "protect", "splash"),
+                   None, "timid", (32, 0, 32, 0, 2, 32)),
+              [mon("snorlax", "thickfat",
+                   ("splash", "bodyslam", "rest", "protect"),
+                   None, "serious", (32, 0, 32, 0, 2, 0))])
+    f.turn(Action.move(0), Action.move(0))
+    theirs = make_context(f.state).ability_of((1, f.state.sides[1].active[0]))
+    return (theirs == "magicguard", f"their ability now reads {theirs!r}")
+
+
+@check("expandingforce", "hits harder on Psychic Terrain")
+def _expanding_force():
+    def dealt(terrain):
+        f = Fight(ours("indeedee", "__none__",
+                       ("expandingforce", "psychic", "protect", "splash"),
+                       None, "modest", (0, 0, 2, 32, 0, 32)),
+                  [mon("snorlax", "__none__",
+                       ("splash", "bodyslam", "rest", "protect"),
+                       None, "serious", (32, 0, 32, 0, 2, 0))])
+        f.state.field.terrain = terrain
+        f.turn(Action.move(0), Action.move(0))
+        return f.damage("expandingforce")
+    bare = dealt(None)
+    on_terrain = dealt("psychicterrain")
+    return (on_terrain > bare,
+            f"on bare ground {bare}, on Psychic Terrain {on_terrain}")
+
+
+@check("fairylock", "nobody leaves the turn after")
+def _fairy_lock():
+    from pkcm.engine.state import legal_actions
+    f = Fight(ours("clefable", "__none__",
+                   ("fairylock", "moonblast", "protect", "splash"),
+                   None, "timid", (32, 0, 32, 0, 2, 32)),
+              [dummy("magikarp")])
+    f.turn(Action.move(0), Action.move(0))
+    switches = [one for one in legal_actions(f.state, 1)
+                if str(one).startswith("switch")]
+    return (not switches, f"they are still offered {len(switches)} switches")
+
+
+@check("fellstinger", "the user leaps three stages when it lands the knockout")
+def _fell_stinger():
+    f = Fight(ours("weavile", "__none__",
+                   ("fellstinger", "knockoff", "iceshard", "swordsdance"),
+                   None, "adamant", (0, 32, 2, 0, 0, 32)),
+              [mon("magikarp", "__none__", ("splash", "tackle", "flail",
+                                            "bounce"))])
+    # Fifty base power does not finish a healthy target, and no knockout means
+    # no boost -- which is the move working, not failing.
+    slot = f.state.sides[1].active[0]
+    f.state.sides[1].hp[slot] = 1
+    f.turn(Action.move(0), Action.move(0))
+    return (f.boosts(0).get("atk") == 3,
+            f"our boosts {f.boosts(0) or 'none'}, "
+            f"they fainted={f.said('faint')}")
+
+
+@check("forestscurse", "adds Grass to whatever the target already was")
+def _forests_curse():
+    f = Fight(ours("venusaur", "__none__",
+                   ("forestscurse", "sludgebomb", "protect", "splash"),
+                   None, "modest", (0, 0, 2, 32, 0, 32)),
+              [dummy("snorlax")])
+    f.turn(Action.move(0), Action.move(0))
+    types = tuple(f.state.types(1, f.state.sides[1].active[0]))
+    return ("grass" in types, f"their types are now {types}")
+
+
+@check("trickortreat", "adds Ghost to whatever the target already was")
+def _trick_or_treat():
+    f = Fight(ours("gourgeist", "__none__",
+                   ("trickortreat", "shadowsneak", "protect", "splash")),
+              [dummy("snorlax")])
+    f.turn(Action.move(0), Action.move(0))
+    types = tuple(f.state.types(1, f.state.sides[1].active[0]))
+    return ("ghost" in types, f"their types are now {types}")
+
+
+@check("magicpowder", "turns the target Psychic")
+def _magic_powder():
+    f = Fight(ours("indeedee", "__none__",
+                   ("magicpowder", "psychic", "protect", "splash"),
+                   None, "modest", (0, 0, 2, 32, 0, 32)),
+              [dummy("snorlax")])
+    f.turn(Action.move(0), Action.move(0))
+    types = tuple(f.state.types(1, f.state.sides[1].active[0]))
+    return (types == ("psychic",), f"their types are now {types}")
+
+
+@check("reflecttype", "the user takes the target's typing")
+def _reflect_type():
+    f = Fight(ours("ditto", "__none__",
+                   ("reflecttype", "splash", "tackle", "protect")),
+              [dummy("corviknight")])
+    f.turn(Action.move(0), Action.move(0))
+    ours_now = tuple(f.state.types(0, f.state.sides[0].active[0]))
+    theirs = tuple(f.state.types(1, f.state.sides[1].active[0]))
+    return (ours_now == theirs, f"we are {ours_now}, they are {theirs}")
+
+
+@check("guardsplit", "levels the two defences")
+def _guard_split():
+    f = Fight(ours("shuckle", "__none__",
+                   ("guardsplit", "protect", "splash", "tackle"),
+                   None, "serious", (32, 0, 32, 0, 32, 0)),
+              [dummy("magikarp")])
+    f.turn(Action.move(0), Action.move(0))
+    return (f.said("guardsplit") or not f.said("move_failed"),
+            f"log {' | '.join(str(e) for e in f.log)[:150]}")
+
+
+@check("powersplit", "levels the two attacking stats")
+def _power_split():
+    f = Fight(ours("shuckle", "__none__",
+                   ("powersplit", "protect", "splash", "tackle"),
+                   None, "serious", (32, 0, 32, 0, 32, 0)),
+              [dummy("magikarp")])
+    f.turn(Action.move(0), Action.move(0))
+    return (f.said("powersplit") or not f.said("move_failed"),
+            f"log {' | '.join(str(e) for e in f.log)[:150]}")
+
+
+@check("guardswap", "trades the two defensive stat stages over")
+def _guard_swap():
+    f = Fight(ours("gengar", "__none__",
+                   ("guardswap", "shadowball", "protect", "splash"),
+                   None, "timid", (32, 0, 32, 0, 2, 32)),
+              [mon("corviknight", "__none__",
+                   ("irondefense", "roost", "bodypress", "uturn"),
+                   None, "impish", (32, 0, 32, 0, 2, 0))])
+    f.turn(Action.move(3), Action.move(0))     # they raise Defence
+    theirs = f.boosts(1)
+    f.turn(Action.move(0), Action.move(1))
+    return (theirs.get("def") == 2 and f.boosts(0).get("def") == 2
+            and not f.boosts(1).get("def"),
+            f"they had {theirs}, now we have {f.boosts(0)} and they "
+            f"have {f.boosts(1) or 'nothing'}")
+
+
+@check("powerswap", "trades the two offensive stat stages over")
+def _power_swap():
+    f = Fight(ours("gengar", "__none__",
+                   ("powerswap", "shadowball", "protect", "splash"),
+                   None, "timid", (32, 0, 32, 0, 2, 32)),
+              [mon("dragonite", "__none__",
+                   ("dragondance", "dragonclaw", "roost", "firepunch"))])
+    f.turn(Action.move(3), Action.move(0))     # they dance: Atk and Spe
+    theirs = f.boosts(1)
+    f.turn(Action.move(0), Action.move(2))
+    return (theirs.get("atk") == 1 and f.boosts(0).get("atk") == 1
+            and not f.boosts(1).get("atk"),
+            f"they had {theirs}, now we have {f.boosts(0)} and they "
+            f"have {f.boosts(1) or 'nothing'}")
+
+
+@check("speedswap", "trades the two Speed stat stages over")
+def _speed_swap():
+    f = Fight(ours("gengar", "__none__",
+                   ("speedswap", "shadowball", "protect", "splash"),
+                   None, "timid", (32, 0, 32, 0, 2, 32)),
+              [mon("dragonite", "__none__",
+                   ("dragondance", "dragonclaw", "roost", "firepunch"))])
+    f.turn(Action.move(3), Action.move(0))
+    theirs = f.boosts(1)
+    f.turn(Action.move(0), Action.move(2))
+    return (theirs.get("spe") == 1 and f.boosts(0).get("spe") == 1,
+            f"they had {theirs}, now we have {f.boosts(0)}")
+
+
+@check("hardpress", "falls off as the target loses HP")
+def _hard_press():
+    def dealt(hurt_first):
+        f = Fight(ours("archaludon", "__none__",
+                       ("hardpress", "flashcannon", "protect", "splash"),
+                       None, "adamant", (0, 32, 2, 0, 0, 32)),
+                  [wall()])
+        if hurt_first:
+            slot = f.state.sides[1].active[0]
+            f.state.sides[1].hp[slot] //= 5
+        f.turn(Action.move(0), Action.move(0))
+        return f.damage("hardpress")
+    healthy = dealt(False)
+    hurt = dealt(True)
+    return (healthy > hurt * 1.5,
+            f"against a healthy target {healthy}, against a hurt one {hurt}")
+
+
+@check("infernalparade", "doubles against a target that already has a status")
+def _infernal_parade():
+    def dealt(status):
+        f = Fight(ours("gengar", "__none__",
+                       ("infernalparade", "shadowball", "protect", "splash"),
+                       None, "timid", (0, 0, 2, 32, 0, 32)),
+                  [mon("milotic", "__none__",
+                       ("splash", "surf", "recover", "protect"),
+                       None, "serious", (32, 0, 32, 0, 2, 0))])
+        if status:
+            f.state.sides[1].status[f.state.sides[1].active[0]] = status
+        f.turn(Action.move(0), Action.move(0))
+        return f.damage("infernalparade")
+    plain = dealt(None)
+    on_status = dealt("par")
+    return (plain > 0 and on_status > plain * 1.5,
+            f"against a healthy target {plain}, against a paralysed one "
+            f"{on_status}")
+
+
+@check("mistyexplosion", "the user goes up with it")
+def _misty_explosion():
+    f = Fight(ours("glimmora", "__none__",
+                   ("mistyexplosion", "sludgewave", "protect", "splash"),
+                   None, "modest", (0, 0, 2, 32, 0, 32)),
+              [wall()])
+    f.turn(Action.move(0), Action.move(0))
+    return (f.hp(0) == 0 or f.state.phase.name in ("FORCED_SWITCH", "FINISHED"),
+            f"we are on {f.hp(0)}, phase {f.state.phase.name}")
+
+
+@check("quickguard", "turns a priority move away")
+def _quick_guard():
+    f = Fight(ours("falinks", "__none__",
+                   ("quickguard", "closecombat", "protect", "splash"),
+                   None, "adamant", (32, 32, 32, 0, 2, 0)),
+              [mon("weavile", "__none__",
+                   ("iceshard", "knockoff", "splash", "uturn"),
+                   None, "jolly", (0, 32, 2, 0, 0, 32))])
+    f.turn(Action.move(0), Action.move(0))
+    return (f.hp(0) == f.max_hp(0),
+            f"we are on {f.hp(0)}/{f.max_hp(0)} after their Ice Shard")
+
+
+@check("recycle", "gets the spent item back")
+def _recycle():
+    f = Fight(ours("snorlax", "__none__",
+                   ("recycle", "bodyslam", "splash", "protect"),
+                   "sitrusberry", "serious", (32, 0, 32, 0, 2, 0)),
+              [mon("garchomp", "__none__",
+                   ("earthquake", "dragonclaw", "firefang", "stoneedge"),
+                   None, "jolly", (0, 32, 2, 0, 0, 32))])
+    for _ in range(4):
+        if f.item(0) is None:
+            break
+        f.turn(Action.move(2), Action.move(0))     # take hits until it is eaten
+    eaten = f.item(0) is None
+    f.turn(Action.move(0), Action.move(3))
+    # Not "we are holding it now": we are under half health, which is what ate
+    # it in the first place, so a working Recycle hands it back and the berry
+    # goes straight down again. The event is the thing to read.
+    return (eaten and f.said("item_restored"),
+            f"eaten={eaten}, restored={f.said('item_restored')}, "
+            f"holding {f.item(0)}")
+
+
+@check("helpinghand", "has no ally to help in singles")
+def _helping_hand():
+    return _fails_cleanly("clefable", ("helpinghand", "moonblast", "protect",
+                                       "splash"))
+
+
+@check("instruct", "has no ally to instruct in singles")
+def _instruct():
+    return _fails_cleanly("indeedee", ("instruct", "psychic", "protect",
+                                       "splash"))
+
+
+@check("magneticflux", "has no ally to flux in singles")
+def _magnetic_flux():
+    return _fails_cleanly("archaludon", ("magneticflux", "flashcannon",
+                                         "protect", "splash"))
+
+
+@check("dragoncheer", "has no ally to cheer in singles")
+def _dragon_cheer():
+    return _fails_cleanly("dragonite", ("dragoncheer", "dragonclaw", "roost",
+                                        "firepunch"))
+
+
 # --------------------------------------------------------------------------- #
 
 

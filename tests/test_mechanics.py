@@ -10,13 +10,13 @@ import pytest
 
 from pkcm.data.dex import Stat, load_dex
 from pkcm.engine import mutate
-from pkcm.engine.actions import Action
+from pkcm.engine.actions import Action, ActionKind
 from pkcm.engine.battle import make_context, step
 from pkcm.engine.effects import registered
 from pkcm.engine.moves import use_move
 from pkcm.engine.mutate import effective_stat
 from pkcm.engine.pokemon import PokemonSet
-from pkcm.engine.state import BattleConfig, new_battle
+from pkcm.engine.state import BattleConfig, legal_actions, new_battle
 
 RED, BLUE = (0, 0), (1, 0)
 
@@ -1061,3 +1061,36 @@ def test_assurance_sees_damage_that_was_not_a_move(dex, config):
     ctx = make_context(state)
     from pkcm.engine.moves import _target_took_damage
     assert _target_took_damage(ctx, (0, 0), (1, 0))
+
+
+def test_fairy_lock_holds_both_sides(dex, config):
+    """It held the caster alone, and permanently.
+
+    ``SPECIAL_MOVES["fairylock"] = _apply_volatile("trapped")`` put the hold on
+    the user rather than on the field, and a ``trapped`` volatile with no
+    source never expires -- so the move's own user was the only Pokemon it ever
+    stopped, for the rest of the battle. The pseudo-weather it also sets was
+    read by nobody.
+    """
+    state = build(config, a_set("clefable", ("fairylock", "moonblast")),
+                  a_set("snorlax", ("splash",)))
+    state, _ = step(state, Action.move(0), Action.move(0))
+    assert "fairylock" in state.field.rooms
+
+    for player in (0, 1):
+        switches = [one for one in legal_actions(state, player)
+                    if one.kind is ActionKind.SWITCH]
+        assert not switches, f"side {player} can still leave"
+
+
+def test_a_pseudo_weather_lasts_as_long_as_its_data_says(dex, config):
+    """Five was hardcoded, which is right for Trick Room and wrong for Fairy
+    Lock, whose own condition asks for two."""
+    assert dex.moves["fairylock"].raw["condition"]["duration"] == 2
+    state = build(config, a_set("clefable", ("fairylock", "moonblast")),
+                  a_set("snorlax", ("splash",)))
+    state, _ = step(state, Action.move(0), Action.move(0))
+    assert state.field.rooms["fairylock"] == 1, "two turns, one of them spent"
+
+    state, _ = step(state, Action.move(1), Action.move(0))
+    assert "fairylock" not in state.field.rooms

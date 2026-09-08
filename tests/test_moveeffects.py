@@ -656,6 +656,7 @@ ENGINE_SIDE_CONDITIONS = {
     "magicroom": "effects.Context.item_of, which stops reporting the item",
     "wonderroom": "mutate.raw_stat, which swaps Defence and Special Defence",
     "trickroom": "battle._speed_key, which reverses the sort",
+    "fairylock": "state._is_trapped, which refuses both sides a switch",
 }
 
 

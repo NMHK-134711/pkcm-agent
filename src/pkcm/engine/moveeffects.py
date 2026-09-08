@@ -364,7 +364,10 @@ SPECIAL_MOVES["gastroacid"] = _apply_volatile("abilitysuppressed")
 SPECIAL_MOVES["psychicnoise"] = _apply_volatile("healblock", turns=3)
 SPECIAL_MOVES["block"] = _apply_volatile("trapped")
 SPECIAL_MOVES["meanlook"] = _apply_volatile("trapped")
-SPECIAL_MOVES["fairylock"] = _apply_volatile("trapped")
+# Fairy Lock holds *everyone* for the turn after, which is what its
+# pseudo-weather is for. Trapping through ``_apply_volatile`` put the hold on
+# the caster alone -- and with no source to expire against, permanently. The
+# room is read by ``conditions._is_trapped`` instead.
 
 
 def _taunt_blocks_status(ctx, ref, move, **_):

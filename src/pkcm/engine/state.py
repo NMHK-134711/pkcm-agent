@@ -671,6 +671,10 @@ def _is_trapped(state: BattleState, player: int, slot: int) -> bool:
     A hold with no ``by`` was set by a move (Block, Mean Look, a binding move)
     and holds on its own terms, which are the move's business.
     """
+    if "fairylock" in state.field.rooms:
+        # It holds both sides, so it is asked before anything personal. Shed
+        # Shell does not answer a lock on the field itself.
+        return True
     side = state.sides[player]
     held = side.volatiles[slot].get("trapped")
     if held is None or state.item_id(player, slot) == "shedshell":

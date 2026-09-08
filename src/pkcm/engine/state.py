@@ -657,6 +657,13 @@ def legal_actions(state: BattleState, player: int, position: int = 0) -> tuple[A
     # Belch cannot be picked until its user has eaten a berry.
     unfed = (frozenset() if side.status_data[slot].get("ateberry")
              else NEEDS_A_BERRY)
+    # Taunt and Torment refused at the moment of use and were still offered
+    # here, so the search opened branches the engine would not run and the net
+    # learned from them. Disable and Encore have always been read here; these
+    # two belong beside them.
+    taunted = "taunt" in volatiles
+    tormented = "torment" in volatiles
+    used_last = volatiles.get("lastmove")
 
     usable = [
         index
@@ -666,6 +673,10 @@ def legal_actions(state: BattleState, player: int, position: int = 0) -> tuple[A
         and not (index < len(known) and known[index].id in sealed)
         and not (index < len(known) and known[index].id in recharging_by_name)
         and not (index < len(known) and known[index].id in unfed)
+        and not (taunted and index < len(known)
+                 and known[index].category == "Status")
+        and not (tormented and index < len(known)
+                 and known[index].id == used_last)
     ]
 
     actions: list[Action] = []

@@ -504,15 +504,20 @@ def _taunt():
               [mon("blissey", "__none__",
                    ("softboiled", "seismictoss", "toxic", "protect"),
                    None, "serious", (32, 0, 32, 0, 2, 0))])
+    from pkcm.engine.state import legal_actions
+
+    # hk, on the real game: the two halves are different. A status move
+    # chosen on the turn the Taunt lands is simply lost; on the turn after,
+    # the game will not let it be picked at all.
     f.turn(Action.move(0), Action.move(0))     # they try to Soft-Boiled
     landed = "taunt" in f.volatiles(1)
-    # Encore held its volatile for four turns while enforcing nothing, so the
-    # volatile is not the answer here either: what counts is the status move
-    # being refused on the turn after.
-    f.turn(Action.move(3), Action.move(2))     # they try Toxic
-    return (landed and f.said("cant_move", "taunt") and f.status(0) is None,
-            f"volatile={landed}, refused={f.said('cant_move', 'taunt')}, "
-            f"our status {f.status(0)}")
+    lost_the_turn = f.said("cant_move", "taunt")
+    offered = sorted(one.index for one in legal_actions(f.state, 1)
+                     if str(one).startswith("move"))
+    return (landed and lost_the_turn and offered == [1],
+            f"volatile={landed}, the turn it landed was lost={lost_the_turn}, "
+            f"and afterwards it may pick {offered} of four (only Seismic Toss "
+            f"is not a status move)")
 
 
 @check("dragontail", "damages, then drags the target out")
@@ -2783,9 +2788,10 @@ def _torment():
                    None, "serious", (32, 0, 32, 0, 2, 0))])
     f.turn(Action.move(0), Action.move(0))     # tormented, having used Body Slam
     landed = "torment" in f.volatiles(1)
-    f.turn(Action.move(2), Action.move(0))     # they try Body Slam again
-    return (landed and f.said("cant_move", "torment"),
-            f"volatile={landed}, refused={f.said('cant_move', 'torment')}")
+    offered = sorted(one.index for one in legal_actions(f.state, 1)
+                     if str(one).startswith("move"))
+    return (landed and 0 not in offered and len(offered) == 3,
+            f"volatile={landed}; it may pick {offered}, and Body Slam is 0")
 
 
 @check("uproar", "keeps going by itself and keeps everyone awake")

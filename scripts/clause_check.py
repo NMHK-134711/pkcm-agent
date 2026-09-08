@@ -4665,18 +4665,15 @@ def _taunt_and_torment():
         if move_id == "torment":
             f.turn(Action.move(1), Action.move(1))      # they swing once
         f.turn(Action.move(0), Action.move(1))
-        # The refusal happens when the move is used rather than when it is
-        # offered -- ``legal_actions`` still lists it -- so what is checked
-        # here is that the move does not go off.
-        barred = 0 if move_id == "taunt" else 1
-        f.turn(Action.move(1), Action.move(barred))
-        refused = any(e.kind in ("cant_move", "move_failed")
-                      and (e.side or 0) == 1 for e in f.log)
+        # Two halves, and hk's account of the real game separates them: a
+        # status move chosen on the turn the Taunt lands is lost, and on the
+        # turn after it is not offered at all.
         allowed = [one.index for one in legal_actions(f.state, 1)
                    if str(one).startswith("move")]
-        rows.append((move_id, refused,
-                     f"the barred move was refused={refused}; the action list "
-                     f"still offers {allowed}"))
+        want = [1] if move_id == "taunt" else [0, 2, 3]
+        rows.append((move_id, allowed == want,
+                     f"afterwards it may pick {allowed}, and the clause "
+                     f"leaves {want}"))
     return verdict(rows)
 
 

@@ -193,15 +193,43 @@ def test_stockpile_and_swallow(dex, config):
 # --------------------------------------------------------------------------- #
 
 
-def test_taunt_blocks_status_moves(dex, config):
+def test_a_taunt_landing_first_wastes_the_turn(dex, config):
+    """hk, on the real game: a status move chosen on the turn the Taunt lands
+    is simply lost -- the Taunt goes off first and nothing else happens."""
+    state = build(config, a_set("gengar", "cursedbody", ("taunt",)),
+                  a_set("snorlax", "thickfat", ("swordsdance", "bodyslam")))
+    state, log = step(state, Action.move(0), Action.move(0))
+    assert state.sides[1].has_volatile(0, "taunt")
+    assert any(e.kind == "cant_move" and e.detail == "taunt" for e in log), log
+    assert state.sides[1].boost(0, "atk") == 0, "the Swords Dance was lost"
+
+
+def test_a_taunted_pokemon_is_not_offered_its_status_moves(dex, config):
+    """And on the turn after, the game does not let it pick one at all.
+
+    ``legal_actions`` is the action mask as well as the engine's validation,
+    so a move the engine will refuse must not be offered: the search was
+    opening branches that could never be played.
+    """
     state = build(config, a_set("gengar", "cursedbody", ("taunt",)),
                   a_set("snorlax", "thickfat", ("swordsdance", "bodyslam")))
     state, _ = step(state, Action.move(0), Action.move(1))
     assert state.sides[1].has_volatile(0, "taunt")
 
-    state, log = step(state, Action.move(0), Action.move(0))
-    assert any(e.kind == "cant_move" and e.detail == "taunt" for e in log), log
-    assert state.sides[1].boost(0, "atk") == 0
+    offered = [action.index for action in legal_actions(state, 1)
+               if action.kind is ActionKind.MOVE]
+    assert offered == [1], "only the damaging move is left"
+
+
+def test_a_taunted_pokemon_with_nothing_else_struggles(dex, config):
+    state = build(config, a_set("gengar", "cursedbody", ("taunt",)),
+                  a_set("snorlax", "thickfat", ("swordsdance", "protect")))
+    # Not Protect on that turn: it would block the Taunt and prove nothing.
+    state, _ = step(state, Action.move(0), Action.move(0))
+    assert state.sides[1].has_volatile(0, "taunt")
+    actions = legal_actions(state, 1)
+    assert not any(action.kind is ActionKind.MOVE for action in actions)
+    assert Action.struggle() in actions
 
 
 def test_encore_locks_the_last_move_in(dex, config):

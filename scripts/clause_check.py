@@ -2246,6 +2246,300 @@ def _gravity_grounds_them():
     return verdict(rows)
 
 
+
+@family("saltcureresidual",
+        "Causes damage to the target equal to 1/8 of its maximum HP (1/4 if "
+        "the target is Steel or Water type), rounded down, at the end of each "
+        "turn during effect.")
+def _salt_cure():
+    rows = []
+    for move_id in members("saltcureresidual"):
+        off = []
+        for species in ("snorlax", "milotic", "archaludon"):
+            share = 4 if ({"steel", "water"} & set(DEX.species[species].types)) else 8
+            f = Fight([swinger(move_id)],
+                      [mon(species, "__none__",
+                           ("splash", "bodyslam", "protect", "rest"), None,
+                           "sassy", (32, 0, 32, 0, 32, 0))], seed=7)
+            f.turn(Action.move(0), Action.move(0))
+            whole = f.max_hp(1)
+            before = f.hp(1)
+            f.turn(Action.move(1), Action.move(0))
+            took = before - f.hp(1)
+            if abs(took - whole // share) > 1:
+                off.append(f"{species} ({'/'.join(DEX.species[species].types)}): "
+                           f"took {took}, and 1/{share} of {whole} is "
+                           f"{whole // share}")
+        rows.append((move_id, not off, "; ".join(off) or
+                     "an eighth, and a quarter off Steel and Water"))
+    return verdict(rows)
+
+
+@family("addsatype",
+        "Causes the Ghost type to be added to the target, effectively making "
+        "it have two or three types.",
+        "Causes the Grass type to be added to the target, effectively making "
+        "it have two or three types.")
+def _adds_a_type():
+    rows = []
+    for move_id in members("addsatype"):
+        added = {"trickortreat": "ghost", "forestscurse": "grass"}[move_id]
+        f = Fight([swinger(move_id)], [wall("garchomp")], seed=7)
+        before = set(f.state.types(1, f.state.sides[1].active[0]))
+        f.turn(Action.move(0), Action.move(0))
+        after = set(f.state.types(1, f.state.sides[1].active[0]))
+        rows.append((move_id, after == before | {added},
+                     f"{sorted(before)} -> {sorted(after)}"))
+    return verdict(rows)
+
+
+@family("becomesatype", "Causes the target to become a Psychic type.",
+        "Causes the target to become a Water type.",
+        "Causes the user's types to become the same as the current types of "
+        "the target.")
+def _becomes_a_type():
+    rows = []
+    for move_id in members("becomesatype"):
+        f = Fight([swinger(move_id)], [wall("garchomp")], seed=7)
+        f.turn(Action.move(0), Action.move(0))
+        theirs = set(f.state.types(1, f.state.sides[1].active[0]))
+        ours = set(f.state.types(0, f.state.sides[0].active[0]))
+        want = {"magicpowder": ("them", {"psychic"}), "soak": ("them", {"water"}),
+                "reflecttype": ("us", set(DEX.species["garchomp"].types))}[move_id]
+        got = theirs if want[0] == "them" else ours
+        rows.append((move_id, got == want[1],
+                     f"the {'target' if want[0] == 'them' else 'user'} came out "
+                     f"{sorted(got)}, and the clause says {sorted(want[1])}"))
+    return verdict(rows)
+
+
+@family("changesability",
+        "Causes the target's Ability to be rendered ineffective as long as it "
+        "remains active.",
+        "Causes the target's Ability to become Insomnia.",
+        "Causes the target's Ability to become Simple.",
+        "Causes the target's Ability to become the same as the user's.")
+def _changes_the_ability():
+    rows = []
+    for move_id in members("changesability"):
+        f = Fight([swinger(move_id, ability="levitate")],
+                  [wall("garchomp", ability="roughskin")], seed=7)
+        f.turn(Action.move(0), Action.move(0))
+        theirs = f.state.ability_id(1, f.state.sides[1].active[0])
+        suppressed = "abilitysuppressed" in f.volatiles(1)
+        want = {"gastroacid": None, "worryseed": "insomnia",
+                "simplebeam": "simple", "entrainment": "levitate"}[move_id]
+        good = suppressed if want is None else theirs == want
+        rows.append((move_id, good,
+                     f"the target's ability reads {theirs!r}"
+                     + (f", suppressed={suppressed}" if want is None else "")))
+    return verdict(rows)
+
+
+@family("spitepp", "Causes the target's last move used to lose 4 PP.")
+def _spite_takes_pp():
+    rows = []
+    for move_id in members("spitepp"):
+        f = Fight([swinger(move_id)], [wall()], seed=7)
+        f.turn(Action.move(1), Action.move(1))          # they swing once
+        slot = f.state.sides[1].active[0]
+        before = list(f.state.sides[1].pp[slot])
+        f.turn(Action.move(0), Action.move(1))
+        after = list(f.state.sides[1].pp[slot])
+        lost = [b - a for b, a in zip(before, after)]
+        rows.append((move_id, 5 in lost or 4 in lost,
+                     f"PP went {before} -> {after}, so it lost {lost} "
+                     f"(one of which is this turn's own cost)"))
+    return verdict(rows)
+
+
+@family("electrictype", "Causes the target's move to become Electric type this "
+                        "turn.")
+def _electrify_retypes():
+    rows = []
+    for move_id in members("electrictype"):
+        # We are faster, so it lands before their move goes off -- and we are
+        # a Ground type, which is immune to what their Body Slam becomes. The
+        # volatile itself is cleared inside the turn, so the type chart is the
+        # only witness left standing.
+        def took(electrified):
+            f = Fight([mon("garchomp", "__none__",
+                           (move_id, "splash", "protect", "rest"), None,
+                           "jolly", (0, 32, 2, 0, 0, 32))],
+                      [mon("snorlax", "__none__",
+                           ("bodyslam", "splash", "protect", "rest"), None,
+                           "sassy", (32, 0, 32, 0, 32, 0))], seed=7)
+            f.turn(Action.move(0 if electrified else 1), Action.move(0))
+            return sum(e.amount or 0 for e in f.log
+                       if e.kind == "damage" and (e.side or 0) == 0)
+
+        retyped, plain = took(True), took(False)
+        rows.append((move_id, plain > 0 and retyped == 0,
+                     f"their Body Slam took {plain} normally and {retyped} "
+                     f"after Electrify, at a Ground type"))
+    return verdict(rows)
+
+
+@family("quashorder", "Causes the target to take its turn after all other "
+                      "Pokemon this turn, no matter the priority of its "
+                      "selected move.")
+def _quash_order():
+    """Ally-only, so singles has nothing to reorder -- and it refuses."""
+    rows = []
+    for move_id in members("quashorder"):
+        f = Fight([swinger(move_id)], [wall()], seed=7)
+        f.turn(Action.move(0), Action.move(0))
+        rows.append((move_id, failed(f),
+                     f"in singles, with no ally to quash, it failed={failed(f)}"))
+    return verdict(rows)
+
+
+@family("infatuation", "Causes the target to become infatuated, making it "
+                       "unable to attack 50% of the time.")
+def _infatuation():
+    rows = []
+    for move_id in members("infatuation"):
+        held = 0
+        tries = 120
+        for seed in range(tries):
+            f = Fight([gendered("garchomp", "__none__",
+                                (move_id, "splash", "protect", "rest"),
+                                "jolly", (0, 32, 2, 0, 0, 32), "M")],
+                      [gendered("snorlax", "__none__",
+                                ("bodyslam", "splash", "protect", "rest"),
+                                "sassy", (32, 0, 32, 0, 32, 0), "F")], seed=seed)
+            f.turn(Action.move(0), Action.move(0))
+            if "attract" not in f.volatiles(1):
+                continue
+            f.turn(Action.move(1), Action.move(0))
+            held += not any(e.kind == "damage" and (e.side or 0) == 0
+                            for e in f.log)
+        share = held / tries
+        rows.append((move_id, abs(share - 0.5) <= 0.15,
+                     f"it stayed put {held} of {tries} turns ({share:.0%} "
+                     f"against the half in the data)"))
+    return verdict(rows)
+
+
+@family("digdive", "Damage doubles if the target is using Dig.",
+        "Damage doubles if the target is using Dive.")
+def _catches_them_underground():
+    rows = []
+    for move_id in members("digdive"):
+        hidden = {"earthquake": "dig", "surf": "dive"}[move_id]
+
+        def dealt(charging):
+            # Slow on purpose: Dig only hides the target once it has moved,
+            # and a faster attacker swings before there is anything to catch.
+            f = Fight([mon("snorlax", "__none__",
+                           (move_id, "splash", "protect", "rest"), None,
+                           "brave", (32, 32, 0, 32, 2, 0))],
+                      [mon("mew", "__none__", (hidden, "splash", "protect", "rest"),
+                           None, "jolly", (32, 0, 0, 0, 2, 32))], seed=7)
+            f.turn(Action.move(0), Action.move(0 if charging else 1))
+            return hp_lost(f)
+
+        plain, buried = dealt(False), dealt(True)
+        share = buried / plain if plain else 0.0
+        rows.append((move_id, 1.9 <= share <= 2.1,
+                     f"{plain} against something standing, {buried} against "
+                     f"one using {hidden} (x{share:.2f})"))
+    return verdict(rows)
+
+
+@family("statoverride",
+        "Damage is calculated using the target's Attack stat, including stat "
+        "stage changes.",
+        "Damage is calculated using the user's Defense stat as its Attack, "
+        "including stat stage changes.",
+        "Deals damage to the target based on its Defense instead of Special "
+        "Defense.")
+def _borrows_a_stat():
+    """The stage that matters moves the damage; the one that does not, does not."""
+    rows = []
+    for move_id in members("statoverride"):
+        boosted, ignored = {
+            "foulplay": ("their atk", "our atk"),
+            "bodypress": ("our def", "our atk"),
+            "psyshock": ("their def", "their spd"),
+        }[move_id]
+
+        def dealt(which):
+            f = Fight([swinger(move_id)], [wall("garchomp")], seed=7)
+            side, stat = which.split()
+            row = (f.state.sides[0].boosts[f.state.sides[0].active[0]]
+                   if side == "our"
+                   else f.state.sides[1].boosts[f.state.sides[1].active[0]])
+            row[mc.BOOST_INDEX[stat]] = 2
+            f.turn(Action.move(0), Action.move(0))
+            return hp_lost(f)
+
+        base = dealt("our accuracy")            # a stage nothing here reads
+        moved, still = dealt(boosted), dealt(ignored)
+        # Foul Play and Body Press read an attacking stat, Psyshock a
+        # defending one: raising what it reads moves the damage either way.
+        want_up = move_id != "psyshock"
+        moved_right = moved > base if want_up else moved < base
+        rows.append((move_id, moved_right and still == base,
+                     f"plain {base}; two stages of {boosted} made it {moved}; "
+                     f"two stages of {ignored} left it {still}"))
+    return verdict(rows)
+
+
+@family("fixedformulas",
+        "Deals damage to the target equal to (target's current HP - user's "
+        "current HP).",
+        "Deals damage to the target equal to half of its current HP, rounded "
+        "down, but not less than 1 HP.",
+        "Deals damage to the target equal to the user's current HP.")
+def _fixed_formulas():
+    rows = []
+    for move_id in members("fixedformulas"):
+        f = Fight([swinger(move_id)], [wall("garchomp")], seed=7)
+        slot = f.state.sides[0].active[0]
+        f.state.sides[0].hp[slot] = f.state.active_pokemon(0).max_hp // 2
+        ours, theirs = f.hp(0), f.hp(1)
+        want = {"endeavor": max(0, theirs - ours),
+                "superfang": max(1, theirs // 2),
+                "finalgambit": ours}[move_id]
+        f.turn(Action.move(0), Action.move(0))
+        rows.append((move_id, abs(hp_lost(f) - want) <= 1,
+                     f"we were on {ours}, they on {theirs}: it took "
+                     f"{hp_lost(f)} and the formula says {want}"))
+    return verdict(rows)
+
+
+@family("gigatonlock", "Cannot be selected the turn after it's used.")
+def _gigaton_lock():
+    from pkcm.engine.state import legal_actions
+    rows = []
+    for move_id in members("gigatonlock"):
+        f = Fight([swinger(move_id)],
+                  [wall(mc._reachable(DEX.moves[move_id]))], seed=7)
+        f.turn(Action.move(0), Action.move(0))
+        allowed = [one.index for one in legal_actions(f.state, 0)
+                   if str(one).startswith("move")]
+        rows.append((move_id, 0 not in allowed,
+                     f"the turn after using it, the legal moves are {allowed}"))
+    return verdict(rows)
+
+
+@family("toxicspikelayers", "Can be used up to two times before failing.")
+def _toxic_spike_layers():
+    rows = []
+    for move_id in members("toxicspikelayers"):
+        f = Fight([swinger(move_id)],
+                  [wall("garchomp"), mon("magikarp", "__none__", ("splash", "tackle")),
+                   mon("pikachu", "__none__", ("splash", "tackle"))], seed=7)
+        depths = []
+        for _ in range(3):
+            f.turn(Action.move(0), Action.move(0))
+            depths.append(f.conditions(1).get(move_id, 0))
+        rows.append((move_id, depths == [1, 2, 2] and failed(f),
+                     f"layers went {depths}; the third cast failed={failed(f)}"))
+    return verdict(rows)
+
+
 # --------------------------------------------------------------------------- #
 # The report
 # --------------------------------------------------------------------------- #

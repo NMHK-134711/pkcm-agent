@@ -205,7 +205,25 @@ def _invulnerable_blocks(ctx, ref, attacker, defender, move, **_):
     return False
 
 
-register("volatile", "invulnerable", name="Semi-invulnerable", try_hit=_invulnerable_blocks)
+#: The two that catch a hidden target take double: "Damage doubles if the
+#: target is using Dig", and the same for Surf against Dive. Only these two --
+#: Fissure and Whirlpool reach it without the bonus, and Gust and Twister get
+#: theirs from Fly and Bounce rather than from here.
+DOUBLES_ON_THE_HIDDEN = {"dig": "earthquake", "dive": "surf"}
+
+
+def _catches_them_hiding(ctx, ref, value, attacker, defender, move, **_):
+    if ref != defender:
+        return None
+    data = mutate.volatile(ctx.state, defender, "invulnerable")
+    if data is None or DOUBLES_ON_THE_HIDDEN.get(data["move"]) != move.id:
+        return None
+    return value * 2
+
+
+register("volatile", "invulnerable", name="Semi-invulnerable",
+         try_hit=_invulnerable_blocks,
+         modify_base_power=_catches_them_hiding)
 register("volatile", "twoturn", name="Charging")
 
 

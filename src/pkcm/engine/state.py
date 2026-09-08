@@ -556,6 +556,12 @@ def resolve_target_code(state: BattleState, ref: Ref, code: int) -> Ref | None:
     return state.ref_at(1 - ref[0], code)
 
 
+#: Moves that cannot be picked the turn after they are used. Not a recharge:
+#: the user is free to do anything else, it simply cannot swing this one twice
+#: in a row.
+RECHARGE_BY_NAME = frozenset({"gigatonhammer", "bloodmoon"})
+
+
 def legal_actions(state: BattleState, player: int, position: int = 0) -> tuple[Action, ...]:
     """Everything ``player`` may legally submit for one field position.
 
@@ -634,6 +640,12 @@ def legal_actions(state: BattleState, player: int, position: int = 0) -> tuple[A
         encored = None
     sealed = imprisoned_moves(state, player)
     known = state.moves(player, slot)
+    # "Cannot be selected the turn after it's used" -- Gigaton Hammer and
+    # Blood Moon. Read off ``lastmove`` the way Showdown reads it, so nothing
+    # new has to be stored or cleared.
+    recharging_by_name = (RECHARGE_BY_NAME
+                          if volatiles.get("lastmove") in RECHARGE_BY_NAME
+                          else frozenset())
 
     usable = [
         index
@@ -641,6 +653,7 @@ def legal_actions(state: BattleState, player: int, position: int = 0) -> tuple[A
         if pp > 0 and index != disabled and (choice_locked is None or index == choice_locked)
         and (encored is None or index == encored)
         and not (index < len(known) and known[index].id in sealed)
+        and not (index < len(known) and known[index].id in recharging_by_name)
     ]
 
     actions: list[Action] = []

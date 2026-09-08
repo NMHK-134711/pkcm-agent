@@ -409,6 +409,163 @@ def test_the_screen_breakers_come_through_rather_than_under(dex, config, breaker
         assert took == clear, f"{breaker} was softened by the {screen} it broke"
 
 
+# --------------------------------------------------------------------------- #
+# What the descriptions said and the engine did not
+#
+# ``scripts/clause_check.py`` reads the 621 distinct sentences in the 497 move
+# descriptions and holds each against every move that carries it. These are the
+# ones it caught: each was a sentence in ``desc`` with no field behind it, which
+# is exactly the shape the field-driven sweep cannot see.
+# --------------------------------------------------------------------------- #
+
+
+def test_ingrain_restores_a_sixteenth_every_turn(dex, config):
+    """The volatile existed for the trapping and had no residual at all."""
+    state = build(config, a_set("mew", ("ingrain", "splash")),
+                  a_set("snorlax", ("splash",)))
+    whole = state.pokemon(0, 0).max_hp
+    state.sides[0].hp[0] = whole // 2
+    before = state.sides[0].hp[0]
+
+    state, _ = step(state, Action.move(0), Action.move(0))
+
+    assert state.sides[0].hp[0] - before == whole // 16
+    assert state.sides[0].has_volatile(0, "ingrain"), "and it still holds"
+
+
+def test_spirit_shackle_holds_what_it_hits(dex, config):
+    """Same first sentence as Block and Mean Look, and no implementation."""
+    state = build(config, a_set("mew", ("spiritshackle", "splash")),
+                  a_set("milotic", ("splash",)))
+    ctx = make_context(state)
+    cast(ctx, dex, "spiritshackle")
+    assert state.sides[1].has_volatile(0, "trapped")
+
+
+def test_big_root_pays_more_than_the_drain_moves(dex, config):
+    """Aqua Ring, Leech Seed and Strength Sap all name it; none of them asked."""
+    def gained(move_id, item, target="snorlax"):
+        state = build(config, a_set("mew", (move_id, "splash"), item=item),
+                      a_set(target, ("splash",)))
+        state.sides[0].hp[0] = 1
+        state, _ = step(state, Action.move(0), Action.move(0))
+        if move_id in ("aquaring",):          # the ring pays at end of turn
+            return state.sides[0].hp[0] - 1
+        return state.sides[0].hp[0] - 1
+
+    for move_id in ("aquaring", "strengthsap"):
+        plain, rooted = gained(move_id, None), gained(move_id, "bigroot")
+        assert 1.25 <= rooted / plain <= 1.35, f"{move_id}: {plain} -> {rooted}"
+
+
+def test_supercell_slam_flattens_a_minimized_target(dex, config):
+    """The seventh of seven, and the only one left off the list."""
+    from pkcm.engine.moveeffects import MINIMIZE_PUNISHERS
+
+    assert "supercellslam" in MINIMIZE_PUNISHERS
+
+    def damage(move_id):
+        state = build(config, a_set("mew", (move_id, "splash")),
+                      a_set("snorlax", ("minimize",)))
+        ctx = make_context(state)
+        cast(ctx, dex, "minimize", attacker=BLUE, defender=BLUE)
+        plain = build(config, a_set("mew", (move_id, "splash")),
+                      a_set("snorlax", ("splash",)))
+        from pkcm.engine.moves import compute_damage
+        return (compute_damage(ctx, RED, BLUE, dex.moves[move_id], crit=False)[0],
+                compute_damage(make_context(plain), RED, BLUE,
+                               dex.moves[move_id], crit=False)[0])
+
+    small, upright = damage("supercellslam")
+    assert 1.9 <= small / upright <= 2.1, f"{upright} -> {small}"
+
+
+def test_the_binding_moves_run_four_or_five_turns(dex, config):
+    """The roll was four to seven, and the data says four or five."""
+    from pkcm.engine import tactics
+
+    lengths = set()
+    for seed in range(24):
+        state = build(config, a_set("mew", ("wrap", "splash")),
+                      a_set("snorlax", ("splash",)))
+        state = new_battle(config, (tuple([a_set("mew", ("wrap", "splash"))]
+                                          + [a_set(s, ("tackle",)) for s in
+                                             ("pikachu", "starmie")]),
+                                    tuple([a_set("snorlax", ("splash",))]
+                                          + [a_set(s, ("tackle",)) for s in
+                                             ("pikachu", "starmie")])), seed=seed)
+        state = step(state, Action.select(0, 1, 2), Action.select(0, 1, 2))[0]
+        state, _ = step(state, Action.move(0), Action.move(0))
+        if not state.sides[1].has_volatile(0, "partiallytrapped"):
+            continue
+        ticks = 1
+        while state.sides[1].has_volatile(0, "partiallytrapped") and ticks < 9:
+            state, _ = step(state, Action.move(1), Action.move(0))
+            if state.sides[1].has_volatile(0, "partiallytrapped"):
+                ticks += 1
+        lengths.add(ticks)
+    assert lengths and lengths <= {4, 5}, lengths
+
+
+def test_grip_claw_holds_for_seven_and_reads_the_binders_hand(dex, config):
+    """It was read off the target, and it gave five turns rather than seven."""
+    from pkcm.engine import tactics
+    from pkcm.engine.battle import make_context
+
+    state = build(config, a_set("mew", ("wrap", "splash"), item="gripclaw"),
+                  a_set("snorlax", ("splash",)))
+    ctx = make_context(state)
+    tactics.start_trapping(ctx, RED, BLUE, dex.moves["wrap"])
+    assert state.sides[1].volatiles[0]["partiallytrapped"]["turns"] == 8
+
+    on_the_target = build(config, a_set("mew", ("wrap", "splash")),
+                          a_set("snorlax", ("splash",), item="gripclaw"))
+    ctx = make_context(on_the_target)
+    tactics.start_trapping(ctx, RED, BLUE, dex.moves["wrap"])
+    held = on_the_target.sides[1].volatiles[0]["partiallytrapped"]["turns"]
+    assert held in (5, 6), "the target's own Grip Claw does nothing"
+
+
+def test_binding_band_takes_a_sixth_instead_of_an_eighth(dex, config):
+    from pkcm.engine import tactics
+    from pkcm.engine.battle import make_context
+
+    def per_turn(item):
+        state = build(config, a_set("mew", ("wrap", "splash"), item=item),
+                      a_set("snorlax", ("splash",)))
+        ctx = make_context(state)
+        tactics.start_trapping(ctx, RED, BLUE, dex.moves["wrap"])
+        whole = state.sides[1].hp[0]
+        state, _ = step(state, Action.move(1), Action.move(0))
+        return whole - state.sides[1].hp[0], state.pokemon(1, 0).max_hp
+
+    took, whole = per_turn("bindingband")
+    plain, _ = per_turn(None)
+    assert took == whole // 6 and plain == whole // 8, f"{took} vs {plain} of {whole}"
+
+
+def test_dire_claw_and_tri_attack_pick_a_status(dex, config):
+    """Both export a bare chance and keep the pick in code; both did nothing."""
+    from pkcm.engine.moves import RANDOM_SECONDARY_STATUS
+
+    for move_id, wanted in RANDOM_SECONDARY_STATUS.items():
+        seen = set()
+        for seed in range(60):
+            state = new_battle(config,
+                               (tuple([a_set("mew", (move_id, "splash"))]
+                                      + [a_set(s, ("tackle",)) for s in
+                                         ("pikachu", "starmie")]),
+                                tuple([a_set("milotic", ("splash",))]
+                                      + [a_set(s, ("tackle",)) for s in
+                                         ("pikachu", "starmie")])), seed=seed)
+            state = step(state, Action.select(0, 1, 2), Action.select(0, 1, 2))[0]
+            state, _ = step(state, Action.move(0), Action.move(0))
+            if state.sides[1].status[0]:
+                seen.add(state.sides[1].status[0])
+        assert seen, f"{move_id} never inflicted anything in sixty casts"
+        assert seen <= set(wanted), f"{move_id} inflicted {seen}, not {wanted}"
+
+
 def test_stealth_rock_hurts_on_entry_by_type(dex, config):
     state = build(config, a_set("charizard", ("tackle",)), a_set("snorlax", ("stealthrock",)))
     ctx = make_context(state)

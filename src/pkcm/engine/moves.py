@@ -1889,6 +1889,16 @@ def _apply_self_boost(ctx: Context, attacker: Ref, move) -> None:
         mutate.boost(ctx, attacker, payload["boosts"], source=attacker)
 
 
+#: Secondaries whose exported data is only ``{"chance": N}`` -- Showdown
+#: picks the status in ``onHit``, so the field is empty and the executor had
+#: nothing to apply. Dire Claw never poisoned, paralysed or slept anything in
+#: 120 casts, and Tri Attack never burnt, paralysed or froze.
+RANDOM_SECONDARY_STATUS = {
+    "direclaw": ("psn", "par", "slp"),
+    "triattack": ("brn", "par", "frz"),
+}
+
+
 def _apply_secondaries(ctx: Context, attacker: Ref, defender: Ref, move) -> None:
     secondaries = getattr(move, "secondaries", None)
     if secondaries is None:
@@ -1905,6 +1915,10 @@ def _apply_secondaries(ctx: Context, attacker: Ref, defender: Ref, move) -> None
         if chance < 100 and not ctx.cursor.chance(chance, 100):
             continue
 
+        picked = RANDOM_SECONDARY_STATUS.get(move.id)
+        if picked is not None and not secondary.get("status"):
+            mutate.set_status(ctx, defender, ctx.cursor.choice(picked),
+                              source=attacker)
         if secondary.get("status"):
             mutate.set_status(ctx, defender, secondary["status"], source=attacker)
         if (secondary.get("volatileStatus")

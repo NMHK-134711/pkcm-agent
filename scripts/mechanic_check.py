@@ -2759,11 +2759,73 @@ def _swinger(move, moves):
                moves, None, nature, sp)
 
 
+#: Positions the number probes cannot reach from a standing start. Every
+#: entry below was an "[inconclusive]" the report used to count as a pass:
+#: Burn Up on something that is not a Fire type simply fails, Snore needs the
+#: user asleep, Sucker Punch needs the target swinging, and a 90% move that
+#: never missed in twenty tries never tested its crash damage.
+_USER_SPECIES = {"burnup": "charizard"}
+
+#: What the target holds, for the moves that need it to do something specific.
+_TARGET_MOVES = {"upperhand": ("splash", "aquajet", "protect", "rest")}
+
+#: Which of the target's moves it uses while the probe casts.
+_TARGET_MOVE = {"suckerpunch": 1, "upperhand": 1}
+
+#: Moves the user spends first: Last Resort refuses until the rest are gone,
+#: and a charge move spends the first turn charging.
+_LEAD_MOVES = {"lastresort": (1, 2, 3)}
+
+
+def _evasive(f):
+    """Six stages of evasion, so an accurate move can actually miss."""
+    side = f.state.sides[1]
+    side.boosts[side.active[0]][BOOST_INDEX["evasion"]] = 6
+
+
+def _asleep(f):
+    side = f.state.sides[0]
+    side.status[side.active[0]] = "slp"
+
+
+def _on_terrain(f):
+    f.state.field.terrain = "electricterrain"
+    f.state.field.terrain_turns = 8
+
+
+_SETUP = {
+    "axekick": _evasive, "highjumpkick": _evasive, "supercellslam": _evasive,
+    "snore": _asleep, "steelroller": _on_terrain,
+}
+
+
 def _bout(move, extra=("splash", "tackle", "protect"), target=None, seed=7):
     them = mon(target or _reachable(move), "__none__",
-               ("splash", "tackle", "protect", "rest"), None, "serious",
-               (32, 0, 32, 0, 2, 0))
-    return Fight([_swinger(move, (move.id,) + extra)], [them], seed)
+               _TARGET_MOVES.get(move.id, ("splash", "tackle", "protect", "rest")),
+               None, "serious", (32, 0, 32, 0, 2, 0))
+    user = _swinger(move, (move.id,) + extra)
+    species = _USER_SPECIES.get(move.id)
+    if species is not None:
+        user = mon(species, user.ability, user.moves, user.item, user.nature,
+                   user.sp)
+    f = Fight([user], [them], seed)
+    _set_up_field(f, move)
+    setup = _SETUP.get(move.id)
+    if setup is not None:
+        setup(f)
+    return f
+
+
+def _staged(move, seed=7, extra=("splash", "tackle", "protect")):
+    """A fight with the move cast once, from whatever position it needs."""
+    f = _bout(move, extra=extra, seed=seed)
+    theirs = _TARGET_MOVE.get(move.id, 0)
+    for index in _LEAD_MOVES.get(move.id, ()):
+        f.turn(Action.move(index), Action.move(theirs))
+    if "charge" in move.flags:
+        f.turn(Action.move(0), Action.move(theirs))   # the turn it spends
+    f.turn(Action.move(0), Action.move(theirs))
+    return f
 
 
 def _hits(f, move_id, side=1):
@@ -3000,7 +3062,11 @@ def _expected_rolls(f, move, side=0):
         else (Stat.DEF if physical else Stat.SPD))
     effectiveness = DEX.type_chart.multiplier(move.type, f.state.types(*them))
     stab = move.type in f.state.types(*us)
-    base = damage_base(power=move.base_power, attack=attack, defense=defense)
+    # A move that always crits is always the crit number, and comparing it
+    # with the ordinary one is how Flower Trick, Frost Breath and Storm Throw
+    # looked wrong from a right engine.
+    base = damage_base(power=move.base_power, attack=attack, defense=defense,
+                       crit=bool(raw.get("willCrit")))
     rolls = {max(1, damage_from_base(base, roll, stab=stab,
                                      effectiveness=effectiveness))
              for roll in range(_ROLL_LOW, _ROLL_HIGH + 1)}
@@ -3009,32 +3075,42 @@ def _expected_rolls(f, move, side=0):
 
 def _damage_probe(move):
     def probe(m=move):
-        for seed in range(12):
+        for seed in range(24):
             f = _bout(m, seed=seed)
             expected, effectiveness = _expected_rolls(f, m)
             if effectiveness == 0:
                 continue
-            f.turn(Action.move(0), Action.move(0))
+            f = _staged(m, seed=seed)
             hits = _hits(f, m.id)
-            if not hits or "crit=True" in str(hits[0]):
+            # A move that always crits has no uncritical hit to wait for, and
+            # waiting for one is how Flower Trick, Frost Breath and Storm
+            # Throw went unmeasured.
+            crit_ok = bool(m.raw.get("willCrit"))
+            if not hits or ("crit=True" in str(hits[0]) and not crit_ok):
                 continue
             got = int(re.search(r"amount=(\d+)", str(hits[0])).group(1))
             return (got in expected,
                     f"dealt {got}; {m.base_power} power at x{effectiveness} "
                     f"gives {min(expected)}-{max(expected)}")
-        return None, "never landed a clean uncritical hit in twelve tries"
+        return None, "never landed a clean hit in twenty-four tries"
     return ("deals what its declared power, type and category say", probe)
 
 
-def _fired(f, block):
+def _fired(f, block, move=None):
     """Whether the *declared* secondary happened -- not whether anything did.
 
     Comparing whole states counted ``lastmove`` and ``movesused``, which
     change every turn, so every secondary read as firing a hundred percent of
     the time.
     """
+    from pkcm.engine.moves import RANDOM_SECONDARY_STATUS
+
     if block.get("status"):
         return f.status(1) == block["status"]
+    # Dire Claw and Tri Attack export a bare chance and pick the status in
+    # code, so "what the data declares" is a set rather than one name.
+    if move is not None and move.id in RANDOM_SECONDARY_STATUS:
+        return f.status(1) in RANDOM_SECONDARY_STATUS[move.id]
     if block.get("volatileStatus") == "flinch":
         # Applied and spent inside the turn: by the time this reads the state
         # the volatile has been cleared, so every flinch read as never firing.
@@ -3055,11 +3131,10 @@ def _chance_probe(move, chance, what, block):
     def probe(m=move, chance=chance, what=what, block=block):
         landed = fired = 0
         for seed in range(200):
-            f = _bout(m, seed=seed)
-            f.turn(Action.move(0), Action.move(0))
+            f = _staged(m, seed=seed)
             if m.category != "Status" and not _hits(f, m.id):
                 continue
-            saw = _fired(f, block)
+            saw = _fired(f, block, m)
             if saw is None:
                 return None, "the secondary declares nothing this can watch"
             landed += 1
@@ -3105,6 +3180,10 @@ def _duration_probe(move, name, kind, turns):
             return f.state.field.terrain == name
 
         if not alive():
+            if turns == 1:
+                return (True, f"{name} lasts the turn it is cast and is gone "
+                              f"by the end of it, which is the one turn the "
+                              f"data gives it")
             return None, f"{name} was not up after the cast"
         # The turn it was cast on counts: a five-turn screen is up for the
         # turn it goes up and the four after, and the tick at the end of the
@@ -3561,21 +3640,34 @@ def main() -> int:
     if unknown:
         print(f"no check written for: {', '.join(unknown)}")
         return 2
-    bad = 0
+    bad, unmeasured = 0, []
     for move in wanted:
         expect, fn = CHECKS[move]
         try:
             ok, detail = fn()
         except Exception as error:                      # a crash is a failure
             ok, detail = False, f"{type(error).__name__}: {error}"
+        # A probe that could not set its position up says "[inconclusive]"
+        # and used to come out as "ok". Aurora Veil went that way the
+        # moment it started needing snow: the move stopped being castable,
+        # the probe stopped measuring, and the report still read 498/498.
+        blind = ok and "[inconclusive]" in str(detail)
         korean = NAMES.get(move, move)
-        print(f"{'ok  ' if ok else 'FAIL'}  {korean:<14} ({move})")
-        if not ok:
+        mark = "??  " if blind else ("ok  " if ok else "FAIL")
+        print(f"{mark}  {korean:<14} ({move})")
+        if blind:
+            unmeasured.append(move)
+            print(f"        unmeasured: {detail}")
+        elif not ok:
             bad += 1
             print(f"        expected: {expect}")
             print(f"        saw:      {detail}")
-    print(f"\n{len(wanted) - bad}/{len(wanted)} behaved")
-    return 1 if bad else 0
+    measured = len(wanted) - bad - len(unmeasured)
+    print()
+    print(f"{measured}/{len(wanted)} behaved"
+          + (f"; {len(unmeasured)} could not be measured: "
+             f"{', '.join(unmeasured)}" if unmeasured else ""))
+    return 1 if bad or unmeasured else 0
 
 
 import json  # noqa: E402

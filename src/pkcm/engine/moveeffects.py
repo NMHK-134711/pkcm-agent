@@ -610,12 +610,31 @@ for _move_id, (_volatile, _drop) in PROTECT_VARIANTS.items():
     SPECIAL_MOVES[_move_id] = _protect_variant(_volatile)
 
 
-def _punishing_shield(volatile: str, drop, damage_fraction: int | None, status: str | None):
-    def handler(ctx, ref, attacker, defender, move, **_):
-        if ref != defender or "protect" not in _volatiles(ctx, defender):
-            return None
-        if "contact" not in move.flags:
-            return None
+#: What each shield does to whoever touched it: stat drop, HP fraction, status.
+SHIELD_PUNISHMENTS = {
+    "kingsshield": ({"atk": -1}, None, None),
+    "silktrap": ({"spe": -1}, None, None),
+    "obstruct": ({"def": -2}, None, None),
+    "spikyshield": (None, 8, None),
+    "banefulbunker": (None, None, "psn"),
+    "burningbulwark": (None, None, "brn"),
+}
+
+
+def punish_shields(ctx, attacker, defender, move) -> None:
+    """Make a blocked contact move pay for touching the shield.
+
+    Called from the block itself rather than hung on ``after_damage``, which
+    was where these lived and why none of them ever fired: a shield that does
+    its job stops the damage, so an after-damage hook on a successful block is
+    waiting for an event that cannot arrive. King's Shield spent the project so
+    far as a plain Protect, on twenty-seven of the field's parties.
+    """
+    if "contact" not in move.flags:
+        return
+    for volatile, (drop, damage_fraction, status) in SHIELD_PUNISHMENTS.items():
+        if volatile not in _volatiles(ctx, defender):
+            continue
         if drop:
             boost(ctx, attacker, drop, source=defender)
         if damage_fraction:
@@ -624,23 +643,17 @@ def _punishing_shield(volatile: str, drop, damage_fraction: int | None, status: 
                                 "recoil", detail=volatile)
         if status:
             mutate.set_status(ctx, attacker, status, source=defender)
-        return None
-
-    return handler
 
 
-register("volatile", "kingsshield", name="King's Shield",
-         after_damage=_punishing_shield("kingsshield", {"atk": -1}, None, None))
-register("volatile", "silktrap", name="Silk Trap",
-         after_damage=_punishing_shield("silktrap", {"spe": -1}, None, None))
-register("volatile", "obstruct", name="Obstruct",
-         after_damage=_punishing_shield("obstruct", {"def": -2}, None, None))
-register("volatile", "spikyshield", name="Spiky Shield",
-         after_damage=_punishing_shield("spikyshield", None, 8, None))
-register("volatile", "banefulbunker", name="Baneful Bunker",
-         after_damage=_punishing_shield("banefulbunker", None, None, "psn"))
-register("volatile", "burningbulwark", name="Burning Bulwark",
-         after_damage=_punishing_shield("burningbulwark", None, None, "brn"))
+# The sting is applied by ``punish_shields`` from the block in
+# ``conditions._protect_blocks``; these registrations are what make the
+# volatiles known effects, and what the honesty test in the suite reads.
+register("volatile", "kingsshield", name="King's Shield")
+register("volatile", "silktrap", name="Silk Trap")
+register("volatile", "obstruct", name="Obstruct")
+register("volatile", "spikyshield", name="Spiky Shield")
+register("volatile", "banefulbunker", name="Baneful Bunker")
+register("volatile", "burningbulwark", name="Burning Bulwark")
 
 
 # --------------------------------------------------------------------------- #

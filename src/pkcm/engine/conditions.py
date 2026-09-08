@@ -203,6 +203,13 @@ def _protect_blocks(ctx, ref, attacker, defender, move, **_):
         return None
     if "protect" in move.flags:
         ctx.emit(Event("protected", side=defender[0], slot=defender[1], move=move.id))
+        # King's Shield and its family sting whoever made contact. That used to
+        # hang off ``after_damage``, which a successful block guarantees will
+        # never fire, so every one of them was a plain Protect. Late import:
+        # moveeffects imports this module's neighbours at load time.
+        from pkcm.engine.moveeffects import punish_shields
+
+        punish_shields(ctx, attacker, defender, move)
         return False
     return None
 

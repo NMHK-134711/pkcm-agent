@@ -205,12 +205,39 @@ def test_taunt_blocks_status_moves(dex, config):
 
 
 def test_encore_locks_the_last_move_in(dex, config):
-    """Encore needs the target to have moved, so it is used the turn after."""
+    """Encore needs the target to have moved, so it is used the turn after.
+
+    This asserted the volatile and stopped there, and the volatile was the one
+    thing that did work: ``_encore_locks`` counted four turns down while the
+    target picked whatever it liked, and the honesty table below did not catch
+    it either, because a handler that only ticks a counter is still a handler.
+    So the assertion that matters is the one about the choice left afterwards.
+    """
     state = build(config, a_set("clefable", "unaware", ("encore", "protect")),
                   a_set("snorlax", "thickfat", ("swordsdance", "bodyslam")))
     state, _ = step(state, Action.move(1), Action.move(0))   # let Snorlax move
     state, _ = step(state, Action.move(0), Action.move(0))
     assert state.sides[1].has_volatile(0, "encore")
+
+    moves = {one.index for one in legal_actions(state, 1)
+             if one.kind is ActionKind.MOVE}
+    assert moves == {0}, "only Swords Dance, the move Encore caught"
+
+    state, _ = step(state, Action.move(1), Action.move(0))
+    assert state.sides[1].boost(0, "atk") == 6, "a third Swords Dance, forced"
+
+
+def test_encore_lets_go_when_the_move_it_caught_runs_dry(dex, config):
+    """A lock nothing can obey would leave the target with only Struggle."""
+    state = build(config, a_set("clefable", "unaware", ("encore", "protect")),
+                  a_set("snorlax", "thickfat", ("swordsdance", "bodyslam")))
+    state, _ = step(state, Action.move(1), Action.move(0))
+    state, _ = step(state, Action.move(0), Action.move(0))
+    state.sides[1].pp[0][0] = 0
+
+    moves = {one.index for one in legal_actions(state, 1)
+             if one.kind is ActionKind.MOVE}
+    assert moves == {1}, "Body Slam, the only move with PP left"
 
 
 def test_disable_takes_a_move_away(dex, config):
@@ -590,6 +617,16 @@ ENGINE_SIDE_VOLATILES = {
     "cudchew": "abilities._cud_chew_residual, which eats the stored berry again",
     "statdropped": "moves._lash_out, which doubles its power for one turn after",
     "choicelock": "state.legal_actions",
+    # These six had handlers of their own, on ``after_damage``, and that is
+    # exactly why none of them worked: a shield that blocks the hit stops the
+    # damage the hook was waiting for. The sting is applied from the block now,
+    # so the volatile is a marker the blocker reads.
+    "kingsshield": "conditions._protect_blocks, via moveeffects.punish_shields",
+    "silktrap": "conditions._protect_blocks, via moveeffects.punish_shields",
+    "obstruct": "conditions._protect_blocks, via moveeffects.punish_shields",
+    "spikyshield": "conditions._protect_blocks, via moveeffects.punish_shields",
+    "banefulbunker": "conditions._protect_blocks, via moveeffects.punish_shields",
+    "burningbulwark": "conditions._protect_blocks, via moveeffects.punish_shields",
     "lockedmove": "state.legal_actions and tactics.start_locked_move",
     "twoturn": "state.legal_actions and tactics.finish_charging",
     "noretreat": "moveeffects._no_retreat, which will not let it be used twice",

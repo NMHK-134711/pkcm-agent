@@ -82,6 +82,27 @@ class Fight:
         side_state = self.state.sides[side]
         return set(side_state.volatiles[side_state.active[0]])
 
+    def max_hp(self, side=0):
+        return self.state.active_pokemon(side).max_hp
+
+    def status(self, side=0):
+        side_state = self.state.sides[side]
+        return side_state.status[side_state.active[0]]
+
+    def conditions(self, side=0):
+        return dict(self.state.sides[side].conditions)
+
+    def item(self, side=0):
+        return self.state.item_id(side, self.state.sides[side].active[0])
+
+    def damage(self, move, side=1):
+        """What a named move took off ``side`` this turn, 0 if it did not."""
+        for event in self.log:
+            text = str(event)
+            if text.startswith(f"damage(side={side}") and move in text:
+                return int(re.search(r"amount=(\d+)", text).group(1))
+        return 0
+
 
 # --------------------------------------------------------------------------- #
 # The checks
@@ -339,6 +360,549 @@ def _sheer_cold():
         f.turn(Action.move(0), Action.move(0))
         landed += f.said("ohko")
     return landed == 0, f"connected {landed}/12 times against an Ice type"
+
+
+# -- the field's own moves, most-used first --------------------------------- #
+#
+# Ordered by how many of the 253 field parties carry them, which is where a
+# wrong answer costs the most. Abilities are ``__none__`` wherever one could
+# imitate the effect being measured: Intimidate reading as Parting Shot cost
+# an afternoon on the first pass.
+
+#: Nothing on it interferes: no ability, no item, and Splash to pass a turn.
+def dummy(species, *moves):
+    return mon(species, "__none__", tuple(moves) or ("splash", "tackle"))
+
+
+#: Bulky, passive, and huge -- survives what it is hit with so the arms of a
+#: comparison differ only in the thing being measured.
+def wall():
+    return mon("blissey", "__none__", ("splash", "tackle", "seismictoss",
+                                       "protect"), None, "serious",
+               (32, 0, 32, 0, 2, 0))
+
+
+@check("stealthrock", "hurts whoever comes in afterwards")
+def _stealth_rock():
+    f = Fight(ours("garchomp", "__none__",
+                   ("stealthrock", "earthquake", "dragonclaw", "protect")),
+              [dummy("magikarp")])
+    f.turn(Action.move(0), Action.move(0))
+    laid = "stealthrock" in f.conditions(1)
+    f.turn(Action.move(1), Action.switch(1))     # they bring Pikachu in
+    hurt = f.max_hp(1) - f.hp(1)
+    return (laid and hurt > 0,
+            f"condition set={laid}; the replacement lost {hurt} of "
+            f"{f.max_hp(1)} on the way in")
+
+
+@check("protect", "the turn's attack does not land")
+def _protect():
+    def hp_after(move_index):
+        f = Fight(ours("snorlax", "__none__",
+                       ("protect", "splash", "bodyslam", "rest"),
+                       None, "serious", (32, 0, 32, 0, 2, 0)),
+                  [mon("garchomp", "__none__",
+                       ("earthquake", "dragonclaw", "firefang", "stoneedge"),
+                       None, "jolly", (0, 32, 2, 0, 0, 32))])
+        f.turn(Action.move(move_index), Action.move(0))
+        return f.max_hp(0) - f.hp(0)
+    blocked = hp_after(0)     # Protect
+    taken = hp_after(1)       # Splash, same turn otherwise
+    return (blocked == 0 and taken > 0,
+            f"with Protect lost {blocked}, with Splash lost {taken}")
+
+
+@check("suckerpunch", "lands on an attacker, fails on one using a status move")
+def _sucker_punch():
+    def dealt(foe_move):
+        f = Fight(ours("kingambit", "__none__",
+                       ("suckerpunch", "ironhead", "swordsdance", "kowtowcleave"),
+                       None, "adamant", (0, 32, 2, 0, 0, 32)),
+                  [mon("snorlax", "__none__",
+                       ("bodyslam", "splash", "rest", "protect"),
+                       None, "serious", (32, 0, 32, 0, 2, 0))])
+        f.turn(Action.move(0), Action.move(foe_move))
+        return f.damage("suckerpunch")
+    attacking = dealt(0)      # Body Slam: a move Sucker Punch may answer
+    passive = dealt(1)        # Splash: nothing to answer, so it must fail
+    return (attacking > 0 and passive == 0,
+            f"against an attack {attacking}, against Splash {passive}")
+
+
+@check("yawn", "puts the target to sleep at the end of the next turn")
+def _yawn():
+    f = Fight(ours("slowbro", "__none__",
+                   ("yawn", "scald", "slackoff", "psychic")),
+              [dummy("magikarp")])
+    f.turn(Action.move(0), Action.move(0))
+    drowsy = "yawn" in f.volatiles(1)
+    asleep_yet = f.status(1)
+    f.turn(Action.move(1), Action.move(0))
+    return (drowsy and asleep_yet is None and f.status(1) == "slp",
+            f"volatile={drowsy}, status after the cast {asleep_yet}, "
+            f"after the next turn {f.status(1)}")
+
+
+@check("substitute", "costs a quarter of the user's HP and stands in front")
+def _substitute():
+    f = Fight(ours("gengar", "__none__",
+                   ("substitute", "shadowball", "sludgebomb", "protect")),
+              [dummy("magikarp")])
+    before = f.hp(0)
+    f.turn(Action.move(0), Action.move(0))
+    paid = before - f.hp(0)
+    quarter = f.max_hp(0) // 4
+    return ("substitute" in f.volatiles(0) and abs(paid - quarter) <= 1,
+            f"paid {paid} of a quarter ({quarter}), "
+            f"volatiles {sorted(f.volatiles(0)) or 'none'}")
+
+
+@check("roost", "gives back about half of the user's maximum")
+def _roost():
+    f = Fight(ours("corviknight", "__none__",
+                   ("roost", "irondefense", "bodypress", "uturn"),
+                   None, "impish", (32, 0, 32, 0, 2, 0)),
+              [mon("garchomp", "__none__",
+                   ("earthquake", "dragonclaw", "firefang", "stoneedge"),
+                   None, "jolly", (0, 32, 2, 0, 0, 32))])
+    f.turn(Action.move(2), Action.move(3))    # take a hit first
+    hurt = f.hp(0)
+    f.turn(Action.move(0), Action.move(3))
+    healed = f.hp(0) - hurt
+    # The foe hits again on the healing turn, so the gain is net of one hit.
+    return (healed > 0, f"at {hurt}, after Roost {f.hp(0)} (+{healed}) "
+                        f"of max {f.max_hp(0)}")
+
+
+@check("encore", "locks the target into the move it just used")
+def _encore():
+    f = Fight(ours("clefable", "__none__",
+                   ("encore", "moonblast", "softboiled", "protect"),
+                   None, "timid", (32, 0, 2, 0, 0, 32)),
+              [dummy("magikarp", "tackle", "splash")])
+    # Protect, not Moonblast: attacking on the first turn knocked the Magikarp
+    # out and the check then measured a forced switch instead of an Encore.
+    f.turn(Action.move(3), Action.move(0))     # they show us Tackle
+    f.turn(Action.move(0), Action.move(1))     # Encore over their Splash pick
+    locked = "encore" in f.volatiles(1)
+    # The volatile on its own proved nothing -- it was there for four turns
+    # while the target picked freely. What settles it is the choice they are
+    # left with on the turn after.
+    from pkcm.engine.state import legal_actions
+    offered = {str(one) for one in legal_actions(f.state, 1)
+               if str(one).startswith("move")}
+    return (locked and offered == {"move(0)"},
+            f"volatile={locked}, moves still offered {sorted(offered)}")
+
+
+@check("taunt", "stops the target using status moves")
+def _taunt():
+    f = Fight(ours("gengar", "__none__",
+                   ("taunt", "shadowball", "sludgebomb", "protect"),
+                   None, "timid", (0, 0, 2, 32, 0, 32)),
+              [mon("blissey", "__none__",
+                   ("softboiled", "seismictoss", "toxic", "protect"),
+                   None, "serious", (32, 0, 32, 0, 2, 0))])
+    f.turn(Action.move(0), Action.move(0))     # they try to Soft-Boiled
+    landed = "taunt" in f.volatiles(1)
+    # Encore held its volatile for four turns while enforcing nothing, so the
+    # volatile is not the answer here either: what counts is the status move
+    # being refused on the turn after.
+    f.turn(Action.move(3), Action.move(2))     # they try Toxic
+    return (landed and f.said("cant_move", "taunt") and f.status(0) is None,
+            f"volatile={landed}, refused={f.said('cant_move', 'taunt')}, "
+            f"our status {f.status(0)}")
+
+
+@check("dragontail", "damages, then drags the target out")
+def _dragon_tail():
+    f = Fight(ours("garchomp", "__none__",
+                   ("dragontail", "earthquake", "stealthrock", "protect"),
+                   None, "jolly", (0, 32, 2, 0, 0, 32)),
+              [mon("snorlax", "__none__",     # Normal: not immune to Dragon
+                   ("splash", "bodyslam", "rest", "protect"),
+                   None, "serious", (32, 0, 32, 0, 2, 0))])
+    before = f.active_species(1)
+    f.turn(Action.move(0), Action.move(0))
+    return (f.active_species(1) != before,
+            f"{before} -> {f.active_species(1)}")
+
+
+@check("whirlwind", "drags the target out whatever it wanted to do")
+def _whirlwind():
+    f = Fight(ours("corviknight", "__none__",
+                   ("whirlwind", "roost", "bodypress", "irondefense")),
+              [dummy("magikarp")])
+    before = f.active_species(1)
+    f.turn(Action.move(0), Action.move(0))
+    return (f.active_species(1) != before,
+            f"{before} -> {f.active_species(1)}")
+
+
+@check("roar", "drags the target out whatever it wanted to do")
+def _roar():
+    f = Fight(ours("snorlax", "__none__",
+                   ("roar", "bodyslam", "rest", "protect")),
+              [dummy("magikarp")])
+    before = f.active_species(1)
+    f.turn(Action.move(0), Action.move(0))
+    return (f.active_species(1) != before,
+            f"{before} -> {f.active_species(1)}")
+
+
+def _heals_half(species, moves, heal_index):
+    """Take a hit, then heal, and report what came back."""
+    f = Fight(ours(species, "__none__", moves, None, "serious",
+                   (32, 0, 32, 0, 2, 0)),
+              [mon("garchomp", "__none__",
+                   ("earthquake", "dragonclaw", "firefang", "stoneedge"),
+                   None, "jolly", (0, 32, 2, 0, 0, 32))])
+    f.turn(Action.move(1), Action.move(0))
+    hurt = f.hp(0)
+    f.turn(Action.move(heal_index), Action.move(3))   # Stone Edge: may miss
+    return f, hurt, f.hp(0) - hurt
+
+
+@check("recover", "gives back about half of the user's maximum")
+def _recover():
+    f, hurt, healed = _heals_half(
+        "starmie", ("recover", "surf", "psychic", "icebeam"), 0)
+    return healed > 0, f"at {hurt} of {f.max_hp(0)}, recovered {healed}"
+
+
+@check("slackoff", "gives back about half of the user's maximum")
+def _slack_off():
+    f, hurt, healed = _heals_half(
+        "slowbro", ("slackoff", "scald", "psychic", "yawn"), 0)
+    return healed > 0, f"at {hurt} of {f.max_hp(0)}, recovered {healed}"
+
+
+@check("synthesis", "gives back about half of the user's maximum")
+def _synthesis():
+    f, hurt, healed = _heals_half(
+        "ferrothorn", ("synthesis", "gyroball", "leechseed", "spikes"), 0)
+    return healed > 0, f"at {hurt} of {f.max_hp(0)}, recovered {healed}"
+
+
+@check("moonlight", "gives back about half of the user's maximum")
+def _moonlight():
+    f, hurt, healed = _heals_half(
+        "clefable", ("moonlight", "moonblast", "softboiled", "protect"), 0)
+    return healed > 0, f"at {hurt} of {f.max_hp(0)}, recovered {healed}"
+
+
+def _boosts_by(species, moves, expected):
+    f = Fight(ours(species, "__none__", moves), [dummy("magikarp")])
+    f.turn(Action.move(0), Action.move(0))
+    got = f.boosts(0)
+    ok = all(got.get(stat) == amount for stat, amount in expected.items())
+    return ok, f"{got or 'nothing'} against {expected}"
+
+
+@check("calmmind", "raises Special Attack and Special Defence")
+def _calm_mind():
+    return _boosts_by("gengar", ("calmmind", "shadowball", "sludgebomb",
+                                 "protect"), {"spa": 1, "spd": 1})
+
+
+@check("irondefense", "raises Defence two stages")
+def _iron_defense():
+    return _boosts_by("corviknight", ("irondefense", "roost", "bodypress",
+                                      "uturn"), {"def": 2})
+
+
+@check("dragondance", "raises Attack and Speed")
+def _dragon_dance():
+    return _boosts_by("dragonite", ("dragondance", "dragonclaw", "roost",
+                                    "firepunch"), {"atk": 1, "spe": 1})
+
+
+@check("shellsmash", "trades both defences for Attack, Sp. Atk and Speed")
+def _shell_smash():
+    return _boosts_by("cloyster", ("shellsmash", "iciclespear", "rockblast",
+                                   "protect"),
+                      {"atk": 2, "spa": 2, "spe": 2, "def": -1, "spd": -1})
+
+
+@check("toxic", "leaves the target badly poisoned")
+def _toxic():
+    f = Fight(ours("blissey", "__none__",
+                   ("toxic", "seismictoss", "softboiled", "protect")),
+              [dummy("magikarp")])          # Water: not Steel, not Poison
+    f.turn(Action.move(0), Action.move(0))
+    return f.status(1) == "tox", f"foe status {f.status(1)}"
+
+
+@check("knockoff", "takes the target's item away")
+def _knock_off():
+    f = Fight(ours("weavile", "__none__",
+                   ("knockoff", "iceshard", "uturn", "swordsdance"),
+                   None, "jolly", (0, 32, 2, 0, 0, 32)),
+              [mon("snorlax", "__none__",
+                   ("splash", "bodyslam", "rest", "protect"),
+                   "leftovers", "serious", (32, 0, 32, 0, 2, 0))])
+    before = f.item(1)
+    f.turn(Action.move(0), Action.move(0))
+    return (before == "leftovers" and f.item(1) is None,
+            f"held {before}, now {f.item(1)}")
+
+
+@check("bodypress", "attacks with the user's Defence, so Iron Defence adds to it")
+def _body_press():
+    def dealt(setup_first):
+        f = Fight(ours("corviknight", "__none__",
+                       ("bodypress", "irondefense", "roost", "uturn"),
+                       None, "impish", (32, 0, 32, 0, 2, 0)),
+                  [wall()])
+        if setup_first:
+            f.turn(Action.move(1), Action.move(0))    # Iron Defence, +2 Def
+        f.turn(Action.move(0), Action.move(0))
+        return f.damage("bodypress")
+    plain = dealt(False)
+    boosted = dealt(True)
+    return (plain > 0 and boosted > plain * 1.5,
+            f"unboosted {plain}, after Iron Defence {boosted}")
+
+
+@check("spikes", "hurts a grounded replacement")
+def _spikes():
+    f = Fight(ours("ferrothorn", "__none__",
+                   ("spikes", "gyroball", "leechseed", "protect")),
+              [dummy("magikarp")])
+    f.turn(Action.move(0), Action.move(0))
+    laid = "spikes" in f.conditions(1)
+    f.turn(Action.move(1), Action.switch(1))
+    hurt = f.max_hp(1) - f.hp(1)
+    return (laid and hurt > 0,
+            f"condition set={laid}; the replacement lost {hurt}")
+
+
+@check("toxicspikes", "poisons a grounded replacement")
+def _toxic_spikes():
+    f = Fight(ours("ferrothorn", "__none__",
+                   ("toxicspikes", "gyroball", "leechseed", "protect")),
+              [dummy("magikarp")])
+    f.turn(Action.move(0), Action.move(0))
+    laid = "toxicspikes" in f.conditions(1)
+    f.turn(Action.move(1), Action.switch(1))
+    return (laid and f.status(1) in ("psn", "tox"),
+            f"condition set={laid}; the replacement's status {f.status(1)}")
+
+
+@check("leechseed", "drains the target every turn and gives it to the user")
+def _leech_seed():
+    # Ninety percent accurate, and the first seed tried was a miss -- which
+    # reads identically to "does nothing" if you only look once.
+    for seed in range(8):
+        f = Fight(ours("ferrothorn", "__none__",
+                       ("leechseed", "gyroball", "protect", "spikes"),
+                       None, "relaxed", (32, 0, 32, 0, 2, 0)),
+                  [mon("snorlax", "__none__",   # not Grass: Grass is immune
+                       ("splash", "bodyslam", "rest", "protect"),
+                       None, "serious", (32, 0, 32, 0, 2, 0))], seed)
+        f.turn(Action.move(0), Action.move(1))  # seed, and take a hit for room
+        if "leechseed" in f.volatiles(1):
+            break
+    else:
+        return False, "never connected in eight tries"
+    theirs = f.hp(1)
+    f.turn(Action.move(2), Action.move(0))    # Protect, so only the seed acts
+    # Not "our HP went up": the drain on the seeding turn had already healed us
+    # back to full, so the gain has nowhere to show. The heal event does show.
+    healed = f.said("heal(", "leechseed") or f.said("leechseed")
+    return (f.hp(1) < theirs and healed,
+            f"foe {theirs}->{f.hp(1)} while we were Protecting, "
+            f"a heal was logged={healed}")
+
+
+@check("haze", "wipes the stat changes on both sides")
+def _haze():
+    f = Fight(ours("weezinggalar", "__none__",
+                   ("haze", "sludgebomb", "willowisp", "protect")),
+              [mon("dragonite", "__none__",
+                   ("dragondance", "dragonclaw", "roost", "firepunch"))])
+    f.turn(Action.move(1), Action.move(0))    # they set up
+    theirs = f.boosts(1)
+    f.turn(Action.move(0), Action.move(0))    # Haze over their second dance
+    return (theirs and not f.boosts(1),
+            f"foe had {theirs or 'nothing'}, after Haze {f.boosts(1) or 'nothing'}")
+
+
+@check("trick", "swaps the two held items")
+def _trick():
+    f = Fight(ours("gengar", "__none__",
+                   ("trick", "shadowball", "sludgebomb", "protect"),
+                   "choicescarf", "timid", (0, 0, 2, 32, 0, 32)),
+              [mon("snorlax", "__none__",
+                   ("splash", "bodyslam", "rest", "protect"),
+                   "leftovers", "serious", (32, 0, 32, 0, 2, 0))])
+    f.turn(Action.move(0), Action.move(0))
+    return (f.item(0) == "leftovers" and f.item(1) == "choicescarf",
+            f"we hold {f.item(0)}, they hold {f.item(1)}")
+
+
+@check("rest", "sleeps the user and fills it back up")
+def _rest():
+    f = Fight(ours("snorlax", "__none__",
+                   ("rest", "bodyslam", "protect", "splash"),
+                   None, "serious", (32, 0, 32, 0, 2, 0)),
+              [mon("garchomp", "__none__",
+                   ("earthquake", "dragonclaw", "firefang", "stoneedge"),
+                   None, "jolly", (0, 32, 2, 0, 0, 32))])
+    f.turn(Action.move(3), Action.move(0))
+    hurt = f.hp(0)
+    f.turn(Action.move(0), Action.move(3))    # Stone Edge may miss; Rest is ours
+    return (f.hp(0) > hurt and f.status(0) == "slp",
+            f"at {hurt} of {f.max_hp(0)} -> {f.hp(0)}, status {f.status(0)}")
+
+
+@check("trickroom", "the slower of the two moves first")
+def _trick_room():
+    def order(with_room):
+        f = Fight(ours("slowbro", "__none__",       # slow on purpose
+                       ("trickroom", "scald", "splash", "psychic"),
+                       None, "relaxed", (32, 0, 32, 0, 2, 0)),
+                  [mon("weavile", "__none__",       # fast on purpose
+                       ("iceshard", "knockoff", "splash", "uturn"),
+                       None, "jolly", (0, 32, 2, 0, 0, 32))])
+        f.turn(Action.move(0 if with_room else 2), Action.move(2))
+        f.turn(Action.move(1), Action.move(3))
+        text = [str(e) for e in f.log if str(e).startswith("move_used")]
+        return next((("them" if "side=1" in one else "us") for one in text), None)
+    plain = order(False)
+    roomed = order(True)
+    return (plain == "them" and roomed == "us",
+            f"without the room {plain} moved first, with it {roomed}")
+
+
+@check("fakeout", "flinches, and only on the turn the user came in")
+def _fake_out():
+    f = Fight(ours("kangaskhan", "__none__",
+                   ("fakeout", "bodyslam", "suckerpunch", "protect"),
+                   None, "jolly", (0, 32, 2, 0, 0, 32)),
+              [mon("snorlax", "__none__",
+                   ("bodyslam", "splash", "rest", "protect"),
+                   None, "serious", (32, 0, 32, 0, 2, 0))])
+    f.turn(Action.move(0), Action.move(0))
+    flinched = f.said("flinch") or not f.said("move_used(side=1")
+    f.turn(Action.move(0), Action.move(0))
+    stale = f.said("move_failed") or f.said("fail")
+    return (flinched and stale,
+            f"first turn flinched={flinched}, second turn refused={stale}")
+
+
+@check("painsplit", "levels the two HP totals")
+def _pain_split():
+    # The user has to be able to hold the average: Gengar caps at 135 against
+    # a Blissey's 362, so both ending level is impossible and the first version
+    # of this check was reporting the cap as a failure.
+    f = Fight(ours("snorlax", "__none__",
+                   ("painsplit", "bodyslam", "protect", "splash"),
+                   None, "serious", (32, 0, 32, 0, 2, 0)),
+              [mon("garchomp", "__none__",
+                   ("earthquake", "dragonclaw", "firefang", "stoneedge"),
+                   None, "jolly", (0, 32, 2, 0, 0, 32))])
+    f.turn(Action.move(3), Action.move(0))     # a hit, to put the two apart
+    mine, theirs = f.hp(0), f.hp(1)
+    f.turn(Action.move(0), Action.move(3))     # Stone Edge may miss; ours lands
+    # Which of the two rises depends on which started lower, and that depends
+    # on a damage roll. What Pain Split promises is that they end together.
+    return (abs(mine - theirs) > 10 and abs(f.hp(0) - f.hp(1)) <= 2,
+            f"{mine} and {theirs} -> {f.hp(0)} and {f.hp(1)}")
+
+
+@check("perishsong", "counts both sides down to fainting")
+def _perish_song():
+    f = Fight(ours("gengar", "__none__",
+                   ("perishsong", "shadowball", "protect", "splash")),
+              [dummy("snorlax")])
+    f.turn(Action.move(0), Action.move(0))
+    counted = "perishsong" in f.volatiles(0) and "perishsong" in f.volatiles(1)
+    for _ in range(3):
+        if f.state.phase.name in ("FINISHED", "FORCED_SWITCH"):
+            break
+        f.turn(Action.move(3), Action.move(0))
+    fainted = f.said("faint") or f.state.phase.name in ("FINISHED",
+                                                        "FORCED_SWITCH")
+    return counted and fainted, f"counter on both={counted}, fainted={fainted}"
+
+
+@check("strengthsap", "heals by the target's Attack and takes a stage off it")
+def _strength_sap():
+    f = Fight(ours("gourgeist", "__none__",
+                   ("strengthsap", "shadowsneak", "protect", "splash"),
+                   None, "serious", (32, 0, 32, 0, 2, 0)),
+              [mon("garchomp", "__none__",
+                   ("earthquake", "dragonclaw", "firefang", "stoneedge"),
+                   None, "jolly", (0, 32, 2, 0, 0, 32))])
+    f.turn(Action.move(1), Action.move(0))    # take a hit to leave room
+    hurt = f.hp(0)
+    f.turn(Action.move(0), Action.move(3))
+    return (f.hp(0) > hurt and f.boosts(1).get("atk") == -1,
+            f"{hurt} -> {f.hp(0)}, their Atk {f.boosts(1).get('atk')}")
+
+
+@check("destinybond", "takes the attacker with it")
+def _destiny_bond():
+    f = Fight(ours("gengar", "__none__",
+                   ("destinybond", "shadowball", "protect", "splash"),
+                   None, "timid", (0, 0, 0, 32, 0, 32)),
+              [mon("garchomp", "__none__",
+                   ("earthquake", "dragonclaw", "firefang", "stoneedge"),
+                   None, "jolly", (0, 32, 2, 0, 0, 32))])
+    f.turn(Action.move(0), Action.move(1))    # Dragon Claw: Gengar is frail
+    marked = "destinybond" in f.volatiles(0)
+    both = f.said("faint(side=0") and f.said("faint(side=1")
+    return (marked or both,
+            f"volatile={marked}, both fainted={both}; "
+            f"log {' | '.join(str(e) for e in f.log)[:160]}")
+
+
+@check("kingsshield", "blocks the hit and takes a stage off a contact attacker")
+def _kings_shield():
+    f = Fight(ours("aegislash", "__none__",
+                   ("kingsshield", "shadowball", "shadowsneak", "swordsdance")),
+              [mon("garchomp", "__none__",
+                   ("dragonclaw", "earthquake", "firefang", "stoneedge"),
+                   None, "jolly", (0, 32, 2, 0, 0, 32))])
+    f.turn(Action.move(0), Action.move(0))    # Dragon Claw makes contact
+    return (f.hp(0) == f.max_hp(0) and f.boosts(1).get("atk", 0) < 0,
+            f"we are at {f.hp(0)}/{f.max_hp(0)}, "
+            f"their Atk {f.boosts(1).get('atk', 0)}")
+
+
+@check("metalburst", "returns more than it was hit for")
+def _metal_burst():
+    f = Fight(ours("archaludon", "__none__",
+                   ("metalburst", "flashcannon", "dragontail", "protect"),
+                   None, "sassy", (32, 0, 32, 0, 32, 0)),
+              [mon("garchomp", "__none__",
+                   ("dragonclaw", "earthquake", "firefang", "stoneedge"),
+                   None, "jolly", (0, 32, 2, 0, 0, 32))])
+    f.turn(Action.move(0), Action.move(0))
+    taken = f.max_hp(0) - f.hp(0)
+    returned = f.damage("metalburst")
+    return (taken > 0 and returned > taken,
+            f"took {taken}, returned {returned}")
+
+
+@check("defog", "clears the hazards off both sides")
+def _defog():
+    f = Fight(ours("corviknight", "__none__",
+                   ("defog", "roost", "bodypress", "uturn")),
+              [mon("ferrothorn", "__none__",
+                   ("spikes", "stealthrock", "gyroball", "protect"),
+                   None, "relaxed", (32, 0, 32, 0, 2, 0))])
+    f.turn(Action.move(1), Action.move(0))    # they lay Spikes on us
+    f.turn(Action.move(1), Action.move(1))    # and Stealth Rock
+    before = (f.conditions(0), f.conditions(1))
+    # Not Protect on their side: Defog targets them, so Protect blocks it and
+    # the check then measures a block rather than a clear.
+    f.turn(Action.move(0), Action.move(2))
+    return (before[0] and not f.conditions(0),
+            f"ours {before[0] or 'none'} -> {f.conditions(0) or 'none'}, "
+            f"theirs {before[1] or 'none'} -> {f.conditions(1) or 'none'}")
 
 
 # --------------------------------------------------------------------------- #

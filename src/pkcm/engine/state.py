@@ -623,6 +623,15 @@ def legal_actions(state: BattleState, player: int, position: int = 0) -> tuple[A
     # leaves the field. Enforced here so the search and the environment mask
     # see the same thing the engine does.
     choice_locked = volatiles.get("choicelock", {}).get("move")
+    # Encore recorded the index it caught when it landed and nothing ever read
+    # it back: the volatile was set, its counter ticked down, and the target
+    # went on choosing whatever it liked for all four turns. Seventy-six of the
+    # field's parties carry it. The lock is dropped rather than honoured when
+    # that move has no PP left, which is also when the real one ends.
+    encored = volatiles.get("encore", {}).get("move")
+    if encored is not None and not (encored < len(side.pp[slot])
+                                    and side.pp[slot][encored] > 0):
+        encored = None
     sealed = imprisoned_moves(state, player)
     known = state.moves(player, slot)
 
@@ -630,6 +639,7 @@ def legal_actions(state: BattleState, player: int, position: int = 0) -> tuple[A
         index
         for index, pp in enumerate(side.pp[slot])
         if pp > 0 and index != disabled and (choice_locked is None or index == choice_locked)
+        and (encored is None or index == encored)
         and not (index < len(known) and known[index].id in sealed)
     ]
 

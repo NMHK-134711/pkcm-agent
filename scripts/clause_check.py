@@ -1998,7 +1998,37 @@ def _baton_passes_it():
     rows = []
     for move_id in members("batonpasses"):
         if move_id == "dragoncheer":
-            continue            # ally-only: verified on a doubles field instead
+            # Ally-only, so it needs the doubles field: cheer the partner,
+            # have the partner Baton Pass, and see whether what comes in
+            # still has it.
+            ours = [mon(UNIVERSAL, "__none__",
+                        (move_id, "splash", "protect", "rest"), None,
+                        "serious", (32, 0, 32, 0, 2, 32)),
+                    mon("snorlax", "__none__",
+                        ("batonpass", "splash", "protect", "rest"), None,
+                        "serious", (32, 0, 32, 0, 2, 0))]
+            theirs = [mon("snorlax", "__none__",
+                          ("splash", "bodyslam", "protect", "rest"), None,
+                          "sassy", (32, 0, 32, 0, 32, 0))] * 2
+            g = Pair(ours, theirs)
+            g.turn((Action.move(0, target=TARGET_ALLY), Action.move(1)),
+                   (Action.move(0), Action.move(0)))
+            cheered = "dragoncheer" in g.state.sides[0].volatiles[
+                g.state.sides[0].active[1]]
+            g.turn((Action.move(1), Action.move(0)),
+                   (Action.move(0), Action.move(0)))
+            while g.state.phase.name in ("MID_TURN_SWITCH", "FORCED_SWITCH"):
+                g.turn(
+                    tuple(Action.switch(2 + i) if g.state.sides[0].must_switch[i]
+                          else Action.PASS for i in range(2)),
+                    tuple(Action.switch(2 + i) if g.state.sides[1].must_switch[i]
+                          else Action.PASS for i in range(2)))
+            carried = "dragoncheer" in g.state.sides[0].volatiles[
+                g.state.sides[0].active[1]]
+            rows.append((move_id, cheered and carried,
+                         f"the partner was cheered={cheered}, and its "
+                         f"replacement has it={carried}"))
+            continue
         volatile = {"focusenergy": "focusenergy",
                     "substitute": "substitute"}[move_id]
         f = Fight([mon(UNIVERSAL, "__none__",

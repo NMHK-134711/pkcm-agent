@@ -112,6 +112,10 @@ PASSED_ON = frozenset({
     # this list said "gastroacid" -- a name nothing ever sets, so the one
     # effect on it that a Baton Pass is supposed to carry never was.
     "powertrick", "abilitysuppressed", "curse", "noretreat",
+    # Dragon Cheer says so in its own description and was not on the list.
+    # Found by auditing which clauses a family claims but never puts in a
+    # position: it was the only one, and it was hiding this.
+    "dragoncheer",
 })
 
 

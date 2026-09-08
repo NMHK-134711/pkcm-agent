@@ -257,7 +257,7 @@ def start_trapping(ctx: Context, attacker: Ref, target: Ref, move) -> None:
              else ctx.cursor.choice((5, 6)))
     mutate.add_volatile(ctx, target, "partiallytrapped", move=move.id,
                         turns=turns, binder=attacker)
-    mutate.add_volatile(ctx, target, "trapped")
+    mutate.add_volatile(ctx, target, "trapped", source=attacker)
 
 
 def _trapping_residual(ctx, ref, **_):

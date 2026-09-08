@@ -867,6 +867,319 @@ def _needs_an_item():
     return verdict(rows)
 
 
+
+@family("protectchain",
+        "This move has a 1/X chance of being successful, where X starts at 1 "
+        "and triples each time this move is successfully used.",
+        "X resets to 1 if this move fails, if the user's last move used is not "
+        "Baneful Bunker",
+        "Fails if the user moves last this turn.")
+def _protect_chain():
+    """Once is certain, twice is a third, and something else in between resets."""
+    rows = []
+    for move_id in members("protectchain"):
+        first = second = tries = 0
+        for seed in range(60):
+            f = Fight([swinger(move_id, extra=("splash", "protect", "rest"))],
+                      [wall()], seed=seed)
+            f.turn(Action.move(0), Action.move(1))
+            if failed(f):
+                continue
+            tries += 1
+            first += 1
+            f.turn(Action.move(0), Action.move(1))
+            second += not failed(f)
+        share = second / tries if tries else 0.0
+        # A third, give or take three standard errors on sixty samples.
+        slack = max(0.12, 3 * (1 / 3 * 2 / 3 / max(1, tries)) ** 0.5)
+        rows.append((move_id, first == tries and abs(share - 1 / 3) <= slack,
+                     f"the first cast worked {first} of {tries} times, the "
+                     f"second {second} ({share:.0%} against a third)"))
+    return verdict(rows)
+
+
+@family("bindingrelease",
+        "The effect ends if either the user or the target leaves the field, or "
+        "if the target uses Mortal Spin, Rapid Spin, or Substitute successfully.",
+        "The effect ends if either the user or the target leaves the field.")
+def _the_binder_leaving_ends_it():
+    rows = []
+    for move_id in members("bindingrelease"):
+        if move_id == "lockon":
+            # Not a trap: the aim is on the user, and it is the *target*
+            # leaving that has to end it.
+            f = Fight([swinger(move_id)],
+                      [wall(mc._reachable(DEX.moves[move_id])),
+                       mon("magikarp", "__none__", ("splash", "tackle"))],
+                      seed=7)
+            f.turn(Action.move(0), Action.move(0))
+            aimed = "lockon" in f.volatiles(0)
+            f.turn(Action.move(1), Action.switch(1))
+            rows.append((move_id, aimed and "lockon" not in f.volatiles(0),
+                         f"locked on={aimed}; after the target left it held "
+                         f"{sorted(f.volatiles(0) & {'lockon'})}"))
+            continue
+        f = until(lambda seed, move_id=move_id: Fight(
+            [mon(UNIVERSAL, "__none__", (move_id, "splash", "protect", "rest"),
+                 None, "adamant", (32, 32, 0, 0, 2, 0)),
+             mon("magikarp", "__none__", ("splash", "tackle"))],
+            [wall(mc._reachable(DEX.moves[move_id]))], seed=seed)
+            .turn(Action.move(0), Action.move(0)),
+            lambda f: "trapped" in f.volatiles(1))
+        if f is None:
+            rows.append((move_id, False, "never caught anything in thirty tries"))
+            continue
+        f.turn(Action.switch(1), Action.move(0))       # the binder walks away
+        rows.append((move_id, "trapped" not in f.volatiles(1),
+                     f"after the user left, the target held "
+                     f"{sorted(f.volatiles(1) & {'trapped', 'partiallytrapped'})}"))
+    return verdict(rows)
+
+
+@family("hitstwice", "Hits twice.")
+def _hits_twice():
+    rows = []
+    for move_id in members("hitstwice"):
+        counts = set()
+        for seed in range(8):
+            f = Fight([swinger(move_id)],
+                      [wall(mc._reachable(DEX.moves[move_id]))], seed=seed)
+            f.turn(Action.move(0), Action.move(0))
+            hit = len([e for e in f.log if e.kind == "damage"
+                       and (e.side or 0) == 1 and e.move == move_id])
+            if hit:
+                counts.add(hit)
+        rows.append((move_id, counts == {2}, f"hit {sorted(counts)} times"))
+    return verdict(rows)
+
+
+@family("statsplit", "Stat stage changes are unaffected.")
+def _stat_stages_are_left_alone():
+    """Guard Split and friends move the raw stats, not the stages."""
+    rows = []
+    for move_id in members("statsplit"):
+        f = Fight([mon(UNIVERSAL, "__none__",
+                       (move_id, "swordsdance", "splash", "protect"), None,
+                       "adamant", (32, 32, 0, 0, 2, 0))],
+                  [wall()], seed=7)
+        f.turn(Action.move(1), Action.move(0))          # two stages of Attack
+        before = dict(f.boosts(0)), dict(f.boosts(1))
+        f.turn(Action.move(0), Action.move(0))
+        after = dict(f.boosts(0)), dict(f.boosts(1))
+        rows.append((move_id, before == after,
+                     f"stages {before} -> {after}"))
+    return verdict(rows)
+
+
+@family("crashdamage",
+        "If this attack is not successful, the user loses half of its maximum "
+        "HP, rounded down, as crash damage.",
+        "Pokemon with the Magic Guard Ability are unaffected by crash damage.")
+def _crash_damage():
+    rows = []
+    for move_id in members("crashdamage"):
+        def missed(ability, move_id=move_id):
+            for seed in range(30):
+                f = Fight([swinger(move_id, ability=ability)],
+                          [wall(mc._reachable(DEX.moves[move_id]))], seed=seed)
+                side = f.state.sides[1]
+                side.boosts[side.active[0]][mc.BOOST_INDEX["evasion"]] = 6
+                whole = f.hp(0)
+                f.turn(Action.move(0), Action.move(0))
+                if not landed(f, move_id):
+                    return whole - f.hp(0), f.max_hp(0)
+            return None, None
+
+        paid, whole = missed("__none__")
+        guarded, _ = missed("magicguard")
+        rows.append((move_id, paid == whole // 2 and guarded == 0,
+                     f"a miss cost {paid} of {whole} (half is {whole // 2 if whole else '?'}); "
+                     f"behind Magic Guard it cost {guarded}"))
+    return verdict(rows)
+
+
+@family("sturdyohko", "Pokemon with the Sturdy Ability are immune.")
+def _sturdy_stops_an_ohko():
+    rows = []
+    for move_id in members("sturdyohko"):
+        def fell(ability, move_id=move_id):
+            for seed in range(30):
+                f = Fight([swinger(move_id)],
+                          [wall(mc._reachable(DEX.moves[move_id]),
+                                ability=ability)], seed=seed)
+                f.turn(Action.move(0), Action.move(0))
+                if landed(f, move_id):
+                    return True
+            return False
+
+        rows.append((move_id, fell("__none__") and not fell("sturdy"),
+                     f"it landed on a plain target={fell('__none__')}, on a "
+                     f"Sturdy one={fell('sturdy')}"))
+    return verdict(rows)
+
+
+@family("thawsthetarget", "The target thaws out if it is frozen.")
+def _thaws_the_target():
+    rows = []
+    for move_id in members("thawsthetarget"):
+        f = Fight([swinger(move_id)],
+                  [wall(mc._reachable(DEX.moves[move_id]))], seed=7)
+        side = f.state.sides[1]
+        side.status[side.active[0]] = "frz"
+        f.turn(Action.move(0), Action.move(0))
+        rows.append((move_id, f.status(1) != "frz",
+                     f"the frozen target came out {f.status(1)}"))
+    return verdict(rows)
+
+
+@family("selfdestruct",
+        "The user faints after using this move, even if this move fails for "
+        "having no target.",
+        "This move is prevented from executing if any active Pokemon has the "
+        "Damp Ability.")
+def _self_destruct():
+    rows = []
+    for move_id in members("selfdestruct"):
+        f = Fight([swinger(move_id)],
+                  [wall(mc._reachable(DEX.moves[move_id]))], seed=7)
+        f.turn(Action.move(0), Action.move(0))
+        gone = f.state.sides[0].hp[0] == 0
+
+        damp = Fight([swinger(move_id)],
+                     [wall(mc._reachable(DEX.moves[move_id]), ability="damp")],
+                     seed=7)
+        damp.turn(Action.move(0), Action.move(0))
+        smothered = damp.state.sides[0].hp[0] > 0 and not landed(damp, move_id)
+        rows.append((move_id, gone and smothered,
+                     f"the user fainted={gone}; in front of Damp it was "
+                     f"smothered={smothered}"))
+    return verdict(rows)
+
+
+@family("halfhealth", "The user restores 1/2 of its maximum HP, rounded half up.")
+def _restores_half():
+    rows = []
+    for move_id in members("halfhealth"):
+        f = Fight([swinger(move_id)], [wall()], seed=7)
+        slot = f.state.sides[0].active[0]
+        whole = f.max_hp(0)
+        f.state.sides[0].hp[slot] = 1
+        f.turn(Action.move(0), Action.move(0))
+        got = f.hp(0) - 1
+        rows.append((move_id, abs(got - (whole + 1) // 2) <= 1,
+                     f"restored {got} of {whole}, half being {(whole + 1) // 2}"))
+    return verdict(rows)
+
+
+@family("weatherheal",
+        "The user restores 1/2 of its maximum HP if Delta Stream or no weather "
+        "conditions are in effect or if the user is holding Utility Umbrella")
+def _weather_heal():
+    """Half in clear weather, two thirds in sun, a quarter in anything else."""
+    want = {None: 1 / 2, "sunnyday": 2 / 3, "raindance": 1 / 4,
+            "sandstorm": 1 / 4, "snowscape": 1 / 4}
+    rows = []
+    for move_id in members("weatherheal"):
+        off = []
+        for weather, share in want.items():
+            # Magic Guard, because a sandstorm takes a sixteenth off at the
+            # end of the same turn and that is not what this measures.
+            f = Fight([swinger(move_id, ability="magicguard")], [wall()], seed=7)
+            if weather:
+                f.state.field.weather = weather
+                f.state.field.weather_turns = 8
+            slot = f.state.sides[0].active[0]
+            whole = f.max_hp(0)
+            f.state.sides[0].hp[slot] = 1
+            f.turn(Action.move(0), Action.move(0))
+            got = f.hp(0) - 1
+            if abs(got - round(whole * share)) > 2:
+                off.append(f"{weather or 'clear'}: {got} not {round(whole * share)}")
+        rows.append((move_id, not off, "; ".join(off) or "every weather as declared"))
+    return verdict(rows)
+
+
+@family("hitsairborne", "This move can hit a target using Bounce, Fly, or Sky "
+                        "Drop, or is under the effect of Sky Drop.")
+def _hits_the_airborne():
+    rows = []
+    for move_id in members("hitsairborne"):
+        f = Fight([mon(UNIVERSAL, "__none__", (move_id, "splash", "protect", "rest"),
+                       None, "modest", (32, 0, 0, 32, 2, 0))],
+                  [mon("mew", "__none__", ("fly", "splash", "protect", "rest"),
+                       None, "jolly", (32, 32, 0, 0, 2, 32))], seed=7)
+        f.turn(Action.move(1), Action.move(0))          # they take off
+        f.turn(Action.move(0), Action.move(0))          # we swing at the sky
+        rows.append((move_id, landed(f, move_id),
+                     f"reached something in the air={landed(f, move_id)}"))
+    return verdict(rows)
+
+
+@family("alwayscrit", "This move is always a critical hit unless the target is "
+                      "under the effect of Lucky Chant or has the Battle Armor "
+                      "or Shell Armor Abilities.")
+def _always_a_crit():
+    rows = []
+    for move_id in members("alwayscrit"):
+        def crits(ability, move_id=move_id):
+            seen = []
+            for seed in range(6):
+                f = Fight([swinger(move_id)],
+                          [wall(mc._reachable(DEX.moves[move_id]), ability=ability)],
+                          seed=seed)
+                f.turn(Action.move(0), Action.move(0))
+                seen += [e.crit for e in f.log if e.kind == "damage"
+                         and (e.side or 0) == 1 and e.move == move_id]
+            return seen
+
+        plain, armoured = crits("__none__"), crits("battlearmor")
+        rows.append((move_id, plain and all(plain) and armoured and not any(armoured),
+                     f"{sum(plain)}/{len(plain)} critical normally, "
+                     f"{sum(armoured)}/{len(armoured)} against Battle Armor"))
+    return verdict(rows)
+
+
+@family("terrainends", "Ends the effects of Electric Terrain, Grassy Terrain, "
+                       "Misty Terrain, and Psychic Terrain.")
+def _ends_the_terrain():
+    rows = []
+    for move_id in members("terrainends"):
+        f = Fight([swinger(move_id)],
+                  [wall(mc._reachable(DEX.moves[move_id]))], seed=7)
+        f.state.field.terrain = "grassyterrain"
+        f.state.field.terrain_turns = 8
+        f.turn(Action.move(0), Action.move(0))
+        rows.append((move_id, f.state.field.terrain is None,
+                     f"the terrain afterwards is {f.state.field.terrain}"))
+    return verdict(rows)
+
+
+@family("fixeddamage", "Deals damage to the target equal to the user's level.")
+def _the_users_level():
+    rows = []
+    for move_id in members("fixeddamage"):
+        f = Fight([swinger(move_id)],
+                  [wall(mc._reachable(DEX.moves[move_id]))], seed=7)
+        f.turn(Action.move(0), Action.move(0))
+        rows.append((move_id, hp_lost(f) == 50, f"took {hp_lost(f)}, and the level is 50"))
+    return verdict(rows)
+
+
+@family("screenbreakers",
+        "If this attack does not miss, the effects of Reflect, Light Screen, "
+        "and Aurora Veil end for the target's side of the field before damage "
+        "is calculated.",
+        "It is removed from the user's side if the user or an ally is "
+        "successfully hit by Brick Break, Psychic Fangs, or Defog.",
+        "Lasts for 8 turns if the user is holding Light Clay.",
+        "Critical hits ignore this effect.",
+        "Damage is not reduced further with Aurora Veil.",
+        "Critical hits ignore this protection.")
+def _the_screens():
+    """Delegated to the four written checks in ``mechanic_check``."""
+    return _delegate("screenbreakers")
+
+
 # --------------------------------------------------------------------------- #
 # The report
 # --------------------------------------------------------------------------- #

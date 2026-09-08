@@ -841,12 +841,15 @@ def _unstaged(ctx: Context, ref: Ref, stat: Stat, move, opponent: Ref, keep_posi
 
 
 def rolls_crit(ctx: Context, attacker: Ref, defender: Ref, move: Move) -> bool:
-    if move.raw.get("willCrit"):
-        return True
     ratio = move.raw.get("critRatio", 1)
     ratio = _both_sides(ctx, "modify_crit_ratio", ratio, attacker, defender, move)
     if ratio <= NEVER_CRITS:
+        # Battle Armor and Shell Armor answer "no crits at all", and asking
+        # after the ``willCrit`` shortcut meant the three always-crit moves
+        # crit through them anyway.
         return False
+    if move.raw.get("willCrit"):
+        return True
     denominator = CRIT_DENOMINATOR.get(ratio, 1)
     if denominator <= 1:
         return True
@@ -1275,7 +1278,7 @@ def _resolve(
         # High Jump Kick's gamble: missing costs half the user's own HP.
         if move.raw.get("hasCrashDamage"):
             ctx.emit(Event("crash", side=attacker[0], slot=attacker[1], move=move.id))
-            apply_damage(ctx, attacker, (mutate.max_hp(ctx.state, attacker) + 1) // 2,
+            apply_damage(ctx, attacker, mutate.max_hp(ctx.state, attacker) // 2,
                          "recoil", detail="crash")
         _note_move_failed(ctx, attacker, True)
         return
@@ -1649,6 +1652,15 @@ def _apply_ohko(ctx: Context, attacker: Ref, defender: Ref, move: Move) -> bool:
     if type_effectiveness(ctx, attacker, defender, move) == 0.0:
         ctx.emit(ev.immune(defender[0], defender[1], move.id))
         return False
+    # Sturdy answers these outright rather than by shaving the damage, and
+    # shaving is all it could do from ``modify_damage``: a one-hit KO never
+    # goes through the damage formula, so it walked past the ability.
+    if ctx.ability_of(defender) == "sturdy":
+        from pkcm.engine.abilities import announce
+
+        announce(ctx, defender, "sturdy")
+        ctx.emit(ev.immune(defender[0], defender[1], move.id))
+        return False
     apply_damage(ctx, defender, mutate.max_hp(ctx.state, defender), "damage",
                  move=move.id, detail="ohko", effectiveness=1.0)
     return True
@@ -1686,7 +1698,11 @@ def _apply_status_move(ctx: Context, attacker: Ref, target: Ref, move) -> bool:
     if special is not None:
         did_something |= special(ctx, attacker, target, move)
 
-    if raw.get("stallingMove") and move.id != "endure":
+    # Only when nothing else has: the six Protect variants call
+    # ``_apply_protect`` from their own handler, and running this branch as
+    # well spent the stall twice on one cast. A Baneful Bunker failed two
+    # times in three the first time it was used, and could not be used twice.
+    if raw.get("stallingMove") and special is None:
         return _apply_protect(ctx, attacker, move)
 
     if move.id == "substitute":
@@ -1766,20 +1782,34 @@ def _volatile_data(ctx: Context, name: str) -> dict:
     return {}
 
 
-def _apply_protect(ctx: Context, attacker: Ref, move: Move) -> bool:
-    """Consecutive Protects get likelier to fail: 1/1, then 1/3, 1/9, ..."""
+def _spend_a_stall(ctx: Context, attacker: Ref, move: Move) -> bool:
+    """The 1/1, 1/3, 1/9 roll every protecting move shares.
+
+    The eight moves in the chain name each other in their own descriptions --
+    "X resets to 1 if the user's last move used is not Baneful Bunker, ...,
+    Endure, ..., Quick Guard, or Wide Guard" -- and three of the eight were
+    never rolling: Endure was excluded so it would not gain the Protect
+    volatile, and the two guards go out through the side-condition path.
+    """
     stall = mutate.volatile(ctx.state, attacker, "stall")
     denominator = 3 ** stall["count"] if stall else 1
     if denominator > 1 and not ctx.cursor.chance(1, denominator):
         mutate.remove_volatile(ctx, attacker, "stall", quiet=True)
-        ctx.emit(Event("move_failed", side=attacker[0], move=move.id, detail="stalled out"))
+        ctx.emit(Event("move_failed", side=attacker[0], move=move.id,
+                       detail="stalled out"))
         return False
-
-    mutate.add_volatile(ctx, attacker, "protect")
     if stall is None:
         ctx.state.sides[attacker[0]].volatiles[attacker[1]]["stall"] = {"count": 1}
     else:
         stall["count"] += 1
+    return True
+
+
+def _apply_protect(ctx: Context, attacker: Ref, move: Move) -> bool:
+    """Consecutive Protects get likelier to fail: 1/1, then 1/3, 1/9, ..."""
+    if not _spend_a_stall(ctx, attacker, move):
+        return False
+    mutate.add_volatile(ctx, attacker, "protect")
     return True
 
 

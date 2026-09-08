@@ -307,6 +307,31 @@ def _leave_field(ctx: Context, player: int, position: int) -> None:
         fx.notify(ctx, "switch_out", (player, slot), scope="self")
     side.clear_on_switch_out(slot)
     ctx.state.clear_temporary_overrides(player, slot)
+    _release_whatever_it_was_holding(ctx, (player, slot))
+
+
+def _release_whatever_it_was_holding(ctx: Context, leaver) -> None:
+    """Every trap in the format ends when the one who laid it leaves.
+
+    Bind, Block, Mean Look, Spirit Shackle and the six other binding moves all
+    say so in their own descriptions, and the volatile sat on the target with
+    nothing pointing back at whoever put it there -- so switching out of a
+    Mean Look left the trap standing on an empty field.
+    """
+    from pkcm.engine.mutate import TRAPS_THAT_END_WITH_THEIR_SOURCE
+
+    for player in (0, 1):
+        side = ctx.state.sides[player]
+        for slot in side.active:
+            if slot < 0:
+                continue
+            for name in list(TRAPS_THAT_END_WITH_THEIR_SOURCE):
+                data = side.volatiles[slot].get(name)
+                if not isinstance(data, dict):
+                    continue
+                laid_by = data.get("by") or data.get("binder")
+                if laid_by is not None and tuple(laid_by) == tuple(leaver):
+                    mutate.remove_volatile(ctx, (player, slot), name, quiet=True)
 
 
 def _announce_arrival(ctx: Context, player: int, position: int) -> None:
@@ -623,6 +648,17 @@ def _tick_field(ctx: Context) -> None:
                 ctx.emit(Event("side_condition_end", side=player, detail=name))
 
 
+#: The moves that share one stall counter. Each of the eight names the other
+#: seven in its own description: "X resets to 1 if the user's last move used is
+#: not Baneful Bunker, Burning Bulwark, Detect, Endure, King's Shield, Max
+#: Guard, Obstruct, Protect, Quick Guard, Silk Trap, Spiky Shield, or Wide
+#: Guard". These are the ones this format has.
+STALL_CHAIN = frozenset({"protect", "detect", "endure", "kingsshield",
+                         "banefulbunker", "spikyshield", "quickguard",
+                         "wideguard", "silktrap", "obstruct", "burningbulwark",
+                         "maxguard"})
+
+
 def _clear_turn_volatiles(ctx: Context) -> None:
     """Protect lasts one turn; the stall counter resets the turn it is not used."""
     for player in (0, 1):
@@ -631,6 +667,13 @@ def _clear_turn_volatiles(ctx: Context) -> None:
             volatiles = side.volatiles[slot]
             if "protect" in volatiles:
                 del volatiles["protect"]
+            # The counter carried on only while the Protect volatile was
+            # present, and five of the eight moves in the chain raise their
+            # own volatile or a side condition instead -- so Endure, King's
+            # Shield, Baneful Bunker, Spiky Shield, Quick Guard and Wide Guard
+            # reset the chain every turn and never got harder to use.
+            if volatiles.get("lastmove") in STALL_CHAIN:
+                pass
             elif "stall" in volatiles:
                 del volatiles["stall"]
             volatiles.pop("flinch", None)

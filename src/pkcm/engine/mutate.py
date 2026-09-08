@@ -350,6 +350,12 @@ def cure_status(ctx: Context, ref: Ref) -> bool:
 # --------------------------------------------------------------------------- #
 
 
+#: Traps that end when whoever laid them leaves. ``partiallytrapped`` keeps
+#: its own ``binder`` for the Binding Band and is listed here for the same
+#: reason: the pair travels with the effect, not with the Pokemon holding it.
+TRAPS_THAT_END_WITH_THEIR_SOURCE = frozenset({"trapped", "partiallytrapped"})
+
+
 def add_volatile(ctx: Context, ref: Ref, name: str, source: Ref | None = None, **data) -> bool:
     side_index, slot = ref
     side = ctx.state.sides[side_index]
@@ -357,7 +363,13 @@ def add_volatile(ctx: Context, ref: Ref, name: str, source: Ref | None = None, *
         return False
     if not fx.allows(ctx, "try_volatile", ref, volatile=name, source=source):
         return False
-    side.volatiles[slot][name] = dict(data)
+    payload = dict(data)
+    # "The effect ends if either the user or the target leaves the field" --
+    # true of every trap in the format, and none of them remembered whose it
+    # was, so a Mean Look outlived the Pokemon that cast it.
+    if source is not None and name in TRAPS_THAT_END_WITH_THEIR_SOURCE:
+        payload.setdefault("by", tuple(source))
+    side.volatiles[slot][name] = payload
     ctx.emit(Event("volatile_start", side=side_index, slot=slot, detail=name))
     return True
 

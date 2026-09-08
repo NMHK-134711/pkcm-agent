@@ -574,8 +574,20 @@ def _salt_cure_residual(ctx, ref, **_):
 register("volatile", "saltcure", name="Salt Cure", residual=_salt_cure_residual)
 
 
+def _in_the_chain(ctx, user, move) -> bool:
+    """Roll the shared stall counter. Endure and the two guards are in the
+    chain their own descriptions name, and neither reached it: Endure was
+    excluded from ``_apply_protect`` so it would not gain the Protect
+    volatile, and the guards go out through the side-condition path."""
+    from pkcm.engine.moves import _spend_a_stall
+
+    return _spend_a_stall(ctx, user, move)
+
+
 @special("endure")
 def _endure(ctx, user, target, move) -> bool:
+    if not _in_the_chain(ctx, user, move):
+        return False
     return mutate.add_volatile(ctx, user, "endure")
 
 
@@ -1073,8 +1085,20 @@ def _side_condition(name: str, turns: int, on_own_side: bool = True):
 
 
 SPECIAL_MOVES["safeguard"] = _side_condition("safeguard", 5)
-SPECIAL_MOVES["quickguard"] = _side_condition("quickguard", 1)
-SPECIAL_MOVES["wideguard"] = _side_condition("wideguard", 1)
+def _guard(name: str):
+    """A one-turn side condition that is also in the Protect chain."""
+    put_up = _side_condition(name, 1)
+
+    def handler(ctx, user, target, move) -> bool:
+        if not _in_the_chain(ctx, user, move):
+            return False
+        return put_up(ctx, user, target, move)
+
+    return handler
+
+
+SPECIAL_MOVES["quickguard"] = _guard("quickguard")
+SPECIAL_MOVES["wideguard"] = _guard("wideguard")
 
 register("side", "safeguard", name="Safeguard",
          try_status=lambda ctx, ref, status, source, **_:

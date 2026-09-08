@@ -846,10 +846,16 @@ def test_a_trap_ends_when_the_trapper_leaves_the_field(dex):
         "still trapped by a Gengar that is no longer on the field")
 
 
-def test_a_move_that_traps_is_not_released_by_the_same_rule(dex):
-    """Only an ability's hold is tied to the ability standing there. Block and
-    Mean Look hold on their own terms, and the release must not reach them."""
-    from pkcm.engine.state import _is_trapped
+def test_a_move_that_traps_is_released_when_its_caster_leaves(dex):
+    """Block and Mean Look end when either side leaves, and say so.
+
+    This test used to assert the opposite -- that a move's hold carries no
+    holder and so cannot be released by one -- and the descriptions are
+    explicit: "The effect ends if either the user or the target leaves the
+    field." Nine binding moves, Block, Mean Look and Spirit Shackle all carry
+    the sentence, and a Mean Look outlived the Gengar that cast it.
+    """
+    from pkcm.engine.state import _is_trapped, legal_actions
 
     from pkcm.engine.actions import Action
     from pkcm.engine.battle import step
@@ -872,10 +878,13 @@ def test_a_move_that_traps_is_not_released_by_the_same_rule(dex):
     state, _ = step(state, Action.move(0), Action.move(0))
 
     held = state.sides[1].volatiles[state.sides[1].active[0]].get("trapped")
-    assert held is not None and "by" not in held, (
-        "a move's hold carries no holder, and so is never released by one "
-        "leaving")
+    assert held is not None and held.get("by") == (0, 0), "it remembers whose"
     assert _is_trapped(state, 1, state.sides[1].active[0])
+
+    state, _ = step(state, Action.switch(1), Action.move(0))
+    assert not _is_trapped(state, 1, state.sides[1].active[0]), (
+        "the Gengar left and the hold went with it")
+    assert any(action.kind.name == "SWITCH" for action in legal_actions(state, 1))
 
 
 def test_a_berry_eaten_in_play_is_still_a_clue(dex):

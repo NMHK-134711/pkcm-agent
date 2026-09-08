@@ -641,6 +641,7 @@ def _clear_turn_volatiles(ctx: Context) -> None:
                 volatiles.pop(shield, None)
             # Counter and Mirror Coat only answer damage from this turn.
             volatiles.pop("hurtthisturn", None)
+            volatiles.pop("tookdamagethisturn", None)
             if slot not in side.active:
                 volatiles.pop("lastmove", None)
 

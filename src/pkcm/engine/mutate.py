@@ -151,6 +151,14 @@ def apply_damage(
 
     dealt = min(amount, side.hp[slot])
     side.hp[slot] -= dealt
+    # Assurance asks whether its target has taken damage this turn at all, and
+    # the only ledger there was is ``hurtthisturn``, which Counter owns and
+    # which records move hits alone. Recoil, a Rocky Helmet, hazards, Life Orb
+    # -- in singles those are the only ways a target can already be hurt when
+    # Assurance swings, so it could effectively never double. This flag is the
+    # broader question, cleared with the rest of the turn's marks.
+    if dealt > 0:
+        side.volatiles[slot]["tookdamagethisturn"] = True
 
     ctx.emit(
         Event(

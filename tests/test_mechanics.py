@@ -1021,3 +1021,43 @@ def test_a_flying_type_is_still_immune_to_ground_when_nothing_holds_it_down(dex,
     state, log = step(state, Action.move(0), Action.move(0))
     assert any(e.kind == "immune" for e in log), log
     assert state.sides[1].hp[0] == before
+
+
+def test_burn_up_can_be_used_by_a_fire_type(dex, config):
+    """The precondition compared a capitalised name against lower-case types.
+
+    ``state.types`` answers ``('fire',)``; the check asked for ``"Fire"``. So
+    Burn Up refused itself on every Pokemon that could use it and logged
+    "not Fire" while standing there as one, and the handler's filter would
+    have left the type on even if the move had run.
+    """
+    state = build(config, a_set("cinderace", ("burnup", "pyroball")),
+                  a_set("snorlax", ("splash",)))
+    assert "fire" in state.types(0, 0)
+    state, log = step(state, Action.move(0), Action.move(0))
+    assert not any(e.kind == "move_failed" and e.detail == "not Fire"
+                   for e in log), log
+    assert "fire" not in state.types(0, 0)
+
+
+def test_a_move_stopped_by_protect_counts_as_having_failed(dex, config):
+    """Temper Flare and Stomping Tantrum read this, and Protect is the
+    commonest way a move fails in a real game. Every other failure path
+    recorded it; the try_hit veto returned without a word."""
+    state = build(config, a_set("cinderace", ("pyroball", "temperflare")),
+                  a_set("snorlax", ("protect",)))
+    state, _ = step(state, Action.move(0), Action.move(0))
+    assert state.sides[0].volatiles[0].get("lastmovefailed") is True
+
+
+def test_assurance_sees_damage_that_was_not_a_move(dex, config):
+    """Its ledger was Counter's, which holds move hits alone -- and in singles
+    a target is hurt before our turn by recoil, hazards or our own Rocky
+    Helmet, never by a move."""
+    state = build(config, a_set("kingambit", ("assurance",)),
+                  a_set("staraptor", ("bravebird",)))
+    state.sides[1].hp[0] -= 20
+    state.sides[1].volatiles[0]["tookdamagethisturn"] = True
+    ctx = make_context(state)
+    from pkcm.engine.moves import _target_took_damage
+    assert _target_took_damage(ctx, (0, 0), (1, 0))

@@ -1260,6 +1260,330 @@ def _rapid_spin():
             f"{f.conditions(0) or 'none'}")
 
 
+@check("lastrespects", "hits harder for every ally already gone")
+def _last_respects():
+    def dealt(sacrifice_first):
+        houndstone = mon("houndstone", "__none__",
+                         ("lastrespects", "shadowsneak", "protect", "splash"),
+                         None, "adamant", (0, 32, 2, 0, 0, 0))
+        # Not Final Gambit: that took the target down to 42 HP on the way out,
+        # so the knockout truncated the damage and both arms read 42. The foe
+        # does the killing here and stays at full health for both arms.
+        sacrifice = mon("magikarp", "__none__",
+                        ("splash", "tackle", "flail", "bounce"))
+        order = [sacrifice, houndstone] if sacrifice_first else [houndstone]
+        # Not the Blissey wall: Last Respects is Ghost and Normal is immune.
+        f = Fight(order, [mon("milotic", "__none__",
+                              ("surf", "splash", "recover", "protect"),
+                              None, "modest", (0, 0, 2, 32, 0, 32))])
+        if sacrifice_first:
+            f.turn(Action.move(0), Action.move(0))      # Surf ends the Magikarp
+            f.turn(Action.switch(1), Action.PASS)       # Houndstone comes in
+        f.turn(Action.move(0), Action.move(1))
+        return f.damage("lastrespects")
+    alone = dealt(False)
+    after_a_loss = dealt(True)
+    return (alone > 0 and after_a_loss > alone,
+            f"with the team whole {alone}, one ally down {after_a_loss}")
+
+
+@check("icespinner", "sweeps the terrain away")
+def _ice_spinner():
+    f = Fight(ours("weavile", "__none__",
+                   ("icespinner", "knockoff", "iceshard", "swordsdance"),
+                   None, "jolly", (0, 32, 2, 0, 0, 32)),
+              [wall()])
+    f.state.field.terrain = "electricterrain"
+    f.turn(Action.move(0), Action.move(0))
+    return (f.state.field.terrain is None,
+            f"terrain afterwards {f.state.field.terrain!r}")
+
+
+@check("morningsun", "gives back about half of the user's maximum")
+def _morning_sun():
+    f, hurt, healed = _heals_half(
+        "espeon", ("morningsun", "psychic", "calmmind", "protect"), 0)
+    return healed > 0, f"at {hurt} of {f.max_hp(0)}, recovered {healed}"
+
+
+@check("focusenergy", "makes the user's hits likelier to be critical")
+def _focus_energy():
+    f = Fight(ours("kingambit", "__none__",
+                   ("focusenergy", "ironhead", "suckerpunch", "swordsdance")),
+              [dummy("magikarp")])
+    f.turn(Action.move(0), Action.move(0))
+    return ("focusenergy" in f.volatiles(0),
+            f"our volatiles {sorted(f.volatiles(0)) or 'none'}")
+
+
+@check("assurance", "doubles on a target already hurt this turn")
+def _assurance():
+    def dealt(foe_move):
+        # Brave Bird's recoil is the target hurting itself before we swing;
+        # in singles there is no other way for the same turn to have damaged
+        # them already. Slow on purpose so they act first.
+        # Kingambit, not Weavile: Brave Bird was knocking the user out before
+        # it could answer, and a dead attacker deals zero either way.
+        f = Fight(ours("kingambit", "__none__",
+                       ("assurance", "ironhead", "suckerpunch", "swordsdance"),
+                       None, "brave", (32, 32, 32, 0, 2, 0)),
+                  [mon("staraptor", "__none__",
+                       ("bravebird", "roost", "uturn", "protect"),
+                       None, "jolly", (32, 32, 2, 0, 0, 32))])
+        f.turn(Action.move(0), Action.move(foe_move))
+        return f.damage("assurance")
+    after_recoil = dealt(0)
+    untouched = dealt(1)      # Roost: they heal instead, taking nothing
+    return (after_recoil > untouched * 1.5,
+            f"after their recoil {after_recoil}, untouched {untouched}")
+
+
+@check("disable", "takes the target's last move away from it")
+def _disable():
+    from pkcm.engine.state import legal_actions
+    f = _until(lambda seed: Fight(
+        ours("gengar", "__none__",
+             ("disable", "shadowball", "protect", "splash"),
+             None, "timid", (0, 0, 2, 32, 0, 32)),
+        [mon("snorlax", "__none__",
+             ("bodyslam", "splash", "rest", "protect"),
+             None, "serious", (32, 0, 32, 0, 2, 0))], seed)
+        .turn(Action.move(2), Action.move(0))
+        .turn(Action.move(0), Action.move(1)),
+        lambda f: "disabled" in f.volatiles(1))
+    if f is None:
+        return False, "the volatile never appeared in ten tries"
+    offered = {one.index for one in legal_actions(f.state, 1)
+               if str(one).startswith("move")}
+    return (0 not in offered,
+            f"moves still offered {sorted(offered)}, Body Slam is 0")
+
+
+@check("ragefist", "hits harder for every time the user has been hit")
+def _rage_fist():
+    def dealt(taken):
+        f = Fight(ours("annihilape", "__none__",
+                       ("ragefist", "drainpunch", "bulkup", "protect"),
+                       None, "adamant", (32, 32, 2, 0, 0, 0)),
+                  # Rage Fist is Ghost, so not a Normal type opposite.
+                  [mon("milotic", "__none__",
+                       ("surf", "splash", "recover", "protect"),
+                       None, "serious", (32, 0, 32, 0, 2, 0))])
+        for _ in range(taken):
+            f.turn(Action.move(3), Action.move(0))   # Protect fails eventually
+        f.turn(Action.move(0), Action.move(1))
+        return f.damage("ragefist")
+    fresh = dealt(0)
+    battered = dealt(3)
+    return (battered > fresh,
+            f"never hit {fresh}, after taking hits {battered}")
+
+
+@check("temperflare", "doubles when the user's last move failed")
+def _temper_flare():
+    def dealt(fail_first):
+        f = Fight(ours("cinderace", "__none__",
+                       ("temperflare", "pyroball", "protect", "splash"),
+                       None, "adamant", (0, 32, 2, 0, 0, 32)),
+                  [mon("archaludon", "__none__",
+                       ("protect", "flashcannon", "dragontail", "splash"),
+                       None, "sassy", (32, 0, 32, 0, 32, 0))])
+        if fail_first:
+            f.turn(Action.move(1), Action.move(0))   # they Protect: ours fails
+        f.turn(Action.move(0), Action.move(3))
+        return f.damage("temperflare")
+    clean = dealt(False)
+    after_a_failure = dealt(True)
+    return (after_a_failure > clean * 1.5,
+            f"after a clean turn {clean}, after a failure {after_a_failure}")
+
+
+@check("tidyup", "clears both sides of clutter and steps the user up")
+def _tidy_up():
+    f = Fight(ours("cinderace", "__none__",
+                   ("tidyup", "pyroball", "uturn", "protect"),
+                   None, "jolly", (0, 32, 2, 0, 0, 32)),
+              [dummy("magikarp")])
+    f.state.sides[0].conditions["spikes"] = 1
+    f.state.sides[1].conditions["stealthrock"] = 1
+    f.turn(Action.move(0), Action.move(0))
+    got = f.boosts(0)
+    return (not f.conditions(0) and not f.conditions(1)
+            and got.get("atk") == 1 and got.get("spe") == 1,
+            f"ours {f.conditions(0) or 'none'}, theirs {f.conditions(1) or 'none'}, "
+            f"boosts {got or 'none'}")
+
+
+@check("thief", "takes the item off whatever it hits")
+def _thief():
+    f = _until(lambda seed: Fight(
+        ours("weavile", "__none__",
+             ("thief", "knockoff", "iceshard", "swordsdance"),
+             None, "jolly", (0, 32, 2, 0, 0, 32)),
+        [mon("snorlax", "__none__",
+             ("splash", "bodyslam", "rest", "protect"),
+             "leftovers", "serious", (32, 0, 32, 0, 2, 0))], seed)
+        .turn(Action.move(0), Action.move(0)),
+        lambda f: f.damage("thief") > 0)
+    if f is None:
+        return False, "never connected in ten tries"
+    return (f.item(1) is None and f.item(0) == "leftovers",
+            f"we hold {f.item(0)}, they hold {f.item(1)}")
+
+
+@check("switcheroo", "swaps the two held items")
+def _switcheroo():
+    f = Fight(ours("gengar", "__none__",
+                   ("switcheroo", "shadowball", "protect", "splash"),
+                   "choicescarf", "timid", (0, 0, 2, 32, 0, 32)),
+              [mon("snorlax", "__none__",
+                   ("splash", "bodyslam", "rest", "protect"),
+                   "leftovers", "serious", (32, 0, 32, 0, 2, 0))])
+    f.turn(Action.move(0), Action.move(0))
+    return (f.item(0) == "leftovers" and f.item(1) == "choicescarf",
+            f"we hold {f.item(0)}, they hold {f.item(1)}")
+
+
+@check("psychup", "copies the target's stat changes onto the user")
+def _psych_up():
+    f = Fight(ours("clefable", "__none__",
+                   ("psychup", "moonblast", "protect", "splash"),
+                   None, "timid", (32, 0, 2, 0, 0, 32)),
+              [mon("dragonite", "__none__",
+                   ("dragondance", "dragonclaw", "roost", "firepunch"))])
+    f.turn(Action.move(3), Action.move(0))     # they dance
+    theirs = f.boosts(1)
+    f.turn(Action.move(0), Action.move(2))     # we copy while they Roost
+    return (theirs and f.boosts(0) == theirs,
+            f"theirs {theirs or 'none'}, ours after the copy "
+            f"{f.boosts(0) or 'none'}")
+
+
+@check("skillswap", "trades the two abilities over")
+def _skill_swap():
+    f = Fight(ours("alakazam", "magicguard",
+                   ("skillswap", "psychic", "protect", "splash"),
+                   None, "timid", (0, 0, 2, 32, 0, 32)),
+              [mon("snorlax", "thickfat",
+                   ("splash", "bodyslam", "rest", "protect"),
+                   None, "serious", (32, 0, 32, 0, 2, 0))])
+    f.turn(Action.move(0), Action.move(0))
+    from pkcm.engine.battle import make_context
+    ctx = make_context(f.state)
+    ours_now = ctx.ability_of((0, f.state.sides[0].active[0]))
+    theirs_now = ctx.ability_of((1, f.state.sides[1].active[0]))
+    return (ours_now == "thickfat" and theirs_now == "magicguard",
+            f"we now have {ours_now}, they have {theirs_now}")
+
+
+@check("safeguard", "keeps status off our side while it stands")
+def _safeguard():
+    f = Fight(ours("clefable", "__none__",
+                   ("safeguard", "moonblast", "protect", "splash"),
+                   None, "timid", (32, 0, 32, 0, 2, 32)),
+              [mon("blissey", "__none__",
+                   ("toxic", "seismictoss", "softboiled", "protect"),
+                   None, "serious", (32, 0, 32, 0, 2, 0))])
+    f.turn(Action.move(0), Action.move(3))
+    up = "safeguard" in f.conditions(0)
+    f.turn(Action.move(3), Action.move(0))     # they try Toxic
+    return (up and f.status(0) is None,
+            f"condition={up}, our status after their Toxic {f.status(0)}")
+
+
+@check("stoneaxe", "damages and leaves Stealth Rock behind")
+def _stone_axe():
+    f = _until(lambda seed: Fight(
+        ours("kleavor", "__none__",
+             ("stoneaxe", "uturn", "swordsdance", "protect"),
+             None, "adamant", (0, 32, 2, 0, 0, 32)),
+        [wall()], seed).turn(Action.move(0), Action.move(0)),
+        lambda f: f.damage("stoneaxe") > 0)
+    if f is None:
+        return False, "never connected in ten tries"
+    return ("stealthrock" in f.conditions(1),
+            f"their side conditions {f.conditions(1) or 'none'}")
+
+
+@check("minimize", "raises evasion two stages")
+def _minimize():
+    return _boosts_by("magikarp", ("minimize", "splash", "tackle", "flail"),
+                      {"evasion": 2})
+
+
+@check("burnup", "spends the user's Fire type to fire it")
+def _burn_up():
+    f = Fight(ours("cinderace", "__none__",
+                   ("burnup", "pyroball", "uturn", "protect"),
+                   None, "adamant", (0, 32, 2, 0, 0, 32)),
+              [wall()])
+    before = tuple(f.state.types(0, f.state.sides[0].active[0]))
+    f.turn(Action.move(0), Action.move(0))
+    after = tuple(f.state.types(0, f.state.sides[0].active[0]))
+    return ("fire" in before and "fire" not in after,
+            f"we were {before}, now {after}")
+
+
+@check("lashout", "doubles after the user has just been dropped a stage")
+def _lash_out():
+    def dealt(dropped_first):
+        # The drop has to land in the same turn as the swing, so the dropper
+        # has to be the faster one -- a Weavile holding Lash Out outruns
+        # anything that could drop it, and splitting it over two turns lost
+        # the mark before the move that reads it.
+        f = Fight(ours("kingambit", "__none__",
+                       ("lashout", "ironhead", "suckerpunch", "swordsdance"),
+                       None, "brave", (32, 32, 2, 0, 0, 0)),
+                  [mon("weavile", "__none__",
+                       ("growl", "splash", "iceshard", "knockoff"),
+                       None, "jolly", (32, 0, 32, 0, 2, 32))])
+        f.turn(Action.move(0), Action.move(0 if dropped_first else 1))
+        return f.damage("lashout")
+    dropped = dealt(True)      # Growl takes a stage off us first
+    clean = dealt(False)
+    # Not 2x on the scoreboard: the same Attack drop that arms Lash Out also
+    # takes the attacking stat to two thirds, so a working move reads about
+    # 1.33x. Asking for 1.5 failed a move that was doing its job.
+    return (dropped > clean * 1.2,
+            f"after being dropped {dropped}, untouched {clean} "
+            f"({dropped / max(clean, 1):.2f}x, and 1.33x is what a working "
+            f"Lash Out looks like through its own Attack drop)")
+
+
+@check("bugbite", "eats the berry the target was holding")
+def _bug_bite():
+    f = _until(lambda seed: Fight(
+        ours("weavile", "__none__",
+             ("bugbite", "knockoff", "iceshard", "swordsdance"),
+             None, "jolly", (0, 32, 2, 0, 0, 32)),
+        [mon("snorlax", "__none__",
+             ("splash", "bodyslam", "rest", "protect"),
+             "sitrusberry", "serious", (32, 0, 32, 0, 2, 0))], seed)
+        .turn(Action.move(0), Action.move(0)),
+        lambda f: f.damage("bugbite") > 0)
+    if f is None:
+        return False, "never connected in ten tries"
+    return (f.item(1) is None, f"they still hold {f.item(1)}")
+
+
+@check("ragingbull", "breaks the screen it is thrown at")
+def _raging_bull():
+    f = _until(lambda seed: Fight(
+        ours("taurospaldeacombat", "__none__",
+             ("ragingbull", "closecombat", "protect", "splash"),
+             None, "adamant", (0, 32, 2, 0, 0, 32)),
+        [mon("blissey", "__none__",
+             ("reflect", "softboiled", "seismictoss", "protect"),
+             None, "serious", (32, 0, 32, 0, 2, 0))], seed)
+        .turn(Action.move(2), Action.move(0))
+        .turn(Action.move(0), Action.move(1)),   # Soft-Boiled, not Protect
+        lambda f: f.damage("ragingbull") > 0)
+    if f is None:
+        return False, "never connected in ten tries"
+    return ("reflect" not in f.conditions(1),
+            f"their side conditions {f.conditions(1) or 'none'}")
+
+
 # --------------------------------------------------------------------------- #
 
 

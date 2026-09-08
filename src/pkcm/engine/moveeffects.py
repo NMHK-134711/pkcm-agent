@@ -1320,7 +1320,10 @@ def _burn_up(ctx, user, target, move) -> bool:
     ``MOVE_PRECONDITIONS`` refuses the move outright unless the user is Fire, so
     by the time this runs there is always a type to remove.
     """
-    remaining = tuple(name for name in ctx.state.types(*user) if name != "Fire")
+    # Lower case, as ``state.types`` gives them: the capitalised comparison
+    # here would have left the Fire type on even once the precondition let the
+    # move through.
+    remaining = tuple(name for name in ctx.state.types(*user) if name != "fire")
     ctx.state.set_override(user[0], user[1], "types", remaining)
     ctx.emit(Event("type_change", side=user[0], slot=user[1],
                    detail="/".join(remaining) or "typeless"))

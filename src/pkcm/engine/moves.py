@@ -250,8 +250,16 @@ def _needs_terrain(ctx: Context, ref: Ref, move: Move) -> str | None:
 
 
 def _needs_own_type(type_name: str):
+    """``state.types`` answers in lower case, and this compared against "Fire".
+
+    Which meant Burn Up refused itself on every Fire type there is -- the one
+    kind of Pokemon that can use it -- and said "not Fire" in the log while
+    standing there as one.
+    """
+    wanted = type_name.lower()
+
     def refuse(ctx: Context, ref: Ref, move: Move) -> str | None:
-        return None if type_name in ctx.state.types(*ref) else f"not {type_name}"
+        return None if wanted in ctx.state.types(*ref) else f"not {type_name}"
 
     return refuse
 
@@ -522,7 +530,16 @@ def _was_hit_by_target(ctx: Context, attacker: Ref, defender: Ref) -> bool:
 
 
 def _target_took_damage(ctx: Context, attacker: Ref, defender: Ref) -> bool:
-    return bool(ctx.state.sides[defender[0]].volatiles[defender[1]].get("hurtthisturn"))
+    """Any damage this turn, not only a move's.
+
+    ``hurtthisturn`` is Counter's ledger and holds move hits alone, so asking
+    it left Assurance unable to double in singles at all: the ways a target is
+    already hurt when we swing are its own recoil, our Rocky Helmet, hazards
+    and a Life Orb, and none of them are move hits on it.
+    """
+    volatiles = ctx.state.sides[defender[0]].volatiles[defender[1]]
+    return bool(volatiles.get("hurtthisturn")
+                or volatiles.get("tookdamagethisturn"))
 
 
 def _target_already_moved(ctx: Context, attacker: Ref, defender: Ref) -> bool:
@@ -1192,6 +1209,12 @@ def _resolve(
     if targets_opponent and not fx.allows(
         ctx, "try_hit", defender, attacker=attacker, defender=defender, move=move
     ):
+        # Every other way of failing records it; this one did not, and being
+        # Protected is the commonest way a move fails in a real game. Temper
+        # Flare and Stomping Tantrum ask ``lastmovefailed`` whether to double,
+        # so both were reading a clean slate off the turn that most deserved
+        # the doubling.
+        _note_move_failed(ctx, attacker, True)
         return
 
     # Status moves ignore the type chart unless they say otherwise. Showdown

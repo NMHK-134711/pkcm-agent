@@ -1349,6 +1349,12 @@ def _apply_damaging_move(ctx: Context, attacker: Ref, defender: Ref, move) -> bo
         tactics.record_hit(ctx, defender, attacker, move, dealt)
         return True
 
+    # Brick Break, Psychic Fangs and Raging Bull come through the screen
+    # rather than under it, so it comes down before the damage is worked out.
+    from pkcm.engine.moveeffects import break_screens
+
+    break_screens(ctx, attacker, defender, move)
+
     hits = _hit_count(ctx, move)
     total = 0
     any_crit = False

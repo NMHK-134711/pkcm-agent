@@ -31,7 +31,11 @@ SLEEP_DURATIONS = (2, 3, 3)
 FREEZE_DURATION = 3
 THAW_CHANCE = (1, 4)
 
+#: Half in singles. Aurora Veil's own data says "0.66x damage if in a
+#: Double Battle", and the same 2732/4096 applies to Reflect and Light
+#: Screen: the spread penalty is a property of the screen, not of the move.
 SCREEN_MULTIPLIER = 0.5
+SCREEN_MULTIPLIER_SPREAD = 2732 / 4096
 WEATHER_BOOST, WEATHER_DAMP = 1.5, 0.5
 TERRAIN_BOOST = 1.3
 
@@ -368,14 +372,28 @@ register("room", "fairylock", name="Fairy Lock")
 
 
 def _screen(category: str | None):
-    def handler(ctx, ref, value, attacker, defender, move, **_):
+    """``category`` None is Aurora Veil, which does not ask what kind it was."""
+    def handler(ctx, ref, value, attacker, defender, move, crit=False, **_):
         if attacker[0] == defender[0]:
+            return None
+        # "Critical hits ignore this protection", says the move's own data,
+        # and nothing was reading the flag the damage path already passes.
+        if crit:
             return None
         if getattr(move, "infiltrates", False):
             return None
         if category is not None and move.category != category:
             return None
-        return int(value * SCREEN_MULTIPLIER)
+        # Aurora Veil covers both categories, and the series is explicit that
+        # it "does not reduce damage further with Reflect or Light Screen".
+        # Both were registered, both fired, and a side with two screens up was
+        # taking a quarter.
+        conditions = ctx.state.sides[defender[0]].conditions
+        if category is not None and "auroraveil" in conditions:
+            return None
+        spread = len(ctx.state.sides[defender[0]].active) > 1
+        return int(value * (SCREEN_MULTIPLIER_SPREAD if spread
+                            else SCREEN_MULTIPLIER))
 
     return handler
 
@@ -413,6 +431,12 @@ SIDE_CONDITION_DURATION = {"reflect": 5, "lightscreen": 5, "auroraveil": 5,
 SIDE_CONDITION_LAYERS = {"spikes": 3, "toxicspikes": 2, "stealthrock": 1, "stickyweb": 1}
 
 
+#: The one screen with a price of entry. Aurora Veil's data says it in
+#: prose -- "Fails unless the weather is Snow" -- and prose is not a field, so
+#: the declarative path put it up in sun, rain, sand and clear sky alike.
+SIDE_CONDITION_WEATHER = {"auroraveil": ("snowscape", "hail")}
+
+
 def add_side_condition(ctx: Context, side_index: int, name: str,
                        source: Ref) -> bool:
     """Put up a screen or lay a layer of hazard. Says whether anything changed.
@@ -423,6 +447,10 @@ def add_side_condition(ctx: Context, side_index: int, name: str,
     Spikes that nothing complains about.
     """
     from pkcm.engine import effects as fx
+
+    wanted = SIDE_CONDITION_WEATHER.get(name)
+    if wanted is not None and ctx.state.field.weather not in wanted:
+        return False
 
     conditions = ctx.state.sides[side_index].conditions
     if name in SIDE_CONDITION_DURATION:

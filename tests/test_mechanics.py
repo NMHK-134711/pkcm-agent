@@ -290,6 +290,125 @@ def test_reflect_halves_physical_damage_only(dex, config):
     assert max(unscreened) >= special * 0.8, "Reflect must not touch special moves"
 
 
+# --------------------------------------------------------------------------- #
+# Aurora Veil, and the four things it shares with the other two screens
+#
+# hk asked one question -- "snow only, and does it halve both kinds?" -- and it
+# halved both kinds in clear weather, in rain, in sand and in sun. Four more
+# came out of the same look, and three of them were Reflect and Light Screen's
+# too. Every one of them is written down in the move's own shipped data.
+# --------------------------------------------------------------------------- #
+
+
+def _snowed(config, ours=("auroraveil", "splash", "reflect", "protect")):
+    state = build(config, a_set("ninetalesalola", ours),
+                  a_set("garchomp", ("bodyslam", "shadowball", "splash",
+                                     "focusenergy")))
+    state.field.weather = "snowscape"
+    state.field.weather_turns = 12
+    return state
+
+
+def test_aurora_veil_needs_snow(dex, config):
+    for weather in (None, "raindance", "sandstorm", "sunnyday"):
+        state = _snowed(config)
+        state.field.weather = weather
+        state.field.weather_turns = 8 if weather else 0
+        state, _ = step(state, Action.move(0), Action.move(2))
+        assert "auroraveil" not in state.sides[0].conditions, weather
+
+    state, _ = step(_snowed(config), Action.move(0), Action.move(2))
+    assert "auroraveil" in state.sides[0].conditions
+
+
+def test_aurora_veil_halves_both_kinds(dex, config):
+    from pkcm.engine.moves import compute_damage
+
+    state = _snowed(config)
+    ctx = make_context(state)
+    bare = [compute_damage(ctx, BLUE, RED, dex.moves[m], crit=False)[0]
+            for m in ("bodyslam", "shadowball")]
+
+    state, _ = step(state, Action.move(0), Action.move(2))
+    assert "auroraveil" in state.sides[0].conditions
+    ctx = make_context(state)
+    veiled = [compute_damage(ctx, BLUE, RED, dex.moves[m], crit=False)[0]
+              for m in ("bodyslam", "shadowball")]
+
+    for kind, before, after in zip(("physical", "special"), bare, veiled):
+        assert 0.45 <= after / before <= 0.55, f"{kind}: {before} -> {after}"
+
+
+def test_a_critical_hit_ignores_every_screen(dex, config):
+    """The damage path passes ``crit`` and no screen was reading it."""
+    from pkcm.engine.moves import compute_damage
+
+    for screen in ("auroraveil", "reflect"):
+        state = _snowed(config)
+        state.sides[0].conditions[screen] = 5
+        ctx = make_context(state)
+        plain = compute_damage(ctx, BLUE, RED, dex.moves["bodyslam"], crit=False)[0]
+        crit = compute_damage(ctx, BLUE, RED, dex.moves["bodyslam"], crit=True)[0]
+        assert crit > plain * 1.4, f"{screen} softened a critical hit"
+
+
+def test_aurora_veil_and_reflect_do_not_compound(dex, config):
+    from pkcm.engine.moves import compute_damage
+
+    def physical(*screens):
+        state = _snowed(config)
+        for screen in screens:
+            state.sides[0].conditions[screen] = 5
+        return compute_damage(make_context(state), BLUE, RED,
+                              dex.moves["bodyslam"], crit=False)[0]
+
+    assert physical("auroraveil", "reflect") == physical("auroraveil")
+    assert physical("auroraveil") < physical()
+
+
+def test_screens_are_two_thirds_in_doubles(dex):
+    """The move's own data: 0.66x in a Double Battle, and it was 0.5x."""
+    from pkcm.engine.moves import compute_damage
+
+    doubles = BattleConfig(dex=dex, regulation=dex.regulation("m_b"),
+                           battle_format="doubles")
+    bench = [a_set(s, ("tackle",)) for s in
+             ("snorlax", "pikachu", "starmie", "gengar")]
+    team = tuple([a_set("ninetalesalola", ("splash",)),
+                  a_set("snorlax", ("splash",))] + bench)
+    foes = tuple([a_set("garchomp", ("bodyslam",)),
+                  a_set("snorlax", ("splash",))] + bench)
+    state = new_battle(doubles, (team, foes), seed=7)
+    state = step(state, Action.select(0, 1, 2, 3), Action.select(0, 1, 2, 3))[0]
+
+    bare = compute_damage(make_context(state), BLUE, RED,
+                          dex.moves["bodyslam"], crit=False)[0]
+    state.sides[0].conditions["reflect"] = 5
+    screened = compute_damage(make_context(state), BLUE, RED,
+                              dex.moves["bodyslam"], crit=False)[0]
+    assert 0.63 <= screened / bare <= 0.70, f"{bare} -> {screened}"
+
+
+@pytest.mark.parametrize("breaker", ["brickbreak", "psychicfangs", "ragingbull"])
+def test_the_screen_breakers_come_through_rather_than_under(dex, config, breaker):
+    """Raging Bull ran from ``_after_effects``: after its own damage."""
+    def swing(screen):
+        state = build(config, a_set("garchomp", (breaker,)),
+                      a_set("snorlax", ("splash",)))
+        if screen:
+            state.sides[1].conditions[screen] = 5
+        whole = state.sides[1].hp[0]
+        ctx = make_context(state)
+        use_move(ctx, RED, dex.moves[breaker], defender=BLUE)
+        return whole - state.sides[1].hp[0], dict(state.sides[1].conditions)
+
+    clear, _ = swing(None)
+    for screen in ("reflect", "auroraveil"):
+        took, left = swing(screen)
+        assert screen not in left, f"{breaker} left {screen} standing"
+        assert took == clear, f"{breaker} was softened by the {screen} it broke"
+
+
 def test_stealth_rock_hurts_on_entry_by_type(dex, config):
     state = build(config, a_set("charizard", ("tackle",)), a_set("snorlax", ("stealthrock",)))
     ctx = make_context(state)

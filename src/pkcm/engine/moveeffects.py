@@ -864,13 +864,23 @@ def _ice_spinner(ctx, user, target, move) -> bool:
     return True
 
 
-@special("ragingbull")
-def _raging_bull(ctx, user, target, move) -> bool:
-    """Champions: 상대 필드의 리플렉터, 빛의장막, 오로라베일 상태를 해제하고
-    공격한다.
+#: Champions on Raging Bull: 상대 필드의 리플렉터, 빛의장막, 오로라베일
+#: 상태를 해제하고 공격한다. Brick Break and Psychic Fangs say the same thing
+#: in their own data -- "Destroys screens" -- and neither had an implementation.
+SCREEN_BREAKERS = frozenset({"ragingbull", "brickbreak", "psychicfangs"})
 
-    Screens only. The hazards stay -- this is not a Defog either.
+
+@special("ragingbull", "brickbreak", "psychicfangs")
+def break_screens(ctx, user, target, move) -> bool:
+    """Take the target side's screens down. Hazards stay: not a Defog.
+
+    Called from the damage path *before* the number is worked out, because
+    the series is explicit that these three remove the screen first. Running
+    it from ``_after_effects``, as Raging Bull did, meant each of the three
+    was softened by the very screen it had come to break.
     """
+    if move.id not in SCREEN_BREAKERS:
+        return False
     conditions = ctx.state.sides[target[0]].conditions
     broke = False
     for name in SCREENS:

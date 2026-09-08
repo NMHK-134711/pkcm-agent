@@ -3077,9 +3077,22 @@ def _chance_probe(move, chance, what, block):
     return (f"fires its {chance}% {what} at about that rate", probe)
 
 
+#: What the field must already look like for a move to work at all. Aurora
+#: Veil fails outside snow, and a probe that cannot cast the move at all comes
+#: back "inconclusive" -- which counts as a pass.
+_NEEDS_FIELD = {"auroraveil": ("snowscape", 12)}
+
+
+def _set_up_field(f, move):
+    weather = _NEEDS_FIELD.get(move.id)
+    if weather is not None:
+        f.state.field.weather, f.state.field.weather_turns = weather
+
+
 def _duration_probe(move, name, kind, turns):
     def probe(m=move, name=name, kind=kind, turns=turns):
         f = _bout(m)
+        _set_up_field(f, m)
         f.turn(Action.move(0), Action.move(0))
 
         def alive():
@@ -3280,6 +3293,91 @@ _register_declared_checks()
 # Fixed damage, counters and a hazard: no declared effect, no flag and no entry
 # in SPECIAL_MOVES, because their arithmetic lives in ``tactics`` or in the
 # damage path itself. Five more are ally-only and correctly refuse in singles.
+
+
+def _veil_bout(weather="snowscape"):
+    """Alolan Ninetales behind its own veil, and something swinging at it."""
+    f = Fight(ours("ninetalesalola", "__none__",
+                   ("auroraveil", "splash", "reflect", "protect"),
+                   None, "serious", (32, 0, 32, 0, 2, 0)),
+              [mon("garchomp", "__none__",
+                   ("bodyslam", "shadowball", "splash", "focusenergy"),
+                   None, "jolly", (0, 32, 2, 32, 0, 32))])
+    if weather:
+        f.state.field.weather = weather
+        f.state.field.weather_turns = 12
+    return f
+
+
+@check("auroraveil", "goes up in snow and nowhere else, halves both kinds, "
+                     "does not compound with Reflect, and a critical hit "
+                     "goes straight through it")
+def _aurora_veil():
+    outside = _veil_bout(None)
+    outside.turn(Action.move(0), Action.move(2))
+    refused = "auroraveil" not in outside.conditions(0)
+
+    def took(setup, foe_move):
+        f = _veil_bout()
+        for index in setup:
+            f.turn(Action.move(index), Action.move(2))
+        before = f.hp(0)
+        f.turn(Action.move(1), Action.move(foe_move))
+        return before - f.hp(0)
+
+    # The control spends the same number of turns doing nothing, so the two
+    # arms differ in the veil and in nothing else.
+    physical = took([0], 0) / max(1, took([1], 0))
+    special = took([0], 1) / max(1, took([1], 1))
+    stacked, alone = took([0, 2], 0), took([0, 1], 0)
+
+    def under_a_crit(veil):
+        f = _veil_bout()
+        f.turn(Action.move(1), Action.move(3))     # two Focus Energies is
+        f.turn(Action.move(1), Action.move(3))     # stage four: every hit crits
+        f.turn(Action.move(0) if veil else Action.move(1), Action.move(2))
+        before = f.hp(0)
+        f.turn(Action.move(1), Action.move(0))
+        return before - f.hp(0)
+
+    crit = under_a_crit(True) / max(1, under_a_crit(False))
+    return (refused and 0.45 <= physical <= 0.55 and 0.45 <= special <= 0.55
+            and stacked == alone and 0.95 <= crit <= 1.05,
+            f"outside snow it refused={refused}; physical x{physical:.3f}, "
+            f"special x{special:.3f}; with Reflect as well {stacked} against "
+            f"{alone} alone; under a critical hit x{crit:.3f}")
+
+
+def _breaks_screens(move_id):
+    """The screen is down afterwards, and the breaker was not softened by it."""
+    def probe():
+        def swing(screen):
+            f = Fight(ours("garchomp", "__none__",
+                           (move_id, "splash", "protect", "rest"), None,
+                           "adamant", (0, 32, 2, 0, 0, 32)),
+                      [mon("snorlax", "__none__",
+                           ("splash", "bodyslam", "protect", "rest"), None,
+                           "sassy", (32, 0, 32, 0, 32, 0))])
+            if screen:
+                f.state.sides[1].conditions[screen] = 5
+            before = f.hp(1)
+            f.turn(Action.move(0), Action.move(0))
+            return before - f.hp(1), f.conditions(1)
+
+        behind, left = swing("reflect")
+        clear, _ = swing(None)
+        veiled, after_veil = swing("auroraveil")
+        return (behind == clear and veiled == clear
+                and "reflect" not in left and "auroraveil" not in after_veil,
+                f"through Reflect {behind}, through Aurora Veil {veiled}, "
+                f"with nothing up {clear}; the side kept {left or 'nothing'}")
+    return probe
+
+
+for _breaker in ("brickbreak", "psychicfangs", "ragingbull"):
+    if _breaker in DEX.moves:
+        CHECKS[_breaker] = ("takes the screens down before its own damage is "
+                            "worked out", _breaks_screens(_breaker))
 
 
 @check("seismictoss", "takes the user's level, whatever the target is")

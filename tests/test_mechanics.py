@@ -1423,14 +1423,23 @@ def test_burn_up_can_be_used_by_a_fire_type(dex, config):
     assert "fire" not in state.types(0, 0)
 
 
-def test_a_move_stopped_by_protect_counts_as_having_failed(dex, config):
-    """Temper Flare and Stomping Tantrum read this, and Protect is the
-    commonest way a move fails in a real game. Every other failure path
-    recorded it; the try_hit veto returned without a word."""
+def test_a_move_stopped_by_protect_does_not_count_as_having_failed(dex, config):
+    """This test used to assert the opposite, and the moves that read the flag
+    carve Protect out by name: "A move that was blocked by Baneful Bunker,
+    Detect, King's Shield, Protect, Spiky Shield, Crafty Shield, Mat Block,
+    Quick Guard, or Wide Guard will not double this move's power." Showdown
+    has a sentinel for exactly this. Marking it failed doubled Temper Flare
+    off the turn it should have left alone -- 92 against 47."""
     state = build(config, a_set("cinderace", ("pyroball", "temperflare")),
                   a_set("snorlax", ("protect",)))
     state, _ = step(state, Action.move(0), Action.move(0))
-    assert state.sides[0].volatiles[0].get("lastmovefailed") is True
+    assert state.sides[0].volatiles[0].get("lastmovefailed") is not True
+
+    # A refusal that is not a block still counts: Thunder Wave at a Ground type.
+    ground = build(config, a_set("pikachu", ("thunderwave", "tackle")),
+                   a_set("garchomp", ("splash",)))
+    ground, _ = step(ground, Action.move(0), Action.move(0))
+    assert ground.sides[0].volatiles[0].get("lastmovefailed") is True
 
 
 def test_assurance_sees_damage_that_was_not_a_move(dex, config):

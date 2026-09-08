@@ -357,7 +357,19 @@ SPECIAL_MOVES["minimize"] = _apply_volatile("minimize", to_target=False)
 SPECIAL_MOVES["aquaring"] = _apply_volatile("aquaring", to_target=False)
 SPECIAL_MOVES["lockon"] = _apply_volatile("lockon", to_target=False, turns=2)
 SPECIAL_MOVES["smackdown"] = _apply_volatile("smackdown")
-SPECIAL_MOVES["electrify"] = _apply_volatile("electrify")
+def _electrify(ctx, user, target, move) -> bool:
+    """Champions and the data both: "Fails if the target already moved this
+    turn." It was a bare volatile, so it landed on something that had already
+    swung and retyped a move that no longer existed."""
+    # ``ctx.acted`` rather than the queue: by the time the last actor of the
+    # turn moves the queue is empty, and outside a turn -- tests, Instruct --
+    # nothing has acted at all.
+    if target in ctx.acted:
+        return _fail(ctx, user, "it has already moved")
+    return _apply_volatile("electrify")(ctx, user, target, move)
+
+
+SPECIAL_MOVES["electrify"] = _electrify
 SPECIAL_MOVES["saltcure"] = _apply_volatile("saltcure")
 SPECIAL_MOVES["syrupbomb"] = _apply_volatile("syrupbomb", turns=4)
 SPECIAL_MOVES["gastroacid"] = _apply_volatile("abilitysuppressed")

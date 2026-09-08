@@ -1509,6 +1509,339 @@ def _five_turns_of_snow():
     return verdict(rows)
 
 
+
+def rolls_for(f, move, power, side=0):
+    """The sixteen damages the formula gives for a power worked out here.
+
+    ``mechanic_check._expected_rolls`` reads ``move.base_power``, which is
+    zero or meaningless for the fourteen moves whose power is a formula. This
+    takes the number the description says and checks the engine against it,
+    rather than against itself.
+    """
+    from pkcm.data.dex import Stat
+    from pkcm.engine.battle import make_context
+    from pkcm.engine.moves import damage_base, damage_from_base
+    from pkcm.engine.mutate import effective_stat
+
+    ctx = make_context(f.state)
+    us = (side, f.state.sides[side].active[0])
+    them = (1 - side, f.state.sides[1 - side].active[0])
+    physical = move.category == "Physical"
+    attack = effective_stat(ctx, us, Stat.ATK if physical else Stat.SPA)
+    defense = effective_stat(ctx, them, Stat.DEF if physical else Stat.SPD)
+    effectiveness = DEX.type_chart.multiplier(move.type, f.state.types(*them))
+    stab = move.type in f.state.types(*us)
+    base = damage_base(power=power, attack=attack, defense=defense)
+    return {max(1, damage_from_base(base, roll, stab=stab,
+                                    effectiveness=effectiveness))
+            for roll in range(mc._ROLL_LOW, mc._ROLL_HIGH + 1)}
+
+
+def power_check(move_id, arrange, power, seeds=range(12)):
+    """Play a position, work out the power its description gives, compare."""
+    move = DEX.moves[move_id]
+    for seed in seeds:
+        f = Fight([swinger(move_id)], [wall(mc._reachable(move))], seed=seed)
+        arrange(f)
+        want = rolls_for(f, move, power(f))
+        f.turn(Action.move(0), Action.move(0))
+        hits = [e for e in f.log if e.kind == "damage" and (e.side or 0) == 1
+                and e.move == move_id and not e.crit]
+        if not hits:
+            continue
+        got = hits[0].amount
+        return (got in want,
+                f"dealt {got}; power {power(f)} gives {min(want)}-{max(want)}")
+    return False, "never landed a clean uncritical hit in twelve tries"
+
+
+@family("statuspower", "Power doubles if the target has a non-volatile status "
+                       "condition.")
+def _doubles_on_status():
+    rows = []
+    for move_id in members("statuspower"):
+        def arrange(f):
+            side = f.state.sides[1]
+            side.status[side.active[0]] = "brn"
+
+        rows.append((move_id,) + power_check(
+            move_id, arrange, lambda f, m=move_id: DEX.moves[m].base_power * 2))
+    return verdict(rows)
+
+
+@family("lastmovefailed",
+        "Power doubles if the user's last move on the previous turn",
+        "A move that was blocked by Baneful Bunker")
+def _doubles_after_a_failure():
+    rows = []
+    for move_id in members("lastmovefailed"):
+        move = DEX.moves[move_id]
+
+        def played(fail_first, move_id=move_id, move=move):
+            # Splash into a wall is a move that does nothing at all, which is
+            # what the clause counts; Protect is the one it does not.
+            f = Fight([swinger(move_id, extra=("splash", "protect", "rest"))],
+                      [mon(mc._reachable(move), "__none__",
+                           ("splash", "protect", "rest", "bodyslam"), None,
+                           "sassy", (32, 0, 32, 0, 32, 0))], seed=7)
+            if fail_first:
+                f.turn(Action.move(0), Action.move(1))   # they Protect it
+            else:
+                f.turn(Action.move(1), Action.move(0))   # we Splash
+            f.turn(Action.move(0), Action.move(0))
+            hits = [e for e in f.log if e.kind == "damage" and (e.side or 0) == 1
+                    and e.move == move_id and not e.crit]
+            return hits[0].amount if hits else 0
+
+        blocked, plain = played(True), played(False)
+        rows.append((move_id, plain > 0 and blocked == plain,
+                     f"after being blocked by Protect {blocked}, after an "
+                     f"ordinary turn {plain} -- the clause says a block does "
+                     f"not double it"))
+    return verdict(rows)
+
+
+@family("hppower", "Power is equal to (user's current HP * 150 / user's maximum "
+                   "HP), rounded down, but not less than 1.")
+def _power_from_health():
+    rows = []
+    for move_id in members("hppower"):
+        def arrange(f):
+            slot = f.state.sides[0].active[0]
+            f.state.sides[0].hp[slot] = f.state.active_pokemon(0).max_hp // 2
+
+        def power(f):
+            slot = f.state.sides[0].active[0]
+            whole = f.state.active_pokemon(0).max_hp
+            return max(1, f.state.sides[0].hp[slot] * 150 // whole)
+
+        rows.append((move_id,) + power_check(move_id, arrange, power))
+    return verdict(rows)
+
+
+@family("flailpower", "The power of this move is 20 if X is 33 to 48")
+def _flail_brackets():
+    def bracket(x):
+        for top, value in ((1, 200), (4, 150), (9, 100), (16, 80), (32, 40),
+                           (48, 20)):
+            if x <= top:
+                return value
+        return 20
+
+    rows = []
+    for move_id in members("flailpower"):
+        def arrange(f):
+            slot = f.state.sides[0].active[0]
+            f.state.sides[0].hp[slot] = max(
+                1, f.state.active_pokemon(0).max_hp // 8)
+
+        def power(f):
+            slot = f.state.sides[0].active[0]
+            whole = f.state.active_pokemon(0).max_hp
+            return bracket(f.state.sides[0].hp[slot] * 48 // whole)
+
+        rows.append((move_id,) + power_check(move_id, arrange, power))
+    return verdict(rows)
+
+
+@family("stagepower", "Power is equal to 20+(X*20), where X is the user's total "
+                      "stat stage changes that are greater than 0.")
+def _power_from_stages():
+    rows = []
+    for move_id in members("stagepower"):
+        def arrange(f):
+            side = f.state.sides[0]
+            row = side.boosts[side.active[0]]
+            row[mc.BOOST_INDEX["atk"]] = 2
+            row[mc.BOOST_INDEX["spa"]] = 1
+            row[mc.BOOST_INDEX["def"]] = -1      # the negative one does not count
+
+        rows.append((move_id,) + power_check(move_id, arrange,
+                                             lambda f: 20 + 3 * 20))
+    return verdict(rows)
+
+
+@family("weightratio",
+        "The power of this move depends on (user's weight / target's weight), "
+        "rounded down.",
+        "Power is equal to 120 if the result is 5 or more, 100 if 4, 80 if 3, "
+        "60 if 2, and 40 if 1 or less.")
+def _weight_ratio():
+    rows = []
+    for move_id in members("weightratio"):
+        target = "venusaur"                      # 100.0 kg against Mew's 4.0
+        move = DEX.moves[move_id]
+        f = Fight([swinger(move_id, species="snorlax")],
+                  [mon(target, "__none__", ("splash", "bodyslam", "protect", "rest"),
+                       None, "sassy", (32, 0, 32, 0, 32, 0))], seed=7)
+        ratio = int(DEX.species["snorlax"].weight_kg
+                    // DEX.species[target].weight_kg)
+        want = {5: 120, 4: 100, 3: 80, 2: 60}.get(min(5, ratio), 40)
+        expected = rolls_for(f, move, want)
+        f.turn(Action.move(0), Action.move(0))
+        hits = [e for e in f.log if e.kind == "damage" and (e.side or 0) == 1
+                and e.move == move_id and not e.crit]
+        got = hits[0].amount if hits else 0
+        rows.append((move_id, got in expected,
+                     f"460kg against {target}'s {DEX.species[target].weight_kg}kg "
+                     f"is a ratio of {ratio}, so power {want}: dealt {got}, "
+                     f"expected {min(expected)}-{max(expected)}"))
+    return verdict(rows)
+
+
+@family("targetweight",
+        "This move's power is 20 if the target weighs less than 10 kg, 40 if "
+        "less than 25 kg, 60 if less than 50 kg, 80 if less than 100 kg, 100 if "
+        "less than 200 kg, and 120 if greater than or equal to 200 kg.")
+def _target_weight():
+    def bracket(kilos):
+        for top, value in ((10, 20), (25, 40), (50, 60), (100, 80), (200, 100)):
+            if kilos < top:
+                return value
+        return 120
+
+    rows = []
+    for move_id in members("targetweight"):
+        move = DEX.moves[move_id]
+        off = []
+        for target in ("weavile", "venusaur", "snorlax"):
+            f = Fight([swinger(move_id)],
+                      [mon(target, "__none__",
+                           ("splash", "bodyslam", "protect", "rest"), None,
+                           "sassy", (32, 0, 32, 0, 32, 0))], seed=7)
+            want = bracket(DEX.species[target].weight_kg)
+            expected = rolls_for(f, move, want)
+            f.turn(Action.move(0), Action.move(0))
+            hits = [e for e in f.log if e.kind == "damage" and (e.side or 0) == 1
+                    and e.move == move_id and not e.crit]
+            got = hits[0].amount if hits else 0
+            if got not in expected:
+                off.append(f"{target} ({DEX.species[target].weight_kg}kg, "
+                           f"power {want}): dealt {got}, expected "
+                           f"{min(expected)}-{max(expected)}")
+        rows.append((move_id, not off, "; ".join(off) or "all three weights"))
+    return verdict(rows)
+
+
+@family("multiaccuracy", "This move checks accuracy for each hit, and the "
+                         "attack ends if the target avoids a hit.")
+def _accuracy_per_hit():
+    rows = []
+    for move_id in members("multiaccuracy"):
+        counts = set()
+        for seed in range(40):
+            f = Fight([swinger(move_id)],
+                      [wall(mc._reachable(DEX.moves[move_id]))], seed=seed)
+            f.turn(Action.move(0), Action.move(0))
+            hits = len([e for e in f.log if e.kind == "damage"
+                        and (e.side or 0) == 1 and e.move == move_id])
+            counts.add(hits)
+        # A move that rolled once for the lot would only ever show its full
+        # count or nothing at all.
+        rows.append((move_id, len(counts - {0}) > 1,
+                     f"saw {sorted(counts)} hits across forty casts"))
+    return verdict(rows)
+
+
+@family("stealthrockdamage",
+        "Foes lose 1/32, 1/16, 1/8, 1/4, or 1/2 of their maximum HP, rounded "
+        "down, based on their weakness to the Rock type; 0.25x, 0.5x, neutral, "
+        "2x, or 4x, respectively.")
+def _stealth_rock_by_type():
+    rows = []
+    for move_id in members("stealthrockdamage"):
+        off = []
+        for species in ("charizard", "garchomp", "snorlax", "archaludon"):
+            against = DEX.type_chart.multiplier("rock", DEX.species[species].types)
+            share = {4.0: 2, 2.0: 4, 1.0: 8, 0.5: 16, 0.25: 32}[against]
+            f = Fight([swinger(move_id)],
+                      [mon("magikarp", "__none__", ("splash", "tackle")),
+                       mon(species, "__none__",
+                           ("splash", "bodyslam", "protect", "rest"), None,
+                           "sassy", (32, 0, 32, 0, 32, 0))], seed=7)
+            f.turn(Action.move(0), Action.move(0))
+            if "stealthrock" not in f.conditions(1):
+                off.append("the rocks were never laid")
+                break
+            f.turn(Action.move(1), Action.switch(1))
+            whole = f.max_hp(1)
+            took = whole - f.hp(1)
+            if abs(took - whole // share) > 1:
+                off.append(f"{species} (x{against} to Rock): took {took} of "
+                           f"{whole}, and 1/{share} is {whole // share}")
+        rows.append((move_id, not off, "; ".join(off) or
+                     "a quarter, an eighth and a sixteenth as the chart says"))
+    return verdict(rows)
+
+
+@family("trickswap", "The user swaps its held item with the target's held item.",
+        "The target is immune to this move if it has the Sticky Hold Ability.",
+        "Fails if both the user and the target have no held item, or if the "
+        "user is trying to give or take a Blue Orb, Red Orb, Adamant Crystal, "
+        "Lustrous Globe, Griseous Core, Plate, Drive, Memory, Rusted Sword, "
+        "Rusted Shield, or Booster Energy.")
+def _trick_swaps():
+    rows = []
+    for move_id in members("trickswap"):
+        def played(ability, mine="leftovers", theirs="sitrusberry"):
+            f = Fight([swinger(move_id, item=mine)],
+                      [wall(mc._reachable(DEX.moves[move_id]), ability=ability,
+                            item=theirs)], seed=7)
+            f.turn(Action.move(0), Action.move(0))
+            return f.item(0), f.item(1)
+
+        swapped = played("__none__")
+        held = played("stickyhold")
+        empty = played("__none__", None, None)
+        rows.append((move_id,
+                     swapped == ("sitrusberry", "leftovers")
+                     and held == ("leftovers", "sitrusberry")
+                     and empty == (None, None),
+                     f"swapped to {swapped}; against Sticky Hold {held}; with "
+                     f"nothing on either side {empty}"))
+    return verdict(rows)
+
+
+@family("alreadymoved", "Fails if the target already moved this turn.")
+def _target_already_moved():
+    rows = []
+    for move_id in members("alreadymoved"):
+        # Ours is slower, so by the time it acts the target has gone.
+        f = Fight([mon("snorlax", "__none__",
+                       (move_id, "splash", "protect", "rest"), None, "sassy",
+                       (32, 0, 32, 0, 32, 0))],
+                  [mon("weavile", "__none__",
+                       ("bodyslam", "splash", "protect", "rest"), None, "jolly",
+                       (0, 32, 2, 0, 0, 32))], seed=7)
+        f.turn(Action.move(0), Action.move(0))
+        rows.append((move_id, failed(f),
+                     f"against a target that had already moved it failed="
+                     f"{failed(f)}"))
+    return verdict(rows)
+
+
+@family("endswhentheyleave", "This effect ends when the target is no longer "
+                             "active.")
+def _ends_when_they_leave():
+    rows = []
+    for move_id in members("endswhentheyleave"):
+        volatile = {"saltcure": "saltcure", "torment": "torment"}[move_id]
+        f = until(lambda seed, move_id=move_id: Fight(
+            [swinger(move_id)],
+            [wall(mc._reachable(DEX.moves[move_id])),
+             mon("magikarp", "__none__", ("splash", "tackle"))], seed=seed)
+            .turn(Action.move(0), Action.move(0)),
+            lambda f: volatile in f.volatiles(1))
+        if f is None:
+            rows.append((move_id, False, "it never took hold in thirty tries"))
+            continue
+        f.turn(Action.move(1), Action.switch(1))
+        rows.append((move_id, volatile not in f.volatiles(1),
+                     f"after the target left it held "
+                     f"{sorted(f.volatiles(1) & {volatile})}"))
+    return verdict(rows)
+
+
 # --------------------------------------------------------------------------- #
 # The report
 # --------------------------------------------------------------------------- #

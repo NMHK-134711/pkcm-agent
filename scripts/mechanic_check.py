@@ -1393,23 +1393,36 @@ def _rage_fist():
             f"never hit {fresh}, after taking hits {battered}")
 
 
-@check("temperflare", "doubles when the user's last move failed")
-def _temper_flare():
-    def dealt(fail_first):
-        f = Fight(ours("cinderace", "__none__",
-                       ("temperflare", "pyroball", "protect", "splash"),
-                       None, "adamant", (0, 32, 2, 0, 0, 32)),
-                  [mon("archaludon", "__none__",
-                       ("protect", "flashcannon", "dragontail", "splash"),
+def _doubles_after_a_failure(move_id, user, sp, target):
+    """Rest at full health fails outright; a Protect only blocks.
+
+    The move's own description separates the two: "A move that was blocked by
+    Baneful Bunker, Detect, King's Shield, Protect, ... will not double this
+    move's power." Using a Protect as the failure, which this check did,
+    measured the wrong half of the sentence.
+    """
+    def dealt(first):
+        f = Fight(ours(user, "__none__", (move_id, "dragonclaw", "protect", "rest"),
+                       None, "adamant", sp),
+                  [mon(target, "__none__",
+                       ("protect", "splash", "bodyslam", "rest"),
                        None, "sassy", (32, 0, 32, 0, 32, 0))])
-        if fail_first:
-            f.turn(Action.move(1), Action.move(0))   # they Protect: ours fails
-        f.turn(Action.move(0), Action.move(3))
-        return f.damage("temperflare")
-    clean = dealt(False)
-    after_a_failure = dealt(True)
-    return (after_a_failure > clean * 1.5,
-            f"after a clean turn {clean}, after a failure {after_a_failure}")
+        if first is not None:
+            f.turn(Action.move(first), Action.move(0 if first == 1 else 1))
+        f.turn(Action.move(0), Action.move(1))
+        return f.damage(move_id)
+
+    clean, failed, blocked = dealt(None), dealt(3), dealt(1)
+    return (failed > clean * 1.5 and blocked == clean,
+            f"after a clean turn {clean}, after a Rest that failed {failed}, "
+            f"after a Dragon Claw that was blocked {blocked}")
+
+
+@check("temperflare", "doubles when the user's last move failed, and not when "
+                      "it was merely blocked")
+def _temper_flare():
+    return _doubles_after_a_failure("temperflare", "cinderace",
+                                    (0, 32, 2, 0, 0, 32), "snorlax")
 
 
 @check("tidyup", "clears both sides of clutter and steps the user up")
@@ -2588,23 +2601,11 @@ def _swallow():
             f"{'stockpile' in f.volatiles(0)}")
 
 
-@check("stompingtantrum", "doubles when the user's last move failed")
+@check("stompingtantrum", "doubles when the user's last move failed, and not "
+                          "when it was merely blocked")
 def _stomping_tantrum():
-    def dealt(fail_first):
-        f = Fight(ours("garchomp", "__none__",
-                       ("stompingtantrum", "dragonclaw", "protect", "splash"),
-                       None, "adamant", (0, 32, 2, 0, 0, 32)),
-                  [mon("snorlax", "__none__",
-                       ("protect", "splash", "bodyslam", "rest"),
-                       None, "serious", (32, 0, 32, 0, 2, 0))])
-        if fail_first:
-            f.turn(Action.move(1), Action.move(0))   # they Protect: ours fails
-        f.turn(Action.move(0), Action.move(1))
-        return f.damage("stompingtantrum")
-    clean = dealt(False)
-    after_a_failure = dealt(True)
-    return (after_a_failure > clean * 1.5,
-            f"after a clean turn {clean}, after a failure {after_a_failure}")
+    return _doubles_after_a_failure("stompingtantrum", "garchomp",
+                                    (0, 32, 2, 0, 0, 32), "snorlax")
 
 
 @check("stuffcheeks", "eats the held berry and puts the Defence up")

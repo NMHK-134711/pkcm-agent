@@ -1261,12 +1261,14 @@ def _resolve(
     if targets_opponent and not fx.allows(
         ctx, "try_hit", defender, attacker=attacker, defender=defender, move=move
     ):
-        # Every other way of failing records it; this one did not, and being
-        # Protected is the commonest way a move fails in a real game. Temper
-        # Flare and Stomping Tantrum ask ``lastmovefailed`` whether to double,
-        # so both were reading a clean slate off the turn that most deserved
-        # the doubling.
-        _note_move_failed(ctx, attacker, True)
+        # Every other way of failing records it. Being blocked is not one of
+        # them, and the moves that read this say so themselves: "A move that
+        # was blocked by Baneful Bunker, Detect, King's Shield, Protect, Spiky
+        # Shield, Crafty Shield, Mat Block, Quick Guard, or Wide Guard will not
+        # double this move's power." Showdown has a whole sentinel for it --
+        # ``NOT_FAIL`` -- and marking it failed here doubled Temper Flare and
+        # Stomping Tantrum off a turn that should have left them alone.
+        _note_move_failed(ctx, attacker, not _was_shielded(ctx, move))
         return
 
     # Status moves ignore the type chart unless they say otherwise. Showdown
@@ -1284,6 +1286,9 @@ def _resolve(
     if targets_opponent and _respects_type_immunity(move) \
             and type_effectiveness(ctx, attacker, defender, move) == 0.0:
         ctx.emit(ev.immune(defender[0], defender[1], move.id))
+        # An immunity is a failure -- unlike a block, which the moves that
+        # read this flag carve out by name.
+        _note_move_failed(ctx, attacker, True)
         return
 
     # Steel Beam pays its half-max-HP cost for swinging at all -- hit or
@@ -1310,6 +1315,18 @@ def _resolve(
     _note_move_failed(ctx, attacker, not landed)
     if landed:
         _apply_self_effects(ctx, attacker, move)
+
+
+def _was_shielded(ctx: Context, move: Move) -> bool:
+    """Whether the veto just now came from a protecting move rather than a
+    refusal. ``conditions._protect_blocks`` says so in the log, which is the
+    only place the two are told apart."""
+    for event in reversed(ctx.log):
+        if event.kind == "protected" and event.move == move.id:
+            return True
+        if event.kind == "move_used" and event.move == move.id:
+            return False
+    return False
 
 
 def _note_move_failed(ctx: Context, ref: Ref, failed: bool) -> None:

@@ -2334,6 +2334,334 @@ def _dragon_cheer():
                                         "firepunch"))
 
 
+def _ability_after(f, side):
+    from pkcm.engine.battle import make_context
+    return make_context(f.state).ability_of((side, f.state.sides[side].active[0]))
+
+
+@check("reversal", "hits hardest when the user is nearly gone")
+def _reversal():
+    def dealt(fraction):
+        f = Fight(ours("machamp", "__none__",
+                       ("reversal", "closecombat", "knockoff", "bulkup"),
+                       None, "adamant", (32, 32, 2, 0, 0, 32)),
+                  [wall()])
+        slot = f.state.sides[0].active[0]
+        f.state.sides[0].hp[slot] = max(1, f.state.sides[0].hp[slot] // fraction)
+        f.turn(Action.move(0), Action.move(0))
+        return f.damage("reversal")
+    healthy = dealt(1)
+    dying = dealt(20)
+    return (dying > healthy,
+            f"at full health {healthy}, at a twentieth {dying}")
+
+
+@check("risingvoltage", "doubles on Electric Terrain against a grounded target")
+def _rising_voltage():
+    def dealt(terrain):
+        f = Fight(ours("pikachu", "__none__",
+                       ("risingvoltage", "thunderbolt", "protect", "splash"),
+                       None, "modest", (0, 0, 2, 32, 0, 32)),
+                  [mon("snorlax", "__none__",   # grounded, and not immune
+                       ("splash", "bodyslam", "rest", "protect"),
+                       None, "serious", (32, 0, 32, 0, 2, 0))])
+        f.state.field.terrain = terrain
+        f.turn(Action.move(0), Action.move(0))
+        return f.damage("risingvoltage")
+    bare = dealt(None)
+    charged = dealt("electricterrain")
+    return (charged > bare * 1.5,
+            f"on bare ground {bare}, on Electric Terrain {charged}")
+
+
+@check("roleplay", "the user takes the target's ability")
+def _role_play():
+    f = Fight(ours("alakazam", "magicguard",
+                   ("roleplay", "psychic", "protect", "splash"),
+                   None, "timid", (0, 0, 2, 32, 0, 32)),
+              [mon("snorlax", "thickfat",
+                   ("splash", "bodyslam", "rest", "protect"),
+                   None, "serious", (32, 0, 32, 0, 2, 0))])
+    f.turn(Action.move(0), Action.move(0))
+    return (_ability_after(f, 0) == "thickfat",
+            f"our ability now reads {_ability_after(f, 0)!r}")
+
+
+@check("simplebeam", "the target's ability becomes Simple")
+def _simple_beam():
+    f = Fight(ours("clefable", "__none__",
+                   ("simplebeam", "moonblast", "protect", "splash"),
+                   None, "timid", (32, 0, 32, 0, 2, 32)),
+              [mon("snorlax", "thickfat",
+                   ("splash", "bodyslam", "rest", "protect"),
+                   None, "serious", (32, 0, 32, 0, 2, 0))])
+    f.turn(Action.move(0), Action.move(0))
+    return (_ability_after(f, 1) == "simple",
+            f"their ability now reads {_ability_after(f, 1)!r}")
+
+
+@check("worryseed", "the target's ability becomes Insomnia")
+def _worry_seed():
+    f = Fight(ours("venusaur", "__none__",
+                   ("worryseed", "sludgebomb", "protect", "splash"),
+                   None, "modest", (0, 0, 2, 32, 0, 32)),
+              [mon("snorlax", "thickfat",
+                   ("splash", "bodyslam", "rest", "protect"),
+                   None, "serious", (32, 0, 32, 0, 2, 0))])
+    f.turn(Action.move(0), Action.move(0))
+    return (_ability_after(f, 1) == "insomnia",
+            f"their ability now reads {_ability_after(f, 1)!r}")
+
+
+@check("saltcure", "keeps taking HP off after it lands")
+def _salt_cure():
+    f = _until(lambda seed: Fight(
+        ours("garganacl", "__none__",
+             ("saltcure", "rockslide", "recover", "protect"),
+             None, "adamant", (32, 32, 2, 0, 0, 0)),
+        [mon("snorlax", "__none__",
+             ("splash", "bodyslam", "rest", "protect"),
+             None, "serious", (32, 0, 32, 0, 2, 0))], seed)
+        .turn(Action.move(0), Action.move(0)),
+        lambda f: "saltcure" in f.volatiles(1))
+    if f is None:
+        return False, "the volatile never appeared in ten tries"
+    theirs = f.hp(1)
+    f.turn(Action.move(3), Action.move(0))     # Protect, so only the cure acts
+    return (f.hp(1) < theirs, f"they were on {theirs}, now {f.hp(1)}")
+
+
+@check("sleeptalk", "picks one of the other moves while the user sleeps")
+def _sleep_talk():
+    f = Fight(ours("snorlax", "__none__",
+                   ("sleeptalk", "bodyslam", "rest", "protect"),
+                   None, "adamant", (32, 32, 32, 0, 2, 0)),
+              [wall()])
+    f.state.sides[0].status[f.state.sides[0].active[0]] = "slp"
+    f.state.sides[0].status_data[f.state.sides[0].active[0]]["turns"] = 3
+    f.turn(Action.move(0), Action.move(0))
+    said = " | ".join(str(e) for e in f.log)
+    return ("bodyslam" in said or "rest" in said or "protect" in said,
+            f"log {said[:200]}")
+
+
+@check("solarblade", "charges a turn first, unless the sun is out")
+def _solar_blade():
+    f = Fight(ours("venusaur", "__none__",
+                   ("solarblade", "sludgebomb", "sunnyday", "protect"),
+                   None, "adamant", (0, 32, 2, 0, 0, 32)),
+              [wall()])
+    f.turn(Action.move(0), Action.move(0))
+    charged = f.damage("solarblade") == 0
+    f.turn(Action.move(0), Action.move(0))
+    fired = f.damage("solarblade") > 0
+    return (charged and fired,
+            f"turn one silent={charged}, turn two fired={fired}")
+
+
+@check("spite", "takes PP off the move the target last used")
+def _spite():
+    f = Fight(ours("gengar", "__none__",
+                   ("spite", "shadowball", "protect", "splash"),
+                   None, "timid", (32, 0, 32, 0, 2, 32)),
+              [mon("snorlax", "__none__",
+                   ("bodyslam", "splash", "rest", "protect"),
+                   None, "serious", (32, 0, 32, 0, 2, 0))])
+    f.turn(Action.move(3), Action.move(0))     # they show us Body Slam
+    before = f.state.sides[1].pp[f.state.sides[1].active[0]][0]
+    f.turn(Action.move(0), Action.move(1))
+    after = f.state.sides[1].pp[f.state.sides[1].active[0]][0]
+    return (after < before, f"their Body Slam had {before} PP, now {after}")
+
+
+@check("steelroller", "sweeps the terrain, and refuses when there is none")
+def _steel_roller():
+    f = Fight(ours("archaludon", "__none__",
+                   ("steelroller", "flashcannon", "protect", "splash"),
+                   None, "adamant", (0, 32, 2, 0, 0, 32)),
+              [wall()])
+    f.turn(Action.move(0), Action.move(0))
+    refused = f.said("move_failed")
+    g = Fight(ours("archaludon", "__none__",
+                   ("steelroller", "flashcannon", "protect", "splash"),
+                   None, "adamant", (0, 32, 2, 0, 0, 32)),
+              [wall()])
+    g.state.field.terrain = "electricterrain"
+    g.turn(Action.move(0), Action.move(0))
+    return (refused and g.state.field.terrain is None,
+            f"on bare ground it refused={refused}; on terrain the terrain "
+            f"afterwards is {g.state.field.terrain!r}")
+
+
+@check("stockpile", "stacks layers and raises both defences")
+def _stockpile():
+    f = Fight(ours("snorlax", "__none__",
+                   ("stockpile", "swallow", "splash", "protect"),
+                   None, "serious", (32, 0, 32, 0, 2, 0)),
+              [dummy("magikarp")])
+    f.turn(Action.move(0), Action.move(0))
+    f.turn(Action.move(0), Action.move(0))
+    got = f.boosts(0)
+    return ("stockpile" in f.volatiles(0) and got.get("def") == 2
+            and got.get("spd") == 2,
+            f"volatiles {sorted(f.volatiles(0))}, boosts {got or 'none'}")
+
+
+@check("swallow", "spends the layers to heal")
+def _swallow():
+    f = Fight(ours("snorlax", "__none__",
+                   ("stockpile", "swallow", "splash", "protect"),
+                   None, "serious", (32, 0, 32, 0, 2, 0)),
+              # Splash on their fourth slot: leaving Stone Edge there meant the
+              # foe took more off on the healing turn than Swallow put back,
+              # and the check was reading the difference of the two.
+              [mon("garchomp", "__none__",
+                   ("earthquake", "dragonclaw", "firefang", "splash"),
+                   None, "jolly", (0, 32, 2, 0, 0, 32))])
+    f.turn(Action.move(2), Action.move(0))     # take a hit to leave room
+    f.turn(Action.move(0), Action.move(3))     # one layer
+    hurt = f.hp(0)
+    f.turn(Action.move(1), Action.move(3))
+    return (f.hp(0) > hurt and "stockpile" not in f.volatiles(0),
+            f"{hurt} -> {f.hp(0)}, layers left "
+            f"{'stockpile' in f.volatiles(0)}")
+
+
+@check("stompingtantrum", "doubles when the user's last move failed")
+def _stomping_tantrum():
+    def dealt(fail_first):
+        f = Fight(ours("garchomp", "__none__",
+                       ("stompingtantrum", "dragonclaw", "protect", "splash"),
+                       None, "adamant", (0, 32, 2, 0, 0, 32)),
+                  [mon("snorlax", "__none__",
+                       ("protect", "splash", "bodyslam", "rest"),
+                       None, "serious", (32, 0, 32, 0, 2, 0))])
+        if fail_first:
+            f.turn(Action.move(1), Action.move(0))   # they Protect: ours fails
+        f.turn(Action.move(0), Action.move(1))
+        return f.damage("stompingtantrum")
+    clean = dealt(False)
+    after_a_failure = dealt(True)
+    return (after_a_failure > clean * 1.5,
+            f"after a clean turn {clean}, after a failure {after_a_failure}")
+
+
+@check("stuffcheeks", "eats the held berry and puts the Defence up")
+def _stuff_cheeks():
+    f = Fight(ours("snorlax", "__none__",
+                   ("stuffcheeks", "bodyslam", "rest", "protect"),
+                   "sitrusberry", "serious", (32, 0, 32, 0, 2, 0)),
+              [dummy("magikarp")])
+    f.turn(Action.move(0), Action.move(0))
+    return (f.item(0) is None and f.boosts(0).get("def") == 2,
+            f"holding {f.item(0)}, boosts {f.boosts(0) or 'none'}")
+
+
+@check("teatime", "everyone holding a berry eats it")
+def _teatime():
+    f = Fight(ours("clefable", "__none__",
+                   ("teatime", "moonblast", "protect", "splash"),
+                   "sitrusberry", "timid", (32, 0, 32, 0, 2, 32)),
+              [mon("snorlax", "__none__",
+                   ("splash", "bodyslam", "rest", "protect"),
+                   "sitrusberry", "serious", (32, 0, 32, 0, 2, 0))])
+    f.turn(Action.move(0), Action.move(0))
+    return (f.item(0) is None and f.item(1) is None,
+            f"we hold {f.item(0)}, they hold {f.item(1)}")
+
+
+@check("syrupbomb", "keeps taking the target's Speed down")
+def _syrup_bomb():
+    f = _until(lambda seed: Fight(
+        ours("dipplin", "__none__",
+             ("syrupbomb", "dragonpulse", "recover", "protect"),
+             None, "modest", (32, 0, 32, 32, 0, 0)),
+        [mon("snorlax", "__none__",
+             ("splash", "bodyslam", "rest", "protect"),
+             None, "serious", (32, 0, 32, 0, 2, 0))], seed)
+        .turn(Action.move(0), Action.move(0)),
+        lambda f: "syrupbomb" in f.volatiles(1))
+    if f is None:
+        return False, "the volatile never appeared in ten tries"
+    f.turn(Action.move(3), Action.move(0))
+    return (f.boosts(1).get("spe", 0) < 0,
+            f"their boosts {f.boosts(1) or 'none'}")
+
+
+@check("terrainpulse", "changes type and doubles on terrain")
+def _terrain_pulse():
+    def dealt(terrain):
+        f = Fight(ours("indeedee", "__none__",
+                       ("terrainpulse", "psychic", "protect", "splash"),
+                       None, "modest", (0, 0, 2, 32, 0, 32)),
+                  [mon("snorlax", "__none__",
+                       ("splash", "bodyslam", "rest", "protect"),
+                       None, "serious", (32, 0, 32, 0, 2, 0))])
+        f.state.field.terrain = terrain
+        f.turn(Action.move(0), Action.move(0))
+        return f.damage("terrainpulse")
+    bare = dealt(None)
+    on_terrain = dealt("psychicterrain")
+    return (on_terrain > bare,
+            f"on bare ground {bare}, on Psychic Terrain {on_terrain}")
+
+
+@check("topsyturvy", "turns the target's stat changes upside down")
+def _topsy_turvy():
+    f = Fight(ours("gengar", "__none__",
+                   ("topsyturvy", "shadowball", "protect", "splash"),
+                   None, "timid", (32, 0, 32, 0, 2, 32)),
+              [mon("dragonite", "__none__",
+                   ("dragondance", "dragonclaw", "roost", "firepunch"))])
+    f.turn(Action.move(3), Action.move(0))     # they dance
+    theirs = f.boosts(1)
+    f.turn(Action.move(0), Action.move(2))
+    return (theirs.get("atk") == 1 and f.boosts(1).get("atk") == -1,
+            f"they had {theirs}, now {f.boosts(1) or 'nothing'}")
+
+
+@check("torment", "the target cannot use the same move twice running")
+def _torment():
+    from pkcm.engine.state import legal_actions
+    f = Fight(ours("gengar", "__none__",
+                   ("torment", "shadowball", "protect", "splash"),
+                   None, "timid", (32, 0, 32, 0, 2, 32)),
+              [mon("snorlax", "__none__",
+                   ("bodyslam", "splash", "rest", "protect"),
+                   None, "serious", (32, 0, 32, 0, 2, 0))])
+    f.turn(Action.move(0), Action.move(0))     # tormented, having used Body Slam
+    landed = "torment" in f.volatiles(1)
+    f.turn(Action.move(2), Action.move(0))     # they try Body Slam again
+    return (landed and f.said("cant_move", "torment"),
+            f"volatile={landed}, refused={f.said('cant_move', 'torment')}")
+
+
+@check("uproar", "keeps going by itself and keeps everyone awake")
+def _uproar():
+    from pkcm.engine.state import legal_actions
+    f = Fight(ours("snorlax", "__none__",
+                   ("uproar", "bodyslam", "rest", "protect"),
+                   None, "adamant", (32, 32, 32, 0, 2, 0)),
+              [wall()])
+    f.turn(Action.move(0), Action.move(0))
+    going = "uproar" in f.volatiles(0)
+    offered = {one.index for one in legal_actions(f.state, 0)
+               if str(one).startswith("move")}
+    return (going and offered == {0},
+            f"volatile={going}, and we are offered {sorted(offered)}")
+
+
+@check("wonderroom", "the two defences trade places")
+def _wonder_room():
+    f = Fight(ours("clefable", "__none__",
+                   ("wonderroom", "moonblast", "protect", "splash"),
+                   None, "timid", (32, 0, 32, 0, 2, 32)),
+              [dummy("magikarp")])
+    f.turn(Action.move(0), Action.move(0))
+    return ("wonderroom" in f.state.field.rooms,
+            f"the rooms up are {sorted(f.state.field.rooms) or 'none'}")
+
+
 # --------------------------------------------------------------------------- #
 
 

@@ -566,6 +566,9 @@ def resolve_target_code(state: BattleState, ref: Ref, code: int) -> Ref | None:
 #: in a row.
 RECHARGE_BY_NAME = frozenset({"gigatonhammer", "bloodmoon"})
 
+#: Cannot be selected until its user has eaten a berry.
+NEEDS_A_BERRY = frozenset({"belch"})
+
 
 def legal_actions(state: BattleState, player: int, position: int = 0) -> tuple[Action, ...]:
     """Everything ``player`` may legally submit for one field position.
@@ -651,6 +654,9 @@ def legal_actions(state: BattleState, player: int, position: int = 0) -> tuple[A
     recharging_by_name = (RECHARGE_BY_NAME
                           if volatiles.get("lastmove") in RECHARGE_BY_NAME
                           else frozenset())
+    # Belch cannot be picked until its user has eaten a berry.
+    unfed = (frozenset() if side.status_data[slot].get("ateberry")
+             else NEEDS_A_BERRY)
 
     usable = [
         index
@@ -659,6 +665,7 @@ def legal_actions(state: BattleState, player: int, position: int = 0) -> tuple[A
         and (encored is None or index == encored)
         and not (index < len(known) and known[index].id in sealed)
         and not (index < len(known) and known[index].id in recharging_by_name)
+        and not (index < len(known) and known[index].id in unfed)
     ]
 
     actions: list[Action] = []

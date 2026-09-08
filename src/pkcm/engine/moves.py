@@ -1786,7 +1786,11 @@ def _deal_or_break_substitute(
     damage: int, effectiveness: float, crit: bool,
 ) -> int:
     substitute = mutate.volatile(ctx.state, defender, "substitute")
-    bypasses = getattr(move, "infiltrates", False) or "authentic" in move.flags
+    # ``authentic`` was the old name for this flag and the data exports it as
+    # ``bypasssub``, so nothing sound-based has ever gone through a doll --
+    # Hyper Voice, Boomburst, Snore, Perish Song, all of them.
+    bypasses = (getattr(move, "infiltrates", False)
+                or "bypasssub" in move.flags or "authentic" in move.flags)
     if substitute is not None and not bypasses:
         substitute["hp"] -= damage
         if substitute["hp"] <= 0:

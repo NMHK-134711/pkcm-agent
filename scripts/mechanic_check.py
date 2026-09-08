@@ -2863,6 +2863,10 @@ _TARGET_MOVES = {"upperhand": ("splash", "aquajet", "protect", "rest")}
 #: Poltergeist refuses a target with empty hands, so the probe has to fill them.
 _TARGET_ITEM = {"poltergeist": "leftovers"}
 
+#: What the *user* must be holding. Belch cannot even be selected until it has
+#: eaten a berry, so the probe hands it one and lets it eat.
+_USER_ITEM = {"belch": "sitrusberry"}
+
 #: Which of the target's moves it uses while the probe casts.
 _TARGET_MOVE = {"suckerpunch": 1, "upperhand": 1}
 
@@ -2901,6 +2905,9 @@ def _bout(move, extra=("splash", "tackle", "protect"), target=None, seed=7):
                _TARGET_MOVES.get(move.id, ("splash", "tackle", "protect", "rest")),
                _TARGET_ITEM.get(move.id), "serious", (32, 0, 32, 0, 2, 0))
     user = _swinger(move, (move.id,) + extra)
+    if move.id in _USER_ITEM:
+        user = mon(user.species, user.ability, user.moves,
+                   _USER_ITEM[move.id], user.nature, user.sp)
     species = _USER_SPECIES.get(move.id)
     if species is not None:
         user = mon(species, user.ability, user.moves, user.item, user.nature,
@@ -2917,6 +2924,11 @@ def _staged(move, seed=7, extra=("splash", "tackle", "protect")):
     """A fight with the move cast once, from whatever position it needs."""
     f = _bout(move, extra=extra, seed=seed)
     theirs = _TARGET_MOVE.get(move.id, 0)
+    if move.id in _USER_ITEM:
+        # Eat the berry first: Belch is not selectable until it has.
+        slot = f.state.sides[0].active[0]
+        f.state.sides[0].hp[slot] //= 3
+        f.turn(Action.move(1), Action.move(theirs))
     for index in _LEAD_MOVES.get(move.id, ()):
         f.turn(Action.move(index), Action.move(theirs))
     if "charge" in move.flags:

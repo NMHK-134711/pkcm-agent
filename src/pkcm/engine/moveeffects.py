@@ -1237,6 +1237,18 @@ register("volatile", "beakblast", name="Beak Blast",
          after_damage=_beak_blast_burns)
 
 
+@special("clearsmog")
+def _clear_smog(ctx, user, target, move) -> bool:
+    """"Resets all of the target's stat stages to 0" -- and it reset none."""
+    side = ctx.state.sides[target[0]]
+    if not any(side.boosts[target[1]]):
+        return False
+    side.boosts[target[1]] = [0] * len(side.boosts[target[1]])
+    ctx.emit(Event("clear_boosts", side=target[0], slot=target[1],
+                   detail=move.id))
+    return True
+
+
 @special("tidyup")
 def _tidy_up(ctx, user, target, move) -> bool:
     for player in (0, 1):
@@ -1685,12 +1697,19 @@ def beat_up_hits(ctx: Context, user: Ref) -> list[int]:
     return powers
 
 
+BERRY_FLING_POWER = 10
+
+
 def fling_power(ctx: Context, user: Ref) -> int | None:
     item_id = ctx.state.item_id(*user)
     if item_id is None:
         return None
     fling = ctx.state.config.dex.items[item_id].raw.get("fling")
-    return fling.get("basePower") if fling else None
+    if fling:
+        return fling.get("basePower")
+    # The export carries no ``fling`` block for the berries, and a Fling with
+    # one in hand was doing nothing at all.
+    return BERRY_FLING_POWER if item_id.endswith("berry") else None
 
 
 def spit_up_power(ctx: Context, user: Ref) -> int:

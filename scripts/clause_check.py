@@ -4787,6 +4787,320 @@ def _safeguard_and_yawn():
     return verdict(rows)
 
 
+
+@family("weatherdamage",
+        "The damage of Fire-type attacks is multiplied by 1.5 and the damage "
+        "of Water-type attacks is multiplied by 0.5",
+        "The damage of Water-type attacks is multiplied by 1.5 and the damage "
+        "of Fire-type attacks is multiplied by 0.5")
+def _weather_moves_the_damage():
+    rows = []
+    for move_id in members("weatherdamage"):
+        up, down = {"sunnyday": ("flamethrower", "surf"),
+                    "raindance": ("surf", "flamethrower")}[move_id]
+        off = []
+        for probe, want in ((up, 1.5), (down, 0.5)):
+            plain = _damage_under(None, "weather", probe)
+            weathered = _damage_under(move_id, "weather", probe)
+            share = weathered / plain if plain else 0.0
+            if abs(share - want) > 0.08:
+                off.append(f"{probe} x{share:.2f} against x{want}")
+        rows.append((move_id, not off, "; ".join(off) or
+                     "a half again on one and a half off the other"))
+    return verdict(rows)
+
+
+@family("hazardsetup",
+        "Sets up a hazard on the opposing side of the field, damaging each "
+        "opposing Pokemon that switches in, unless it is a Flying-type Pokemon "
+        "or has the Levitate Ability.",
+        "Sets up a hazard on the opposing side of the field, damaging each "
+        "opposing Pokemon that switches in.",
+        "Sets up a hazard on the opposing side of the field, lowering the Speed "
+        "by 1 stage of each opposing Pokemon that switches in, unless it is a "
+        "Flying-type Pokemon or has the Levitate Ability.",
+        "Sets up a hazard on the opposing side of the field, poisoning each "
+        "opposing Pokemon that switches in, unless it is a Flying-type Pokemon "
+        "or has the Levitate Ability.")
+def _hazards_greet_the_replacement():
+    rows = []
+    for move_id in members("hazardsetup"):
+        def arrival(species):
+            f = Fight([swinger(move_id)],
+                      [wall("garchomp"),
+                       mon(species, "__none__", ("splash", "tackle"))], seed=7)
+            f.turn(Action.move(0), Action.move(0))
+            f.turn(Action.move(1), Action.switch(1))
+            return (f.max_hp(1) - f.hp(1), f.status(1),
+                    f.boosts(1).get("spe", 0))
+
+        hurt, status, slowed = arrival("magikarp")
+        aloft = arrival("charizard")
+        marked = {"spikes": hurt > 0, "stealthrock": hurt > 0,
+                  "toxicspikes": status is not None,
+                  "stickyweb": slowed < 0}[move_id]
+        # Stealth Rock is the one that reaches something in the air.
+        floats = (aloft[0] == 0 and aloft[1] is None and aloft[2] == 0)
+        rows.append((move_id, marked and (floats or move_id == "stealthrock"),
+                     f"the grounded arrival took {hurt}, came out {status} and "
+                     f"on {slowed} Speed; the Flying one {aloft}"))
+    return verdict(rows)
+
+
+@family("resetsstages", "Resets all of the target's stat stages to 0.",
+        "Resets the stat stages of all active Pokemon to 0.",
+        "The target's positive stat stages become negative and vice versa.")
+def _resets_the_stages():
+    rows = []
+    for move_id in members("resetsstages"):
+        f = Fight([mon(UNIVERSAL, "__none__",
+                       (move_id, "swordsdance", "splash", "protect"), None,
+                       "adamant", (32, 32, 0, 0, 2, 32))],
+                  [mon("snorlax", "__none__",
+                       ("swordsdance", "splash", "protect", "rest"), None,
+                       "sassy", (32, 0, 32, 0, 32, 0))], seed=7)
+        f.turn(Action.move(1), Action.move(0))          # both build up
+        before = (dict(f.boosts(0)), dict(f.boosts(1)))
+        f.turn(Action.move(0), Action.move(1))
+        after = (dict(f.boosts(0)), dict(f.boosts(1)))
+        want = {"clearsmog": after[1] == {} and after[0] == before[0],
+                "haze": after == ({}, {}),
+                "topsyturvy": after[1].get("atk") == -2}[move_id]
+        rows.append((move_id, want, f"{before} -> {after}"))
+    return verdict(rows)
+
+
+@family("tidyupsweeps",
+        "Removes substitutes from all active Pokemon and ends the effects of "
+        "Spikes, Stealth Rock, Sticky Web, and Toxic Spikes for both sides.")
+def _tidy_up_sweeps():
+    rows = []
+    for move_id in members("tidyupsweeps"):
+        f = Fight([swinger(move_id)], [wall()], seed=7)
+        for side in (0, 1):
+            for name in ("spikes", "stealthrock", "stickyweb", "toxicspikes"):
+                f.state.sides[side].conditions[name] = 1
+        f.state.sides[1].volatiles[f.state.sides[1].active[0]]["substitute"] = \
+            {"hp": 20}
+        f.turn(Action.move(0), Action.move(0))
+        rows.append((move_id, not f.conditions(0) and not f.conditions(1)
+                     and "substitute" not in f.volatiles(1),
+                     f"ours kept {f.conditions(0) or 'nothing'}, theirs "
+                     f"{f.conditions(1) or 'nothing'}, their doll "
+                     f"{sorted(f.volatiles(1) & {'substitute'})}"))
+    return verdict(rows)
+
+
+@family("swallowamounts",
+        "Restores 1/4 of its maximum HP if it's 1, 1/2 of its maximum HP if "
+        "it's 2, both rounded half down, and all of its HP if it's 3.")
+def _swallow_amounts():
+    rows = []
+    for move_id in members("swallowamounts"):
+        off = []
+        for layers, share in ((1, 4), (2, 2), (3, 1)):
+            f = Fight([mon(UNIVERSAL, "__none__",
+                           (move_id, "stockpile", "splash", "protect"), None,
+                           "adamant", (32, 32, 0, 0, 2, 0))],
+                      [wall()], seed=7)
+            slot = f.state.sides[0].active[0]
+            f.state.sides[0].hp[slot] = 1
+            whole = f.max_hp(0)
+            for _ in range(layers):
+                f.turn(Action.move(1), Action.move(0))
+            f.turn(Action.move(0), Action.move(0))
+            got = f.hp(0) - 1
+            want = min(whole - 1, whole // share)
+            if abs(got - want) > 1:
+                off.append(f"{layers} layer(s): restored {got}, expected {want}")
+        rows.append((move_id, not off, "; ".join(off) or
+                     "a quarter, a half and all of it"))
+    return verdict(rows)
+
+
+@family("substituteignored",
+        "Sound-based moves and Pokemon with the Infiltrator Ability ignore "
+        "substitutes.")
+def _substitute_is_ignored():
+    rows = []
+    for move_id in members("substituteignored"):
+        def took(probe, ability="__none__"):
+            f = Fight([mon(UNIVERSAL, ability,
+                           (probe, "splash", "protect", "rest"), None, "modest",
+                           (32, 0, 0, 32, 2, 32))],
+                      [mon("snorlax", "__none__",
+                           (move_id, "splash", "protect", "rest"), None,
+                           "sassy", (32, 0, 32, 0, 32, 0))], seed=7)
+            f.turn(Action.move(1), Action.move(0))      # they put one up
+            before = f.hp(1)
+            f.turn(Action.move(0), Action.move(1))
+            return before - f.hp(1)
+
+        # Not Shadow Ball: a Normal type is immune to it, which reads exactly
+        # like a doll doing its job.
+        sound = took("hypervoice")
+        sneaky = took("psychic", ability="infiltrator")
+        blocked = took("psychic")
+        rows.append((move_id, sound > 0 and sneaky > 0 and blocked == 0,
+                     f"a sound move took {sound}, an Infiltrator {sneaky}, an "
+                     f"ordinary special move {blocked}"))
+    return verdict(rows)
+
+
+@family("leechseedsteals",
+        "The Pokemon at the user's position steals 1/8 of the target's maximum "
+        "HP, rounded down, at the end of each turn.")
+def _leech_seed_steals():
+    rows = []
+    for move_id in members("leechseedsteals"):
+        f = Fight([swinger(move_id)], [wall("garchomp")], seed=7)
+        slot = f.state.sides[0].active[0]
+        f.state.sides[0].hp[slot] //= 2
+        ours = f.hp(0)
+        f.turn(Action.move(0), Action.move(0))
+        theirs = f.max_hp(1)
+        took = theirs - f.hp(1)
+        gained = f.hp(0) - ours
+        rows.append((move_id, abs(took - theirs // 8) <= 1 and gained == took,
+                     f"it took {took} of {theirs} (an eighth is {theirs // 8}) "
+                     f"and gave the user {gained}"))
+    return verdict(rows)
+
+
+@family("flingitem", "The power of this move is based on the user's held item.",
+        "The held item is lost and it activates for the target if applicable.")
+def _fling_reads_the_item():
+    rows = []
+    for move_id in members("flingitem"):
+        def dealt(item):
+            f = Fight([swinger(move_id, item=item)],
+                      [wall("blissey" if "blissey" in DEX.species else "snorlax")],
+                      seed=7)
+            f.turn(Action.move(0), Action.move(0))
+            return hp_lost(f), f.item(0)
+
+        light, gone = dealt("sitrusberry")
+        heavy, _ = dealt("ironball" if "ironball" in LEGAL_ITEMS else "leftovers")
+        rows.append((move_id, light > 0 and gone is None and heavy != light,
+                     f"a berry threw for {light}, a heavier item for {heavy}; "
+                     f"the hand is {gone!r} afterwards"))
+    return verdict(rows)
+
+
+@family("endeavorunaffected",
+        "The target is unaffected if its current HP is less than or equal to "
+        "the user's current HP.")
+def _endeavor_needs_a_healthier_target():
+    rows = []
+    for move_id in members("endeavorunaffected"):
+        f = Fight([swinger(move_id)], [wall("garchomp")], seed=7)
+        theirs = f.state.sides[1].active[0]
+        f.state.sides[1].hp[theirs] = 10
+        f.turn(Action.move(0), Action.move(0))
+        rows.append((move_id, failed(f) or hp_lost(f) == 0,
+                     f"against a target on less HP it took {hp_lost(f)}"))
+    return verdict(rows)
+
+
+@family("corrosivegasitem", "The target loses its held item.")
+def _corrosive_gas_takes_the_item():
+    rows = []
+    for move_id in members("corrosivegasitem"):
+        f = Fight([swinger(move_id)],
+                  [wall(mc._reachable(DEX.moves[move_id]), item="leftovers")],
+                  seed=7)
+        f.turn(Action.move(0), Action.move(0))
+        rows.append((move_id, f.item(1) is None,
+                     f"the target still holds {f.item(1)!r}"))
+    return verdict(rows)
+
+
+@family("perishleaves", "The perish count is removed from Pokemon that switch "
+                        "out.")
+def _perish_count_leaves_with_them():
+    rows = []
+    for move_id in members("perishleaves"):
+        f = Fight([swinger(move_id)],
+                  [wall(), mon("magikarp", "__none__", ("splash", "tackle"))],
+                  seed=7)
+        f.turn(Action.move(0), Action.move(0))
+        counted = "perishsong" in f.volatiles(1)
+        f.turn(Action.move(1), Action.switch(1))
+        rows.append((move_id, counted and "perishsong" not in f.volatiles(1),
+                     f"counted={counted}; the replacement came in "
+                     f"{sorted(f.volatiles(1) & {'perishsong'})}"))
+    return verdict(rows)
+
+
+@family("sleeptalkpicks",
+        "One of the user's known moves, besides this move, is selected for use "
+        "at random.",
+        "The selected move does not have PP deducted from it, and can currently "
+        "have 0 PP.")
+def _sleep_talk_picks_one():
+    rows = []
+    for move_id in members("sleeptalkpicks"):
+        f = Fight([mon(UNIVERSAL, "__none__",
+                       (move_id, "bodyslam", "splash", "protect"), None,
+                       "adamant", (32, 32, 0, 0, 2, 0))],
+                  [wall("blissey" if "blissey" in DEX.species else "snorlax")],
+                  seed=7)
+        side = f.state.sides[0]
+        side.status[side.active[0]] = "slp"
+        side.status_data[side.active[0]]["turns"] = 3
+        before = list(side.pp[side.active[0]])
+        used = set()
+        for _ in range(6):
+            f.turn(Action.move(0), Action.move(0))
+            used |= {e.move for e in f.log if e.kind == "move_used"
+                     and (e.side or 0) == 0}
+        after = list(f.state.sides[0].pp[f.state.sides[0].active[0]])
+        spent = [b - a for b, a in zip(before, after)]
+        rows.append((move_id, used - {move_id} and spent[1] == 0,
+                     f"it called {sorted(used - {move_id})}; the called move's "
+                     f"PP moved by {spent[1]}"))
+    return verdict(rows)
+
+
+@family("belchunlocks",
+        "Once the condition is met, this move can be selected and used for the "
+        "rest of the battle even if the user gains or uses another item or "
+        "switches out.")
+def _belch_unlocks():
+    from pkcm.engine.state import legal_actions
+    rows = []
+    for move_id in members("belchunlocks"):
+        f = Fight([mon("snorlax", "__none__",
+                       (move_id, "splash", "protect", "rest"), "sitrusberry",
+                       "sassy", (32, 0, 32, 0, 32, 0))],
+                  [wall("garchomp")], seed=7)
+        before = [one.index for one in legal_actions(f.state, 0)
+                  if str(one).startswith("move")]
+        slot = f.state.sides[0].active[0]
+        f.state.sides[0].hp[slot] //= 3
+        f.turn(Action.move(1), Action.move(0))          # the berry goes down
+        after = [one.index for one in legal_actions(f.state, 0)
+                 if str(one).startswith("move")]
+        rows.append((move_id, 0 not in before and 0 in after,
+                     f"before eating it may pick {before}, afterwards {after}"))
+    return verdict(rows)
+
+
+@family("delegatedpower",
+        "Power doubles if the target has already taken damage this turn, other "
+        "than direct damage from Belly Drum, confusion, Curse, or Pain Split.",
+        "Power doubles if the user was hit by the target this turn.",
+        "Power doubles if the user is grounded and a terrain is active, and "
+        "this move's type changes to match.",
+        "Power doubles if a weather condition other than Delta Stream is "
+        "active, and this move's type changes to match.",
+        "Power is equal to 50+(X*50), where X is the total number of times any "
+        "Pokemon has fainted on the user's side")
+def _delegated_power():
+    """Each already has a written check in ``mechanic_check``."""
+    return _delegate("delegatedpower")
+
+
 # --------------------------------------------------------------------------- #
 # The report
 # --------------------------------------------------------------------------- #

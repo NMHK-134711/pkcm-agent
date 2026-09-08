@@ -38,6 +38,11 @@ def champions_items() -> set[str]:
 
 def used(ctx: Context, ref: Ref, item: str) -> None:
     ctx.emit(Event("item", side=ref[0], slot=ref[1], detail=item))
+    # "This move cannot be selected until the user eats a Berry" -- and once
+    # it has, it stays selectable for the rest of the battle, switches
+    # included, which is why this lives in ``status_data``.
+    if item.endswith("berry"):
+        ctx.state.sides[ref[0]].status_data[ref[1]]["ateberry"] = True
 
 
 # --------------------------------------------------------------------------- #

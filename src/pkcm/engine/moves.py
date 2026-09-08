@@ -414,8 +414,18 @@ def _needs_a_target_item(ctx: Context, attacker: Ref, defender: Ref,
     return None
 
 
+def _grass_shrugs_off_the_seed(ctx: Context, attacker: Ref, defender: Ref,
+                              move: Move) -> str | None:
+    """Grass types are immune to Leech Seed on use, but not to its effect:
+    Baton Pass can still hand over one that is already growing."""
+    if "grass" in ctx.state.types(*defender):
+        return "a Grass type shrugs it off"
+    return None
+
+
 LATE_REFUSALS: dict[
     str, Callable[[Context, Ref, Ref, Move], str | None]] = {
+    "leechseed": _grass_shrugs_off_the_seed,
     "poltergeist": _needs_a_target_item,
     "suckerpunch": _sucker_punch_refusal,
     "upperhand": _upper_hand_refusal,
@@ -1770,8 +1780,12 @@ def _apply_status_move(ctx: Context, attacker: Ref, target: Ref, move) -> bool:
         did_something |= mutate.set_status(ctx, target, raw["status"], source=attacker)
 
     if raw.get("volatileStatus") and raw["volatileStatus"] not in TACTICS_MANAGED_VOLATILES:
-        did_something |= mutate.add_volatile(ctx, target, raw["volatileStatus"],
-                                             **_volatile_data(ctx, raw["volatileStatus"]))
+        # With ``source``: a volatile that arrives with nobody attached cannot
+        # be refused by anything that asks who sent it, and Safeguard's
+        # "inflicted on them by other Pokemon" is exactly that question.
+        did_something |= mutate.add_volatile(
+            ctx, target, raw["volatileStatus"], source=attacker,
+            **_volatile_data(ctx, raw["volatileStatus"]))
 
     if raw.get("heal"):
         numerator, denominator = raw["heal"]

@@ -276,7 +276,8 @@ def _leech_seed_residual(ctx, ref, **_):
          reason="leechseed")
 
 
-register("volatile", "leechseed", name="Leech Seed", residual=_leech_seed_residual)
+register("volatile", "leechseed", name="Leech Seed",
+         residual=_leech_seed_residual)
 
 
 # --------------------------------------------------------------------------- #
@@ -344,8 +345,59 @@ def _terrain_boost(move_type: str):
     return handler
 
 
+#: The half of each terrain that is not damage. All four were registered with
+#: their multiplier and nothing else, so Electric Terrain did not stop a Spore,
+#: Misty Terrain did not stop a Will-O-Wisp, Psychic Terrain did not stop a
+#: Sucker Punch, and Grassy Terrain healed nobody.
+
+
+def _electric_terrain_keeps_them_awake(ctx, ref, status, source, **_):
+    if status == "slp" and is_grounded(ctx.state, ref):
+        return False
+    return None
+
+
+def _electric_terrain_refuses_yawn(ctx, ref, volatile, source, **_):
+    if volatile == "yawn" and is_grounded(ctx.state, ref):
+        return False
+    return None
+
+
+def _misty_terrain_refuses_status(ctx, ref, status, source, **_):
+    return False if is_grounded(ctx.state, ref) else None
+
+
+def _misty_terrain_refuses_confusion(ctx, ref, volatile, source, **_):
+    if volatile == "confusion" and is_grounded(ctx.state, ref):
+        return False
+    return None
+
+
+def _psychic_terrain_refuses_priority(ctx, ref, attacker, defender, move, **_):
+    """"grounded Pokemon cannot be hit by moves with priority greater than 0,
+    unless the target is an ally"."""
+    if ref != defender or attacker[0] == defender[0]:
+        return None
+    if move.priority > 0 and is_grounded(ctx.state, defender):
+        ctx.emit(Event("protected", side=defender[0], slot=defender[1],
+                       move=move.id, detail="psychicterrain"))
+        return False
+    return None
+
+
+GRASSY_HEAL = 16
+
+
+def _grassy_terrain_heals(ctx, ref, **_):
+    if is_grounded(ctx.state, ref):
+        heal(ctx, ref, fraction_of_max(ctx.state, ref, GRASSY_HEAL),
+             reason="grassyterrain")
+
+
 register("terrain", "electricterrain", name="Electric Terrain",
-         modify_damage=_terrain_boost("electric"))
+         modify_damage=_terrain_boost("electric"),
+         try_status=_electric_terrain_keeps_them_awake,
+         try_volatile=_electric_terrain_refuses_yawn)
 #: "the power of Bulldoze, Earthquake, and Magnitude used against grounded
 #: Pokemon is multiplied by 0.5" -- the other half of Grassy Terrain, and the
 #: half that decides whether a Grassy Terrain team can be answered by the
@@ -360,9 +412,11 @@ def _grassy_softens_the_ground(ctx, ref, value, attacker, defender, move, **_):
 
 
 register("terrain", "grassyterrain", name="Grassy Terrain",
-         modify_damage=_grassy_softens_the_ground)
+         modify_damage=_grassy_softens_the_ground,
+         residual=_grassy_terrain_heals)
 register("terrain", "psychicterrain", name="Psychic Terrain",
-         modify_damage=_terrain_boost("psychic"))
+         modify_damage=_terrain_boost("psychic"),
+         try_hit=_psychic_terrain_refuses_priority)
 
 
 def _misty_damps_dragon(ctx, ref, value, attacker, defender, move, **_):
@@ -372,7 +426,9 @@ def _misty_damps_dragon(ctx, ref, value, attacker, defender, move, **_):
 
 
 register("terrain", "mistyterrain", name="Misty Terrain",
-         modify_damage=_misty_damps_dragon)
+         modify_damage=_misty_damps_dragon,
+         try_status=_misty_terrain_refuses_status,
+         try_volatile=_misty_terrain_refuses_confusion)
 
 
 register("room", "trickroom", name="Trick Room")

@@ -1036,8 +1036,13 @@ GROUNDED_MOVES = frozenset({
 
 
 def _gravity_steadies_aim(ctx, ref, value, attacker, defender, move, **_):
-    if ref != attacker:
-        return None
+    """Everything aims better under Gravity: the evasiveness of all active
+    Pokemon is multiplied by 0.6, which is this on the other side.
+
+    No ``ref`` test: ``_both_sides`` gathers the field from the *defender*, so
+    asking for the attacker meant the handler returned None every time and
+    Gravity never steadied anything.
+    """
     return value * GRAVITY_ACCURACY[0] / GRAVITY_ACCURACY[1]
 
 
@@ -1143,7 +1148,10 @@ SPECIAL_MOVES["wideguard"] = _guard("wideguard")
 
 register("side", "safeguard", name="Safeguard",
          try_status=lambda ctx, ref, status, source, **_:
-             False if source is not None and source[0] != ref[0] else None)
+             False if source is not None and source[0] != ref[0] else None,
+         try_volatile=lambda ctx, ref, volatile, source, **_:
+             False if volatile == "confusion" and source is not None
+             and source[0] != ref[0] else None)
 register("side", "quickguard", name="Quick Guard",
          try_hit=lambda ctx, ref, attacker, defender, move, **_:
              False if ref == defender and attacker[0] != defender[0]
@@ -1676,6 +1684,24 @@ def _pinned_to_the_ground(ctx, ref, volatile, source, **_):
     if volatile in ("magnetrise", "telekinesis"):
         return False
     return None
+
+
+THROAT_CHOP_TURNS = 2
+
+
+def _throat_chopped(ctx, ref, move, **_):
+    """"For 2 turns, the target cannot use sound-based moves." The move had no
+    implementation at all, so a Hyper Voice went out the turn after."""
+    if "sound" in move.flags:
+        ctx.emit(Event("cant_move", side=ref[0], slot=ref[1], detail="throatchop"))
+        return False
+    return None
+
+
+SPECIAL_MOVES["throatchop"] = _apply_volatile("throatchop",
+                                              turns=THROAT_CHOP_TURNS)
+register("volatile", "throatchop", name="Throat Chop",
+         try_move=_throat_chopped, residual=_tick_down("throatchop"))
 
 
 register("volatile", "smackdown", name="Smack Down",

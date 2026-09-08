@@ -2876,6 +2876,274 @@ def _struggle_is_typeless():
     return verdict(rows)
 
 
+
+@family("statedduration", "For 5 turns, the weather becomes",
+        "For 5 turns, the terrain becomes", "For 5 turns, the Speed of every",
+        "For 5 turns, all active Pokemon have their Defense and Special "
+        "Defense stats swapped.",
+        "For 5 turns, the held items of all active Pokemon have no effect.",
+        "For 5 turns, the evasiveness of all active Pokemon is multiplied by 0.6.",
+        "For 5 turns, the user and its party members",
+        "For 5 turns, the user is immune to Ground-type attacks",
+        "For 4 turns, the user and its party members have their Speed doubled.",
+        "For 4 turns, the target's last move used becomes disabled.",
+        "For 2 turns, the target cannot use sound-based moves.",
+        "For 2 turns, the target is prevented from restoring any HP as long as "
+        "it remains active.",
+        "For its next 3 turns, the target is forced to repeat its last move used.",
+        "For 5 turns, the weather becomes Snow.")
+def _stated_durations():
+    """The number of turns each one says it lasts, measured turn by turn.
+
+    Delegated to ``mechanic_check``, whose duration probe casts the move and
+    then counts until the effect goes -- and now fails rather than shrugging
+    when it cannot set the position up.
+    """
+    return _delegate("statedduration")
+
+
+@family("tailwindspeed", "the user and its party members have their Speed doubled")
+def _tailwind_doubles_speed():
+    from pkcm.data.dex import Stat
+    from pkcm.engine.battle import make_context
+    from pkcm.engine.mutate import effective_stat
+
+    rows = []
+    for move_id in members("tailwindspeed"):
+        f = Fight([swinger(move_id)], [wall()], seed=7)
+        us = (0, f.state.sides[0].active[0])
+        before = effective_stat(make_context(f.state), us, Stat.SPE)
+        f.turn(Action.move(0), Action.move(0))
+        after = effective_stat(make_context(f.state), us, Stat.SPE)
+        rows.append((move_id, after == before * 2,
+                     f"Speed went {before} -> {after}"))
+    return verdict(rows)
+
+
+@family("safeguardblocks",
+        "the user and its party members cannot have non-volatile status "
+        "conditions or confusion inflicted on them by other Pokemon")
+def _safeguard_blocks():
+    rows = []
+    for move_id in members("safeguardblocks"):
+        f = Fight([swinger(move_id)],
+                  [mon("gengar", "__none__",
+                       ("willowisp", "confuseray", "splash", "protect"), None,
+                       "timid", (0, 0, 2, 32, 0, 32))], seed=7)
+        f.turn(Action.move(0), Action.move(2))
+        f.turn(Action.move(1), Action.move(0))
+        burnt = f.status(0)
+        f.turn(Action.move(1), Action.move(1))
+        confused = "confusion" in f.volatiles(0)
+        rows.append((move_id, burnt is None and not confused,
+                     f"behind it the Will-O-Wisp left {burnt} and Confuse Ray "
+                     f"left confusion={confused}"))
+    return verdict(rows)
+
+
+@family("magnetrisefloat",
+        "the user is immune to Ground-type attacks and the effects of Spikes, "
+        "Toxic Spikes, Sticky Web, and the Arena Trap Ability")
+def _magnet_rise_floats():
+    rows = []
+    for move_id in members("magnetrisefloat"):
+        f = Fight([swinger(move_id, species="snorlax")],
+                  [mon("garchomp", "__none__",
+                       ("earthquake", "splash", "protect", "rest"), None,
+                       "jolly", (0, 32, 2, 0, 0, 32))], seed=7)
+        f.turn(Action.move(0), Action.move(1))
+        up = "magnetrise" in f.volatiles(0)
+        f.turn(Action.move(1), Action.move(0))
+        took = sum(e.amount or 0 for e in f.log
+                   if e.kind == "damage" and (e.side or 0) == 0)
+        rows.append((move_id, up and took == 0,
+                     f"afloat={up}; the Earthquake took {took}"))
+    return verdict(rows)
+
+
+@family("encorerepeat", "the target is forced to repeat its last move used")
+def _encore_repeats():
+    from pkcm.engine.state import legal_actions
+    rows = []
+    for move_id in members("encorerepeat"):
+        f = Fight([swinger(move_id)],
+                  [mon("snorlax", "__none__",
+                       ("splash", "bodyslam", "protect", "rest"), None, "sassy",
+                       (32, 0, 32, 0, 32, 0))], seed=7)
+        f.turn(Action.move(1), Action.move(0))          # they Splash
+        f.turn(Action.move(0), Action.move(0))          # we Encore it
+        allowed = [one.index for one in legal_actions(f.state, 1)
+                   if str(one).startswith("move")]
+        rows.append((move_id, allowed == [0],
+                     f"after the Encore they may pick {allowed}"))
+    return verdict(rows)
+
+
+@family("disableturns", "the target's last move used becomes disabled")
+def _disable_disables():
+    from pkcm.engine.state import legal_actions
+    rows = []
+    for move_id in members("disableturns"):
+        f = Fight([swinger(move_id)],
+                  [mon("snorlax", "__none__",
+                       ("splash", "bodyslam", "protect", "rest"), None, "sassy",
+                       (32, 0, 32, 0, 32, 0))], seed=7)
+        f.turn(Action.move(1), Action.move(0))
+        f.turn(Action.move(0), Action.move(1))
+        allowed = [one.index for one in legal_actions(f.state, 1)
+                   if str(one).startswith("move")]
+        rows.append((move_id, 0 not in allowed and len(allowed) > 1,
+                     f"after the Disable they may pick {allowed}"))
+    return verdict(rows)
+
+
+@family("throatchopsound", "the target cannot use sound-based moves")
+def _throat_chop():
+    from pkcm.engine.state import legal_actions
+    rows = []
+    for move_id in members("throatchopsound"):
+        f = Fight([swinger(move_id)],
+                  [mon("snorlax", "__none__",
+                       ("hypervoice", "bodyslam", "protect", "rest"), None,
+                       "sassy", (32, 0, 32, 0, 32, 0))], seed=7)
+        f.turn(Action.move(0), Action.move(1))
+        allowed = [one.index for one in legal_actions(f.state, 1)
+                   if str(one).startswith("move")]
+        used_it = False
+        if 0 in allowed:
+            f.turn(Action.move(1), Action.move(0))
+            used_it = any(e.kind == "damage" and (e.side or 0) == 0
+                          and e.move == "hypervoice" for e in f.log)
+        rows.append((move_id, 0 not in allowed or not used_it,
+                     f"they may pick {allowed}; the sound move landed="
+                     f"{used_it}"))
+    return verdict(rows)
+
+
+@family("wonderroomswap", "all active Pokemon have their Defense and Special "
+                          "Defense stats swapped")
+def _wonder_room_swaps():
+    rows = []
+    for move_id in members("wonderroomswap"):
+        def took(room):
+            f = Fight([mon(UNIVERSAL, "__none__",
+                           (move_id, "bodyslam", "splash", "protect"), None,
+                           "adamant", (32, 32, 0, 0, 2, 0))],
+                      [mon("archaludon", "__none__",
+                           ("splash", "protect", "rest", "bodyslam"), None,
+                           "sassy", (32, 0, 32, 0, 32, 0))], seed=7)
+            if room:
+                f.turn(Action.move(0), Action.move(0))
+            f.turn(Action.move(1), Action.move(0))
+            return hp_lost(f)
+
+        plain, swapped = took(False), took(True)
+        rows.append((move_id, plain != swapped,
+                     f"a physical hit took {plain} normally and {swapped} "
+                     f"inside the room"))
+    return verdict(rows)
+
+
+@family("gravityevasion", "the evasiveness of all active Pokemon is multiplied "
+                          "by 0.6")
+def _gravity_steadies():
+    rows = []
+    for move_id in members("gravityevasion"):
+        def hits(room):
+            landed_count = 0
+            for seed in range(60):
+                f = Fight([mon(UNIVERSAL, "__none__",
+                               ("focusblast", "splash", "protect", "rest"),
+                               None, "modest", (32, 0, 0, 32, 2, 0))],
+                          [wall()], seed=seed)
+                if room:
+                    f.state.field.rooms["gravity"] = 5
+                f.turn(Action.move(0), Action.move(0))
+                landed_count += landed(f, "focusblast")
+            return landed_count / 60
+
+        plain, steadied = hits(False), hits(True)
+        rows.append((move_id, steadied > plain,
+                     f"Focus Blast landed {plain:.0%} normally and "
+                     f"{steadied:.0%} under Gravity"))
+    return verdict(rows)
+
+
+@family("magicroomitems", "the held items of all active Pokemon have no effect")
+def _magic_room_kills_items():
+    rows = []
+    for move_id in members("magicroomitems"):
+        def healed(room):
+            f = Fight([swinger(move_id, item="leftovers")], [wall()], seed=7)
+            slot = f.state.sides[0].active[0]
+            f.state.sides[0].hp[slot] //= 2
+            before = f.hp(0)
+            f.turn(Action.move(0) if room else Action.move(1), Action.move(0))
+            return f.hp(0) - before
+
+        rows.append((move_id, healed(True) == 0 and healed(False) > 0,
+                     f"Leftovers gave {healed(False)} normally and "
+                     f"{healed(True)} inside the room"))
+    return verdict(rows)
+
+
+@family("leechseedgrass", "Grass-type Pokemon are immune to this move on use, "
+                          "but not its effect.")
+def _leech_seed_and_grass():
+    rows = []
+    for move_id in members("leechseedgrass"):
+        f = Fight([swinger(move_id)],
+                  [wall("meganium" if "meganium" in DEX.species else "venusaur")],
+                  seed=7)
+        f.turn(Action.move(0), Action.move(0))
+        rows.append((move_id, "leechseed" not in f.volatiles(1),
+                     f"a Grass type came out holding "
+                     f"{sorted(f.volatiles(1) & {'leechseed'})}"))
+    return verdict(rows)
+
+
+@family("mistyyawn", "Grounded Pokemon can become affected by Yawn but cannot "
+                     "fall asleep from its effect.")
+def _misty_yawn():
+    rows = []
+    for move_id in members("mistyyawn"):
+        f = Fight([mon(UNIVERSAL, "__none__",
+                       ("yawn", "splash", "protect", "rest"), None, "adamant",
+                       (32, 32, 0, 0, 2, 0))],
+                  [wall()], seed=7)
+        f.state.field.terrain, f.state.field.terrain_turns = move_id, 8
+        f.turn(Action.move(0), Action.move(0))
+        yawning = "yawn" in f.volatiles(1)
+        f.turn(Action.move(1), Action.move(0))
+        rows.append((move_id, yawning and f.status(1) != "slp",
+                     f"the Yawn took hold={yawning}, and the target came out "
+                     f"{f.status(1)}"))
+    return verdict(rows)
+
+
+@family("gravityhazards",
+        "Ground-type attacks, Spikes, Toxic Spikes, Sticky Web, and the Arena "
+        "Trap Ability can affect Flying types or Pokemon with the Levitate "
+        "Ability.")
+def _gravity_grounds_the_flying():
+    rows = []
+    for move_id in members("gravityhazards"):
+        def took(room):
+            f = Fight([mon("garchomp", "__none__",
+                           ("earthquake", "splash", "protect", "rest"), None,
+                           "adamant", (0, 32, 2, 0, 0, 32))],
+                      [wall("charizard")], seed=7)
+            if room:
+                f.state.field.rooms["gravity"] = 5
+            f.turn(Action.move(0), Action.move(0))
+            return hp_lost(f)
+
+        rows.append((move_id, took(False) == 0 and took(True) > 0,
+                     f"an Earthquake at a Flying type took {took(False)} "
+                     f"normally and {took(True)} under Gravity"))
+    return verdict(rows)
+
+
 # --------------------------------------------------------------------------- #
 # The report
 # --------------------------------------------------------------------------- #

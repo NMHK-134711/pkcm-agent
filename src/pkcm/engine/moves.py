@@ -856,9 +856,26 @@ def rolls_crit(ctx: Context, attacker: Ref, defender: Ref, move: Move) -> bool:
     return ctx.cursor.chance(1, denominator)
 
 
+#: Moves whose accuracy is written in the sky. Both say so twice in their own
+#: descriptions -- "If the weather is Primordial Sea or Rain Dance, this move
+#: does not check accuracy" and "If the weather is Desolate Land or Sunny Day,
+#: this move's accuracy is 50%" -- and neither had anything behind it: Thunder
+#: and Hurricane were 70% in every sky.
+WEATHER_ACCURACY = {
+    "hurricane": {"raindance": None, "sunnyday": 50.0},
+    "thunder": {"raindance": None, "sunnyday": 50.0},
+    "blizzard": {"snowscape": None},
+}
+
+
 def connects(ctx: Context, attacker: Ref, defender: Ref, move: Move) -> bool:
     """Accuracy, including stat stages for accuracy and evasion."""
     if move.accuracy is None:
+        return True
+
+    by_weather = (WEATHER_ACCURACY.get(move.id) or {})
+    in_this_sky = by_weather.get(ctx.state.field.weather, False)
+    if in_this_sky is None:
         return True
 
     # Asked before the stages, because that is the whole difference between a
@@ -869,7 +886,9 @@ def connects(ctx: Context, attacker: Ref, defender: Ref, move: Move) -> bool:
     if _both_sides(ctx, "never_misses", False, attacker, defender, move):
         return True
 
-    accuracy = _both_sides(ctx, "modify_accuracy", float(move.accuracy), attacker, defender, move)
+    written = move.accuracy if in_this_sky is False else in_this_sky
+    accuracy = _both_sides(ctx, "modify_accuracy", float(written),
+                           attacker, defender, move)
     evasion = (0 if move.raw.get("ignoreEvasion")
                else ctx.state.sides[defender[0]].boost(defender[1], "evasion"))
     stage = (

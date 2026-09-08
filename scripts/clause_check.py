@@ -119,6 +119,14 @@ def swinger(move_id, ability="__none__", item=None,
                nature, sp)
 
 
+def gendered(species, ability, moves, nature, sp, gender):
+    """``mechanic_check.mon`` has no gender, and Attract refuses without one."""
+    from pkcm.engine.pokemon import PokemonSet
+
+    return PokemonSet(species=species, ability=ability, moves=tuple(moves),
+                      item=None, nature=nature, sp=sp, gender=gender)
+
+
 def hp_lost(f, side=1):
     """Everything that came off ``side`` in the turn just played."""
     return sum(e.amount or 0 for e in f.log
@@ -1178,6 +1186,327 @@ def _the_users_level():
 def _the_screens():
     """Delegated to the four written checks in ``mechanic_check``."""
     return _delegate("screenbreakers")
+
+
+
+@family("plainstatus", "Causes the target to become confused.",
+        "Causes the target to fall asleep.", "Paralyzes the target.",
+        "Poisons the target.", "Burns the target.",
+        "Badly poisons the target.")
+def _plain_status():
+    """The status moves whose whole description is the status they inflict."""
+    return _delegate("plainstatus")
+
+
+@family("trapstatement", "Prevents the target from switching out.")
+def _prevents_switching():
+    from pkcm.engine.state import legal_actions
+    rows = []
+    for move_id in members("trapstatement"):
+        f = until(lambda seed, move_id=move_id: Fight(
+            [swinger(move_id)], [wall(mc._reachable(DEX.moves[move_id]))], seed=seed)
+            .turn(Action.move(0), Action.move(0)),
+            lambda f: "trapped" in f.volatiles(1))
+        held = f is not None and not [one for one in legal_actions(f.state, 1)
+                                      if str(one).startswith("switch")]
+        rows.append((move_id, held, f"the target may still leave={not held}"))
+    return verdict(rows)
+
+
+@family("ohkoaccuracy",
+        "This attack's accuracy is equal to (user's level - target's level + 30)%, "
+        "and fails if the target is at a higher level.",
+        "This attack's accuracy is equal to (user's level - target's level + X)%")
+def _ohko_accuracy():
+    """Everything is level 50 here, so the accuracy is a flat 30% -- or 20%
+    for Sheer Cold in hands that are not an Ice type's."""
+    rows = []
+    for move_id in members("ohkoaccuracy"):
+        want = 0.30
+        if move_id == "sheercold":
+            want = 0.20                       # Mew is not an Ice type
+        landed_count = tries = 0
+        for seed in range(200):
+            f = Fight([swinger(move_id)],
+                      [wall(mc._reachable(DEX.moves[move_id]))], seed=seed)
+            f.turn(Action.move(0), Action.move(0))
+            tries += 1
+            landed_count += landed(f, move_id)
+        rate = landed_count / tries
+        slack = max(0.05, 3 * (want * (1 - want) / tries) ** 0.5)
+        rows.append((move_id, abs(rate - want) <= slack,
+                     f"landed {landed_count} of {tries} ({rate:.0%}) against "
+                     f"the {want:.0%} the formula gives at level 50"))
+    return verdict(rows)
+
+
+@family("counterdamage",
+        "Deals damage to the last opposing Pokemon to hit the user with a "
+        "physical or special attack this turn equal to 1.5 times the HP lost by "
+        "the user from that attack.",
+        "If the user did not lose HP from that attack, this move deals 1 HP of "
+        "damage instead.",
+        "If the user did not lose HP from the attack, this move deals 1 HP of "
+        "damage instead.",
+        "Only the last hit of a multi-hit attack is counted.")
+def _counter_damage():
+    """Twice for Counter and Mirror Coat, half again for the other two."""
+    want = {"counter": 2.0, "mirrorcoat": 2.0, "comeuppance": 1.5,
+            "metalburst": 1.5}
+    rows = []
+    for move_id in members("counterdamage"):
+        swing = "shadowball" if move_id == "mirrorcoat" else "bodyslam"
+        f = Fight([mon("wobbuffet", "__none__",
+                       (move_id, "splash", "protect", "rest"), None, "sassy",
+                       (32, 0, 32, 0, 32, 0))],
+                  [mon("garchomp", "__none__", ("splash", swing, "protect", "rest"),
+                       None, "jolly", (0, 32, 2, 32, 0, 32))], seed=7)
+        before = f.hp(0)
+        f.turn(Action.move(0), Action.move(1))
+        taken, given = before - f.hp(0), hp_lost(f)
+        share = given / taken if taken else 0.0
+        rows.append((move_id, taken > 0 and abs(share - want[move_id]) <= 0.06,
+                     f"took {taken}, returned {given} (x{share:.2f} against "
+                     f"the x{want[move_id]} in the data)"))
+    return verdict(rows)
+
+
+@family("hazardremoval",
+        "Can be removed from the opposing side if any Pokemon uses Tidy Up, or "
+        "if any opposing Pokemon uses Mortal Spin, Rapid Spin, or Defog "
+        "successfully, or is hit by Defog.")
+def _hazards_can_be_swept():
+    rows = []
+    for move_id in members("hazardremoval"):
+        hazard = {"ceaselessedge": "spikes", "stoneaxe": "stealthrock"}.get(
+            move_id, move_id)
+        for sweeper in ("rapidspin", "defog", "tidyup"):
+            f = Fight([mon(UNIVERSAL, "__none__",
+                           (sweeper, "splash", "protect", "rest"), None,
+                           "adamant", (32, 32, 0, 0, 2, 0))],
+                      [wall()], seed=7)
+            f.state.sides[0].conditions[hazard] = 1
+            if sweeper == "defog":                 # Defog clears the far side
+                f.state.sides[0].conditions.pop(hazard)
+                f.state.sides[1].conditions[hazard] = 1
+            f.turn(Action.move(0), Action.move(0))
+            side = 1 if sweeper == "defog" else 0
+            if hazard in f.conditions(side):
+                rows.append((move_id, False, f"{sweeper} left {hazard} standing"))
+                break
+        else:
+            rows.append((move_id, True, "Rapid Spin, Defog and Tidy Up all "
+                                        "cleared it"))
+    return verdict(rows)
+
+
+@family("phazing",
+        "If both the user and the target have not fainted, the target is forced "
+        "to switch out and be replaced with a random unfainted ally.",
+        "Fails if the target is the last unfainted Pokemon in its party, or if "
+        "the target used Ingrain previously or has the Suction Cups Ability.")
+def _phazing():
+    rows = []
+    for move_id in members("phazing"):
+        def blown(ability, move_id=move_id):
+            f = until(lambda seed: Fight(
+                [swinger(move_id)],
+                [wall(mc._reachable(DEX.moves[move_id]), ability=ability),
+                 mon("magikarp", "__none__", ("splash", "tackle")),
+                 mon("pikachu", "__none__", ("splash", "tackle"))], seed=seed),
+                lambda f: True)
+            before = f.active_species(1)
+            f.turn(Action.move(0), Action.move(0))
+            return before != f.active_species(1)
+
+        rows.append((move_id, blown("__none__") and not blown("suctioncups"),
+                     f"it moved a plain target={blown('__none__')}, one with "
+                     f"Suction Cups={blown('suctioncups')}"))
+    return verdict(rows)
+
+
+@family("recoilhalf", "If the target lost HP, the user takes recoil damage "
+                      "equal to 1/2 the HP lost by the target, rounded half up, "
+                      "but not less than 1 HP.")
+def _recoil_half():
+    rows = []
+    for move_id in members("recoilhalf"):
+        f = Fight([swinger(move_id)],
+                  [wall(mc._reachable(DEX.moves[move_id]))], seed=7)
+        before = f.hp(0)
+        f.turn(Action.move(0), Action.move(0))
+        dealt, paid = hp_lost(f), before - f.hp(0)
+        rows.append((move_id, dealt > 0 and abs(paid - (dealt + 1) // 2) <= 1,
+                     f"dealt {dealt}, paid {paid}, half being {(dealt + 1) // 2}"))
+    return verdict(rows)
+
+
+@family("breaksprotection",
+        "If this move is successful, it breaks through the target's Baneful "
+        "Bunker, Detect, King's Shield, Protect, or Spiky Shield for this turn, "
+        "allowing other Pokemon to attack the target normally.")
+def _breaks_protection():
+    rows = []
+    for move_id in members("breaksprotection"):
+        f = Fight([swinger(move_id)],
+                  [mon(mc._reachable(DEX.moves[move_id]), "__none__",
+                       ("protect", "splash", "rest", "bodyslam"), None,
+                       "sassy", (32, 0, 32, 0, 32, 0))], seed=7)
+        if "charge" in DEX.moves[move_id].flags:
+            f.turn(Action.move(0), Action.move(1))     # spend the charge turn
+        f.turn(Action.move(0), Action.move(0))
+        rows.append((move_id, landed(f, move_id),
+                     f"reached through Protect={landed(f, move_id)}"))
+    return verdict(rows)
+
+
+@family("solarweather",
+        "If the user is holding a Power Herb or the weather is Desolate Land or "
+        "Sunny Day, the move completes in one turn.")
+def _solar_in_the_sun():
+    rows = []
+    for move_id in members("solarweather"):
+        f = Fight([swinger(move_id)],
+                  [wall(mc._reachable(DEX.moves[move_id]))], seed=7)
+        f.state.field.weather = "sunnyday"
+        f.state.field.weather_turns = 8
+        f.turn(Action.move(0), Action.move(0))
+        rows.append((move_id, hp_lost(f) > 0,
+                     f"in the sun it struck on the first turn={hp_lost(f) > 0}"))
+    return verdict(rows)
+
+
+@family("weatheraccuracy",
+        "If the weather is Primordial Sea or Rain Dance, this move does not "
+        "check accuracy.",
+        "If the weather is Desolate Land or Sunny Day, this move's accuracy "
+        "is 50%.")
+def _weather_accuracy():
+    rows = []
+    for move_id in members("weatheraccuracy"):
+        def rate(weather, move_id=move_id):
+            hits = 0
+            for seed in range(60):
+                f = Fight([swinger(move_id)],
+                          [wall(mc._reachable(DEX.moves[move_id]))], seed=seed)
+                if weather:
+                    f.state.field.weather = weather
+                    f.state.field.weather_turns = 8
+                f.turn(Action.move(0), Action.move(0))
+                hits += landed(f, move_id)
+            return hits / 60
+
+        wet, dry = rate("raindance"), rate("sunnyday")
+        rows.append((move_id, wet == 1.0 and abs(dry - 0.5) <= 0.2,
+                     f"in rain {wet:.0%}, in sun {dry:.0%} against the 100% "
+                     f"and 50% in the data"))
+    return verdict(rows)
+
+
+@family("steals", "If this attack was successful and the user has not fainted, "
+                  "it steals the target's held item if the user is not holding "
+                  "one.",
+        "If this move is successful and the user has not fainted, it steals the "
+        "target's held Berry if it is holding one and eats it immediately.")
+def _steals():
+    rows = []
+    for move_id in members("steals"):
+        berry = move_id in ("bugbite", "pluck")
+        item = "sitrusberry" if berry else "leftovers"
+        f = until(lambda seed, move_id=move_id, item=item: Fight(
+            [swinger(move_id)],
+            [wall(mc._reachable(DEX.moves[move_id]), item=item)], seed=seed)
+            .turn(Action.move(0), Action.move(0)),
+            lambda f: landed(f, f.state and move_id))
+        if f is None:
+            rows.append((move_id, False, "never connected in thirty tries"))
+            continue
+        took = f.item(1) is None
+        holding = f.item(0)
+        rows.append((move_id, took and (holding is None if berry else holding == item),
+                     f"the target kept {f.item(1)!r}, the user holds {holding!r}"))
+    return verdict(rows)
+
+
+@family("spinsfree",
+        "the effects of Leech Seed and binding moves end for the user")
+def _spins_free():
+    rows = []
+    for move_id in members("spinsfree"):
+        f = Fight([swinger(move_id)],
+                  [wall(mc._reachable(DEX.moves[move_id]))], seed=7)
+        f.state.sides[0].conditions["spikes"] = 2
+        slot = f.state.sides[0].active[0]
+        f.state.sides[0].volatiles[slot]["leechseed"] = {}
+        f.turn(Action.move(0), Action.move(0))
+        rows.append((move_id, "spikes" not in f.conditions(0)
+                     and "leechseed" not in f.volatiles(0),
+                     f"afterwards the side held {f.conditions(0) or 'nothing'} "
+                     f"and the user {sorted(f.volatiles(0) & {'leechseed'})}"))
+    return verdict(rows)
+
+
+@family("ignoresstages", "Ignores the target's stat stage changes, including "
+                         "evasiveness.")
+def _ignores_stages():
+    rows = []
+    for move_id in members("ignoresstages"):
+        def damage(boosted):
+            f = Fight([swinger(move_id)],
+                      [mon(mc._reachable(DEX.moves[move_id]), "__none__",
+                           ("irondefense", "splash", "protect", "rest"), None,
+                           "sassy", (32, 0, 32, 0, 32, 0))], seed=7)
+            if boosted:
+                f.turn(Action.move(1), Action.move(0))
+                f.turn(Action.move(1), Action.move(0))
+            f.turn(Action.move(0), Action.move(1))
+            return hp_lost(f)
+
+        plain, walled = damage(False), damage(True)
+        rows.append((move_id, plain and abs(walled - plain) <= max(2, plain * 0.05),
+                     f"{plain} against a plain target, {walled} through four "
+                     f"stages of Defence"))
+    return verdict(rows)
+
+
+@family("obliviousveil", "Pokemon with the Oblivious Ability or protected by "
+                         "the Aroma Veil Ability are immune.")
+def _oblivious_and_aroma_veil():
+    rows = []
+    for move_id in members("obliviousveil"):
+        def stuck(ability, move_id=move_id):
+            # Not Mew: it is genderless, and Attract refuses a genderless
+            # user whatever the ability across from it is doing.
+            f = Fight([gendered("garchomp", "__none__",
+                                (move_id, "splash", "protect", "rest"),
+                                "adamant", (32, 32, 0, 0, 2, 0), "M")],
+                      [gendered("snorlax", ability,
+                                ("splash", "bodyslam", "protect", "rest"),
+                                "sassy", (32, 0, 32, 0, 32, 0), "F")], seed=7)
+            f.turn(Action.move(0), Action.move(0))
+            return f.volatiles(1) & {"attract", "taunt"}
+
+        rows.append((move_id, stuck("__none__") and not stuck("oblivious")
+                     and not stuck("aromaveil"),
+                     f"plain {sorted(stuck('__none__'))}, Oblivious "
+                     f"{sorted(stuck('oblivious'))}, Aroma Veil "
+                     f"{sorted(stuck('aromaveil'))}"))
+    return verdict(rows)
+
+
+@family("snowfive", "For 5 turns, the weather becomes Snow.")
+def _five_turns_of_snow():
+    rows = []
+    for move_id in members("snowfive"):
+        f = Fight([swinger(move_id)], [wall()], seed=7)
+        f.turn(Action.move(0), Action.move(0))
+        if f.state.phase.name in ("MID_TURN_SWITCH", "FORCED_SWITCH"):
+            f.turn(Action.switch(1), Action.PASS)
+        rows.append((move_id, f.state.field.weather == "snowscape"
+                     and f.state.field.weather_turns == 4,
+                     f"{f.state.field.weather} with "
+                     f"{f.state.field.weather_turns} turns left of five"))
+    return verdict(rows)
 
 
 # --------------------------------------------------------------------------- #

@@ -566,6 +566,113 @@ def test_dire_claw_and_tri_attack_pick_a_status(dex, config):
         assert seen <= set(wanted), f"{move_id} inflicted {seen}, not {wanted}"
 
 
+def test_thunder_and_hurricane_read_the_sky(dex, config):
+    """Two sentences each, and nothing behind either: 70% in every weather."""
+    from pkcm.engine.moves import WEATHER_ACCURACY, connects
+
+    for move_id in ("thunder", "hurricane"):
+        assert move_id in WEATHER_ACCURACY
+        state = build(config, a_set("mew", (move_id,)), a_set("snorlax", ("splash",)))
+        ctx = make_context(state)
+
+        state.field.weather, state.field.weather_turns = "raindance", 8
+        assert all(connects(ctx, RED, BLUE, dex.moves[move_id]) for _ in range(30)), \
+            "in rain it does not check accuracy"
+
+        state.field.weather = "sunnyday"
+        hits = sum(connects(ctx, RED, BLUE, dex.moves[move_id]) for _ in range(200))
+        assert 0.3 <= hits / 200 <= 0.7, f"in sun it is 50%, got {hits}/200"
+
+
+def test_the_protect_chain_is_rolled_once_per_cast(dex, config):
+    """The variants spent two stalls on one cast: their handler and the branch
+    in ``_apply_status_move`` both called ``_apply_protect``."""
+    state = build(config, a_set("mew", ("banefulbunker", "splash")),
+                  a_set("snorlax", ("bodyslam",)))
+    state, _ = step(state, Action.move(0), Action.move(0))
+    stall = state.sides[0].volatiles[0].get("stall")
+    assert stall == {"count": 1}, f"one cast, one stall: {stall}"
+
+
+def test_endure_and_the_guards_are_in_the_same_chain(dex, config):
+    """All eight name the other seven; three of them never rolled."""
+    for move_id in ("endure", "quickguard", "wideguard"):
+        worked = 0
+        for seed in range(40):
+            state = new_battle(config,
+                               (tuple([a_set("mew", (move_id, "splash"))]
+                                      + [a_set(s, ("tackle",)) for s in
+                                         ("pikachu", "starmie")]),
+                                tuple([a_set("snorlax", ("bodyslam",))]
+                                      + [a_set(s, ("tackle",)) for s in
+                                         ("pikachu", "starmie")])), seed=seed)
+            state = step(state, Action.select(0, 1, 2), Action.select(0, 1, 2))[0]
+            state, _ = step(state, Action.move(0), Action.move(0))
+            state, log = step(state, Action.move(0), Action.move(0))
+            worked += not any(e.kind == "move_failed" and (e.side or 0) == 0
+                              for e in log)
+        assert 3 <= worked <= 25, f"{move_id} worked {worked} of 40 second casts"
+
+
+def test_a_one_hit_ko_cannot_touch_sturdy(dex, config):
+    def landed(ability):
+        for seed in range(30):
+            state = new_battle(config,
+                               (tuple([a_set("mew", ("fissure",))]
+                                      + [a_set(s, ("tackle",)) for s in
+                                         ("pikachu", "starmie")]),
+                                tuple([a_set("snorlax", ("splash",), ability=ability)]
+                                      + [a_set(s, ("tackle",)) for s in
+                                         ("pikachu", "starmie")])), seed=seed)
+            state = step(state, Action.select(0, 1, 2), Action.select(0, 1, 2))[0]
+            state, _ = step(state, Action.move(0), Action.move(0))
+            if state.sides[1].hp[0] == 0:
+                return True
+        return False
+
+    assert landed("__none__"), "it lands on something ordinary"
+    assert not landed("sturdy")
+
+
+def test_battle_armor_stops_an_always_critical_move(dex, config):
+    from pkcm.engine.moves import rolls_crit
+
+    for ability, expected in (("__none__", True), ("battlearmor", False),
+                              ("shellarmor", False)):
+        state = build(config, a_set("mew", ("frostbreath",)),
+                      a_set("snorlax", ("splash",), ability=ability))
+        ctx = make_context(state)
+        assert rolls_crit(ctx, RED, BLUE, dex.moves["frostbreath"]) is expected, ability
+
+
+def test_crash_damage_is_rounded_down(dex, config):
+    """Half of 207 is 103, and it was taking 104."""
+    from pkcm.engine.state import BOOST_INDEX
+
+    for move_id in ("highjumpkick", "axekick", "supercellslam"):
+        state = build(config, a_set("mew", (move_id, "splash")),
+                      a_set("snorlax", ("splash",)))
+        state.sides[1].boosts[0][BOOST_INDEX["evasion"]] = 6
+        whole = state.pokemon(0, 0).max_hp
+        for seed in range(20):
+            trial = new_battle(config,
+                               (tuple([a_set("mew", (move_id, "splash"))]
+                                      + [a_set(s, ("tackle",)) for s in
+                                         ("pikachu", "starmie")]),
+                                tuple([a_set("snorlax", ("splash",))]
+                                      + [a_set(s, ("tackle",)) for s in
+                                         ("pikachu", "starmie")])), seed=seed)
+            trial = step(trial, Action.select(0, 1, 2), Action.select(0, 1, 2))[0]
+            trial.sides[1].boosts[0][BOOST_INDEX["evasion"]] = 6
+            before = trial.sides[0].hp[0]
+            trial, log = step(trial, Action.move(0), Action.move(0))
+            if any(e.kind == "crash" for e in log):
+                assert before - trial.sides[0].hp[0] == whole // 2, move_id
+                break
+        else:
+            raise AssertionError(f"{move_id} never missed in twenty tries")
+
+
 def test_stealth_rock_hurts_on_entry_by_type(dex, config):
     state = build(config, a_set("charizard", ("tackle",)), a_set("snorlax", ("stealthrock",)))
     ctx = make_context(state)

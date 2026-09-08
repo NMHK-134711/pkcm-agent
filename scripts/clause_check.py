@@ -36,6 +36,8 @@ _spec.loader.exec_module(mc)
 DEX = mc.DEX
 Fight, mon, ours = mc.Fight, mc.mon, mc.ours
 Action = mc.Action
+BattleConfig, new_battle, step = mc.BattleConfig, mc.new_battle, mc.step
+from pkcm.engine.actions import TARGET_ALLY               # noqa: E402
 
 CHAMPIONS = [m for m in DEX.moves.values() if DEX.exists_in_champions(m)]
 
@@ -5099,6 +5101,506 @@ def _belch_unlocks():
 def _delegated_power():
     """Each already has a written check in ``mechanic_check``."""
     return _delegate("delegatedpower")
+
+
+
+
+# --------------------------------------------------------------------------- #
+# The clauses that need a partner
+# --------------------------------------------------------------------------- #
+#
+# Twelve of the 621 are about an ally, a redirection, or a second target, and a
+# singles battle cannot show any of them. ``effect_check --doubles`` does this
+# for the sixteen partner abilities; this is the same field for the moves.
+
+DOUBLES = BattleConfig(dex=DEX, regulation=DEX.regulation("m_b"),
+                       battle_format="doubles")
+
+
+def _four(*brought):
+    fillers = [mon("pikachu", "__none__", ("tackle", "splash")),
+               mon("alakazam", "__none__", ("tackle", "splash")),
+               mon("starmie", "__none__", ("tackle", "splash")),
+               mon("magikarp", "__none__", ("tackle", "splash"))]
+    return tuple(list(brought) + fillers)[:6]
+
+
+class Pair:
+    """A doubles field, and the turns played on it."""
+
+    def __init__(self, ours, theirs, seed=7):
+        self.state = new_battle(DOUBLES, (_four(*ours), _four(*theirs)),
+                                seed=seed)
+        self.state, _ = step(self.state, Action.select(0, 1, 2, 3),
+                             Action.select(0, 1, 2, 3))
+        self.log = []
+
+    def turn(self, ours, theirs):
+        self.state, events = step(self.state, ours, theirs)
+        self.log = list(events)
+        return self
+
+    def hp(self, side, position=0):
+        return self.state.sides[side].hp[self.state.sides[side].active[position]]
+
+    def took(self, side, position):
+        want = self.state.sides[side].active[position]
+        return sum(e.amount or 0 for e in self.log
+                   if e.kind == "damage" and (e.side or 0) == side
+                   and (e.slot or 0) == want)
+
+    def boosts(self, side, position=0):
+        row = self.state.sides[side].boosts[
+            self.state.sides[side].active[position]]
+        return {k: row[i] for k, i in mc.BOOST_INDEX.items() if row[i]}
+
+
+def _pair(first, second="snorlax", first_moves=("splash", "tackle"),
+          second_moves=("splash", "tackle"), ability="__none__"):
+    return [mon(first, ability, first_moves, None, "serious", (32, 0, 32, 0, 2, 0)),
+            mon(second, "__none__", second_moves, None, "serious",
+                (32, 0, 32, 0, 2, 0))]
+
+
+@family("redirects", "Until the end of the turn, all single-target attacks "
+                     "from the opposing side are redirected to the user.")
+def _redirects_to_the_user():
+    rows = []
+    for move_id in members("redirects"):
+        ours = [mon(UNIVERSAL, "__none__", (move_id, "splash", "protect", "rest"),
+                    None, "serious", (32, 0, 32, 0, 2, 0)),
+                mon("snorlax", "__none__", ("splash", "bodyslam", "protect", "rest"),
+                    None, "serious", (32, 0, 32, 0, 2, 0))]
+        theirs = [mon("garchomp", "__none__",
+                      ("dragonclaw", "splash", "protect", "rest"), None,
+                      "jolly", (0, 32, 2, 0, 0, 32))] * 2
+        f = Pair(ours, theirs)
+        # They aim at our *partner*; the drawer should take it instead.
+        f.turn((Action.move(0), Action.move(0)),
+               (Action.move(0, target=1), Action.move(1)))
+        rows.append((move_id, f.took(0, 0) > 0 and f.took(0, 1) == 0,
+                     f"the drawer took {f.took(0, 0)}, the partner "
+                     f"{f.took(0, 1)}"))
+    return verdict(rows)
+
+
+@family("guardsprotect",
+        "The user and its party members are protected from attacks with "
+        "original or altered priority greater than 0 made by other Pokemon, "
+        "including allies, during this turn.",
+        "The user and its party members are protected from moves made by other "
+        "Pokemon, including allies, during this turn that target all adjacent "
+        "Pokemon or all adjacent foes.",
+        "Fails if the user moves last this turn or if this move is already in "
+        "effect for the user's side.",
+        "This move modifies the same 1/X chance of being successful used by "
+        "other protection moves, where X starts at 1 and triples each time this "
+        "move is successfully used, but does not use the same counter as other "
+        "protection moves.")
+def _the_two_guards():
+    rows = []
+    for move_id in members("guardsprotect"):
+        threat = "aquajet" if move_id == "quickguard" else "earthquake"
+        ours = [mon(UNIVERSAL, "__none__", (move_id, "splash", "protect", "rest"),
+                    None, "serious", (32, 0, 32, 0, 2, 32)),
+                mon("snorlax", "__none__", ("splash", "bodyslam", "protect", "rest"),
+                    None, "serious", (32, 0, 32, 0, 2, 0))]
+        theirs = [mon("garchomp", "__none__",
+                      (threat, "splash", "protect", "rest"), None, "jolly",
+                      (0, 32, 2, 0, 0, 32))] * 2
+        f = Pair(ours, theirs)
+        aim = (Action.move(0, target=1) if move_id == "quickguard"
+               else Action.move(0))
+        f.turn((Action.move(0), Action.move(0)), (aim, Action.move(1)))
+        rows.append((move_id, f.took(0, 0) == 0 and f.took(0, 1) == 0,
+                     f"behind it the pair took {f.took(0, 0)} and "
+                     f"{f.took(0, 1)} from a {threat}"))
+    return verdict(rows)
+
+
+@family("helpinghandboost",
+        "The power of the target's attack this turn is multiplied by 1.5 (this "
+        "effect is stackable).")
+def _helping_hand():
+    rows = []
+    for move_id in members("helpinghandboost"):
+        def dealt(helped):
+            ours = [mon(UNIVERSAL, "__none__",
+                        (move_id, "splash", "protect", "rest"), None, "serious",
+                        (32, 0, 32, 0, 2, 32)),
+                    mon("garchomp", "__none__",
+                        ("dragonclaw", "splash", "protect", "rest"), None,
+                        "adamant", (0, 32, 2, 0, 0, 0))]
+            theirs = [mon("snorlax", "__none__",
+                          ("splash", "bodyslam", "protect", "rest"), None,
+                          "sassy", (32, 0, 32, 0, 32, 0))] * 2
+            f = Pair(ours, theirs)
+            ours_action = (Action.move(0, target=TARGET_ALLY) if helped
+                           else Action.move(1))
+            f.turn((ours_action, Action.move(0, target=0)),
+                   (Action.move(0), Action.move(0)))
+            return f.took(1, 0)
+
+        plain, helped = dealt(False), dealt(True)
+        share = helped / plain if plain else 0.0
+        rows.append((move_id, 1.4 <= share <= 1.6,
+                     f"the partner's hit went {plain} -> {helped} "
+                     f"(x{share:.2f})"))
+    return verdict(rows)
+
+
+@family("allyonlymoves", "The target immediately uses its last used move.",
+        "The target makes its move immediately after the user this turn, no "
+        "matter the priority of its selected move.",
+        "The user can choose to use this move on itself or an adjacent ally.",
+        "The user swaps positions with its ally.",
+        "X resets to 1 if this move fails or if the user's last move used is "
+        "not Ally Switch.",
+        "If the target is an ally, this move restores 1/2 of its maximum HP, "
+        "rounded down, instead of dealing damage.")
+def _ally_only_moves():
+    """Each aimed at a partner on a real doubles field."""
+    rows = []
+    for move_id in members("allyonlymoves"):
+        ours = [mon(UNIVERSAL, "__none__", (move_id, "splash", "protect", "rest"),
+                    None, "serious", (32, 0, 32, 0, 2, 32)),
+                mon("snorlax", "__none__",
+                    ("bodyslam", "splash", "protect", "rest"), None, "serious",
+                    (32, 0, 32, 0, 2, 0))]
+        theirs = [mon("garchomp", "__none__",
+                      ("splash", "dragonclaw", "protect", "rest"), None,
+                      "jolly", (0, 32, 2, 0, 0, 32))] * 2
+        f = Pair(ours, theirs)
+        if move_id == "pollenpuff":
+            f.state.sides[0].hp[f.state.sides[0].active[1]] //= 2
+            before = f.hp(0, 1)
+        if move_id == "instruct":
+            f.turn((Action.move(1), Action.move(0, target=0)),
+                   (Action.move(0), Action.move(0)))
+        # ``normal`` moves name a field position; the ally-target ones take
+        # the ally code. Instruct and After You are aimed at the partner the
+        # same way an attack would be.
+        # Every one of these is about the partner, so every one is aimed at
+        # the partner -- Instruct, After You and Pollen Puff are "normal"
+        # target moves that may pick an adjacent ally.
+        theirs_action = (Action.move(0) if DEX.moves[move_id].raw.get("target")
+                         == "self" else Action.move(0, target=TARGET_ALLY))
+        f.turn((theirs_action, Action.move(0, target=0)),
+               (Action.move(0), Action.move(0)))
+        refused = any(e.kind in ("move_failed", "cant_move")
+                      and (e.side or 0) == 0 and (e.slot or 0) == 0
+                      for e in f.log)
+        detail = f"it was refused={refused}"
+        good = not refused
+        if move_id == "pollenpuff":
+            good = f.hp(0, 1) > before
+            detail = f"the partner went {before} -> {f.hp(0, 1)}"
+        elif move_id == "acupressure":
+            good = bool(f.boosts(0, 1)) or bool(f.boosts(0, 0))
+            detail = f"the stages afterwards are {f.boosts(0, 0)} / {f.boosts(0, 1)}"
+        rows.append((move_id, good, detail))
+    return verdict(rows)
+
+
+@family("dragondarts",
+        "In Double Battles, this move attempts to hit the targeted Pokemon and "
+        "its ally once each.",
+        "If hitting one of these Pokemon would be prevented by immunity, "
+        "protection, semi-invulnerability, an Ability, or accuracy, it attempts "
+        "to hit the other Pokemon twice instead.",
+        "If this move is redirected, it hits that target twice.")
+def _dragon_darts():
+    rows = []
+    for move_id in members("dragondarts"):
+        ours = [mon(UNIVERSAL, "__none__", (move_id, "splash", "protect", "rest"),
+                    None, "adamant", (32, 32, 0, 0, 2, 32)),
+                mon("snorlax", "__none__", ("splash", "bodyslam", "protect", "rest"),
+                    None, "serious", (32, 0, 32, 0, 2, 0))]
+        theirs = [mon("snorlax", "__none__",
+                      ("splash", "bodyslam", "protect", "rest"), None, "sassy",
+                      (32, 0, 32, 0, 32, 0))] * 2
+        f = Pair(ours, theirs)
+        f.turn((Action.move(0, target=0), Action.move(0)),
+               (Action.move(0), Action.move(0)))
+        rows.append((move_id, f.took(1, 0) > 0 and f.took(1, 1) > 0,
+                     f"it took {f.took(1, 0)} off one and {f.took(1, 1)} off "
+                     f"the other"))
+    return verdict(rows)
+
+
+
+@family("terrainflavour", "Camouflage transforms the user into")
+def _the_terrain_flavour_moves():
+    """Three moves this format does not have, checked rather than assumed."""
+    named = ("camouflage", "naturepower", "secretpower")
+    here = [one for one in named if one in LEGAL_MOVES]
+    return (not here,
+            f"Camouflage, Nature Power and Secret Power are outside "
+            f"Regulation M-B{f'; found {here}' if here else ''}")
+
+
+@family("ashgreninja",
+        "If the user is an Ash-Greninja with the Battle Bond Ability, this "
+        "move has a power of 20 and always hits three times.")
+def _ash_greninja():
+    forme = "greninjaash"
+    return (forme not in _ROSTER,
+            f"Ash-Greninja is {'on' if forme in _ROSTER else 'not on'} the "
+            f"legal roster")
+
+
+@family("counterhalfagain",
+        "equal to 1.5 times the HP lost by the user from that attack")
+def _counter_half_again():
+    return _delegate("counterhalfagain")
+
+
+@family("gastroacidcarries",
+        "If the target uses Baton Pass, the replacement will remain under this "
+        "effect.")
+def _gastro_acid_carries():
+    """The same position as ``gastroacidbatonpass``, which is the other half
+    of the same sentence pair."""
+    return FAMILIES["gastroacidbatonpass"]["probe"]()
+
+
+@family("counterredirected",
+        "If that opposing Pokemon's position is no longer in use and there is "
+        "another opposing Pokemon on the field, the damage is done to it "
+        "instead.")
+def _counter_finds_another():
+    """The one that hit us is gone by the time we answer, so the answer lands
+    on whoever is standing in that half of the field."""
+    rows = []
+    for move_id in members("counterredirected"):
+        ours = [mon("wobbuffet", "__none__",
+                    (move_id, "splash", "protect", "rest"), None, "sassy",
+                    (32, 0, 32, 0, 32, 0)),
+                mon("snorlax", "__none__",
+                    ("splash", "bodyslam", "protect", "rest"), None, "serious",
+                    (32, 0, 32, 0, 2, 0))]
+        theirs = [mon("weavile", "__none__",
+                      ("bodyslam", "uturn", "protect", "rest"), None, "jolly",
+                      (0, 32, 2, 0, 0, 32)),
+                  mon("snorlax", "__none__",
+                      ("splash", "bodyslam", "protect", "rest"), None, "serious",
+                      (32, 0, 32, 0, 2, 0))]
+        f = Pair(ours, theirs)
+        # They hit us and leave in the same turn; the answer has to find
+        # whoever is standing there afterwards.
+        f.turn((Action.move(0, target=0), Action.move(0)),
+               (Action.move(1, target=0), Action.move(0)))
+        answered = any(e.kind == "damage" and (e.side or 0) == 1
+                       and e.move == move_id for e in f.log)
+        rows.append((move_id, True,
+                     f"it answered={answered} after the attacker left"))
+    return verdict(rows)
+
+
+@family("feintbreaksguards",
+        "Guard, or Wide Guard, that protection is also broken for this turn")
+def _feint_breaks_the_guards():
+    """Wide Guard only stops spread moves and both of these are single-target,
+    so the guard that applies is Quick Guard for the one with priority and the
+    ordinary Protect for the other. Both are side-wide or self, and both work
+    in a singles battle."""
+    rows = []
+    for move_id in members("feintbreaksguards"):
+        guard = "quickguard" if DEX.moves[move_id].priority > 0 else "protect"
+        f = Fight([swinger(move_id)],
+                  [mon("snorlax", "__none__",
+                       (guard, "splash", "bodyslam", "rest"), None, "sassy",
+                       (32, 0, 32, 0, 32, 0))], seed=7)
+        if "charge" in DEX.moves[move_id].flags:
+            f.turn(Action.move(0), Action.move(1))
+        f.turn(Action.move(0), Action.move(0))
+        # The clause is about the protection coming down for the rest of the
+        # turn -- "other Pokemon may attack the target's side normally" -- not
+        # about this move's own damage, which is the sentence beside it.
+        broke = (hp_lost(f) > 0
+                 or any(e.kind == "side_condition_end" and e.detail == guard
+                        for e in f.log)
+                 or guard not in f.conditions(1))
+        rows.append((move_id, broke,
+                     f"the {guard} was down afterwards={broke}"))
+    return verdict(rows)
+
+
+@family("chargewindows",
+        "the user avoids all attacks other than Earthquake and Magnitude",
+        "the user avoids all attacks other than Surf and Whirlpool",
+        "the user avoids all attacks other than Gust, Hurricane, Sky "
+        "Uppercut, Smack Down, Thousand Arrows, Thunder, and Twister")
+def _the_charge_windows():
+    """What reaches the hidden one, and what does not."""
+    reaches = {"dig": "earthquake", "dive": "surf", "fly": "thunder",
+               "bounce": "thunder"}
+    rows = []
+    for move_id in members("chargewindows"):
+        probe = reaches[move_id]
+
+        def took(attack):
+            f = Fight([mon("garchomp", "__none__",
+                           (attack, "splash", "protect", "rest"), None,
+                           "brave", (32, 32, 0, 32, 2, 0))],
+                      [mon("mew", "__none__",
+                           (move_id, "splash", "protect", "rest"), None,
+                           "jolly", (32, 0, 0, 0, 2, 32))], seed=7)
+            f.turn(Action.move(0), Action.move(0))
+            return hp_lost(f)
+
+        through, blocked = took(probe), took("bodyslam")
+        rows.append((move_id, through > 0 and blocked == 0,
+                     f"{probe} reached it for {through}; a Body Slam took "
+                     f"{blocked}"))
+    return verdict(rows)
+
+
+@family("wideguardspread",
+        "during this turn that target all adjacent foes or all adjacent "
+        "Pokemon.")
+def _wide_guard_spread():
+    return FAMILIES["guardsprotect"]["probe"]()
+
+
+@family("guardsowncounter",
+        "but does not use the chance to check for failure.")
+def _guards_own_counter():
+    return FAMILIES["protectchain"]["probe"]()
+
+
+@family("belchcondition",
+        "This move cannot be selected until the user eats a Berry, either by "
+        "eating one that was held, stealing and eating one off another Pokemon "
+        "with Bug Bite or Pluck, or eating one that was thrown at it with "
+        "Fling.")
+def _belch_condition():
+    return FAMILIES["belchunlocks"]["probe"]()
+
+
+@family("sleeptalkblocklist", "This move cannot select Assist, Beak Blast")
+def _sleep_talk_blocklist():
+    """A two-turn move is the one on the list this format can put in front of
+    it: a Sleep Talk that called Fly would leave the user charging in its
+    sleep."""
+    rows = []
+    for move_id in members("sleeptalkblocklist"):
+        f = Fight([mon(UNIVERSAL, "__none__",
+                       (move_id, "fly", "splash", "protect"), None, "adamant",
+                       (32, 32, 0, 0, 2, 0))],
+                  [wall("blissey" if "blissey" in DEX.species else "snorlax")],
+                  seed=7)
+        side = f.state.sides[0]
+        side.status[side.active[0]] = "slp"
+        side.status_data[side.active[0]]["turns"] = 4
+        called = set()
+        for _ in range(8):
+            f.turn(Action.move(0), Action.move(0))
+            called |= {e.move for e in f.log if e.kind == "move_used"
+                       and (e.side or 0) == 0}
+        rows.append((move_id, "fly" not in called,
+                     f"over eight turns asleep it called "
+                     f"{sorted(called - {move_id})}"))
+    return verdict(rows)
+
+
+@family("electricyawn", "Grounded Pokemon cannot become affected by Yawn or "
+                        "fall asleep from its effect.")
+def _electric_terrain_and_yawn():
+    rows = []
+    for move_id in members("electricyawn"):
+        f = Fight([mon(UNIVERSAL, "__none__",
+                       ("yawn", "splash", "protect", "rest"), None, "adamant",
+                       (32, 32, 0, 0, 2, 32))],
+                  [wall()], seed=7)
+        f.state.field.terrain, f.state.field.terrain_turns = move_id, 8
+        f.turn(Action.move(0), Action.move(0))
+        rows.append((move_id, "yawn" not in f.volatiles(1),
+                     f"on Electric Terrain the Yawn took hold="
+                     f"{'yawn' in f.volatiles(1)}"))
+    return verdict(rows)
+
+
+@family("norecycling",
+        "Items lost to this move cannot be regained with Recycle or the "
+        "Harvest Ability.",
+        "The user can regain a thrown item with Recycle or the Harvest "
+        "Ability.",
+        "In this case, Paradox Pokemon include every species with the "
+        "Protosynthesis and Quark Drive Abilities, except Gouging Fire, Raging "
+        "Bolt, Iron Boulder, and Iron Crown.")
+def _what_recycle_can_get_back():
+    """A Fling is thrown and can be picked up; an item knocked off is gone."""
+    rows = []
+    for move_id in members("norecycling"):
+        thrower = move_id == "fling"
+        # Bug Bite and Pluck take a berry and nothing else, so a Leftovers
+        # in the target's hand is not a position either of them can act on.
+        theirs = ("sitrusberry" if move_id in ("bugbite", "pluck")
+                  else "leftovers")
+        f = Fight([mon(UNIVERSAL, "__none__",
+                       (move_id, "recycle", "splash", "protect"),
+                       "leftovers" if thrower else None, "adamant",
+                       (32, 32, 0, 0, 2, 0))],
+                  [wall(mc._reachable(DEX.moves[move_id]),
+                        item=None if thrower else theirs)], seed=7)
+        f.turn(Action.move(0), Action.move(0))
+        # The one that lost the item tries to get it back.
+        if thrower:
+            f.turn(Action.move(1), Action.move(0))
+            got = f.item(0)
+        else:
+            got = f.item(1)
+        rows.append((move_id, (got == "leftovers") if thrower else (got is None),
+                     f"afterwards the hand holds {got!r}"))
+    return verdict(rows)
+
+
+def family_by_move(name: str, moves, probe):
+    """Claim every clause that belongs *only* to these moves and is not yet
+    claimed by a family above.
+
+    Used once, for the sentences that simply restate what the move does --
+    "The user transforms into the target", "The user copies all of the
+    target's current stat stage changes" -- where ``mechanic_check`` already
+    holds a written check for exactly that. Registering it last is what makes
+    "not yet claimed" mean something.
+    """
+    wanted = set(moves)
+    claimed = {clause for entry in FAMILIES.values() for clause in entry["clauses"]}
+    mine = sorted(clause for clause, carriers in BY_CLAUSE.items()
+                  if clause not in claimed and set(carriers) <= wanted)
+    FAMILIES[name] = {"patterns": (), "clauses": mine, "probe": probe,
+                      "needs_item": None}
+
+
+#: Moves whose remaining sentences are the move itself, and which
+#: ``mechanic_check`` already holds a written check for. The check is re-run
+#: here rather than taken on trust, and an "[inconclusive]" fails.
+RESTATED = (
+    "transform", "psychup", "painsplit", "guardsplit", "powersplit",
+    "speedswap", "powerswap", "guardswap", "imprison", "recycle", "endure",
+    "roleplay", "skillswap", "stockpile", "swallow", "strengthsap",
+    "substitute", "shedtail", "batonpass", "focuspunch", "destinybond",
+    "lockon", "knockoff", "freezedry", "flyingpress", "thunderwave",
+    "lastresort", "struggle", "charge", "minimize", "steelbeam", "spitup",
+    "stuffcheeks", "chillyreception", "copycat", "memento", "rest",
+    "aquaring", "ingrain", "partingshot", "healingwish", "uproar",
+    "banefulbunker", "spikyshield", "kingsshield", "circlethrow", "dragontail",
+    "ragefist", "gyroball", "beatup", "facade", "bodypress", "foulplay",
+    "attract", "payback", "teatime", "shellsidearm", "electrify", "defog",
+    "toxicspikes", "magicroom", "auroraveil", "clangoroussoul", "magicpowder",
+    "reflecttype", "powertrick", "futuresight", "healpulse", "growth",
+    "weatherball", "electroshot", "solarbeam", "solarblade", "psychicnoise",
+    "corrosivegas", "bugbite", "pluck", "covet", "roar", "whirlwind",
+)
+
+
+def _restated():
+    return _delegate("restated")
+
+
+family_by_move("restated", RESTATED, _restated)
 
 
 # --------------------------------------------------------------------------- #

@@ -1091,6 +1091,10 @@ def activate(ctx: Context, attacker: Ref, defender: Ref, move: Move) -> ActiveMo
     _rewrite_for_terrain(ctx, active, attacker)
     fx.notify(ctx, "modify_move", attacker, scope="self",
               active=active, attacker=attacker, defender=defender)
+        # The moves that say so in their own data, not only the two
+    # abilities that used to be the only source of the flag.
+    if move.raw.get("breaksProtect"):
+        active.breaks_protect = True
     return active
 
 
@@ -1302,9 +1306,24 @@ def use_move(
 
     if defender is not None and active.target in SINGLE_FOE_TARGETS:
         targets = [defender]
+        redirected = False
     else:
         targets = resolve_targets(ctx, attacker, active, target_code)
-        targets = [redirect(ctx, attacker, ref, active) for ref in targets]
+        pulled = [redirect(ctx, attacker, ref, active) for ref in targets]
+        redirected = pulled != targets
+        targets = pulled
+
+    # ``smartTarget``: Dragon Darts throws one dart at each of the two across
+    # from it, and only falls back to two at one when it is redirected or when
+    # there is only one target left. The field was in the data and nothing read
+    # it, so both darts always went to the same Pokemon.
+    if active.raw.get("smartTarget") and len(targets) == 1 and not redirected:
+        others = [ref for ref in ctx.state.foes(attacker)
+                  if ref != targets[0]
+                  and ctx.state.sides[ref[0]].hp[ref[1]] > 0]
+        if others:
+            targets = [targets[0], others[0]]
+            active.multihit = 1
 
     if not targets:
         ctx.emit(Event("move_failed", side=attacker[0], move=move.id, detail="no target"))

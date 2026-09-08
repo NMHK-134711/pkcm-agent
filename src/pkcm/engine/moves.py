@@ -188,6 +188,14 @@ TERRAIN_PULSE_TYPES = {
 }
 
 
+#: "Ice type during Snow, Water type during Primordial Sea or Rain Dance, Rock
+#: type during Sandstorm, and Fire type during Desolate Land or Sunny Day."
+#: Weather Ball had no implementation at all: it stayed Normal in every sky and
+#: kept its fifty power.
+WEATHER_BALL_TYPES = {"snowscape": "ice", "raindance": "water",
+                      "sandstorm": "rock", "sunnyday": "fire"}
+
+
 def _rewrite_for_terrain(ctx: Context, active, attacker: Ref) -> None:
     """The two rewrites that must happen before the move resolves.
 
@@ -198,6 +206,10 @@ def _rewrite_for_terrain(ctx: Context, active, attacker: Ref) -> None:
     """
     if active.id == "expandingforce" and _stands_on(ctx, attacker, "psychicterrain"):
         active.target = "allAdjacentFoes"
+    elif active.id == "weatherball":
+        kind = WEATHER_BALL_TYPES.get(ctx.state.field.weather)
+        if kind is not None:
+            active.type = kind
     elif active.id == "terrainpulse":
         from pkcm.engine.conditions import is_grounded
 
@@ -529,6 +541,9 @@ VARIABLE_POWER: dict[str, Callable[[Context, Ref, Ref, Move], int]] = {
     "mistyexplosion": _boosted_on("mistyterrain", X1_5),
     "risingvoltage": _rising_voltage,
     "terrainpulse": _terrain_pulse_power,
+    "weatherball": lambda ctx, attacker, defender, move:
+        move.base_power * 2 if ctx.state.field.weather in WEATHER_BALL_TYPES
+        else move.base_power,
     "lowkick": _weight_based(((10, 20), (25, 40), (50, 60), (100, 80), (200, 100), (float("inf"), 120))),
     "grassknot": _weight_based(((10, 20), (25, 40), (50, 60), (100, 80), (200, 100), (float("inf"), 120))),
     "heavyslam": _relative_weight,
@@ -920,6 +935,13 @@ def connects(ctx: Context, attacker: Ref, defender: Ref, move: Move) -> bool:
     if _both_sides(ctx, "never_misses", False, attacker, defender, move):
         return True
 
+    # "If a Poison-type Pokemon uses this move, the target cannot avoid the
+    # attack, even if the target is in the middle of a two-turn move." Nothing
+    # was reading it, so a Toxic from a Gengar missed a Double Team as often as
+    # anyone else's.
+    if move.id == "toxic" and "poison" in ctx.state.types(*attacker):
+        return True
+
     written = move.accuracy if in_this_sky is False else in_this_sky
     accuracy = _both_sides(ctx, "modify_accuracy", float(written),
                            attacker, defender, move)
@@ -1211,6 +1233,16 @@ def use_move(
 
     if "recharge" in move.flags:
         mutate.add_volatile(ctx, attacker, "mustrecharge")
+
+    from pkcm.engine.moveeffects import FUTURE_MOVES, SPECIAL_MOVES as _specials
+
+    if move.id in FUTURE_MOVES:
+        # It is aimed now and arrives in two turns; nothing happens on the way
+        # in, so the damage path below is skipped altogether.
+        first = defender or (ctx.state.foes(attacker) or [attacker])[0]
+        if not _specials[move.id](ctx, attacker, first, move):
+            _note_move_failed(ctx, attacker, True)
+        return
 
     if move.raw.get("multihit") is None and _locks_in(move):
         tactics.start_locked_move(ctx, attacker, move, move_index)
@@ -1917,6 +1949,11 @@ def _apply_substitute(ctx: Context, attacker: Ref, fraction: int = SUBSTITUTE_FR
         return False
     apply_damage(ctx, attacker, cost, "damage", detail="substitute")
     mutate.add_volatile(ctx, attacker, "substitute", hp=cost)
+    # "If a substitute is created while the user is trapped by a binding move,
+    # the binding effect ends immediately."
+    if mutate.volatile(ctx.state, attacker, "partiallytrapped") is not None:
+        mutate.remove_volatile(ctx, attacker, "partiallytrapped")
+        mutate.remove_volatile(ctx, attacker, "trapped", quiet=True)
     return True
 
 

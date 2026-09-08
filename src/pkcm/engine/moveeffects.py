@@ -142,6 +142,70 @@ def resolve_wish(ctx: Context, player: int) -> None:
 register("side", "wish", name="Wish")
 
 
+#: Counted down at the end of every turn including the one it was cast on, so
+#: three ticks is "two turns after this move is used".
+FUTURE_MOVE_TURNS = 3
+
+
+#: Cast now, land later: the damage path is skipped entirely on the way in.
+FUTURE_MOVES = frozenset({"futuresight", "doomdesire"})
+
+
+@special("futuresight", "doomdesire")
+def _future_move(ctx, user, target, move) -> bool:
+    """A move that lands two turns later, and had no implementation at all:
+    Future Sight was cast, spent its PP, and nothing ever arrived."""
+    position = ctx.state.sides[target[0]].position_of(target[1])
+    if position is None:
+        position = 0
+    pending = ctx.state.sides[target[0]].pending
+    if position in pending:
+        return _fail(ctx, user, "one is already on its way")
+    pending[position] = {"turns": FUTURE_MOVE_TURNS, "move": move.id,
+                         "from": list(user)}
+    ctx.emit(Event("side_condition", side=target[0], detail=move.id, amount=1))
+    return True
+
+
+def resolve_future_moves(ctx: Context, player: int) -> None:
+    """End of turn: tick each one down and land the ones that are due.
+
+    The damage is worked out here rather than at the cast, which is what the
+    move says: "the damage is calculated at that time and dealt to the Pokemon
+    at the position the target had when the move was used".
+    """
+    from pkcm.engine.moves import compute_damage
+
+    side = ctx.state.sides[player]
+    for position, waiting in list(side.pending.items()):
+        waiting["turns"] -= 1
+        if waiting["turns"] > 0:
+            continue
+        del side.pending[position]
+        if position >= len(side.active):
+            continue
+        slot = side.active[position]
+        if slot < 0 or side.hp[slot] <= 0:
+            continue
+        attacker = tuple(waiting["from"])
+        if ctx.state.sides[attacker[0]].hp[attacker[1]] <= 0:
+            standing = ctx.state.sides[attacker[0]].active[0]
+            if standing < 0:
+                continue
+            attacker = (attacker[0], standing)
+        move = ctx.state.config.dex.moves[waiting["move"]]
+        ctx.emit(Event("move_used", side=attacker[0], slot=attacker[1],
+                       species=ctx.state.species_id(*attacker),
+                       move=move.id))
+        amount, effectiveness = compute_damage(ctx, attacker, (player, slot),
+                                               move, crit=False)
+        if effectiveness == 0.0:
+            ctx.emit(Event("immune", side=player, slot=slot, move=move.id))
+            continue
+        mutate.apply_damage(ctx, (player, slot), amount, "damage",
+                            move=move.id, effectiveness=effectiveness)
+
+
 @special("roost")
 def _roost(ctx, user, target, move) -> bool:
     """The heal is declarative; losing Flying for the turn is not.
@@ -720,12 +784,23 @@ SPECIAL_MOVES["soak"] = _set_types(("water",))
 SPECIAL_MOVES["magicpowder"] = _set_types(("psychic",))
 
 
+#: The type each one bolts on. They replace each other rather than stacking:
+#: "If Forest's Curse adds a type to the target, it replaces the type added by
+#: this move and vice versa" -- so a Garchomp given both came out with four
+#: types instead of three.
+ADDED_TYPES = {"trickortreat": "ghost", "forestscurse": "grass"}
+
+
 def _add_type(extra: str):
     def handler(ctx, user, target, move) -> bool:
-        types = ctx.state.types(*target)
+        types = list(ctx.state.types(*target))
         if extra in types:
             return _fail(ctx, user, "it already has that type")
-        ctx.state.set_override(target[0], target[1], "types", types + (extra,))
+        for other in ADDED_TYPES.values():
+            if other != extra and other in types:
+                types.remove(other)
+        ctx.state.set_override(target[0], target[1], "types",
+                               tuple(types) + (extra,))
         ctx.emit(Event("type_added", side=target[0], slot=target[1], detail=extra))
         return True
 

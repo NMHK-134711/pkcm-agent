@@ -2650,6 +2650,50 @@ def _syrup_bomb():
             f"their boosts {f.boosts(1) or 'none'}")
 
 
+@check("weatherball", "changes type and doubles in every weather")
+def _weather_ball():
+    """Adding it to ``VARIABLE_POWER`` took it out of the generated checks,
+    which is where it had been getting its number verified."""
+    from pkcm.engine.moves import WEATHER_BALL_TYPES
+
+    off = []
+    for weather, kind in WEATHER_BALL_TYPES.items():
+        f = Fight(ours("mew", "__none__",
+                       ("weatherball", "splash", "protect", "rest"),
+                       None, "modest", (32, 0, 0, 32, 2, 0)),
+                  [mon("garchomp", "__none__",
+                       ("splash", "bodyslam", "protect", "rest"), None,
+                       "sassy", (32, 0, 32, 0, 32, 0))])
+        f.state.field.weather, f.state.field.weather_turns = weather, 8
+        f.turn(Action.move(0), Action.move(0))
+        hits = [e for e in f.log if e.kind == "damage" and (e.side or 0) == 1]
+        want = DEX.type_chart.multiplier(kind, f.state.types(1, 0))
+        got = hits[0].effectiveness if hits else None
+        if got is None or abs(got - want) > 0.01:
+            off.append(f"{weather}: effectiveness {got}, and a {kind} move "
+                       f"would be {want}")
+
+    def dealt(weather):
+        f = Fight(ours("mew", "__none__",
+                       ("weatherball", "splash", "protect", "rest"),
+                       None, "modest", (32, 0, 0, 32, 2, 0)),
+                  [mon("snorlax", "__none__",
+                       ("splash", "bodyslam", "protect", "rest"), None,
+                       "sassy", (32, 0, 32, 0, 32, 0))])
+        if weather:
+            f.state.field.weather, f.state.field.weather_turns = weather, 8
+        f.turn(Action.move(0), Action.move(0))
+        return f.damage("weatherball")
+
+    # Snow leaves the type Ice, which a Snorlax takes at the same rate as
+    # Normal, so the only thing that moves is the power.
+    plain, snowed = dealt(None), dealt("snowscape")
+    share = snowed / plain if plain else 0.0
+    return (not off and 1.9 <= share <= 2.2,
+            f"{'; '.join(off) or 'the type followed the sky all four ways'}; "
+            f"power {plain} -> {snowed} in snow (x{share:.2f})")
+
+
 @check("terrainpulse", "changes type and doubles on terrain")
 def _terrain_pulse():
     def dealt(terrain):
@@ -2780,6 +2824,9 @@ _TARGET_MOVE = {"suckerpunch": 1, "upperhand": 1}
 #: and a charge move spends the first turn charging.
 _LEAD_MOVES = {"lastresort": (1, 2, 3)}
 
+#: Turns to let pass *after* the cast, for the moves that land later.
+_TRAILING_TURNS = {"futuresight": 2, "doomdesire": 2}
+
 
 def _evasive(f):
     """Six stages of evasion, so an accurate move can actually miss."""
@@ -2829,6 +2876,10 @@ def _staged(move, seed=7, extra=("splash", "tackle", "protect")):
     if "charge" in move.flags:
         f.turn(Action.move(0), Action.move(theirs))   # the turn it spends
     f.turn(Action.move(0), Action.move(theirs))
+    for _ in range(_TRAILING_TURNS.get(move.id, 0)):
+        # Future Sight lands two turns later, and the probe used to read the
+        # turn it was aimed on and find nothing.
+        f.turn(Action.move(1), Action.move(theirs))
     return f
 
 

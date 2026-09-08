@@ -3255,6 +3255,330 @@ def _refusals():
     return verdict(rows)
 
 
+
+@family("weatherballtype",
+        "Ice type during Snow, Water type during Primordial Sea or Rain Dance, "
+        "Rock type during Sandstorm, and Fire type during Desolate Land or "
+        "Sunny Day")
+def _weather_ball_type():
+    rows = []
+    for move_id in members("weatherballtype"):
+        off = []
+        for weather, kind in (("snowscape", "ice"), ("raindance", "water"),
+                              ("sandstorm", "rock"), ("sunnyday", "fire")):
+            f = Fight([swinger(move_id)], [wall("garchomp")], seed=7)
+            f.state.field.weather, f.state.field.weather_turns = weather, 8
+            f.turn(Action.move(0), Action.move(0))
+            hits = [e for e in f.log if e.kind == "damage" and (e.side or 0) == 1]
+            got = hits[0].effectiveness if hits else None
+            want = DEX.type_chart.multiplier(kind, DEX.species["garchomp"].types)
+            if got is None or abs(got - want) > 0.01:
+                off.append(f"{weather}: effectiveness {got} against the {want} "
+                           f"a {kind} move would have")
+        rows.append((move_id, not off, "; ".join(off) or
+                     "the type followed the sky all four ways"))
+    return verdict(rows)
+
+
+@family("risingvoltage",
+        "If the current terrain is Electric Terrain and the target is "
+        "grounded, this move's power is doubled.")
+def _rising_voltage():
+    rows = []
+    for move_id in members("risingvoltage"):
+        def dealt(terrain):
+            f = Fight([swinger(move_id)], [wall()], seed=7)
+            if terrain:
+                f.state.field.terrain, f.state.field.terrain_turns = terrain, 8
+            f.turn(Action.move(0), Action.move(0))
+            return hp_lost(f)
+
+        plain, charged = dealt(None), dealt("electricterrain")
+        # The terrain's own 1.3x rides on top of the doubling.
+        share = charged / plain if plain else 0.0
+        rows.append((move_id, 2.5 <= share <= 2.7,
+                     f"{plain} on bare ground, {charged} on Electric Terrain "
+                     f"(x{share:.2f}, which is the doubling and the terrain's "
+                     f"own 1.3 together)"))
+    return verdict(rows)
+
+
+@family("hitsexactly", "Hits ten times.", "Hits three times.",
+        "Hits one time for the user and one time for each unfainted Pokemon "
+        "without a non-volatile status condition in the user's party.")
+def _hits_exactly():
+    rows = []
+    for move_id in members("hitsexactly"):
+        counts = set()
+        for seed in range(10):
+            f = Fight([swinger(move_id),
+                       mon("magikarp", "__none__", ("splash", "tackle")),
+                       mon("pikachu", "__none__", ("splash", "tackle"))],
+                      [wall("blissey" if "blissey" in DEX.species else "snorlax")],
+                      seed=seed)
+            f.turn(Action.move(0), Action.move(0))
+            hit = len([e for e in f.log if e.kind == "damage"
+                       and (e.side or 0) == 1 and e.move == move_id])
+            if hit:
+                counts.add(hit)
+        want = {"populationbomb": set(range(1, 11)),
+                "tripleaxel": {1, 2, 3}, "beatup": {3}}[move_id]
+        # Ten is the count, and the per-hit accuracy roll below it is a
+        # separate sentence with its own family: what this asks is that the
+        # ceiling is right and is reached.
+        ceiling = {"populationbomb": 10, "tripleaxel": 3, "beatup": 3}[move_id]
+        rows.append((move_id, counts and counts <= want and max(counts) == ceiling,
+                     f"hit {sorted(counts)} times, and the clause allows up to "
+                     f"{ceiling}"))
+    return verdict(rows)
+
+
+@family("toxicnevermisses",
+        "If a Poison-type Pokemon uses this move, the target cannot avoid the "
+        "attack, even if the target is in the middle of a two-turn move.")
+def _toxic_from_a_poison_type():
+    rows = []
+    for move_id in members("toxicnevermisses"):
+        def landed_from(species):
+            hits = 0
+            for seed in range(30):
+                f = Fight([mon(species, "__none__",
+                               (move_id, "splash", "protect", "rest"), None,
+                               "modest", (32, 0, 0, 32, 2, 0))],
+                          [mon("snorlax", "__none__",
+                               ("doubleteam", "splash", "protect", "rest"),
+                               None, "sassy", (32, 0, 32, 0, 32, 0))], seed=seed)
+                for _ in range(3):
+                    f.turn(Action.move(1), Action.move(0))
+                f.turn(Action.move(0), Action.move(1))
+                hits += f.status(1) is not None
+            return hits / 30
+
+        poison, other = landed_from("gengar"), landed_from("snorlax")
+        rows.append((move_id, poison == 1.0 and other < 1.0,
+                     f"from a Poison type it landed {poison:.0%} of the time "
+                     f"behind three Double Teams, from a Normal one "
+                     f"{other:.0%}"))
+    return verdict(rows)
+
+
+@family("futuresightlands", "Deals damage two turns after this move is used.",
+        "At the end of that turn, the damage is calculated at that time and "
+        "dealt to the Pokemon at the position the target had when the move was "
+        "used.")
+def _future_sight():
+    rows = []
+    for move_id in members("futuresightlands"):
+        f = Fight([swinger(move_id)], [wall()], seed=7)
+        f.turn(Action.move(0), Action.move(0))
+        landed_when = []
+        for turn in range(1, 4):
+            f.turn(Action.move(1), Action.move(0))
+            if any(e.kind == "damage" and (e.side or 0) == 1 for e in f.log):
+                landed_when.append(turn)
+        rows.append((move_id, landed_when == [2],
+                     f"the hit arrived on turn(s) {landed_when} after the cast"))
+    return verdict(rows)
+
+
+@family("yawnneedsawakeful",
+        "Fails when used if the target cannot fall asleep or if it already has "
+        "a non-volatile status condition.",
+        "Causes the target to fall asleep at the end of the next turn.")
+def _yawn_needs_a_target_that_can_sleep():
+    rows = []
+    for move_id in members("yawnneedsawakeful"):
+        f = Fight([swinger(move_id)],
+                  [wall(mc._reachable(DEX.moves[move_id]))], seed=7)
+        side = f.state.sides[1]
+        side.status[side.active[0]] = "brn"
+        f.turn(Action.move(0), Action.move(0))
+        rows.append((move_id, failed(f),
+                     f"against an already burnt target it failed={failed(f)}"))
+    return verdict(rows)
+
+
+@family("attractgenders",
+        "Fails if both the user and the target are the same gender, if either "
+        "is genderless, or if the target is already infatuated.")
+def _attract_and_gender():
+    rows = []
+    for move_id in members("attractgenders"):
+        def stuck(mine, theirs, user="garchomp", target="snorlax"):
+            f = Fight([gendered(user, "__none__",
+                                (move_id, "splash", "protect", "rest"),
+                                "jolly", (0, 32, 2, 0, 0, 32), mine)],
+                      [gendered(target, "__none__",
+                                ("splash", "bodyslam", "protect", "rest"),
+                                "sassy", (32, 0, 32, 0, 32, 0), theirs)], seed=7)
+            f.turn(Action.move(0), Action.move(0))
+            return "attract" in f.volatiles(1)
+
+        rows.append((move_id, stuck("M", "F") and not stuck("M", "M")
+                     and not stuck(None, "F"),
+                     f"M at F {stuck('M', 'F')}, M at M {stuck('M', 'M')}, "
+                     f"genderless at F {stuck(None, 'F')}"))
+    return verdict(rows)
+
+
+@family("abilityblocklist",
+        "Fails if the target's Ability is As One, Battle Bond, Comatose, "
+        "Disguise, Gulp Missile, Ice Face, Insomnia, Multitype, Power "
+        "Construct, RKS System, Schooling, Shields Down, Simple, Stance Change, "
+        "Truant, Zen Mode, or Zero to Hero.",
+        "Fails if the target's Ability is As One, Battle Bond, Comatose, "
+        "Disguise, Gulp Missile, Ice Face, Multitype, Power Construct, RKS "
+        "System, Schooling, Shields Down, Stance Change, Truant, Zen Mode, or "
+        "Zero to Hero.",
+        "Fails if the user's Ability is As One, Battle Bond, Comatose, "
+        "Disguise, Gulp Missile, Ice Face, Multitype, Power Construct, RKS "
+        "System, Schooling, Shields Down, Stance Change, Truant, Zen Mode, or "
+        "Zero to Hero.",
+        "Fails if either the user or the target's Ability is As One, Battle "
+        "Bond, Comatose, Commander, Disguise, Embody Aspect, Hunger Switch, "
+        "Ice Face, Illusion, Multitype, Neutralizing Gas, Power Construct, "
+        "Protosynthesis, Quark Drive, RKS System, Schooling, Shields Down, "
+        "Stance Change, Tera Shell, Tera Shift, Terastal, Wonder Guard, Zen "
+        "Mode, or Zero to Hero.")
+def _abilities_that_cannot_be_touched():
+    """Disguise is the one on the list this format actually has."""
+    rows = []
+    for move_id in members("abilityblocklist"):
+        theirs = "disguise"
+        mine = "disguise" if move_id in ("roleplay", "skillswap") else "levitate"
+        f = Fight([swinger(move_id, ability=mine)],
+                  [wall(mc._reachable(DEX.moves[move_id]), ability=theirs)],
+                  seed=7)
+        f.turn(Action.move(0), Action.move(0))
+        rows.append((move_id, failed(f),
+                     f"against Disguise it failed={failed(f)}"))
+    return verdict(rows)
+
+
+@family("destinybondtwice",
+        "Fails if the user used this move successfully as its last move, "
+        "disregarding moves used through the Dancer Ability.")
+def _destiny_bond_twice():
+    rows = []
+    for move_id in members("destinybondtwice"):
+        f = Fight([swinger(move_id)], [wall()], seed=7)
+        f.turn(Action.move(0), Action.move(0))
+        first = failed(f)
+        f.turn(Action.move(0), Action.move(0))
+        rows.append((move_id, not first and failed(f),
+                     f"the first went up ({not first}); the second failed="
+                     f"{failed(f)}"))
+    return verdict(rows)
+
+
+@family("typereplace",
+        "If Forest's Curse adds a type to the target, it replaces the type "
+        "added by this move and vice versa.",
+        "If Trick-or-Treat adds a type to the target, it replaces the type "
+        "added by this move and vice versa.")
+def _the_added_type_is_replaced():
+    rows = []
+    for move_id in members("typereplace"):
+        other = ("forestscurse" if move_id == "trickortreat" else "trickortreat")
+        added = {"trickortreat": "ghost", "forestscurse": "grass"}[other]
+        f = Fight([mon(UNIVERSAL, "__none__",
+                       (move_id, other, "splash", "protect"), None, "adamant",
+                       (32, 32, 0, 0, 2, 0))],
+                  [wall("garchomp")], seed=7)
+        f.turn(Action.move(0), Action.move(0))
+        f.turn(Action.move(1), Action.move(0))
+        types = set(f.state.types(1, f.state.sides[1].active[0]))
+        first = {"trickortreat": "ghost", "forestscurse": "grass"}[move_id]
+        rows.append((move_id, added in types and first not in types,
+                     f"after both, the target is {sorted(types)}"))
+    return verdict(rows)
+
+
+@family("substitutefrees",
+        "If a substitute is created while the user is trapped by a binding "
+        "move, the binding effect ends immediately.")
+def _substitute_frees_the_bound():
+    rows = []
+    for move_id in members("substitutefrees"):
+        f = Fight([mon("snorlax", "__none__",
+                       (move_id, "splash", "protect", "rest"), None, "sassy",
+                       (32, 0, 32, 0, 32, 0))],
+                  [mon("garchomp", "__none__",
+                       ("wrap", "splash", "protect", "rest"), None, "jolly",
+                       (0, 32, 2, 0, 0, 32))], seed=7)
+        f.turn(Action.move(1), Action.move(0))
+        bound = "partiallytrapped" in f.volatiles(0)
+        f.turn(Action.move(0), Action.move(1))
+        rows.append((move_id, bound and "partiallytrapped" not in f.volatiles(0),
+                     f"bound={bound}; after the substitute it held "
+                     f"{sorted(f.volatiles(0) & {'partiallytrapped'})}"))
+    return verdict(rows)
+
+
+@family("encoreoutofpp", "If the affected move runs out of PP, the effect ends.")
+def _encore_ends_with_the_pp():
+    from pkcm.engine.state import legal_actions
+    rows = []
+    for move_id in members("encoreoutofpp"):
+        f = Fight([swinger(move_id)],
+                  [mon("snorlax", "__none__",
+                       ("splash", "bodyslam", "protect", "rest"), None, "sassy",
+                       (32, 0, 32, 0, 32, 0))], seed=7)
+        f.turn(Action.move(1), Action.move(0))
+        f.turn(Action.move(0), Action.move(0))
+        held = [one.index for one in legal_actions(f.state, 1)
+                if str(one).startswith("move")] == [0]
+        slot = f.state.sides[1].active[0]
+        f.state.sides[1].pp[slot][0] = 0
+        free = len([one for one in legal_actions(f.state, 1)
+                    if str(one).startswith("move")]) > 1
+        rows.append((move_id, held and free,
+                     f"held to one move={held}; once its PP ran out it was "
+                     f"free={free}"))
+    return verdict(rows)
+
+
+@family("magicroomfling", "During the effect, Fling and Natural Gift are "
+                          "prevented from being used by all active Pokemon.")
+def _magic_room_stops_fling():
+    rows = []
+    for move_id in members("magicroomfling"):
+        f = Fight([mon(UNIVERSAL, "__none__",
+                       ("fling", "splash", "protect", "rest"), "leftovers",
+                       "adamant", (32, 32, 0, 0, 2, 0))],
+                  [wall()], seed=7)
+        f.state.field.rooms["magicroom"] = 5
+        f.turn(Action.move(0), Action.move(0))
+        rows.append((move_id, failed(f),
+                     f"inside the room, Fling failed={failed(f)}"))
+    return verdict(rows)
+
+
+@family("ingraingrounded",
+        "During the effect, the user can be hit normally by Ground-type "
+        "attacks and be affected by Spikes, Toxic Spikes, and Sticky Web, even "
+        "if the user is a Flying type or has the Levitate Ability.")
+def _ingrain_grounds_the_user():
+    rows = []
+    for move_id in members("ingraingrounded"):
+        def took(rooted):
+            f = Fight([mon("charizard", "__none__",
+                           (move_id, "splash", "protect", "rest"), None,
+                           "sassy", (32, 0, 32, 0, 32, 0))],
+                      [mon("garchomp", "__none__",
+                           ("earthquake", "splash", "protect", "rest"), None,
+                           "jolly", (0, 32, 2, 0, 0, 32))], seed=7)
+            f.turn(Action.move(0 if rooted else 1), Action.move(1))
+            f.turn(Action.move(1), Action.move(0))
+            return sum(e.amount or 0 for e in f.log
+                       if e.kind == "damage" and (e.side or 0) == 0)
+
+        rows.append((move_id, took(False) == 0 and took(True) > 0,
+                     f"an Earthquake at a Flying type took {took(False)} "
+                     f"normally and {took(True)} once it was rooted"))
+    return verdict(rows)
+
+
 # --------------------------------------------------------------------------- #
 # The report
 # --------------------------------------------------------------------------- #

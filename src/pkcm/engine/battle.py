@@ -578,7 +578,7 @@ def _end_of_turn(ctx: Context) -> None:
         if _check_loss(ctx):
             return
 
-    from pkcm.engine.moveeffects import resolve_wish
+    from pkcm.engine.moveeffects import resolve_future_moves, resolve_wish
 
     for player in (0, 1):
         if ctx.state.sides[player].conditions.get("wish_ready"):
@@ -586,6 +586,7 @@ def _end_of_turn(ctx: Context) -> None:
             resolve_wish(ctx, player)
         elif "wish" in ctx.state.sides[player].conditions:
             ctx.state.sides[player].conditions["wish_ready"] = 1
+        resolve_future_moves(ctx, player)
 
     _tick_field(ctx)
     _clear_turn_volatiles(ctx)

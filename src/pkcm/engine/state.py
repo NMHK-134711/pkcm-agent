@@ -155,6 +155,10 @@ class SideState:
     # -- side-wide ----------------------------------------------------------- #
     #: Reflect, Light Screen, Spikes, Stealth Rock, Tailwind -> turns or layers.
     conditions: dict[str, int] = field(default_factory=dict)
+    #: Moves aimed at this side that have not landed yet, by field position.
+    #: Future Sight is the only one in the format, and it needs more than the
+    #: single number ``conditions`` holds: who sent it, and how long is left.
+    pending: dict[int, dict] = field(default_factory=dict)
 
     def clone(self) -> "SideState":
         return SideState(
@@ -169,6 +173,7 @@ class SideState:
             boosts=[slot.copy() for slot in self.boosts],
             volatiles=[dict(slot) for slot in self.volatiles],
             conditions=dict(self.conditions),
+            pending={position: dict(one) for position, one in self.pending.items()},
         )
 
     # -- queries ------------------------------------------------------------- #

@@ -333,8 +333,10 @@ def test_abilities_with_no_handlers_are_deliberate(dex):
 
     from pkcm.engine.abilities import IGNORES_REDIRECTION
 
-    engine_side = ({"levitate", "corrosion"} | set(MOLD_BREAKER_ABILITIES)
-                   | set(IGNORES_REDIRECTION))
+    # Suction Cups is read straight out of ``tactics.force_switch``, beside
+    # Ingrain, because refusing a drag is that function's decision to make.
+    engine_side = ({"levitate", "corrosion", "suctioncups"}
+                   | set(MOLD_BREAKER_ABILITIES) | set(IGNORES_REDIRECTION))
     accounted = engine_side | abilities.INERT | abilities.SINGLES_INERT
     for (kind, ability_id), effect in REGISTRY.items():
         if kind != "ability" or effect.handlers:
@@ -549,6 +551,37 @@ def test_only_item_abilities_remain(dex):
     assert missing == {"ripen", "stickyhold"}, (
         f"expected only the held-item abilities to be pending, got {sorted(missing)}"
     )
+
+
+def test_nothing_is_called_inert_that_a_battle_can_notice(dex):
+    """``INERT`` is a claim, and it was wrong about most of its members.
+
+    Registering an ability with no handlers keeps it out of the coverage
+    report's missing list, which is the point -- "implemented as nothing" is
+    not "forgotten". It also hides an ability that should be doing something,
+    and that is what had happened: fourteen of the eighteen entries had real
+    battle effects, five of them on parties in the field. Unburden was
+    doubling nothing on a Sneasler built to lose its berry; Magician was two
+    Delphox with no ability at all.
+
+    What is left is genuinely nothing to a battle, and Flower Veil, which
+    shields Grass types on its own side and has no Grass holder in this
+    format.
+    """
+    from pkcm.engine.abilities import INERT
+
+    assert INERT == {
+        # nothing a battle can see
+        "honeygather", "pickup", "runaway", "ballfetch",
+        # shields Grass types on its own side; the only holder here is a Fairy
+        # with no ally to shield in singles. Not inert in general.
+        "flowerveil",
+        # real effects, still pending: they all turn on an item changing hands
+        # or being eaten, which is the same seam Ripen and Sticky Hold wait on
+        "cheekpouch", "gluttony", "klutz", "pickpocket",
+        # real effects, still pending
+        "rattled", "aromaveil",
+    }, "add a reason before adding a name"
 
 
 # --------------------------------------------------------------------------- #

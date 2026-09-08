@@ -79,6 +79,13 @@ def force_switch(ctx: Context, target: Ref) -> bool:
         return False
     if side.has_volatile(target[1], "ingrain"):
         return False
+    # Suction Cups holds on for the same reason Ingrain does. It was on the
+    # inert list, so Whirlwind and Dragon Tail dragged it out like anything
+    # else -- the one thing the ability exists to stop.
+    if ctx.ability_of(target) == "suctioncups":
+        ctx.emit(Event("ability", side=target[0], slot=target[1],
+                       detail="suctioncups"))
+        return False
     position = side.position_of(target[1])
     if position is None:
         return False

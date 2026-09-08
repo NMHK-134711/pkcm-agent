@@ -1053,6 +1053,19 @@ def use_move(
     """
     side = ctx.state.sides[attacker[0]]
 
+    # Damp smothers the explosive moves from wherever it is standing, and
+    # ``try_move`` is gathered from the mover alone, so it is asked here.
+    from pkcm.engine import tactics as _tactics
+
+    if move.id in _tactics.SELF_DESTRUCT_MOVES             and _tactics.SELF_DESTRUCT_MOVES[move.id] == "faint":
+        from pkcm.engine.abilities import damp_on_field
+
+        if damp_on_field(ctx):
+            ctx.emit(Event("move_failed", side=attacker[0], move=move.id,
+                           detail="damp"))
+            _note_move_failed(ctx, attacker, True)
+            return
+
     if not fx.allows(ctx, "try_move", attacker, move=move):
         _clear_flinch(ctx, attacker)
         return

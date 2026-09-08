@@ -251,7 +251,19 @@ def _on_terrain(name: str):
     return lambda ctx, ref: ctx.state.field.terrain == name and is_grounded(ctx.state, ref)
 
 
+def _lost_its_item(ctx, ref):
+    """Unburden: it came in holding something and is holding nothing now.
+
+    Which is exactly the rule -- eaten, Knocked Off, Tricked away, Flung. It
+    was on the inert list, so a Sneasler built around losing a berry was
+    running at half the Speed the strategy exists for.
+    """
+    return (ctx.state.pokemon(*ref).item is not None
+            and ctx.state.item_id(*ref) is None)
+
+
 _SPEED_ABILITIES = {
+    "unburden": ("Unburden", X2, _lost_its_item),
     "swiftswim": ("Swift Swim", X2, _in_weather("raindance")),
     "chlorophyll": ("Chlorophyll", X2, _in_weather("sunnyday")),
     "sandrush": ("Sand Rush", X2, _in_weather("sandstorm")),
@@ -2129,14 +2141,112 @@ def _harvest(ctx, ref, **_):
 register("ability", "harvest", name="Harvest", residual=_harvest)
 
 
+def _magician(ctx, ref, attacker, defender, move, damage, **_):
+    """Takes the item off whatever its move just damaged.
+
+    Delphox carries it on two of the field's parties, and it was on the inert
+    list, so those two were playing a Delphox with no ability at all.
+    """
+    if ref != attacker or attacker == defender:
+        return
+    if ctx.state.item_id(*attacker) is not None:
+        return
+    stolen = ctx.state.item_id(*defender)
+    if stolen is None or ctx.ability_of(defender) == "stickyhold":
+        return
+    if ctx.state.pokemon(*defender).species in MEGA_STONE_HOLDERS:
+        return
+    ctx.state.set_override(defender[0], defender[1], "item", None,
+                           permanent=True)
+    ctx.state.set_override(attacker[0], attacker[1], "item", stolen,
+                           permanent=True)
+    announce(ctx, ref, "magician")
+    ctx.emit(Event("item_taken", side=defender[0], slot=defender[1],
+                   detail=stolen))
+
+
+#: A Pokemon holding the stone it needs cannot have it taken; the same guard
+#: the other item-movers use.
+MEGA_STONE_HOLDERS: frozenset = frozenset()
+
+register("ability", "magician", name="Magician", dealt_damage=_magician)
+
+
+def _early_bird(ctx, ref, move, **_):
+    """Sleep runs down twice as fast. The counter is ticked by the sleep
+    handler; this takes the second turn off it as the holder tries to act."""
+    if ctx.state.sides[ref[0]].status[ref[1]] != "slp":
+        return None
+    data = ctx.state.sides[ref[0]].status_data[ref[1]]
+    if data.get("turns", 0) > 0:
+        data["turns"] -= 1
+    return None
+
+
+register("ability", "earlybird", name="Early Bird", try_move=_early_bird)
+
+
+def _aftermath(ctx, ref, source=None, **_):
+    """Whoever knocked it out by touching it loses a quarter of its own.
+
+    ``source`` is the attacker ``mutate`` hands the faint hook. Damp on the
+    field stops it, which is the other half of that ability.
+    """
+    if source is None or source == ref:
+        return
+    move = getattr(ctx, "active_move", None)
+    if move is not None and "contact" not in getattr(move, "flags", ()):
+        return
+    for side in (0, 1):
+        for slot in ctx.state.sides[side].active_slots():
+            if ctx.ability_of((side, slot)) == "damp":
+                return
+    announce(ctx, ref, "aftermath")
+    mutate.apply_damage(ctx, source, fraction_of_max(ctx.state, source, 4),
+                        "recoil", detail="aftermath")
+
+
+register("ability", "aftermath", name="Aftermath", faint=_aftermath)
+
+
+def _damp_smothers(ctx, ref, move, **_):
+    """Nobody sets anything off while this is on the field.
+
+    ``try_move`` is gathered from the mover alone, so the veto has to sit on
+    the move's own path rather than on the holder; ``moves`` asks
+    ``damp_on_field`` before letting a self-destructing move run.
+    """
+    return None
+
+
+def damp_on_field(ctx) -> bool:
+    for side in (0, 1):
+        for slot in ctx.state.sides[side].active_slots():
+            if ctx.ability_of((side, slot)) == "damp":
+                return True
+    return False
+
+
+register("ability", "damp", name="Damp", try_move=_damp_smothers)
+
+
 #: Abilities that do nothing in a battle at all -- registering them keeps the
 #: coverage report honest, because "implemented as nothing" is not "forgotten".
 INERT = frozenset({
-    "honeygather", "pickup", "runaway", "ballfetch", "cheekpouch", "gluttony",
-    "klutz", "pickpocket", "magician", "unburden",
-    "earlybird", "rattled",
-    "aftermath", "damp", "aromaveil", "flowerveil", "suctioncups",
+    "honeygather", "pickup", "runaway", "ballfetch",
+    # Flower Veil shields Grass types on its own side, and the only holder in
+    # the format is a Fairy with no ally to shield in singles. Inert here, and
+    # not inert in general -- if a Grass type with it ever becomes legal, this
+    # line is the bug.
+    "flowerveil",
+    "cheekpouch", "gluttony", "klutz", "pickpocket",
+    "rattled", "aromaveil",
 })
+
+#: Registered here rather than as a handler: what Suction Cups does is refuse a
+#: drag, and the drag is decided in ``tactics.force_switch``, which reads the
+#: ability directly the way it reads Ingrain.
+register("ability", "suctioncups", name="Suction Cups")
 for _name in INERT:
     # Refusing to overwrite is the point. This loop used to register
     # unconditionally, and it silently replaced five real implementations with

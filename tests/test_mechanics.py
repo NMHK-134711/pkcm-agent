@@ -991,3 +991,33 @@ def test_ordinary_accuracy_still_answers_to_evasion(config):
     low, _ = _lands(config, a_set("snorlax", ("focusblast",)),
                     a_set("pikachu", ("tackle",)), "focusblast", 6)
     assert high > low * 2, (high, low)
+
+
+def test_smack_down_lets_ground_moves_reach_a_flying_type(dex, config):
+    """Grounding read as grounded, and then the type chart said 0 anyway.
+
+    ``type_effectiveness`` asked ``is_grounded`` first, which correctly
+    answered yes for a Corviknight that Smack Down had pinned -- and then
+    handed the chart the Flying type it still carried, which returns 0 for
+    Ground. The volatile was set for the rest of the battle and changed
+    nothing, on a move whose whole purpose is that one interaction.
+    """
+    state = build(config, a_set("garchomp", ("smackdown", "earthquake")),
+                  a_set("corviknight", ("roost",)))
+    state, _ = step(state, Action.move(0), Action.move(0))
+    assert state.sides[1].has_volatile(0, "smackdown")
+
+    before = state.sides[1].hp[0]
+    state, log = step(state, Action.move(1), Action.move(0))
+    assert not any(e.kind == "immune" for e in log), log
+    assert state.sides[1].hp[0] < before, "Earthquake reaches it now"
+
+
+def test_a_flying_type_is_still_immune_to_ground_when_nothing_holds_it_down(dex, config):
+    """The other half: the fix must not hand Ground moves a free pass."""
+    state = build(config, a_set("garchomp", ("earthquake",)),
+                  a_set("corviknight", ("roost",)))
+    before = state.sides[1].hp[0]
+    state, log = step(state, Action.move(0), Action.move(0))
+    assert any(e.kind == "immune" for e in log), log
+    assert state.sides[1].hp[0] == before

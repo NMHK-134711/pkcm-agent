@@ -905,6 +905,361 @@ def _defog():
             f"theirs {before[1] or 'none'} -> {f.conditions(1) or 'none'}")
 
 
+# -- the rest of the field's coded moves ------------------------------------ #
+
+
+def _until(build, landed, tries=10):
+    """Replay a scenario over seeds until the thing under test connects.
+
+    Leech Seed is ninety percent accurate and the first seed tried was a miss,
+    which reads exactly like a move that does nothing. Anything with an
+    accuracy roll in front of it gets this rather than one seed and a verdict.
+    """
+    for seed in range(tries):
+        f = build(seed)
+        if landed(f):
+            return f
+    return None
+
+
+@check("wish", "heals at the end of the turn after, by the wisher's own half")
+def _wish():
+    f = Fight(ours("clefable", "__none__",
+                   ("wish", "protect", "moonblast", "splash"),
+                   None, "serious", (32, 0, 32, 0, 2, 0)),
+              [mon("garchomp", "__none__",
+                   ("earthquake", "dragonclaw", "firefang", "stoneedge"),
+                   None, "jolly", (0, 32, 2, 0, 0, 32))])
+    f.turn(Action.move(3), Action.move(0))     # take a hit to leave room
+    f.turn(Action.move(0), Action.move(3))     # the wish is made
+    made = f.hp(0)
+    f.turn(Action.move(1), Action.move(3))     # Protect, so only the wish acts
+    return (f.hp(0) > made,
+            f"at {made} of {f.max_hp(0)} when it was made, {f.hp(0)} after")
+
+
+@check("sparklingaria", "cures the burn it lands on")
+def _sparkling_aria():
+    def build(seed):
+        f = Fight(ours("primarina", "__none__",
+                       ("sparklingaria", "moonblast", "psychic", "protect"),
+                       None, "modest", (0, 0, 2, 32, 0, 32)),
+                  [mon("snorlax", "__none__",
+                       ("splash", "bodyslam", "rest", "protect"),
+                       None, "serious", (32, 0, 32, 0, 2, 0))], seed)
+        f.state.sides[1].status[f.state.sides[1].active[0]] = "brn"
+        return f
+    f = build(3)
+    burnt = f.status(1)
+    f.turn(Action.move(0), Action.move(0))
+    return (burnt == "brn" and f.status(1) is None,
+            f"burnt going in={burnt}, status after {f.status(1)}")
+
+
+@check("tripleaxel", "three hits, each stronger than the last")
+def _triple_axel():
+    f = _until(lambda seed: Fight(
+        ours("weavile", "__none__",
+             ("tripleaxel", "knockoff", "iceshard", "swordsdance"),
+             None, "jolly", (0, 32, 2, 0, 0, 32)),
+        [wall()], seed).turn(Action.move(0), Action.move(0)),
+        # Each of the three rolls its own accuracy, and the log says the move's
+        # name for the cast as well as for the hits.
+        lambda f: sum(1 for e in f.log if str(e).startswith("damage(side=1")
+                      and "tripleaxel" in str(e)) == 3, tries=20)
+    if f is None:
+        return False, "never landed all three hits in ten tries"
+    hits = [int(re.search(r"amount=(\d+)", str(e)).group(1))
+            for e in f.log
+            if str(e).startswith("damage(side=1") and "tripleaxel" in str(e)]
+    return (len(hits) == 3 and hits[1] > hits[0] and hits[2] > hits[1],
+            f"hits {hits}")
+
+
+@check("solarbeam", "charges a turn first, unless the sun is out")
+def _solar_beam():
+    f = Fight(ours("venusaur", "__none__",
+                   ("solarbeam", "sludgebomb", "sunnyday", "protect"),
+                   None, "modest", (0, 0, 2, 32, 0, 32)),
+              [wall()])
+    f.turn(Action.move(0), Action.move(0))
+    charged = f.damage("solarbeam") == 0
+    f.turn(Action.move(0), Action.move(0))
+    fired = f.damage("solarbeam") > 0
+    g = Fight(ours("venusaur", "__none__",
+                   ("solarbeam", "sludgebomb", "sunnyday", "protect"),
+                   None, "modest", (0, 0, 2, 32, 0, 32)),
+              [wall()])
+    g.turn(Action.move(2), Action.move(0))     # sun
+    g.turn(Action.move(0), Action.move(0))
+    at_once = g.damage("solarbeam") > 0
+    return (charged and fired and at_once,
+            f"turn one silent={charged}, turn two fired={fired}, "
+            f"in sun it fired at once={at_once}")
+
+
+@check("curse", "a Ghost pays half its HP; anything else trades Speed for bulk")
+def _curse():
+    ghost = Fight(ours("gengar", "__none__",
+                       ("curse", "shadowball", "protect", "splash"),
+                       None, "timid", (0, 0, 2, 32, 0, 32)),
+                  [dummy("snorlax")])
+    before = ghost.hp(0)
+    ghost.turn(Action.move(0), Action.move(0))
+    paid = before - ghost.hp(0)
+    body = Fight(ours("snorlax", "__none__",
+                      ("curse", "bodyslam", "protect", "splash"),
+                      None, "serious", (32, 0, 32, 0, 2, 0)),
+                 [dummy("magikarp")])
+    body.turn(Action.move(0), Action.move(0))
+    traded = body.boosts(0)
+    return (paid > 0 and "curse" in ghost.volatiles(1)
+            and traded.get("atk") == 1 and traded.get("def") == 1
+            and traded.get("spe") == -1,
+            f"Ghost paid {paid} and left {sorted(ghost.volatiles(1))}; "
+            f"the other got {traded}")
+
+
+@check("hex", "doubles against a target that already has a status")
+def _hex():
+    def dealt(status):
+        # Not the Blissey wall: Normal is immune to Ghost, so both arms read
+        # zero and the move looked broken.
+        f = Fight(ours("gengar", "__none__",
+                       ("hex", "shadowball", "protect", "splash"),
+                       None, "timid", (0, 0, 2, 32, 0, 32)),
+                  [mon("milotic", "__none__",
+                       ("splash", "surf", "recover", "protect"),
+                       None, "serious", (32, 0, 32, 0, 2, 0))])
+        if status:
+            f.state.sides[1].status[f.state.sides[1].active[0]] = status
+        f.turn(Action.move(0), Action.move(0))
+        return f.damage("hex")
+    plain = dealt(None)
+    on_status = dealt("brn")
+    return (plain > 0 and on_status > plain * 1.5,
+            f"against a healthy target {plain}, against a burnt one {on_status}")
+
+
+@check("ceaselessedge", "damages and leaves a layer of Spikes behind")
+def _ceaseless_edge():
+    f = _until(lambda seed: Fight(
+        ours("samurotthisui", "__none__",
+             ("ceaselessedge", "aquajet", "swordsdance", "protect"),
+             None, "adamant", (0, 32, 2, 0, 0, 32)),
+        [wall()], seed).turn(Action.move(0), Action.move(0)),
+        lambda f: f.damage("ceaselessedge") > 0)
+    if f is None:
+        return False, "never connected in ten tries"
+    return ("spikes" in f.conditions(1),
+            f"their side conditions {f.conditions(1) or 'none'}")
+
+
+@check("lowkick", "hits a heavy target harder than a light one")
+def _low_kick():
+    def dealt(species):
+        f = Fight(ours("machamp", "__none__",
+                       ("lowkick", "closecombat", "knockoff", "bulkup"),
+                       None, "adamant", (0, 32, 2, 0, 0, 32)),
+                  [mon(species, "__none__",
+                       ("splash", "tackle", "rest", "protect"),
+                       None, "serious", (32, 0, 32, 0, 2, 0))])
+        f.turn(Action.move(0), Action.move(0))
+        return f.damage("lowkick")
+    light = dealt("magikarp")      # 10.0 kg
+    heavy = dealt("snorlax")       # 460.0 kg
+    return (heavy > light,
+            f"against 10 kg {light}, against 460 kg {heavy}")
+
+
+@check("heavyslam", "hits harder the heavier the user is next to the target")
+def _heavy_slam():
+    def dealt(species):
+        f = Fight(ours("snorlax", "__none__",       # 460 kg
+                       ("heavyslam", "bodyslam", "rest", "protect"),
+                       None, "adamant", (0, 32, 2, 0, 0, 32)),
+                  [mon(species, "__none__",
+                       ("splash", "tackle", "rest", "protect"),
+                       None, "serious", (32, 0, 32, 0, 2, 0))])
+        f.turn(Action.move(0), Action.move(0))
+        return f.damage("heavyslam")
+    feather = dealt("magikarp")    # 10.0 kg: the biggest ratio
+    solid = dealt("archaludon")    # 60.0 kg
+    return (feather > solid,
+            f"against 10 kg {feather}, against 60 kg {solid}")
+
+
+@check("waterspout", "falls off as the user loses HP")
+def _water_spout():
+    def dealt(hurt_first):
+        f = Fight(ours("kyogre" if DEX.species.get("kyogre") else "wailord",
+                       "__none__",
+                       ("waterspout", "surf", "protect", "splash"),
+                       None, "modest", (32, 0, 2, 32, 0, 0)),
+                  [mon("archaludon", "__none__",
+                       ("dragontail", "flashcannon", "protect", "splash"),
+                       None, "adamant", (0, 32, 2, 0, 0, 32))])
+        if hurt_first:
+            f.state.sides[0].hp[f.state.sides[0].active[0]] //= 4
+        f.turn(Action.move(0), Action.move(3))
+        return f.damage("waterspout")
+    healthy = dealt(False)
+    hurt = dealt(True)
+    return (healthy > hurt * 1.5,
+            f"at full health {healthy}, at a quarter {hurt}")
+
+
+@check("payback", "doubles when the user has already been hit this turn")
+def _payback():
+    def dealt(foe_speed):
+        f = Fight(ours("kingambit", "__none__",
+                       ("payback", "ironhead", "suckerpunch", "swordsdance"),
+                       None, "brave", (0, 32, 2, 0, 0, 0)),
+                  # Same species and the same Defence both times: only the
+                  # Speed investment differs, so only the order changes.
+                  [mon("snorlax", "__none__",
+                       ("bodyslam", "splash", "rest", "protect"),
+                       None, "serious", (32, 0, 32, 0, 2, foe_speed))])
+        f.turn(Action.move(0), Action.move(0))
+        return f.damage("payback")
+    they_first = dealt(32)     # they outrun us, so Payback is paid back
+    we_first = dealt(0)
+    return (they_first > we_first * 1.5,
+            f"moving second {they_first}, moving first {we_first}")
+
+
+@check("soak", "turns the target into a Water type")
+def _soak():
+    f = Fight(ours("clefable", "__none__",
+                   ("soak", "moonblast", "protect", "splash"),
+                   None, "timid", (0, 0, 2, 32, 0, 32)),
+              [dummy("snorlax")])
+    f.turn(Action.move(0), Action.move(0))
+    types = f.state.types(1, f.state.sides[1].active[0])
+    return (tuple(types) == ("water",), f"their types are now {tuple(types)}")
+
+
+@check("smackdown", "brings a Flying target down to the ground")
+def _smack_down():
+    f = _until(lambda seed: Fight(
+        ours("garchomp", "__none__",
+             ("smackdown", "earthquake", "dragonclaw", "protect"),
+             None, "jolly", (0, 32, 2, 0, 0, 32)),
+        [mon("corviknight", "__none__",
+             ("roost", "irondefense", "bodypress", "uturn"),
+             None, "impish", (32, 0, 32, 0, 2, 0))], seed)
+        .turn(Action.move(0), Action.move(0)),
+        lambda f: "smackdown" in f.volatiles(1))
+    if f is None:
+        return False, "the volatile never appeared in ten tries"
+    f.turn(Action.move(1), Action.move(0))     # Earthquake, normally no answer
+    return (f.damage("earthquake") > 0,
+            f"grounded, and Earthquake then took {f.damage('earthquake')}")
+
+
+@check("psychicnoise", "stops the target healing")
+def _psychic_noise():
+    f = _until(lambda seed: Fight(
+        ours("indeedee", "__none__",
+             ("psychicnoise", "psychic", "protect", "splash"),
+             None, "modest", (0, 0, 2, 32, 0, 32)),
+        [mon("snorlax", "__none__",
+             ("rest", "bodyslam", "splash", "protect"),
+             None, "serious", (32, 0, 32, 0, 2, 0))], seed)
+        .turn(Action.move(0), Action.move(1)),
+        lambda f: "healblock" in f.volatiles(1))
+    if f is None:
+        return False, "heal block never landed in ten tries"
+    hurt = f.hp(1)
+    f.turn(Action.move(2), Action.move(0))     # they try to Rest
+    return (f.hp(1) <= hurt, f"they were at {hurt}, after trying to Rest {f.hp(1)}")
+
+
+@check("mortalspin", "clears our own hazards and poisons what it hits")
+def _mortal_spin():
+    # A Steel type is immune to Poison, so a Ferrothorn opposite made the whole
+    # move a no-op and it read as unimplemented. The hazard is placed directly:
+    # what is under test is the spin, not Spikes.
+    f = Fight(ours("glimmora", "__none__",
+                   ("mortalspin", "sludgewave", "spikes", "protect"),
+                   None, "timid", (0, 32, 2, 0, 0, 32)),
+              [mon("snorlax", "__none__",
+                   ("splash", "bodyslam", "rest", "protect"),
+                   None, "serious", (32, 0, 32, 0, 2, 0))])
+    f.state.sides[0].conditions["spikes"] = 1
+    laid = f.conditions(0)
+    f.turn(Action.move(0), Action.move(0))
+    return (laid and not f.conditions(0) and f.status(1) in ("psn", "tox"),
+            f"our side had {laid or 'none'}, after the spin "
+            f"{f.conditions(0) or 'none'}; their status {f.status(1)}")
+
+
+@check("spikyshield", "blocks the hit and takes a slice off a contact attacker")
+def _spiky_shield():
+    f = Fight(ours("ferrothorn", "__none__",
+                   ("spikyshield", "gyroball", "leechseed", "spikes"),
+                   None, "relaxed", (32, 0, 32, 0, 2, 0)),
+              [mon("garchomp", "__none__",
+                   ("dragonclaw", "earthquake", "firefang", "stoneedge"),
+                   None, "jolly", (0, 32, 2, 0, 0, 32))])
+    f.turn(Action.move(0), Action.move(0))     # Dragon Claw makes contact
+    return (f.hp(0) == f.max_hp(0) and f.hp(1) < f.max_hp(1),
+            f"we are at {f.hp(0)}/{f.max_hp(0)}, they are at "
+            f"{f.hp(1)}/{f.max_hp(1)}")
+
+
+@check("banefulbunker", "blocks the hit and poisons a contact attacker")
+def _baneful_bunker():
+    f = Fight(ours("toxapex", "__none__",
+                   ("banefulbunker", "scald", "recover", "toxic"),
+                   None, "bold", (32, 0, 32, 0, 2, 0)),
+              [mon("garchomp", "__none__",
+                   ("dragonclaw", "earthquake", "firefang", "stoneedge"),
+                   None, "jolly", (0, 32, 2, 0, 0, 32))])
+    f.turn(Action.move(0), Action.move(0))
+    return (f.hp(0) == f.max_hp(0) and f.status(1) in ("psn", "tox"),
+            f"we are at {f.hp(0)}/{f.max_hp(0)}, their status {f.status(1)}")
+
+
+@check("transform", "becomes the thing it is looking at")
+def _transform():
+    f = Fight(ours("ditto", "__none__",
+                   ("transform", "splash", "tackle", "protect")),
+              [dummy("snorlax")])
+    before = f.active_species(0)
+    f.turn(Action.move(0), Action.move(0))
+    return ("transformed" in f.volatiles(0) or f.active_species(0) != before,
+            f"we were {before}, volatiles {sorted(f.volatiles(0)) or 'none'}")
+
+
+@check("bellydrum", "spends half the user's HP to max its Attack")
+def _belly_drum():
+    f = Fight(ours("snorlax", "__none__",
+                   ("bellydrum", "bodyslam", "rest", "protect"),
+                   None, "adamant", (32, 32, 2, 0, 0, 0)),
+              [dummy("magikarp")])
+    before = f.hp(0)
+    f.turn(Action.move(0), Action.move(0))
+    return (f.boosts(0).get("atk") == 6 and before - f.hp(0) > 0,
+            f"paid {before - f.hp(0)} of {f.max_hp(0)}, boosts {f.boosts(0)}")
+
+
+@check("rapidspin", "clears our own hazards away")
+def _rapid_spin():
+    f = Fight(ours("cinderace", "__none__",
+                   ("rapidspin", "pyroball", "uturn", "protect"),
+                   None, "jolly", (0, 32, 2, 0, 0, 32)),
+              [mon("ferrothorn", "__none__",
+                   ("spikes", "gyroball", "protect", "splash"),
+                   None, "relaxed", (32, 0, 32, 0, 2, 0))])
+    f.turn(Action.move(3), Action.move(0))
+    laid = f.conditions(0)
+    f.turn(Action.move(0), Action.move(3))
+    return (laid and not f.conditions(0),
+            f"ours were {laid or 'none'}, after the spin "
+            f"{f.conditions(0) or 'none'}")
+
+
 # --------------------------------------------------------------------------- #
 
 

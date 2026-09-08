@@ -612,13 +612,20 @@ def type_effectiveness(ctx: Context, attacker: Ref, defender: Ref, move: Move) -
     # Ground moves cannot reach anything airborne. Showdown does this in
     # Pokemon#isGrounded rather than as a Levitate handler, which is why
     # Levitate's entry in abilities.ts has no handlers at all.
+    types = ctx.state.types(*defender)
     if move.type == "ground" and move.category != "Status":
         from pkcm.engine.conditions import is_grounded
 
         if not is_grounded(ctx.state, defender, ctx=ctx):
             return 0.0
+        # Something is holding it down -- Smack Down, Gravity, Ingrain, an Iron
+        # Ball -- and then the Flying type stops answering for Ground moves.
+        # Asking the chart with the type still on gave 0 for a Corviknight that
+        # Smack Down had just pinned, so the volatile was set and changed
+        # nothing: the check above passed and the line below undid it.
+        types = tuple(one for one in types if one != "flying")
 
-    value = ctx.state.config.dex.type_chart.multiplier(move.type, ctx.state.types(*defender))
+    value = ctx.state.config.dex.type_chart.multiplier(move.type, types)
     return _both_sides(ctx, "modify_effectiveness", value, attacker, defender, move)
 
 

@@ -2650,6 +2650,52 @@ def _syrup_bomb():
             f"their boosts {f.boosts(1) or 'none'}")
 
 
+def _doubles_under(move_id, arrange, what):
+    """Adding a move to ``VARIABLE_POWER`` takes it out of the generated
+    checks, which is where its number had been verified. These three went
+    that way in one commit and 498 quietly became 495."""
+    def probe():
+        def dealt(armed):
+            f = Fight(ours("mew", "__none__",
+                           (move_id, "splash", "protect", "rest"),
+                           None, "modest", (32, 0, 0, 32, 2, 0)),
+                      [mon("snorlax", "__none__",
+                           ("splash", "bodyslam", "protect", "rest"), None,
+                           "sassy", (32, 0, 32, 0, 32, 0))])
+            if armed:
+                arrange(f)
+            f.turn(Action.move(0), Action.move(0))
+            return f.damage(move_id)
+
+        plain, armed = dealt(False), dealt(True)
+        share = armed / plain if plain else 0.0
+        low, high = (1.4, 1.6) if move_id == "gravapple" else (1.8, 2.2)
+        return (low <= share <= high,
+                f"{plain} without, {armed} with {what} (x{share:.2f})")
+    return probe
+
+
+def _poison_the_target(f):
+    f.state.sides[1].status[f.state.sides[1].active[0]] = "psn"
+
+
+def _burn_the_user(f):
+    f.state.sides[0].status[f.state.sides[0].active[0]] = "brn"
+
+
+def _pull_them_down(f):
+    f.state.field.rooms["gravity"] = 5
+
+
+CHECKS["venoshock"] = ("doubles against a poisoned target",
+                       _doubles_under("venoshock", _poison_the_target,
+                                      "a poisoned target"))
+CHECKS["facade"] = ("doubles when the user is burned, and is not halved by it",
+                    _doubles_under("facade", _burn_the_user, "a burnt user"))
+CHECKS["gravapple"] = ("half again under Gravity",
+                       _doubles_under("gravapple", _pull_them_down, "Gravity"))
+
+
 @check("weatherball", "changes type and doubles in every weather")
 def _weather_ball():
     """Adding it to ``VARIABLE_POWER`` took it out of the generated checks,

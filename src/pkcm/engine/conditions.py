@@ -74,8 +74,17 @@ def is_grounded(state, ref: Ref, ctx: Context | None = None) -> bool:
 # --------------------------------------------------------------------------- #
 
 
-def _burn_halves_attack(ctx, ref, value, stat, **_):
-    return value // 2 if stat is Stat.ATK else None
+def _burn_halves_attack(ctx, ref, value, stat, **kwargs):
+    # Facade is the exception the move states itself: it doubles on a burn
+    # *and* is not halved by it, which is the whole reason it is carried.
+    if stat is not Stat.ATK:
+        return None
+    from pkcm.engine.moves import IGNORES_THE_BURN
+
+    move = kwargs.get("move")
+    if move is not None and getattr(move, "id", None) in IGNORES_THE_BURN:
+        return None
+    return value // 2
 
 
 def _burn_residual(ctx, ref, **_):
@@ -200,10 +209,23 @@ def _confusion_may_self_hit(ctx, ref, move, **_):
 register("volatile", "confusion", name="Confusion", try_move=_confusion_may_self_hit)
 
 
+#: King's Shield and Silk Trap stop attacks and let status through; the
+#: ordinary Protect stops both. Their own descriptions say so, and both were
+#: blocking a Will-O-Wisp.
+LETS_STATUS_THROUGH = frozenset({"kingsshield", "silktrap"})
+
+
 def _protect_blocks(ctx, ref, attacker, defender, move, **_):
     if ref != defender or attacker == defender:
         return None
     if getattr(move, "breaks_protect", False):
+        return None
+    # "Non-damaging moves go through this protection" -- King's Shield and
+    # Silk Trap stop attacks and nothing else, and both were stopping a
+    # Will-O-Wisp like an ordinary Protect.
+    if move.category == "Status" and any(
+            name in ctx.state.sides[defender[0]].volatiles[defender[1]]
+            for name in LETS_STATUS_THROUGH):
         return None
     if "protect" in move.flags:
         ctx.emit(Event("protected", side=defender[0], slot=defender[1], move=move.id))

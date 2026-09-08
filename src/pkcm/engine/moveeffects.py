@@ -1283,7 +1283,7 @@ register("side", "safeguard", name="Safeguard",
          try_status=lambda ctx, ref, status, source, **_:
              False if source is not None and source[0] != ref[0] else None,
          try_volatile=lambda ctx, ref, volatile, source, **_:
-             False if volatile == "confusion" and source is not None
+             False if volatile in ("confusion", "yawn") and source is not None
              and source[0] != ref[0] else None)
 register("side", "quickguard", name="Quick Guard",
          try_hit=lambda ctx, ref, attacker, defender, move, **_:

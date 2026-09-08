@@ -4397,13 +4397,15 @@ def _yawn_lands_through_safeguard():
     for move_id in members("yawnthroughsafeguard"):
         f = Fight([swinger(move_id)],
                   [wall(mc._reachable(DEX.moves[move_id]))], seed=7)
-        f.state.sides[1].conditions["safeguard"] = 5
         f.turn(Action.move(0), Action.move(0))
         yawning = "yawn" in f.volatiles(1)
+        # The Safeguard goes up *after* the yawn has taken hold, which is the
+        # position the sentence is about.
+        f.state.sides[1].conditions["safeguard"] = 5
         f.turn(Action.move(1), Action.move(0))
         rows.append((move_id, yawning and f.status(1) == "slp",
-                     f"behind Safeguard the Yawn took hold={yawning} and the "
-                     f"target came out {f.status(1)}"))
+                     f"the Yawn took hold={yawning}; a Safeguard raised after "
+                     f"it left the target {f.status(1)}"))
     return verdict(rows)
 
 
@@ -4418,6 +4420,371 @@ def _counter_doubles():
     """The same two moves as ``counterdamage``, and the sentence that gives
     the multiplier rather than the one that gives the fallback."""
     return _delegate("counterdoubles")
+
+
+
+@family("powerdoubleswhen",
+        "Power doubles if the target is already poisoned.",
+        "Power doubles if the target is poisoned.",
+        "Power doubles if the user had a stat stage lowered this turn.",
+        "Power doubles if the user has no held item.",
+        "Power doubles if the user is burned, paralyzed, or poisoned.",
+        "Power doubles if the user moves after the target this turn, including "
+        "actions taken through Instruct or the Dancer Ability.")
+def _power_doubles_when():
+    """Each condition arranged, and the damage compared with and without it."""
+    def arrange(move_id, f):
+        side, slot = 1, f.state.sides[1].active[0]
+        if move_id in ("barbbarrage", "venoshock"):
+            f.state.sides[1].status[slot] = "psn"
+        elif move_id == "facade":
+            f.state.sides[0].status[f.state.sides[0].active[0]] = "brn"
+        elif move_id == "lashout":
+            row = f.state.sides[0].boosts[f.state.sides[0].active[0]]
+            row[mc.BOOST_INDEX["atk"]] = -1
+            f.state.sides[0].volatiles[f.state.sides[0].active[0]] \
+                ["statsloweredthisturn"] = True
+
+    rows = []
+    for move_id in members("powerdoubleswhen"):
+        if move_id == "acrobatics":
+            plain = _one_hit(move_id, item="leftovers")
+            armed = _one_hit(move_id, item=None)
+        elif move_id in ("payback", "lashout"):
+            # Both are about the turn rather than the state: Payback wants the
+            # target to have moved first, Lash Out wants it to have dropped a
+            # stage. One position, two orders.
+            plain = _turn_order_arm(move_id, provoked=False)
+            armed = _turn_order_arm(move_id, provoked=True)
+        else:
+            plain = _one_hit(move_id)
+            armed = _one_hit(move_id, arrange=lambda f, m=move_id: arrange(m, f))
+        share = armed / plain if plain else 0.0
+        # Facade doubles and is not halved by the burn; the baseline is a
+        # healthy user, so the two together read as exactly twice. Lash Out is
+        # the exception: the stat drop that arms it also costs the user a
+        # third of its Attack, so twice the power lands as four thirds.
+        want = (1.25, 1.45) if move_id == "lashout" else (1.8, 2.2)
+        rows.append((move_id, want[0] <= share <= want[1],
+                     f"{plain} -> {armed} (x{share:.2f}, expecting "
+                     f"{want[0]}-{want[1]})"))
+    return verdict(rows)
+
+
+def _one_hit(move_id, item=None, arrange=None, fast=True):
+    """One clean swing at a wall, with the position arranged first."""
+    nature = "adamant" if DEX.moves[move_id].category != "Special" else "modest"
+    sp = ((32, 32, 0, 0, 2, 32) if fast else (32, 32, 0, 0, 2, 0))
+    f = Fight([mon(UNIVERSAL, "__none__",
+                   (move_id, "splash", "protect", "rest"), item, nature, sp)],
+              [mon("blissey" if "blissey" in DEX.species else "snorlax",
+                   "__none__", ("splash", "bodyslam", "protect", "rest"), None,
+                   "sassy", (32, 0, 32, 0, 32, 0))], seed=7)
+    if arrange is not None:
+        arrange(f)
+    f.turn(Action.move(0), Action.move(0 if fast else 1))
+    return hp_lost(f)
+
+
+def _turn_order_arm(move_id, provoked):
+    """The same two Pokemon, and the far one either acts first or does not.
+
+    Payback doubles when the user moves second and Lash Out when a stage was
+    taken off it this turn; a Growl from something quicker does both, and a
+    Splash from the same Pokemon does neither.
+    """
+    # Slow on purpose against something quick, and only one thing differs
+    # between the two arms. For Payback that is the *foe's* Speed, so the
+    # order changes and nothing else does; for Lash Out it is whether the foe
+    # Growls, which is also what takes a stage off us -- so its doubling comes
+    # out at four thirds, not two, exactly as Lash Out always does.
+    # The same species on both sides so Defence never moves, and the Speed
+    # points shifted from Special Defence: ours sits between their two builds.
+    quick, slow = (32, 0, 32, 0, 0, 32), (32, 0, 32, 0, 32, 0)
+    theirs = quick if (move_id == "lashout" or provoked) else slow
+    f = Fight([mon("snorlax", "__none__",
+                   (move_id, "splash", "protect", "rest"), None, "serious",
+                   (32, 32, 0, 0, 0, 16))],
+              [mon("snorlax", "__none__",
+                   ("growl", "splash", "protect", "rest"), None, "serious",
+                   theirs)], seed=7)
+    growls = provoked and move_id == "lashout"
+    f.turn(Action.move(0), Action.move(0 if growls else 1))
+    return hp_lost(f)
+
+
+@family("weatherrocks", "Lasts for 8 turns if the user is holding Damp Rock.",
+        "Lasts for 8 turns if the user is holding Heat Rock.",
+        "Lasts for 8 turns if the user is holding Icy Rock.",
+        "Lasts for 8 turns if the user is holding Smooth Rock.")
+def _weather_rocks():
+    rows = []
+    rocks = {"raindance": "damprock", "sunnyday": "heatrock",
+             "snowscape": "icyrock", "sandstorm": "smoothrock"}
+    for move_id in members("weatherrocks"):
+        rock = rocks[move_id]
+        if rock not in LEGAL_ITEMS:
+            rows.append((move_id, True,
+                         f"{rock} is not legal in this format"))
+            continue
+        f = Fight([swinger(move_id, item=rock)], [wall()], seed=7)
+        f.turn(Action.move(0), Action.move(0))
+        rows.append((move_id, f.state.field.weather_turns == 7,
+                     f"{f.state.field.weather_turns} turns left of eight"))
+    return verdict(rows)
+
+
+@family("tripleaxelramp", "Power increases to 40 for the second hit and 60 for "
+                          "the third.")
+def _triple_axel_ramps():
+    rows = []
+    for move_id in members("tripleaxelramp"):
+        f = until(lambda seed, move_id=move_id: Fight(
+            [swinger(move_id, ability="skilllink")],
+            [wall("blissey" if "blissey" in DEX.species else "snorlax")],
+            seed=seed).turn(Action.move(0), Action.move(0)),
+            lambda f: len([e for e in f.log if e.kind == "damage"
+                           and (e.side or 0) == 1]) == 3)
+        if f is None:
+            rows.append((move_id, False, "never landed three hits"))
+            continue
+        hits = [e.amount for e in f.log if e.kind == "damage"
+                and (e.side or 0) == 1]
+        rows.append((move_id, hits[0] < hits[1] < hits[2],
+                     f"the three hits took {hits}"))
+    return verdict(rows)
+
+
+@family("powerfromhp",
+        "Power is equal to 100 * (target's current HP / target's maximum HP), "
+        "rounded half down, but not less than 1.",
+        "Power is equal to 100 times the user's Stockpile count.",
+        "Power is equal to 50+(X*50), where X is the total number of times the "
+        "user has been hit by a damaging move")
+def _power_from_a_count():
+    rows = []
+    for move_id in members("powerfromhp"):
+        if move_id == "hardpress":
+            f = Fight([swinger(move_id)],
+                      [wall("blissey" if "blissey" in DEX.species else "snorlax")],
+                      seed=7)
+            slot = f.state.sides[1].active[0]
+            f.state.sides[1].hp[slot] = f.max_hp(1) // 2
+            want = max(1, round(100 * 0.5))
+        elif move_id == "spitup":
+            f = Fight([mon(UNIVERSAL, "__none__",
+                           (move_id, "stockpile", "splash", "protect"), None,
+                           "modest", (32, 0, 0, 32, 2, 0)),
+                       mon("magikarp", "__none__", ("splash", "tackle"))],
+                      [wall("blissey" if "blissey" in DEX.species else "snorlax")],
+                      seed=7)
+            for _ in range(2):
+                f.turn(Action.move(1), Action.move(0))
+            want = 200
+        else:
+            f = Fight([swinger(move_id)],
+                      [mon("garchomp", "__none__",
+                           ("dragonclaw", "splash", "protect", "rest"), None,
+                           "jolly", (0, 32, 2, 0, 0, 32))], seed=7)
+            for _ in range(2):
+                f.turn(Action.move(1), Action.move(0))
+            want = 50 + 2 * 50
+        expected = rolls_for(f, DEX.moves[move_id], want)
+        f.turn(Action.move(0), Action.move(0))
+        hits = [e for e in f.log if e.kind == "damage" and (e.side or 0) == 1
+                and not e.crit and e.move == move_id]
+        got = hits[0].amount if hits else 0
+        rows.append((move_id, got in expected,
+                     f"power {want} gives {min(expected)}-{max(expected)}; "
+                     f"dealt {got}"))
+    return verdict(rows)
+
+
+@family("solarhalved",
+        "Power is halved if the weather is Primordial Sea, Rain Dance, "
+        "Sandstorm, or Snow and the user is not holding Utility Umbrella.",
+        "Power is halved if the weather is Hail, Primordial Sea, Rain Dance, "
+        "or Sandstorm and the user is not holding Utility Umbrella.")
+def _solar_halved_in_bad_weather():
+    rows = []
+    for move_id in members("solarhalved"):
+        def dealt(weather):
+            f = Fight([swinger(move_id)],
+                      [wall("blissey" if "blissey" in DEX.species else "snorlax")],
+                      seed=7)
+            f.state.field.weather, f.state.field.weather_turns = "sunnyday", 8
+            if weather:
+                f.state.field.weather = weather
+            f.turn(Action.move(0), Action.move(0))     # sun makes it one turn
+            if not hp_lost(f):
+                f.turn(Action.move(0), Action.move(0))
+            return hp_lost(f)
+
+        sunny, wet = dealt(None), dealt("raindance")
+        share = wet / sunny if sunny else 0.0
+        rows.append((move_id, 0.45 <= share <= 0.55,
+                     f"{sunny} in sun, {wet} in rain (x{share:.2f})"))
+    return verdict(rows)
+
+
+@family("gravapple", "Power is multiplied by 1.5 during Gravity's effect.")
+def _grav_apple():
+    rows = []
+    for move_id in members("gravapple"):
+        def dealt(room):
+            f = Fight([swinger(move_id)],
+                      [wall("blissey" if "blissey" in DEX.species else "snorlax")],
+                      seed=7)
+            if room:
+                f.state.field.rooms["gravity"] = 5
+            f.turn(Action.move(0), Action.move(0))
+            return hp_lost(f)
+
+        plain, heavy = dealt(False), dealt(True)
+        share = heavy / plain if plain else 0.0
+        rows.append((move_id, 1.4 <= share <= 1.6,
+                     f"{plain} normally, {heavy} under Gravity (x{share:.2f})"))
+    return verdict(rows)
+
+
+@family("tauntandtorment",
+        "Prevents the target from using non-damaging moves for its next three "
+        "turns.",
+        "Prevents the target from selecting the same move for use two turns in "
+        "a row.")
+def _taunt_and_torment():
+    from pkcm.engine.state import legal_actions
+    rows = []
+    for move_id in members("tauntandtorment"):
+        f = Fight([swinger(move_id)],
+                  [mon("snorlax", "__none__",
+                       ("splash", "bodyslam", "protect", "rest"), None, "sassy",
+                       (32, 0, 32, 0, 32, 0))], seed=7)
+        if move_id == "torment":
+            f.turn(Action.move(1), Action.move(1))      # they swing once
+        f.turn(Action.move(0), Action.move(1))
+        # The refusal happens when the move is used rather than when it is
+        # offered -- ``legal_actions`` still lists it -- so what is checked
+        # here is that the move does not go off.
+        barred = 0 if move_id == "taunt" else 1
+        f.turn(Action.move(1), Action.move(barred))
+        refused = any(e.kind in ("cant_move", "move_failed")
+                      and (e.side or 0) == 1 for e in f.log)
+        allowed = [one.index for one in legal_actions(f.state, 1)
+                   if str(one).startswith("move")]
+        rows.append((move_id, refused,
+                     f"the barred move was refused={refused}; the action list "
+                     f"still offers {allowed}"))
+    return verdict(rows)
+
+
+@family("fairylockholds", "Prevents all active Pokemon from switching next turn.")
+def _fairy_lock_holds_everyone():
+    from pkcm.engine.state import legal_actions
+    rows = []
+    for move_id in members("fairylockholds"):
+        f = Fight([swinger(move_id),
+                   mon("magikarp", "__none__", ("splash", "tackle"))],
+                  [wall(), mon("pikachu", "__none__", ("splash", "tackle"))],
+                  seed=7)
+        f.turn(Action.move(0), Action.move(0))
+        ours = [one for one in legal_actions(f.state, 0)
+                if str(one).startswith("switch")]
+        theirs = [one for one in legal_actions(f.state, 1)
+                  if str(one).startswith("switch")]
+        rows.append((move_id, not ours and not theirs,
+                     f"we may switch={bool(ours)}, they may switch={bool(theirs)}"))
+    return verdict(rows)
+
+
+@family("digdivewindow",
+        "On the first turn, the user avoids all attacks other than Earthquake "
+        "and Magnitude but takes double damage from them.",
+        "On the first turn, the user avoids all attacks other than Surf and "
+        "Whirlpool but takes double damage from them.",
+        "On the first turn, the user avoids all attacks.")
+def _the_hiding_window():
+    rows = []
+    for move_id in members("digdivewindow"):
+        f = Fight([mon("snorlax", "__none__",
+                       ("bodyslam", "splash", "protect", "rest"), None, "brave",
+                       (32, 32, 0, 0, 2, 0))],
+                  [mon("mew", "__none__", (move_id, "splash", "protect", "rest"),
+                       None, "jolly", (32, 0, 0, 0, 2, 32))], seed=7)
+        f.turn(Action.move(0), Action.move(0))
+        rows.append((move_id, hp_lost(f) == 0,
+                     f"a Body Slam at something using {move_id} took "
+                     f"{hp_lost(f)}"))
+    return verdict(rows)
+
+
+@family("kingsshieldstatus", "Non-damaging moves go through this protection.")
+def _kings_shield_lets_status_through():
+    rows = []
+    for move_id in members("kingsshieldstatus"):
+        f = Fight([mon(UNIVERSAL, "__none__",
+                       ("willowisp", "splash", "protect", "rest"), None,
+                       "modest", (32, 0, 0, 32, 2, 32))],
+                  [mon("snorlax", "__none__",
+                       (move_id, "splash", "protect", "rest"), None, "sassy",
+                       (32, 0, 32, 0, 32, 0))], seed=7)
+        f.turn(Action.move(0), Action.move(0))
+        rows.append((move_id, f.status(1) == "brn",
+                     f"a Will-O-Wisp into it left the target {f.status(1)}"))
+    return verdict(rows)
+
+
+@family("uproarwakes", "On the first of the three turns, all sleeping active "
+                       "Pokemon wake up.")
+def _uproar_wakes_them():
+    rows = []
+    for move_id in members("uproarwakes"):
+        f = Fight([swinger(move_id)],
+                  [wall(mc._reachable(DEX.moves[move_id]))], seed=7)
+        side = f.state.sides[1]
+        side.status[side.active[0]] = "slp"
+        f.turn(Action.move(0), Action.move(0))
+        rows.append((move_id, f.status(1) is None,
+                     f"the sleeping target came out {f.status(1)}"))
+    return verdict(rows)
+
+
+@family("toxicspikelayerspoison",
+        "Opposing Pokemon become poisoned with one layer and badly poisoned "
+        "with two layers.")
+def _toxic_spike_layers_poison():
+    rows = []
+    for move_id in members("toxicspikelayerspoison"):
+        off = []
+        for layers, want in ((1, "psn"), (2, "tox")):
+            f = Fight([swinger(move_id)],
+                      [wall(), mon("magikarp", "__none__", ("splash", "tackle"))],
+                      seed=7)
+            for _ in range(layers):
+                f.turn(Action.move(0), Action.move(0))
+            f.turn(Action.move(1), Action.switch(1))
+            if f.status(1) != want:
+                off.append(f"{layers} layer(s) left it {f.status(1)}, not {want}")
+        rows.append((move_id, not off, "; ".join(off) or
+                     "poisoned at one layer, badly poisoned at two"))
+    return verdict(rows)
+
+
+@family("safeguardyawn", "Pokemon on the user's side cannot become affected by "
+                         "Yawn but can fall asleep from its effect.")
+def _safeguard_and_yawn():
+    rows = []
+    for move_id in members("safeguardyawn"):
+        f = Fight([mon(UNIVERSAL, "__none__",
+                       ("yawn", "splash", "protect", "rest"), None, "adamant",
+                       (32, 32, 0, 0, 2, 32))],
+                  [wall()], seed=7)
+        f.state.sides[1].conditions["safeguard"] = 5
+        f.turn(Action.move(0), Action.move(0))
+        rows.append((move_id, "yawn" not in f.volatiles(1),
+                     f"behind Safeguard the Yawn took hold="
+                     f"{'yawn' in f.volatiles(1)}"))
+    return verdict(rows)
 
 
 # --------------------------------------------------------------------------- #

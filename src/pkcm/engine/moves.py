@@ -127,10 +127,14 @@ def _low_hp_scaling(ctx: Context, attacker: Ref, defender: Ref, move: Move) -> i
     return 20
 
 
-def _target_hp_scaling(ctx: Context, attacker: Ref, defender: Ref, move: Move) -> int:
-    """Crush Grip / Wring Out: stronger the healthier the target is."""
-    ratio = mutate.current_hp(ctx.state, defender) / mutate.max_hp(ctx.state, defender)
-    return max(1, int(120 * ratio))
+def _target_hp_scaling(ceiling: int = 120):
+    """Crush Grip and Wring Out top out at 120; Hard Press says 100."""
+    def compute(ctx: Context, attacker: Ref, defender: Ref, move: Move) -> int:
+        ratio = (mutate.current_hp(ctx.state, defender)
+                 / mutate.max_hp(ctx.state, defender))
+        return max(1, int(ceiling * ratio))
+
+    return compute
 
 
 # --------------------------------------------------------------------------- #
@@ -580,7 +584,7 @@ VARIABLE_POWER: dict[str, Callable[[Context, Ref, Ref, Move], int]] = {
     "reversal": _low_hp_scaling,
     "crushgrip": _target_hp_scaling,
     "wringout": _target_hp_scaling,
-    "hardpress": _target_hp_scaling,
+    "hardpress": _target_hp_scaling(100),
 }
 
 
@@ -663,7 +667,27 @@ def _rage_fist(ctx: Context, attacker: Ref, defender: Ref, move: Move) -> int:
     return move.base_power + 50 * taken
 
 
+def _target_poisoned(ctx: Context, attacker: Ref, defender: Ref) -> bool:
+    return ctx.state.sides[defender[0]].status[defender[1]] in ("psn", "tox")
+
+
+def _user_is_ill(ctx: Context, attacker: Ref, defender: Ref) -> bool:
+    """Facade: "Power doubles if the user is burned, paralyzed, or poisoned."
+    Sleep and freeze are not on the list."""
+    return ctx.state.sides[attacker[0]].status[attacker[1]] in (
+        "brn", "par", "psn", "tox")
+
+
+def _under_gravity(ctx: Context, attacker: Ref, defender: Ref, move: Move) -> int:
+    return (move.base_power * 3 // 2 if "gravity" in ctx.state.field.rooms
+            else move.base_power)
+
+
 VARIABLE_POWER.update({
+    "venoshock": _doubled_when(_target_poisoned),
+    "barbbarrage": _doubled_when(_target_poisoned),
+    "facade": _doubled_when(_user_is_ill),
+    "gravapple": _under_gravity,
     "hex": _doubled_when(_target_statused),
     "infernalparade": _doubled_when(_target_statused),
     "avalanche": _doubled_when(_was_hit_by_target),
@@ -742,6 +766,12 @@ def _both_sides(ctx: Context, event: str, value: Any, attacker: Ref, defender: R
                       attacker=attacker, defender=defender, move=move)
     return fx.modify(ctx, event, value, defender, scope="all",
                      attacker=attacker, defender=defender, move=move)
+
+
+#: "Power doubles if the user is burned" -- and the burn's own halving of
+#: Attack is not applied to it, which is the other half of what makes Facade
+#: worth carrying.
+IGNORES_THE_BURN = frozenset({"facade"})
 
 
 def damage_formula(

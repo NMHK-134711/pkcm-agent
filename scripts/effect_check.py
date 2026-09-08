@@ -85,6 +85,14 @@ def trace(ours, theirs, turns, seed=7):
 #: an entry. Between them almost everything gets its moment.
 _HOLDER = ("snorlax", "serious", (32, 0, 32, 0, 2, 0))
 
+#: Nothing a singles battle can show, because the effect is about a partner.
+#: Not silence: there is no second Pokemon on the field for them to act on.
+DOUBLES_ONLY = frozenset({
+    "battery", "powerspot", "friendguard", "healer", "symbiosis",
+    "powerofalchemy", "receiver", "costar", "curiousmedicine", "hospitality",
+    "plus", "minus", "sweetveil", "telepathy", "propellertail", "stalwart",
+})
+
 
 def _foe(moves, nature="jolly", sp=(0, 32, 2, 32, 0, 32), species="garchomp"):
     return mon(species, "__none__", moves, None, nature, sp)
@@ -175,6 +183,281 @@ def _positions(ability, item=None):
          [(Action.move(0), Action.switch(1)),
           (Action.move(0), Action.move(3))], None),
     ]
+    # -- the conditions the first battery could not make --------------------- #
+    #
+    # Grouped by the hook each ability registers, because that is what says
+    # what it is waiting for. Eleven want a switch-in, six want a status that
+    # arrives *as a move* rather than being written into the state, five want
+    # a priority move, nine want the holder swinging a particular kind of move.
+
+    def bench_first(moves=("splash", "bodyslam", "rest", "protect"),
+                    item_held=None):
+        """Lead with a filler so the holder's entry is a switch-in."""
+        return [mon("magikarp", "__none__", ("splash", "tackle")),
+                mon(_HOLDER[0], ability or "__none__", moves,
+                    item_held or item, _HOLDER[1], _HOLDER[2])]
+
+    swap_in = [(Action.switch(1), Action.move(3)),
+               (Action.move(0), Action.move(0)),
+               (Action.move(0), Action.move(3))]
+    swap_out = [(Action.move(0), Action.move(3)),
+                (Action.switch(1), Action.move(3)),
+                (Action.move(0), Action.move(3))]
+
+    statuser = _foe(("toxic", "thunderwave", "hypnosis", "willowisp"),
+                    "jolly", (0, 0, 2, 0, 0, 32), "gengar")
+    quick = _foe(("aquajet", "iceshard", "fakeout", "splash"), "jolly",
+                 (0, 32, 2, 0, 0, 32), "weavile")
+    bother = _foe(("confuseray", "screech", "flash", "swordsdance"), "timid",
+                  (0, 0, 2, 32, 0, 32), "gengar")
+
+    #: The holder swinging one kind of move after another: punch, pulse,
+    #: sound, bite, slicing, multihit, a weak one, a recoil one, and the four
+    #: types the pinch abilities care about.
+    def swinging(moves, nature="modest", sp=(0, 0, 2, 32, 0, 32), setup=None):
+        return ([mon(_HOLDER[0], ability or "__none__", moves, item,
+                     nature, sp)], [plain_foe],
+                [(Action.move(i), Action.move(3)) for i in range(4)], setup)
+
+    extra = [
+        ("coming in as a switch", bench_first(), [plain_foe], swap_in, None),
+        ("leaving the field", bench_first(), [plain_foe], swap_out, None),
+        ("a status arriving as a move", [holder()], [statuser],
+         [(Action.move(0), Action.move(i)) for i in range(4)], None),
+        ("a priority move at us", [holder()], [quick],
+         [(Action.move(0), Action.move(i)) for i in range(3)], None),
+        ("confusion and a Defence drop at us", [holder()], [bother],
+         [(Action.move(0), Action.move(i)) for i in range(4)], None),
+        ("a foe setting up in front of us", [holder()], [bother],
+         [(Action.move(0), Action.move(3)), (Action.move(1), Action.move(3)),
+          (Action.move(1), Action.move(3))], None),
+    ]
+    extra.append(("punches, pulses, sound and a bite",) +
+                 swinging(("firepunch", "dragonpulse", "hypervoice", "bite")))
+    extra.append(("a slice, a swarm of hits, a weak move and a recoil one",) +
+                 swinging(("nightslash", "bulletseed", "tackle", "doubleedge"),
+                          "adamant", (0, 32, 2, 0, 0, 32)))
+    extra.append(("dragon, grass, bug and electric",) +
+                 swinging(("dragonpulse", "energyball", "bugbuzz",
+                           "thunderbolt")))
+    extra.append(("the same four on a quarter of our health",) +
+                 swinging(("dragonpulse", "energyball", "bugbuzz",
+                           "thunderbolt"), setup=hurt))
+    extra.append(("a flying move and a heal at full health",) +
+                 swinging(("bravebird", "recover", "splash", "protect"),
+                          "adamant", (0, 32, 2, 0, 0, 32)))
+    extra.append(("weight against weight",) +
+                 swinging(("grassknot", "heavyslam", "lowkick", "tackle"),
+                          "adamant", (0, 32, 2, 0, 0, 32)))
+    extra.append(("normal and fighting at a Ghost",) +
+                 ([mon(_HOLDER[0], ability or "__none__",
+                       ("bodyslam", "closecombat", "shadowball", "splash"),
+                       item, "adamant", (0, 32, 2, 0, 0, 32))],
+                  [mon("gengar", "__none__",
+                       ("splash", "shadowball", "protect", "willowisp"),
+                       None, "timid", (0, 0, 2, 32, 0, 32))],
+                  [(Action.move(i), Action.move(0)) for i in range(3)], None))
+    extra.append(("a dark move at us",) +
+                 ([holder()],
+                  [_foe(("knockoff", "crunch", "splash", "protect"), "jolly",
+                        (0, 32, 2, 0, 0, 32), "weavile")],
+                  [(Action.move(0), Action.move(0)),
+                   (Action.move(0), Action.move(1))], None))
+
+    def poisoned_foe(state):
+        state.sides[1].status[state.sides[1].active[0]] = "psn"
+
+    extra.append(("swinging at something already poisoned",) +
+                 ([mon(_HOLDER[0], ability or "__none__",
+                       ("bodyslam", "splash", "rest", "protect"), item,
+                       "adamant", (0, 32, 2, 0, 0, 32))],
+                  [plain_foe],
+                  [(Action.move(0), Action.move(3))] * 2, poisoned_foe))
+
+    def dying_foe(state):
+        state.sides[1].hp[state.sides[1].active[0]] = 1
+
+    extra.append(("finishing something off",) +
+                 ([mon(_HOLDER[0], ability or "__none__",
+                       ("bodyslam", "splash", "rest", "protect"), item,
+                       "adamant", (0, 32, 2, 0, 0, 32))],
+                  [plain_foe],
+                  [(Action.move(0), Action.move(3))] * 2, dying_foe))
+
+    def lethal(state):
+        """Sturdy and Focus Sash both want a hit that would end it outright."""
+        slot = state.sides[0].active[0]
+        state.sides[0].hp[slot] = state.active_pokemon(0).max_hp
+
+    extra.append(("a hit that would end us from full health",) +
+                 ([mon("shedinja" if "shedinja" in DEX.species else _HOLDER[0],
+                       ability or "__none__",
+                       ("splash", "tackle", "protect", "rest"), item,
+                       "serious", (0,) * 6)],
+                  [_foe(("earthquake", "dragonclaw", "splash", "willowisp"))],
+                  [(Action.move(0), Action.move(0))], lethal))
+
+    def screens(state):
+        state.sides[1].conditions["reflect"] = 5
+        state.sides[1].conditions["lightscreen"] = 5
+
+    extra.append(("screens up on their side",) +
+                 ([mon(_HOLDER[0], ability or "__none__",
+                       ("bodyslam", "dragonpulse", "splash", "protect"), item,
+                       "adamant", (0, 32, 2, 32, 0, 0))],
+                  [plain_foe],
+                  [(Action.move(0), Action.move(3)),
+                   (Action.move(1), Action.move(3))], screens))
+
+    def terrain(name):
+        def setup(state):
+            state.field.terrain = name
+            state.field.terrain_turns = 8
+        return setup
+
+    for name in ("electricterrain", "grassyterrain", "mistyterrain",
+                 "psychicterrain"):
+        extra.append((f"{name} underfoot", [holder()], [plain_foe], trade,
+                      terrain(name)))
+
+    def ally_down(state):
+        """Supreme Overlord counts the ones already gone."""
+        state.sides[0].hp[1] = 0
+        state.sides[0].hp[2] = 0
+
+    extra.append(("two of ours already down",) +
+                 ([mon(_HOLDER[0], ability or "__none__",
+                       ("bodyslam", "splash", "rest", "protect"), item,
+                       "adamant", (0, 32, 2, 0, 0, 32))],
+                  [plain_foe],
+                  [(Action.move(0), Action.move(3))] * 2, ally_down))
+
+    positions += [(what, ours, theirs, script, setup)
+                  for what, ours, theirs, script, setup in extra]
+    # -- the last conditions, each one named after what was waiting for it --- #
+
+    def with_status(name, weather_name=None):
+        def setup(state):
+            state.sides[0].status[state.sides[0].active[0]] = name
+            if weather_name:
+                state.field.weather = weather_name
+                state.field.weather_turns = 8
+        return setup
+
+    def gendered(who, what):
+        return mon(who, ability or "__none__",
+                   ("bodyslam", "splash", "rest", "protect"), item,
+                   "adamant", (0, 32, 2, 0, 0, 32), gender=what)
+
+    last = [
+        # Damp: nothing explodes while it is out.
+        ("something exploding at us", [holder()],
+         [_foe(("explosion", "dragonclaw", "splash", "protect"))],
+         [(Action.move(0), Action.move(0))], None),
+        # Magician and Pickpocket: an item to take, and a hit that takes it.
+        ("hitting a foe that is holding something",
+         [mon(_HOLDER[0], ability or "__none__",
+              ("bodyslam", "splash", "rest", "protect"), item,
+              "adamant", (0, 32, 2, 0, 0, 32))],
+         [mon("garchomp", "__none__",
+              ("splash", "dragonclaw", "protect", "willowisp"), "leftovers",
+              "jolly", (0, 32, 2, 0, 0, 32))],
+         [(Action.move(0), Action.move(0))] * 2, None),
+        # Suction Cups: the drag it refuses.
+        ("being blown out", [holder()],
+         [_foe(("whirlwind", "dragontail", "splash", "protect"))],
+         [(Action.move(0), Action.move(0)),
+          (Action.move(0), Action.move(1))], None),
+        # Hydration, Leaf Guard, Quick Feet: a status *and* the weather.
+        ("burnt in the rain", [holder()], [plain_foe], trade,
+         with_status("brn", "raindance")),
+        ("burnt in the sun", [holder()], [plain_foe], trade,
+         with_status("brn", "sunnyday")),
+        ("asleep in the rain", [holder()], [plain_foe], trade,
+         with_status("slp", "raindance")),
+        # Natural Cure, Regenerator: carrying something off the field.
+        ("leaving while burnt", bench_first(), [plain_foe], swap_out,
+         with_status("brn")),
+        ("leaving hurt", bench_first(), [plain_foe],
+         [(Action.move(0), Action.move(0)), (Action.switch(1), Action.move(3)),
+          (Action.move(0), Action.move(3))], None),
+        # Long Reach, Unseen Fist: whether our move counts as contact.
+        ("touching something that punishes touch",
+         [mon(_HOLDER[0], ability or "__none__",
+              ("bodyslam", "splash", "rest", "protect"), item,
+              "adamant", (0, 32, 2, 0, 0, 32))],
+         [mon("garchomp", "roughskin",
+              ("splash", "dragonclaw", "protect", "willowisp"), "rockyhelmet",
+              "jolly", (0, 32, 2, 0, 0, 32))],
+         [(Action.move(0), Action.move(0))] * 2, None),
+        ("swinging at something behind Protect",
+         [mon(_HOLDER[0], ability or "__none__",
+              ("bodyslam", "splash", "rest", "protect"), item,
+              "adamant", (0, 32, 2, 0, 0, 32))],
+         [_foe(("protect", "dragonclaw", "splash", "willowisp"))],
+         [(Action.move(0), Action.move(0))] * 2, None),
+        # Corrosion, Magnet Pull: a Steel type to poison and to hold.
+        ("poisoning a Steel type",
+         [mon(_HOLDER[0], ability or "__none__",
+              ("toxic", "bodyslam", "rest", "protect"), item,
+              "serious", (32, 0, 32, 0, 2, 0))],
+         [mon("archaludon", "__none__",
+              ("splash", "flashcannon", "protect", "dragontail"), None,
+              "sassy", (32, 0, 32, 0, 32, 0))],
+         [(Action.move(0), Action.move(0))] * 2, None),
+        ("a Steel type trying to leave", [holder()],
+         [mon("archaludon", "__none__",
+              ("splash", "flashcannon", "protect", "dragontail"), None,
+              "sassy", (32, 0, 32, 0, 32, 0))],
+         [(Action.move(0), Action.switch(1)),
+          (Action.move(0), Action.move(0))], None),
+        # Rivalry: the sets carry no gender unless one is stated.
+        ("swinging at the same gender", [gendered(_HOLDER[0], "M")],
+         [mon("garchomp", "__none__",
+              ("splash", "dragonclaw", "protect", "willowisp"), None, "jolly",
+              (0, 32, 2, 0, 0, 32), gender="M")],
+         [(Action.move(0), Action.move(0))] * 2, None),
+        ("swinging at the other gender", [gendered(_HOLDER[0], "M")],
+         [mon("garchomp", "__none__",
+              ("splash", "dragonclaw", "protect", "willowisp"), None, "jolly",
+              (0, 32, 2, 0, 0, 32), gender="F")],
+         [(Action.move(0), Action.move(0))] * 2, None),
+        # Unburden, Quick Feet, Stall: Speed only shows when it changes who
+        # goes first, so the two are close enough for it to matter.
+        ("a berry eaten in a close race",
+         [mon("weavile", ability or "__none__",
+              ("bodyslam", "splash", "rest", "protect"),
+              item or "sitrusberry", "jolly", (0, 32, 2, 0, 0, 16))],
+         [mon("weavile", "__none__",
+              ("earthquake", "bodyslam", "splash", "protect"), None, "jolly",
+              (0, 32, 2, 0, 0, 16))],
+         [(Action.move(0), Action.move(0))] * 3, None),
+        ("paralysed in a close race",
+         [mon("weavile", ability or "__none__",
+              ("bodyslam", "splash", "rest", "protect"), item, "jolly",
+              (0, 32, 2, 0, 0, 16))],
+         [mon("weavile", "__none__",
+              ("bodyslam", "splash", "protect", "rest"), None, "jolly",
+              (0, 32, 2, 0, 0, 16))],
+         [(Action.move(0), Action.move(0))] * 3, with_status("par")),
+        # Inner Focus, Steadfast, Oblivious: a flinch and an infatuation.
+        ("flinched by something faster",
+         [mon(_HOLDER[0], ability or "__none__",
+              ("bodyslam", "splash", "rest", "protect"), item, "brave",
+              (32, 32, 2, 0, 0, 0), gender="M")],
+         [mon("weavile", "__none__",
+              ("fakeout", "attract", "iceshard", "taunt"), None, "jolly",
+              (0, 32, 2, 0, 0, 32), gender="F")],
+         [(Action.move(0), Action.move(i)) for i in range(4)], None),
+        # Purifying Salt: Ghost damage, and a status that should not stick.
+        ("a Ghost move and a burn at us", [holder()],
+         [mon("gengar", "__none__",
+              ("shadowball", "willowisp", "splash", "protect"), None, "timid",
+              (0, 0, 2, 32, 0, 32))],
+         [(Action.move(0), Action.move(0)), (Action.move(0), Action.move(1)),
+          (Action.move(0), Action.move(2))], None),
+    ]
+    positions += last
     return positions
 
 
@@ -317,13 +600,26 @@ def main() -> int:
         have = set(registered("ability"))
         silent, seen = [], sorted(reachable & have)
         for ability in seen:
-            if _differs(ability=ability) is None:
+            if _differs(ability=ability) is not None:
+                continue
+            # Anything that turns on a roll -- Compound Eyes on an accuracy
+            # check, Insomnia on a Hypnosis that has to land -- can go two
+            # seeds without the roll ever going the other way. Only the ones
+            # that came back silent pay for the wider search.
+            if _differs(ability=ability, seeds=range(14)) is None:
                 silent.append(ability)
+        doubles = sorted(one for one in silent if one in DOUBLES_ONLY)
+        silent = [one for one in silent if one not in DOUBLES_ONLY]
         print(f"abilities: {len(seen)} registered and reachable, "
-              f"{len(seen) - len(silent)} changed the battle they were in")
+              f"{len(seen) - len(silent) - len(doubles)} changed the battle "
+              f"they were in, {len(doubles)} need an ally, {len(silent)} "
+              f"still silent")
         for ability in silent:
             korean = NAMES.get("abilities", {}).get(ability, ability)
             print(f"   silent  {korean:<14} {ability}")
+        for ability in doubles:
+            korean = NAMES.get("abilities", {}).get(ability, ability)
+            print(f"   doubles {korean:<14} {ability}")
         print(f"\n   and {len(reachable - have)} reachable abilities have no "
               f"registered effect at all")
         print()

@@ -1351,6 +1351,11 @@ def _resolve(
         from pkcm.engine import tactics as _tactics
 
         _tactics.break_lock(ctx, attacker)
+        # "If there is no target or the target avoids this move by protecting
+        # itself, the user's held item is still lost." It was only spent on
+        # the damage path, which a block never reaches.
+        if move.id == "fling":
+            mutate.consume_item(ctx, attacker, move.id)
         return
 
     # Status moves ignore the type chart unless they say otherwise. Showdown

@@ -1186,7 +1186,55 @@ def _defog(ctx, user, target, move) -> bool:
             if conditions.pop(name, None) is not None:
                 cleared = True
                 ctx.emit(Event("side_condition_end", side=player, detail=name))
+    # "If there is a terrain active and this move is successful, the terrain
+    # will be cleared." It swept the hazards and the screens and left the
+    # ground exactly as it found it.
+    if ctx.state.field.terrain is not None:
+        ctx.emit(Event("terrain_end", detail=ctx.state.field.terrain))
+        ctx.state.field.terrain = None
+        ctx.state.field.terrain_turns = 0
     return True
+
+
+@special("growth")
+def _growth(ctx, user, target, move) -> bool:
+    """"If the weather is Sunny Day or Desolate Land, this move raises the
+    user's Attack and Special Attack by 2 stages." The data declares one
+    stage each and nothing read the sky."""
+    if ctx.state.field.weather != "sunnyday":
+        return False                      # the declared +1/+1 does the work
+    # One more on top of the stage the data already declares.
+    boost(ctx, user, {"atk": 1, "spa": 1}, source=user)
+    return True
+
+
+@special("eeriespell")
+def _eerie_spell(ctx, user, target, move) -> bool:
+    """Three PP off whatever the target used last."""
+    last = _volatiles(ctx, target).get("lastmove")
+    if last is None:
+        return False
+    for index, known in enumerate(ctx.state.moves(*target)):
+        if known.id == last:
+            side = ctx.state.sides[target[0]]
+            side.pp[target[1]][index] = max(0, side.pp[target[1]][index] - 3)
+            ctx.emit(Event("pp_lost", side=target[0], slot=target[1],
+                           move=last, amount=3))
+            return True
+    return False
+
+
+def _beak_blast_burns(ctx, ref, attacker, defender, move, damage, **_):
+    """"If the user is hit by a contact move this turn before it can execute
+    this move, the attacker is burned." The beak is open from the start of the
+    turn, which is why the volatile goes up before anybody moves."""
+    if ref != defender or "contact" not in move.flags:
+        return
+    mutate.set_status(ctx, attacker, "brn", source=defender)
+
+
+register("volatile", "beakblast", name="Beak Blast",
+         after_damage=_beak_blast_burns)
 
 
 @special("tidyup")

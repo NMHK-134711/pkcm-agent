@@ -197,6 +197,17 @@ def _resolve_turn(ctx: Context, choices: Choices) -> None:
             ctx.emit(Event("recharging", side=player, slot=slot))
             mutate.remove_volatile(ctx, (player, slot), "mustrecharge", quiet=True)
 
+    # Beak Blast heats its beak before anything moves, which is the whole
+    # point of a -3 priority move that punishes contact.
+    for player, position in actors:
+        slot = state.sides[player].active[position]
+        action = _action_for(choices, player, position)
+        if slot < 0 or action.kind is not ActionKind.MOVE:
+            continue
+        known = state.moves(player, slot)
+        if action.index < len(known) and known[action.index].id == "beakblast":
+            mutate.add_volatile(ctx, (player, slot), "beakblast")
+
     switchers = [a for a in actors if _action_for(choices, *a).kind is ActionKind.SWITCH]
     attackers = [a for a in actors
                  if _action_for(choices, *a).kind in (ActionKind.MOVE, ActionKind.STRUGGLE)]
@@ -678,6 +689,7 @@ def _clear_turn_volatiles(ctx: Context) -> None:
             elif "stall" in volatiles:
                 del volatiles["stall"]
             volatiles.pop("flinch", None)
+            volatiles.pop("beakblast", None)
             volatiles.pop("roost", None)
             volatiles.pop("endure", None)
             for shield in ("kingsshield", "banefulbunker", "spikyshield",

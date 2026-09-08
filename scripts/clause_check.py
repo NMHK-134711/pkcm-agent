@@ -3869,6 +3869,309 @@ def _toxic_spikes_are_absorbed():
     return verdict(rows)
 
 
+
+@family("batonpasscarries",
+        "If the target uses Baton Pass, the replacement will continue being "
+        "leeched.",
+        "If the target uses Baton Pass, the replacement will continue to be "
+        "affected.",
+        "If the user uses Baton Pass, the replacement will gain the effect.",
+        "If the user uses Baton Pass, the replacement will receive the healing "
+        "effect.",
+        "If the user uses Baton Pass, the replacement will have its Attack and "
+        "Defense stats swapped if the effect is active.",
+        "If the user leaves the field using Baton Pass, the replacement will "
+        "remain trapped and still receive the healing effect.",
+        "If a Pokemon uses Baton Pass while it has a perish count, the "
+        "replacement will gain the perish count and continue to count down.",
+        "If an affected Pokemon uses Baton Pass, the replacement will remain "
+        "unable to restore its HP.")
+def _baton_pass_carries():
+    """Each volatile that the pass is documented to hand over, handed over."""
+    volatiles = {"leechseed": "leechseed", "curse": "curse",
+                 "magnetrise": "magnetrise", "aquaring": "aquaring",
+                 "powertrick": "powertrick", "ingrain": "ingrain",
+                 "perishsong": "perishsong", "psychicnoise": "healblock"}
+    rows = []
+    for move_id in members("batonpasscarries"):
+        volatile = volatiles.get(move_id)
+        if volatile is None:
+            continue
+        on_them = move_id in ("leechseed", "curse", "psychicnoise")
+        caster = "gengar" if move_id == "curse" else UNIVERSAL
+        if on_them:
+            f = Fight([swinger(move_id, species=caster)],
+                      [mon("snorlax", "__none__",
+                           ("splash", "batonpass", "protect", "rest"), None,
+                           "sassy", (32, 0, 32, 0, 32, 0)),
+                       mon("magikarp", "__none__", ("splash", "tackle"))],
+                      seed=7)
+            f.turn(Action.move(0), Action.move(0))
+            up = volatile in f.volatiles(1)
+            f.turn(Action.move(1), Action.move(1))
+            side = 1
+        else:
+            f = Fight([mon(UNIVERSAL, "__none__",
+                           (move_id, "batonpass", "splash", "protect"), None,
+                           "adamant", (32, 32, 0, 0, 2, 0)),
+                       mon("magikarp", "__none__", ("splash", "tackle"))],
+                      [wall()], seed=7)
+            f.turn(Action.move(0), Action.move(0))
+            up = volatile in f.volatiles(0)
+            f.turn(Action.move(1), Action.move(0))
+            side = 0
+        while f.state.phase.name in ("MID_TURN_SWITCH", "FORCED_SWITCH"):
+            f.turn(Action.switch(1) if f.state.sides[0].must_switch[0] else Action.PASS,
+                   Action.switch(1) if f.state.sides[1].must_switch[0] else Action.PASS)
+        carried = volatile in f.volatiles(side)
+        rows.append((move_id, up and carried,
+                     f"{volatile} went up={up}, and the replacement has "
+                     f"it={carried}"))
+    return verdict(rows)
+
+
+@family("growthinsun",
+        "If the weather is Sunny Day or Desolate Land, this move raises the "
+        "user's Attack and Special Attack by 2 stages.")
+def _growth_in_the_sun():
+    rows = []
+    for move_id in members("growthinsun"):
+        def stages(weather):
+            f = Fight([swinger(move_id)], [wall()], seed=7)
+            if weather:
+                f.state.field.weather, f.state.field.weather_turns = weather, 8
+            f.turn(Action.move(0), Action.move(0))
+            return f.boosts(0).get("atk", 0), f.boosts(0).get("spa", 0)
+
+
+        plain, sunny = stages(None), stages("sunnyday")
+        rows.append((move_id, plain == (1, 1) and sunny == (2, 2),
+                     f"in clear weather {plain}, in sun {sunny}"))
+    return verdict(rows)
+
+
+@family("gyroballspeed", "If the user's current Speed is 0, this move's power "
+                         "is 1.",
+        "Power is equal to (25 * target's current Speed / user's current "
+        "Speed), rounded down, + 1, but not more than 150.")
+def _gyro_ball():
+    rows = []
+    for move_id in members("gyroballspeed"):
+        from pkcm.data.dex import Stat
+        from pkcm.engine.battle import make_context
+        from pkcm.engine.mutate import effective_stat
+
+        f = Fight([mon("snorlax", "__none__",
+                       (move_id, "splash", "protect", "rest"), None, "brave",
+                       (32, 32, 0, 0, 2, 0))],
+                  # Fat as well as fast: a target that faints caps the
+                  # damage event at its own remaining HP, which reads as a
+                  # smaller number than the formula gave.
+                  [mon("blissey" if "blissey" in DEX.species else "weavile",
+                       "__none__",
+                       ("splash", "bodyslam", "protect", "rest"), None, "jolly",
+                       (32, 0, 32, 0, 32, 32))], seed=7)
+        ctx = make_context(f.state)
+        mine = effective_stat(ctx, (0, f.state.sides[0].active[0]), Stat.SPE)
+        theirs = effective_stat(ctx, (1, f.state.sides[1].active[0]), Stat.SPE)
+        want = min(150, 25 * theirs // max(1, mine) + 1)
+        expected = rolls_for(f, DEX.moves[move_id], want)
+        f.turn(Action.move(0), Action.move(0))
+        hits = [e for e in f.log if e.kind == "damage" and (e.side or 0) == 1
+                and not e.crit]
+        got = hits[0].amount if hits else 0
+        rows.append((move_id, got in expected,
+                     f"{theirs} against {mine} gives power {want}: dealt {got}, "
+                     f"expected {min(expected)}-{max(expected)}"))
+    return verdict(rows)
+
+
+@family("defogclears",
+        "If there is a terrain active and this move is successful, the terrain "
+        "will be cleared.")
+def _defog_clears_the_terrain():
+    rows = []
+    for move_id in members("defogclears"):
+        f = Fight([swinger(move_id)],
+                  [wall(mc._reachable(DEX.moves[move_id]))], seed=7)
+        f.state.field.terrain, f.state.field.terrain_turns = "grassyterrain", 8
+        f.turn(Action.move(0), Action.move(0))
+        rows.append((move_id, f.state.field.terrain is None,
+                     f"the terrain afterwards is {f.state.field.terrain}"))
+    return verdict(rows)
+
+
+@family("eeriespellpp", "If this move is successful and the user has not "
+                        "fainted, the target loses 3 PP from its last move.")
+def _eerie_spell_takes_pp():
+    rows = []
+    for move_id in members("eeriespellpp"):
+        f = Fight([swinger(move_id)],
+                  [wall(mc._reachable(DEX.moves[move_id]))], seed=7)
+        f.turn(Action.move(1), Action.move(1))
+        slot = f.state.sides[1].active[0]
+        before = list(f.state.sides[1].pp[slot])
+        f.turn(Action.move(0), Action.move(1))
+        after = list(f.state.sides[1].pp[slot])
+        lost = [b - a for b, a in zip(before, after)]
+        rows.append((move_id, 4 in lost or 3 in lost,
+                     f"PP went {before} -> {after}, so it lost {lost} "
+                     f"(one of which is this turn's own cost)"))
+    return verdict(rows)
+
+
+@family("syrupbombresidual",
+        "If this move is successful, it causes the target's Speed to be "
+        "lowered by 1 stage at the end of each turn for 3 turns.")
+def _syrup_bomb():
+    rows = []
+    for move_id in members("syrupbombresidual"):
+        f = Fight([swinger(move_id)],
+                  [wall(mc._reachable(DEX.moves[move_id]))], seed=7)
+        f.turn(Action.move(0), Action.move(0))
+        stages = [f.boosts(1).get("spe", 0)]
+        for _ in range(3):
+            f.turn(Action.move(1), Action.move(0))
+            stages.append(f.boosts(1).get("spe", 0))
+        rows.append((move_id, stages[0] == -1 and stages[-1] <= -3,
+                     f"the target's Speed went {stages}"))
+    return verdict(rows)
+
+
+@family("hazardonhit",
+        "If this move is successful, it sets up a hazard on the opposing side "
+        "of the field, damaging each opposing Pokemon that switches in")
+def _hazard_on_hit():
+    rows = []
+    for move_id in members("hazardonhit"):
+        hazard = {"ceaselessedge": "spikes", "stoneaxe": "stealthrock"}[move_id]
+        f = Fight([swinger(move_id)],
+                  [wall(mc._reachable(DEX.moves[move_id])),
+                   mon("magikarp", "__none__", ("splash", "tackle"))], seed=7)
+        f.turn(Action.move(0), Action.move(0))
+        laid = hazard in f.conditions(1)
+        f.turn(Action.move(1), Action.switch(1))
+        hurt = f.hp(1) < f.max_hp(1)
+        rows.append((move_id, laid and hurt,
+                     f"{hazard} laid={laid}; the replacement came in on "
+                     f"{f.hp(1)} of {f.max_hp(1)}"))
+    return verdict(rows)
+
+
+@family("curseonanythingelse",
+        "If the user is not a Ghost type, lowers the user's Speed by 1 stage "
+        "and raises the user's Attack and Defense by 1 stage.")
+def _curse_on_anything_else():
+    rows = []
+    for move_id in members("curseonanythingelse"):
+        f = Fight([swinger(move_id, species="snorlax")], [wall()], seed=7)
+        f.turn(Action.move(0), Action.move(0))
+        got = f.boosts(0)
+        rows.append((move_id, got.get("atk") == 1 and got.get("def") == 1
+                     and got.get("spe") == -1,
+                     f"a non-Ghost user came out on {got}"))
+    return verdict(rows)
+
+
+@family("uproarinterrupted",
+        "If the user is prevented from moving or the attack is not successful "
+        "against the target during one of the turns, the effect ends.")
+def _uproar_interrupted():
+    from pkcm.engine.state import legal_actions
+    rows = []
+    for move_id in members("uproarinterrupted"):
+        f = Fight([swinger(move_id)],
+                  [mon("snorlax", "__none__",
+                       ("protect", "splash", "bodyslam", "rest"), None, "sassy",
+                       (32, 0, 32, 0, 32, 0))], seed=7)
+        f.turn(Action.move(0), Action.move(0))          # they Protect it
+        free = len([one for one in legal_actions(f.state, 0)
+                    if str(one).startswith("move")]) > 1
+        rows.append((move_id, free,
+                     f"after a Protect the user was free to pick again={free}"))
+    return verdict(rows)
+
+
+@family("shellsidearm", "If the two values are equal, this move chooses a "
+                        "damage category at random.",
+        "Does damage based on whichever of the user's Attack or Special Attack "
+        "stat, or the target's Defense or Special Defense stat, would deal "
+        "more damage.")
+def _shell_side_arm():
+    rows = []
+    for move_id in members("shellsidearm"):
+        def dealt(physical):
+            sp = (32, 32, 0, 0, 2, 0) if physical else (32, 0, 0, 32, 2, 0)
+            f = Fight([mon(UNIVERSAL, "__none__",
+                           (move_id, "splash", "protect", "rest"), None,
+                           "adamant" if physical else "modest", sp)],
+                      [mon("snorlax", "__none__",
+                           ("splash", "bodyslam", "protect", "rest"), None,
+                           "sassy", (32, 0, 32, 0, 32, 0))], seed=7)
+            f.turn(Action.move(0), Action.move(0))
+            return hp_lost(f)
+
+        # Both arms take the better of the two, so both must connect for real.
+        rows.append((move_id, dealt(True) > 0 and dealt(False) > 0,
+                     f"from an Attack build {dealt(True)}, from a Special "
+                     f"Attack build {dealt(False)}"))
+    return verdict(rows)
+
+
+@family("beakblastburns", "If the user is hit by a contact move this turn "
+                          "before it can execute this move, the attacker is "
+                          "burned.")
+def _beak_blast_burns():
+    rows = []
+    for move_id in members("beakblastburns"):
+        f = Fight([mon("snorlax", "__none__",
+                       (move_id, "splash", "protect", "rest"), None, "sassy",
+                       (32, 0, 32, 0, 32, 0))],
+                  [mon("weavile", "__none__",
+                       ("bodyslam", "splash", "protect", "rest"), None, "jolly",
+                       (0, 32, 2, 0, 0, 32))], seed=7)
+        f.turn(Action.move(0), Action.move(0))
+        rows.append((move_id, f.status(1) == "brn",
+                     f"the one that touched it came out {f.status(1)}"))
+    return verdict(rows)
+
+
+@family("flingspendsanyway",
+        "If there is no target or the target avoids this move by protecting "
+        "itself, the user's held item is still lost.")
+def _fling_spends_it_anyway():
+    rows = []
+    for move_id in members("flingspendsanyway"):
+        f = Fight([swinger(move_id, item="leftovers")],
+                  [mon("snorlax", "__none__",
+                       ("protect", "splash", "bodyslam", "rest"), None, "sassy",
+                       (32, 0, 32, 0, 32, 0))], seed=7)
+        f.turn(Action.move(0), Action.move(0))
+        rows.append((move_id, f.item(0) is None,
+                     f"after being blocked, the user holds {f.item(0)!r}"))
+    return verdict(rows)
+
+
+@family("roundorder",
+        "If there are other active Pokemon that chose this move for use this "
+        "turn, those Pokemon take their turn immediately after the user, in "
+        "Speed order, and this move's power is 120 for each other user.")
+def _round_is_a_doubles_move():
+    """Singles has nobody else to follow, so the power stays at its base."""
+    rows = []
+    for move_id in members("roundorder"):
+        f = Fight([swinger(move_id)], [wall()], seed=7)
+        expected = rolls_for(f, DEX.moves[move_id], DEX.moves[move_id].base_power)
+        f.turn(Action.move(0), Action.move(0))
+        hits = [e for e in f.log if e.kind == "damage" and (e.side or 0) == 1
+                and not e.crit]
+        got = hits[0].amount if hits else 0
+        rows.append((move_id, got in expected,
+                     f"alone it dealt {got}, and its base power gives "
+                     f"{min(expected)}-{max(expected)}"))
+    return verdict(rows)
+
+
 # --------------------------------------------------------------------------- #
 # The report
 # --------------------------------------------------------------------------- #

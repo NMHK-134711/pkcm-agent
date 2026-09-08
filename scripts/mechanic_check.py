@@ -2723,6 +2723,237 @@ def _wonder_room():
             f"the rooms up are {sorted(f.state.field.rooms) or 'none'}")
 
 
+# -- the flag-driven moves, generated ---------------------------------------- #
+#
+# The count that mattered turned out not to be 497 or 136. Of the format's 497
+# standard moves, 220 declare their effect in data and ``test_effect_sweep``
+# casts every one of those; 136 have effects that are code and are checked by
+# hand above; 75 are plain damage and have nothing to check past the formula.
+# That leaves 66 whose behaviour hangs off a *flag* -- drain, recoil, multihit,
+# charge, OHKO, a switch, a crit ratio -- and the sweep does not cast them,
+# because they declare no effect for it to diff against. Sucker Punch and Fake
+# Out were exactly that shape.
+#
+# These are generated rather than written out, one per move, because the
+# question is the same each time and a family with sixty members is a family
+# where a hand-written scenario would go stale silently. Each still plays a
+# real battle and each asserts the consequence, not the flag.
+
+#: Bodies to aim at, in order of preference; the first the move can touch wins.
+_TARGETS = ("snorlax", "milotic", "garchomp", "archaludon", "dragonite",
+            "clefable", "blissey")
+
+
+def _reachable(move):
+    for species in _TARGETS:
+        if DEX.type_chart.multiplier(move.type, DEX.species[species].types) > 0:
+            return species
+    return "snorlax"
+
+
+def _swinger(move, moves):
+    """One attacker, invested on whichever side the move swings from."""
+    sp = (32, 32, 0, 0, 2, 0) if move.category == "Physical" else (32, 0, 0, 32, 2, 0)
+    nature = "adamant" if move.category == "Physical" else "modest"
+    return mon("mew" if "mew" in DEX.species else "snorlax", "__none__",
+               moves, None, nature, sp)
+
+
+def _bout(move, extra=("splash", "tackle", "protect"), target=None, seed=7):
+    them = mon(target or _reachable(move), "__none__",
+               ("splash", "tackle", "protect", "rest"), None, "serious",
+               (32, 0, 32, 0, 2, 0))
+    return Fight([_swinger(move, (move.id,) + extra)], [them], seed)
+
+
+def _hits(f, move_id, side=1):
+    return [e for e in f.log
+            if str(e).startswith(f"damage(side={side}") and move_id in str(e)]
+
+
+def _flag_families(move):
+    """Every flag family this move belongs to, with how to see each one."""
+    raw, found = move.raw, []
+
+    if raw.get("drain"):
+        def drain(m=move):
+            f = _bout(m)
+            slot = f.state.sides[0].active[0]
+            f.state.sides[0].hp[slot] //= 2
+            before = f.hp(0)
+            f.turn(Action.move(0), Action.move(0))
+            return (f.hp(0) > before if _hits(f, m.id) else None,
+                    f"landed, and the user went {before} -> {f.hp(0)}")
+        found.append(("drains back into the user", drain))
+
+    if raw.get("recoil") or raw.get("mindBlownRecoil"):
+        def recoil(m=move):
+            f = _bout(m)
+            before = f.hp(0)
+            f.turn(Action.move(0), Action.move(0))
+            return (f.hp(0) < before if _hits(f, m.id) else None,
+                    f"landed, and the user went {before} -> {f.hp(0)}")
+        found.append(("costs the user HP", recoil))
+
+    if raw.get("multihit"):
+        def multihit(m=move):
+            f = _bout(m)
+            f.turn(Action.move(0), Action.move(0))
+            hits = _hits(f, m.id)
+            return (len(hits) >= 2 if hits else None,
+                    f"{len(hits)} separate hits landed")
+        found.append(("lands more than once", multihit))
+
+    if "charge" in move.flags:
+        def charge(m=move):
+            f = _bout(m)
+            f.turn(Action.move(0), Action.move(0))
+            first = bool(_hits(f, m.id))
+            f.turn(Action.move(0), Action.move(0))
+            second = bool(_hits(f, m.id))
+            return (not first and second,
+                    f"damage on the charging turn={first}, on the next={second}")
+        found.append(("spends a turn charging, then strikes", charge))
+
+    if raw.get("ohko"):
+        def ohko(m=move):
+            partial = 0
+            for seed in range(12):
+                f = _bout(m, seed=seed)
+                f.turn(Action.move(0), Action.move(0))
+                if _hits(f, m.id) and f.hp(1) > 0:
+                    partial += 1
+            return (partial == 0,
+                    f"connected without finishing the target {partial}/12 times")
+        found.append(("either takes the target out or does nothing", ohko))
+
+    if raw.get("selfSwitch"):
+        def self_switch(m=move):
+            f = _bout(m)
+            f.turn(Action.move(0), Action.move(0))
+            return (f.state.phase.name == "MID_TURN_SWITCH",
+                    f"phase after using it: {f.state.phase.name}")
+        found.append(("the user leaves the field", self_switch))
+
+    if raw.get("forceSwitch"):
+        def force_switch(m=move):
+            f = _bout(m)
+            before = f.active_species(1)
+            f.turn(Action.move(0), Action.move(0))
+            return (f.active_species(1) != before,
+                    f"{before} -> {f.active_species(1)}")
+        found.append(("drags the target out", force_switch))
+
+    if raw.get("willCrit"):
+        def will_crit(m=move):
+            landed = crits = 0
+            for seed in range(10):
+                f = _bout(m, seed=seed)
+                f.turn(Action.move(0), Action.move(0))
+                for hit in _hits(f, m.id):
+                    landed += 1
+                    crits += "crit=True" in str(hit)
+            return (landed > 0 and crits == landed,
+                    f"{crits} of {landed} landed hits were critical")
+        found.append(("every hit is critical", will_crit))
+
+    if raw.get("critRatio"):
+        def crit_ratio(m=move):
+            # Sampling 1/8 against 1/24 needs hundreds of games to separate,
+            # and sixty gave four against two -- true, and not evidence.
+            # Focus Energy adds two stages, so a move that really is at stage
+            # two lands on stage four, which is *every hit*; a move whose ratio
+            # is being ignored sits at stage three, which is half of them. Two
+            # arms of twelve settle it.
+            landed = crits = 0
+            for seed in range(12):
+                f = Fight([_swinger(m, (m.id, "focusenergy", "tackle",
+                                        "protect"))],
+                          [mon(_reachable(m), "__none__",
+                               ("splash", "tackle", "protect", "rest"),
+                               None, "serious", (32, 0, 32, 0, 2, 0))], seed)
+                f.turn(Action.move(1), Action.move(0))     # Focus Energy
+                f.turn(Action.move(0), Action.move(0))
+                if "charge" in m.flags:
+                    # Sky Attack spends the first of those turns in the air,
+                    # so there is nothing to count until the one after.
+                    f.turn(Action.move(0), Action.move(0))
+                for hit in _hits(f, m.id):
+                    landed += 1
+                    crits += "crit=True" in str(hit)
+            return (landed > 0 and crits == landed,
+                    f"under Focus Energy {crits} of {landed} landed hits were "
+                    f"critical, and a stage-two move should be all of them")
+        found.append(("crits more often than an ordinary move", crit_ratio))
+
+    if raw.get("breaksProtect"):
+        def breaks_protect(m=move):
+            f = _bout(m)
+            if "charge" in m.flags:
+                # Phantom Force spends a turn underground first, so the
+                # Protect has to be on the turn it comes back up.
+                f.turn(Action.move(0), Action.move(0))
+            f.turn(Action.move(0), Action.move(2))     # they Protect
+            return (bool(_hits(f, m.id)),
+                    f"log {' | '.join(str(e) for e in f.log)[:160]}")
+        found.append(("goes through Protect", breaks_protect))
+
+    if raw.get("thawsTarget"):
+        def thaws(m=move):
+            f = _bout(m)
+            f.state.sides[1].status[f.state.sides[1].active[0]] = "frz"
+            f.turn(Action.move(0), Action.move(0))
+            return (f.status(1) != "frz" if _hits(f, m.id) else None,
+                    f"landed, and their status is now {f.status(1)}")
+        found.append(("thaws whatever it hits", thaws))
+
+    if raw.get("hasCrashDamage"):
+        def crash(m=move):
+            for seed in range(20):
+                f = _bout(m, seed=seed)
+                before = f.hp(0)
+                f.turn(Action.move(0), Action.move(0))
+                if f.said("missed") and m.id in str(f.log):
+                    return (f.hp(0) < before,
+                            f"missed, and the user went {before} -> {f.hp(0)}")
+            return None, "never missed in twenty tries, so the crash never came up"
+        found.append(("costs the user HP when it misses", crash))
+
+    return found
+
+
+def _register_flag_checks():
+    from pkcm.engine.moveeffects import SPECIAL_MOVES
+    from pkcm.engine.moves import VARIABLE_POWER
+
+    for move in DEX.moves.values():
+        if not DEX.exists_in_champions(move) or move.id in CHECKS:
+            continue
+        if move.id in SPECIAL_MOVES or move.id in VARIABLE_POWER:
+            continue
+        families = _flag_families(move)
+        if not families:
+            continue
+
+        def run(families=families):
+            notes, verdict = [], True
+            for what, probe in families:
+                ok, detail = probe()
+                # ``None`` is "the scenario never got to ask" -- a move that
+                # missed every seed, say. Reported, not counted as a pass.
+                notes.append(f"{what}: {detail}")
+                if ok is False:
+                    verdict = False
+                elif ok is None:
+                    notes[-1] += "  [inconclusive]"
+            return verdict, "; ".join(notes)
+
+        CHECKS[move.id] = (" and ".join(what for what, _ in families), run)
+
+
+_register_flag_checks()
+
+
 # --------------------------------------------------------------------------- #
 
 

@@ -1094,3 +1094,34 @@ def test_a_pseudo_weather_lasts_as_long_as_its_data_says(dex, config):
 
     state, _ = step(state, Action.move(1), Action.move(0))
     assert "fairylock" not in state.field.rooms
+
+
+def test_the_guards_and_safeguard_run_out(dex, config):
+    """They were layers, like Spikes, so they went up once and stayed up.
+
+    ``SIDE_CONDITION_DURATION`` held only the screens and Tailwind; anything
+    else reaching ``add_side_condition`` was counted as a layer and never
+    ticked. A permanent Safeguard is immunity to every status the opponent
+    has for the rest of the battle, and a permanent Wide Guard turns off
+    spread moves for good.
+    """
+    from pkcm.engine.conditions import SIDE_CONDITION_DURATION
+
+    for name, turns in (("safeguard", 5), ("quickguard", 1), ("wideguard", 1)):
+        assert SIDE_CONDITION_DURATION[name] == turns
+        assert dex.moves[name].raw["condition"]["duration"] == turns
+
+    state = build(config, a_set("clefable", ("safeguard", "splash")),
+                  a_set("snorlax", ("splash",)))
+    state, _ = step(state, Action.move(0), Action.move(0))
+    assert state.sides[0].conditions["safeguard"] == 4, "one of five spent"
+    for _ in range(4):
+        state, _ = step(state, Action.move(1), Action.move(0))
+    assert "safeguard" not in state.sides[0].conditions
+
+
+def test_wide_guard_is_gone_the_turn_after(dex, config):
+    state = build(config, a_set("clefable", ("wideguard", "splash")),
+                  a_set("snorlax", ("splash",)))
+    state, _ = step(state, Action.move(0), Action.move(0))
+    assert "wideguard" not in state.sides[0].conditions, "one turn only"

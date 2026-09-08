@@ -402,7 +402,14 @@ SPIKES_FRACTION = {1: 8, 2: 6, 3: 4}
 #: Screens and Tailwind last a set number of turns and do not stack; hazards
 #: stack up to a cap and never expire. Getting this wrong is invisible in tests
 #: and obvious in a battle log -- Light Screen was reaching "x2".
-SIDE_CONDITION_DURATION = {"reflect": 5, "lightscreen": 5, "auroraveil": 5, "tailwind": 4}
+#: Everything here counts down at the end of each turn. Anything *not* here is
+#: treated as layers, like a hazard -- which is what Safeguard, Quick Guard and
+#: Wide Guard were, so all three went up once and stayed up for the rest of the
+#: battle. A permanent Safeguard is immunity to every status the opponent has.
+#: The numbers are the ones in each move's own ``condition.duration``.
+SIDE_CONDITION_DURATION = {"reflect": 5, "lightscreen": 5, "auroraveil": 5,
+                           "tailwind": 4, "safeguard": 5,
+                           "quickguard": 1, "wideguard": 1}
 SIDE_CONDITION_LAYERS = {"spikes": 3, "toxicspikes": 2, "stealthrock": 1, "stickyweb": 1}
 
 

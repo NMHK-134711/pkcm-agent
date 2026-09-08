@@ -2954,6 +2954,506 @@ def _register_flag_checks():
 _register_flag_checks()
 
 
+# -- everything else: the numbers, not only the behaviour -------------------- #
+#
+# The buckets above answer "does it do the thing". They do not answer "does it
+# do it as often as the data says, for as long as the data says, and for as
+# much". Forcing every chance roll to succeed, which is what the effect sweep
+# does, proves the branch exists and says nothing about the number in front of
+# it. So every standard move gets its numbers checked too:
+#
+#   power/type/category   the damage is one of the sixteen rolls the formula
+#                         gives for the declared power, type and category
+#   secondary chance      the observed rate over 200 casts sits inside a
+#                         binomial interval around the declared chance
+#   duration              the condition ends on the turn the data says
+
+_ROLL_LOW, _ROLL_HIGH = 85, 100
+VARIABLE_POWER_IDS: set = set()
+
+
+def _expected_rolls(f, move, side=0):
+    """The sixteen damages the formula gives, computed outside the engine."""
+    from pkcm.data.dex import Stat
+    from pkcm.engine.battle import make_context
+    from pkcm.engine.moves import damage_base, damage_from_base
+    from pkcm.engine.mutate import effective_stat
+
+    ctx = make_context(f.state)
+    us = (side, f.state.sides[side].active[0])
+    them = (1 - side, f.state.sides[1 - side].active[0])
+    physical = move.category == "Physical"
+    raw = move.raw
+    # Body Press swings with Defence, Foul Play with the target's Attack,
+    # Psyshock lands on Defence though it is Special. Computing the plain pair
+    # made all three read as wrong numbers from a right engine.
+    offensive = raw.get("overrideOffensiveStat")
+    striker = them if raw.get("overrideOffensivePokemon") == "target" else us
+    attack = effective_stat(
+        ctx, striker,
+        getattr(Stat, offensive.upper()) if offensive
+        else (Stat.ATK if physical else Stat.SPA))
+    defensive = raw.get("overrideDefensiveStat")
+    defense = effective_stat(
+        ctx, them,
+        getattr(Stat, defensive.upper()) if defensive
+        else (Stat.DEF if physical else Stat.SPD))
+    effectiveness = DEX.type_chart.multiplier(move.type, f.state.types(*them))
+    stab = move.type in f.state.types(*us)
+    base = damage_base(power=move.base_power, attack=attack, defense=defense)
+    rolls = {max(1, damage_from_base(base, roll, stab=stab,
+                                     effectiveness=effectiveness))
+             for roll in range(_ROLL_LOW, _ROLL_HIGH + 1)}
+    return rolls, effectiveness
+
+
+def _damage_probe(move):
+    def probe(m=move):
+        for seed in range(12):
+            f = _bout(m, seed=seed)
+            expected, effectiveness = _expected_rolls(f, m)
+            if effectiveness == 0:
+                continue
+            f.turn(Action.move(0), Action.move(0))
+            hits = _hits(f, m.id)
+            if not hits or "crit=True" in str(hits[0]):
+                continue
+            got = int(re.search(r"amount=(\d+)", str(hits[0])).group(1))
+            return (got in expected,
+                    f"dealt {got}; {m.base_power} power at x{effectiveness} "
+                    f"gives {min(expected)}-{max(expected)}")
+        return None, "never landed a clean uncritical hit in twelve tries"
+    return ("deals what its declared power, type and category say", probe)
+
+
+def _fired(f, block):
+    """Whether the *declared* secondary happened -- not whether anything did.
+
+    Comparing whole states counted ``lastmove`` and ``movesused``, which
+    change every turn, so every secondary read as firing a hundred percent of
+    the time.
+    """
+    if block.get("status"):
+        return f.status(1) == block["status"]
+    if block.get("volatileStatus") == "flinch":
+        # Applied and spent inside the turn: by the time this reads the state
+        # the volatile has been cleared, so every flinch read as never firing.
+        return f.said("flinch")
+    if block.get("volatileStatus"):
+        return block["volatileStatus"] in f.volatiles(1)
+    if block.get("boosts"):
+        got = f.boosts(1)
+        return any(got.get(stat) for stat in block["boosts"])
+    inner = block.get("self")
+    if isinstance(inner, dict) and inner.get("boosts"):
+        got = f.boosts(0)
+        return any(got.get(stat) for stat in inner["boosts"])
+    return None
+
+
+def _chance_probe(move, chance, what, block):
+    def probe(m=move, chance=chance, what=what, block=block):
+        landed = fired = 0
+        for seed in range(200):
+            f = _bout(m, seed=seed)
+            f.turn(Action.move(0), Action.move(0))
+            if m.category != "Status" and not _hits(f, m.id):
+                continue
+            saw = _fired(f, block)
+            if saw is None:
+                return None, "the secondary declares nothing this can watch"
+            landed += 1
+            fired += saw
+        if landed < 40:
+            return None, f"only landed {landed} times in 200, too few to rate"
+        rate = fired / landed
+        want = chance / 100
+        # Three standard errors, floored at five points so a 10% secondary is
+        # not failed for coming in at seven.
+        slack = max(0.05, 3 * (want * (1 - want) / landed) ** 0.5)
+        return (abs(rate - want) <= slack,
+                f"{what} fired {fired} of {landed} landings ({rate:.0%}) "
+                f"against the {chance}% in the data")
+    return (f"fires its {chance}% {what} at about that rate", probe)
+
+
+def _duration_probe(move, name, kind, turns):
+    def probe(m=move, name=name, kind=kind, turns=turns):
+        f = _bout(m)
+        f.turn(Action.move(0), Action.move(0))
+
+        def alive():
+            if kind == "side":
+                return name in f.conditions(0) or name in f.conditions(1)
+            if kind == "room":
+                return name in f.state.field.rooms
+            if kind == "weather":
+                return f.state.field.weather == name
+            return f.state.field.terrain == name
+
+        if not alive():
+            return None, f"{name} was not up after the cast"
+        # The turn it was cast on counts: a five-turn screen is up for the
+        # turn it goes up and the four after, and the tick at the end of the
+        # fifth is what takes it down. Counting only the turns it survived to
+        # the end of read one short for every condition in the format.
+        lasted = 1
+        for _ in range(turns + 3):
+            if f.state.phase.name == "MID_TURN_SWITCH":
+                # Chilly Reception sets the weather and leaves; the side owes a
+                # replacement before anything else can be submitted.
+                f.turn(Action.switch(1), Action.PASS)
+            from pkcm.engine.state import legal_actions
+            # Anything but slot zero, which is the move under test: taking the
+            # first legal move re-cast Trick Room every turn and it never
+            # looked like ending.
+            spare = next((one.index for one in legal_actions(f.state, 0)
+                          if str(one).startswith("move") and one.index != 0),
+                         None)
+            if spare is None:
+                spare = next((one.index for one in legal_actions(f.state, 0)
+                              if str(one).startswith("move")), 0)
+            f.turn(Action.move(spare), Action.move(0))
+            lasted += 1
+            if not alive():
+                break
+        return (lasted == turns,
+                f"{name} stood {lasted} turns against the {turns} in the data")
+    return (f"its {name} lasts the {turns} turns the data gives it", probe)
+
+
+#: Durations the move itself does not carry, taken from the conditions file.
+_DURATIONS = {"reflect": 5, "lightscreen": 5, "auroraveil": 5, "tailwind": 4,
+              "safeguard": 5, "mist": 5, "luckychant": 5, "sunnyday": 5,
+              "raindance": 5, "sandstorm": 5, "snowscape": 5,
+              "electricterrain": 5, "grassyterrain": 5, "mistyterrain": 5,
+              "psychicterrain": 5, "trickroom": 5, "magicroom": 5,
+              "wonderroom": 5, "gravity": 5}
+
+
+def _number_families(move):
+    raw, found = move.raw, []
+
+    if (move.category != "Status" and move.base_power
+            and not raw.get("multihit") and "charge" not in move.flags
+            and not raw.get("ohko") and move.id not in VARIABLE_POWER_IDS):
+        found.append(_damage_probe(move))
+
+    blocks = [raw.get("secondary")] + list(raw.get("secondaries") or ())
+    for block in blocks:
+        if isinstance(block, dict) and 0 < block.get("chance", 100) < 100:
+            found.append(_chance_probe(move, block["chance"], "secondary",
+                                       block))
+            break
+
+    for key, kind in (("sideCondition", "side"), ("weather", "weather"),
+                      ("terrain", "terrain"), ("pseudoWeather", "room")):
+        name = raw.get(key)
+        if not name:
+            continue
+        name = re.sub(r"[^a-z0-9]", "", str(name).lower())
+        turns = (_DURATIONS.get(name) if kind in ("weather", "terrain")
+                 else (raw.get("condition") or {}).get("duration")
+                 or _DURATIONS.get(name))
+        if turns:
+            found.append(_duration_probe(move, name, kind, turns))
+    return found
+
+
+def _register_number_checks():
+    from pkcm.engine.moves import VARIABLE_POWER
+    VARIABLE_POWER_IDS.update(VARIABLE_POWER)
+
+    for move in DEX.moves.values():
+        if not DEX.exists_in_champions(move):
+            continue
+        families = _number_families(move)
+        if not families:
+            continue
+        was = CHECKS.get(move.id)
+
+        def run(families=families, was=was):
+            notes, verdict = [], True
+            if was is not None:
+                ok, detail = was[1]()
+                notes.append(f"behaviour: {detail}")
+                verdict = ok is not False
+            for what, probe in families:
+                ok, detail = probe()
+                notes.append(f"{what}: {detail}")
+                if ok is False:
+                    verdict = False
+                elif ok is None:
+                    notes[-1] += "  [inconclusive]"
+            return verdict, "; ".join(notes)
+
+        expect = " and ".join(([was[0]] if was else [])
+                              + [what for what, _ in families])
+        CHECKS[move.id] = (expect, run)
+
+
+_register_number_checks()
+
+
+# -- and the rest: every standard move gets one ------------------------------ #
+#
+# What is left after the three buckets above is the moves whose whole effect is
+# a declaration the executor applies -- Bulk Up's two stages, Hypnosis's sleep,
+# Charge's volatile. ``tests/test_effect_sweep.py`` already casts these, but it
+# lives in a different file and answers a different question, and "all of them"
+# should mean one command. So they are cast here too, against the declaration.
+
+SELF_TARGETS_LOCAL = ("self", "adjacentAllyOrSelf", "allySide", "allyTeam",
+                      "allies")
+#: Aimed at a partner, so in singles there is nobody to aim at. The effect
+#: sweep excuses the same set into a doubles check of its own.
+ALLY_TARGETS_LOCAL = ("adjacentAlly",)
+
+
+def _declared_probe(move):
+    raw = move.raw
+
+    def probe(m=move, raw=raw):
+        for seed in range(10):
+            f = _bout(m, seed=seed)
+            f.turn(Action.move(0), Action.move(0))
+            if m.category != "Status" and not _hits(f, m.id):
+                continue
+            if f.said("missed"):
+                continue     # Sing is 55%, and a miss is not a broken move
+            mine, theirs = 0, 1
+            side = mine if raw.get("target") in SELF_TARGETS_LOCAL else theirs
+            problems = []
+            if raw.get("boosts"):
+                got = f.boosts(side)
+                for stat, amount in raw["boosts"].items():
+                    if amount > 0 and got.get(stat, 0) < amount:
+                        problems.append(f"{stat} {got.get(stat, 0)} < +{amount}")
+                    if amount < 0 and got.get(stat, 0) > amount:
+                        problems.append(f"{stat} {got.get(stat, 0)} > {amount}")
+            block = raw.get("self")
+            if isinstance(block, dict) and block.get("boosts"):
+                got = f.boosts(mine)
+                for stat, amount in block["boosts"].items():
+                    if amount > 0 and got.get(stat, 0) < amount:
+                        problems.append(f"self {stat} {got.get(stat, 0)}")
+            if raw.get("status") and f.status(theirs) != raw["status"]:
+                problems.append(f"status {f.status(theirs)} != {raw['status']}")
+            if raw.get("volatileStatus"):
+                name = raw["volatileStatus"]
+                if name not in f.volatiles(side) and not f.said(name):
+                    problems.append(f"volatile {name} absent")
+            return (not problems,
+                    "; ".join(problems) or "everything it declares happened")
+        return None, "never connected in ten tries"
+
+    return ("does what its data declares", probe)
+
+
+def _register_declared_checks():
+    for move in DEX.moves.values():
+        if not DEX.exists_in_champions(move) or move.id in CHECKS:
+            continue
+        raw = move.raw
+        if raw.get("target") in ALLY_TARGETS_LOCAL:
+            continue
+        if not (raw.get("boosts") or raw.get("status")
+                or raw.get("volatileStatus")
+                or (isinstance(raw.get("self"), dict)
+                    and raw["self"].get("boosts"))):
+            continue
+        what, probe = _declared_probe(move)
+
+        def run(probe=probe):
+            ok, detail = probe()
+            return (ok is not False, detail + ("  [inconclusive]"
+                                               if ok is None else ""))
+
+        CHECKS[move.id] = (what, run)
+
+
+_register_declared_checks()
+
+
+# -- the last eleven --------------------------------------------------------- #
+#
+# Fixed damage, counters and a hazard: no declared effect, no flag and no entry
+# in SPECIAL_MOVES, because their arithmetic lives in ``tactics`` or in the
+# damage path itself. Five more are ally-only and correctly refuse in singles.
+
+
+@check("seismictoss", "takes the user's level, whatever the target is")
+def _seismic_toss():
+    f = _bout(DEX.moves["seismictoss"])
+    f.turn(Action.move(0), Action.move(0))
+    hits = _hits(f, "seismictoss")
+    got = int(re.search(r"amount=(\d+)", str(hits[0])).group(1)) if hits else 0
+    return got == 50, f"dealt {got}, and the level is 50"
+
+
+@check("nightshade", "takes the user's level, whatever the target is")
+def _night_shade():
+    f = _bout(DEX.moves["nightshade"])
+    f.turn(Action.move(0), Action.move(0))
+    hits = _hits(f, "nightshade")
+    got = int(re.search(r"amount=(\d+)", str(hits[0])).group(1)) if hits else 0
+    return got == 50, f"dealt {got}, and the level is 50"
+
+
+@check("superfang", "takes half of what the target has left")
+def _super_fang():
+    f = _bout(DEX.moves["superfang"])
+    before = f.hp(1)
+    f.turn(Action.move(0), Action.move(0))
+    hits = _hits(f, "superfang")
+    got = int(re.search(r"amount=(\d+)", str(hits[0])).group(1)) if hits else 0
+    return (abs(got - before // 2) <= 1,
+            f"they were on {before} and it took {got}")
+
+
+@check("counter", "returns twice the physical damage, and fails on special")
+def _counter():
+    def dealt(their_move):
+        f = Fight(ours("wobbuffet", "__none__",
+                       ("counter", "mirrorcoat", "splash", "protect"),
+                       None, "sassy", (32, 0, 32, 0, 32, 0)),
+                  [mon("garchomp", "__none__",
+                       ("dragonclaw", "dragonpulse", "splash", "protect"),
+                       None, "jolly", (0, 32, 2, 32, 0, 32))])
+        f.turn(Action.move(0), Action.move(their_move))
+        hits = _hits(f, "counter")
+        return int(re.search(r"amount=(\d+)", str(hits[0])).group(1)) if hits else 0
+    physical = dealt(0)     # Dragon Claw
+    special = dealt(1)      # Dragon Pulse: Counter has no answer to it
+    return (physical > 0 and special == 0,
+            f"against a physical hit {physical}, against a special one {special}")
+
+
+@check("comeuppance", "returns half again what last hit the user")
+def _comeuppance():
+    f = Fight(ours("kingambit", "__none__",
+                   ("comeuppance", "ironhead", "splash", "protect"),
+                   None, "sassy", (32, 0, 32, 0, 32, 0)),
+              [mon("garchomp", "__none__",
+                   ("dragonclaw", "splash", "protect", "earthquake"),
+                   None, "jolly", (0, 32, 2, 0, 0, 32))])
+    before = f.hp(0)
+    f.turn(Action.move(0), Action.move(0))
+    taken = before - f.hp(0)
+    hits = _hits(f, "comeuppance")
+    got = int(re.search(r"amount=(\d+)", str(hits[0])).group(1)) if hits else 0
+    return (taken > 0 and got > taken,
+            f"took {taken}, returned {got}")
+
+
+@check("fling", "throws the held item away and needs one to throw")
+def _fling():
+    f = _until(lambda seed: Fight(
+        [PokemonSet(species="weavile", ability="__none__", gender=None,
+                    moves=("fling", "knockoff", "iceshard", "swordsdance"),
+                    item="lifeorb", nature="jolly", sp=(0, 32, 2, 0, 0, 32))],
+        [mon("snorlax", "__none__", ("splash", "bodyslam", "rest", "protect"),
+             None, "serious", (32, 0, 32, 0, 2, 0))], seed)
+        .turn(Action.move(0), Action.move(0)),
+        lambda f: bool(_hits(f, "fling")))
+    if f is None:
+        return False, "never connected in ten tries"
+    thrown = f.item(0) is None
+    g = Fight(ours("weavile", "__none__",
+                   ("fling", "knockoff", "iceshard", "swordsdance"),
+                   None, "jolly", (0, 32, 2, 0, 0, 32)),
+              [dummy("snorlax")])
+    g.turn(Action.move(0), Action.move(0))
+    empty_handed = not _hits(g, "fling")
+    return (thrown and empty_handed,
+            f"holding nothing afterwards={thrown}; with no item it did "
+            f"nothing={empty_handed}")
+
+
+@check("beatup", "hits once for every healthy body on the user's side")
+def _beat_up():
+    f = _bout(DEX.moves["beatup"])
+    f.turn(Action.move(0), Action.move(0))
+    return (len(_hits(f, "beatup")) >= 2,
+            f"{len(_hits(f, 'beatup'))} separate hits, and we brought three")
+
+
+@check("spitup", "spends the stockpiled layers, and fails without them")
+def _spit_up():
+    f = Fight(ours("snorlax", "__none__",
+                   ("spitup", "stockpile", "splash", "protect"),
+                   None, "modest", (32, 0, 32, 32, 2, 0)),
+              [wall()])
+    f.turn(Action.move(0), Action.move(0))
+    empty = not _hits(f, "spitup")
+    g = Fight(ours("snorlax", "__none__",
+                   ("spitup", "stockpile", "splash", "protect"),
+                   None, "modest", (32, 0, 32, 32, 2, 0)),
+              [wall()])
+    g.turn(Action.move(1), Action.move(0))
+    g.turn(Action.move(1), Action.move(0))
+    g.turn(Action.move(0), Action.move(0))
+    fired = bool(_hits(g, "spitup"))
+    return (empty and fired,
+            f"with nothing stored it did nothing={empty}; "
+            f"after two layers it fired={fired}")
+
+
+@check("stickyweb", "slows down whoever comes in")
+def _sticky_web():
+    f = Fight(ours("ferrothorn", "__none__",
+                   ("stickyweb", "gyroball", "protect", "spikes"),
+                   None, "relaxed", (32, 0, 32, 0, 2, 0)),
+              [dummy("magikarp")])
+    f.turn(Action.move(0), Action.move(0))
+    laid = "stickyweb" in f.conditions(1)
+    f.turn(Action.move(1), Action.switch(1))
+    return (laid and f.boosts(1).get("spe", 0) < 0,
+            f"web laid={laid}; the replacement's boosts {f.boosts(1) or 'none'}")
+
+
+@check("healingwish", "the user goes, and whoever follows arrives whole")
+def _healing_wish():
+    f = Fight([mon("clefable", "__none__",
+                   ("healingwish", "moonblast", "protect", "splash"),
+                   None, "timid", (32, 0, 32, 0, 2, 32)),
+               mon("snorlax", "__none__",
+                   ("splash", "bodyslam", "rest", "protect"),
+                   None, "serious", (32, 0, 32, 0, 2, 0))],
+              [dummy("magikarp")])
+    f.state.sides[0].hp[1] //= 3          # the one waiting is hurt
+    hurt = f.state.sides[0].hp[1]
+    f.turn(Action.move(0), Action.move(0))
+    if f.state.phase.name in ("FORCED_SWITCH", "MID_TURN_SWITCH"):
+        f.turn(Action.switch(1), Action.PASS)
+    return (f.hp(0) > hurt,
+            f"the one who came in was on {hurt}, now {f.hp(0)}")
+
+
+@check("lifedew", "heals the user when there is nobody else to heal")
+def _life_dew():
+    f = Fight(ours("milotic", "__none__",
+                   ("lifedew", "surf", "protect", "splash"),
+                   None, "serious", (32, 0, 32, 0, 2, 0)),
+              [mon("garchomp", "__none__",
+                   ("earthquake", "dragonclaw", "firefang", "splash"),
+                   None, "jolly", (0, 32, 2, 0, 0, 32))])
+    f.turn(Action.move(1), Action.move(0))
+    hurt = f.hp(0)
+    f.turn(Action.move(0), Action.move(3))
+    return (f.hp(0) > hurt, f"{hurt} -> {f.hp(0)} of {f.max_hp(0)}")
+
+
+for _ally in ("afteryou", "allyswitch", "aromaticmist", "coaching", "quash"):
+    if _ally not in CHECKS and _ally in DEX.moves:
+        def _ally_probe(move_id=_ally):
+            move = DEX.moves[move_id]
+            species = ("clefable" if move.category == "Status" else "weavile")
+            return _fails_cleanly(species, (move_id, "splash", "tackle",
+                                            "protect"))
+        CHECKS[_ally] = ("has no ally to use it on in singles", _ally_probe)
+
+
 # --------------------------------------------------------------------------- #
 
 

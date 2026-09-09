@@ -29,7 +29,7 @@
   "open_questions": [
     "Learnsets need a full refresh, not an append: hk says existing species have gained and lost moves as well. Showdown's learnsets.json will not carry that, so the source has to be Champions itself.",
     "파오리 is listed with no form note, unlike 페르시온 (알로라의 모습). Kantonian is assumed, but 창파나이트 evolves from the Galarian one.",
-    "Every ability in the species list is still from pokemondb or Showdown and unchecked against the game. Samurott is why that matters: the repo says Torrent and Shell Armor, and Champions gives it Emergency Exit."
+    "Every ability in the species list is still from pokemondb or Showdown and unchecked against the game -- 빠르모트's three included. Samurott is why that matters: the repo says Torrent and Shell Armor, and Champions gives it Emergency Exit."
   ],
   "species": [
     {
@@ -654,6 +654,29 @@
       ],
       "hidden": "Ice Body",
       "note": "Not named in the patch list, which has only 메가드닐레이브, and not in the current format either. Recorded because a Mega needs a base; see open_questions."
+    },
+    {
+      "ko": "빠르모트",
+      "en": "Pawmot",
+      "id": "pawmot",
+      "types": [
+        "electric",
+        "fighting"
+      ],
+      "base": {
+        "hp": 70,
+        "atk": 115,
+        "def": 70,
+        "spa": 70,
+        "spd": 60,
+        "spe": 105
+      },
+      "abilities": [
+        "Volt Absorb",
+        "Natural Cure"
+      ],
+      "hidden": "Iron Fist",
+      "note": "Added by hk after the first list. pokemondb and the dex agree exactly on stats, types and abilities -- but agreement between two Showdown-descended sources is not confirmation, and Samurott is the reason to say so. All three abilities are implemented in the engine."
     }
   ],
   "megas_not_in_the_mainline_games": [

@@ -284,9 +284,27 @@ def breed(dex: Dex, regulation, config: EvolveConfig,
 # --------------------------------------------------------------------------- #
 
 
+def basis_of(config: EvolveConfig) -> str:
+    """What has to match for two candidates' floors to be comparable.
+
+    The field they faced, how much of it, the agent that played, and the seed
+    that drew the subset. Change any of these and the numbers are measuring
+    different things, which is why the notebook keeps them apart rather than
+    sorting them together.
+    """
+    floor = config.floor
+    return (f"{Path(floor.parties).name if floor.parties else 'archive'}"
+            f"/{floor.regulation}/{floor.battle_format}"
+            f"/opp{floor.opponents or 'all'}"
+            f"/sim{floor.search.iterations}"
+            f"/rollout{floor.search.rollout_turns}"
+            f"/seed{floor.seed}")
+
+
 def race(config: EvolveConfig, population: Sequence[Candidate],
          workers: int | None = None,
-         on_round=None) -> list[Candidate]:
+         on_round=None, notebook: "Notebook | None" = None,
+         stage: str = "") -> list[Candidate]:
     """Successive halving over the population.
 
     A flat budget spends most of itself separating candidates that are already
@@ -307,8 +325,14 @@ def race(config: EvolveConfig, population: Sequence[Candidate],
         graded = []
         for one in alive:
             floor = score(one.team, config.floor, share, workers=workers)
-            graded.append(replace(one, floor=floor))
+            scored = replace(one, floor=floor)
+            graded.append(scored)
             spent += floor.games
+            if notebook is not None:
+                # Here rather than after the sort: a candidate is written the
+                # moment its games are paid for, so a run killed mid-round
+                # still keeps everything it had measured.
+                notebook.record(scored, basis_of(config), f"{stage}r{step + 1}")
         graded.sort(key=lambda one: -one.fitness)
         keep = max(1, len(graded) // 2) if step < rounds - 1 else len(graded)
         alive = graded[:keep]
@@ -321,13 +345,20 @@ def race(config: EvolveConfig, population: Sequence[Candidate],
 
 def evolve(dex: Dex, regulation, config: EvolveConfig,
            workers: int | None = None,
-           on_generation=None) -> Iterator[list[Candidate]]:
-    """Run the search, handing back each generation's graded survivors."""
+           on_generation=None,
+           notebook: "Notebook | None" = None) -> Iterator[list[Candidate]]:
+    """Run the search, handing back each generation's graded survivors.
+
+    ``notebook`` collects every candidate on the way past, including the ones
+    the race drops. The generator's product is then a book of parties rather
+    than one winner, which is what the run is actually for.
+    """
     cursor = Rng.from_seed(config.seed).cursor()
     population = seed_population(dex, regulation, config, cursor)
     best: list[Candidate] = []
     for generation in range(config.generations):
-        survivors = race(config, population, workers=workers)
+        survivors = race(config, population, workers=workers,
+                         notebook=notebook, stage=f"g{generation + 1}")
         best = sorted(survivors + best, key=lambda one: -one.fitness)
         best = best[:config.elites]
         if on_generation:
@@ -344,3 +375,128 @@ def as_party(team: Team, title: str) -> dict:
                       "moves": list(one.moves), "item": one.item,
                       "nature": one.nature, "sp": list(one.sp)}
                      for one in team]}
+
+
+# --------------------------------------------------------------------------- #
+# Keeping what the search throws away
+# --------------------------------------------------------------------------- #
+
+
+def signature(team: Team) -> str:
+    """What makes two candidates the same party.
+
+    Slot order is not part of it -- a crossover that hands back the same six
+    sets in a different order is the same team -- but the whole set is, down
+    to the spread, because two Salamence that differ only in nature are two
+    different parties to play.
+    """
+    import hashlib
+
+    parts = sorted(
+        "|".join((one.species, one.ability or "", one.item or "", one.nature,
+                  ",".join(str(value) for value in one.sp),
+                  ",".join(sorted(one.moves))))
+        for one in team)
+    return hashlib.sha1("\n".join(parts).encode("utf-8")).hexdigest()[:16]
+
+
+@dataclass
+class Notebook:
+    """Every candidate the search grades, written down as it is graded.
+
+    A generation grades twenty-four parties and carries three of them forward.
+    The other twenty-one are measured -- the games were paid for -- and then
+    dropped, and a run that is stopped halfway leaves nothing at all. This
+    writes each one as it is scored, so the run's product is a list of parties
+    rather than a single winner, and stopping early costs only the rest of the
+    search.
+
+    **Read the interval, not the score.** A candidate eliminated in the first
+    round was graded on a fifth of the games the survivors got, and it was
+    eliminated partly because it was unlucky. Ranking the notebook by ``cvar``
+    would put those noisy draws on top -- the same winner's curse the round
+    robin had, one level down. ``best`` sorts by ``low`` instead, so a party
+    has to have been measured to rank.
+
+    **And only within a basis.** Two runs that faced different opponent
+    subsets, or graded with different search settings, produce numbers that
+    are not comparable. Each record carries the basis it was measured under
+    and ``best`` refuses to mix them.
+    """
+
+    path: Path
+    #: Records below this lower bound are not written. Zero keeps everything,
+    #: which is the useful default: the file is small and a party that looks
+    #: bad under the cheap agent is exactly what the judge might disagree with.
+    keep: float = 0.0
+    seen: dict = field(default_factory=dict)
+    written: int = 0
+
+    @classmethod
+    def open(cls, path: str | Path, keep: float = 0.0) -> "Notebook":
+        """Load what is already there, so a second run adds to the first."""
+        path = Path(path)
+        path.parent.mkdir(parents=True, exist_ok=True)
+        seen = {}
+        if path.exists():
+            for line in path.read_text(encoding="utf-8").splitlines():
+                if not line.strip():
+                    continue
+                try:
+                    record = json.loads(line)
+                except json.JSONDecodeError:      # a run killed mid-write
+                    continue
+                key = (record["basis"], record["signature"])
+                held = seen.get(key)
+                if held is None or record["games"] > held["games"]:
+                    seen[key] = record
+        return cls(path=path, keep=keep, seen=seen)
+
+    def record(self, candidate: Candidate, basis: str, stage: str) -> bool:
+        """Write one graded candidate. False when it was not worth keeping.
+
+        The same party graded twice keeps whichever measurement had more
+        games behind it, not whichever scored higher -- the second grading of
+        a survivor is the better number, and taking the maximum instead would
+        reintroduce exactly the bias this is arranged to avoid.
+        """
+        floor = candidate.floor
+        if floor is None or floor.low < self.keep:
+            return False
+        # Keyed by the basis as well as the party, because the same six under
+        # two agents are two measurements. Keying by the party alone let a
+        # judged floor -- which has more games behind it, always -- delete the
+        # search-basis row, and the searched list then quietly lost exactly
+        # the parties that had done best in it.
+        key = signature(candidate.team)
+        held = self.seen.get((basis, key))
+        if held is not None and held["games"] >= floor.games:
+            return False
+        record = {
+            "signature": key,
+            "floor": round(floor.cvar, 4),
+            "low": round(floor.low, 4),
+            "high": round(floor.high, 4),
+            "mean": round(floor.mean, 4),
+            "worst": round(floor.minimum, 4),
+            "games": floor.games,
+            "origin": candidate.origin,
+            "stage": stage,
+            "basis": basis,
+            **as_party(candidate.team, f"notebook {stage}"),
+        }
+        self.seen[(basis, key)] = record
+        with self.path.open("a", encoding="utf-8") as handle:
+            handle.write(json.dumps(record, ensure_ascii=False) + "\n")
+            handle.flush()
+        self.written += 1
+        return True
+
+    def best(self, count: int = 20, basis: str | None = None) -> list[dict]:
+        """The best-measured parties in the book, by lower bound."""
+        rows = [one for one in self.seen.values()
+                if basis is None or one["basis"] == basis]
+        return sorted(rows, key=lambda one: (-one["low"], -one["floor"]))[:count]
+
+    def bases(self) -> list[str]:
+        return sorted({one["basis"] for one in self.seen.values()})

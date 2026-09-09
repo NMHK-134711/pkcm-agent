@@ -132,3 +132,97 @@ def test_elites_come_through_ungraded(dex):
     assert [one.origin for one in children[:3]] == ["elite"] * 3
     assert [one.team for one in children[:3]] == [one.team for one in best]
     assert all(one.floor is None for one in children[:3])
+
+
+def test_the_notebook_keeps_what_the_race_drops(dex, tmp_path):
+    """Every graded candidate is written, not only the survivors.
+
+    The point of the book: a generation grades twenty-four and carries three,
+    and the twenty-one that were paid for should not vanish.
+    """
+    from pkcm.train.party_evolve import Notebook, basis_of, signature
+
+    config = _config(population=6)
+    book = Notebook.open(tmp_path / "book.jsonl")
+    teams = [one.team for one in
+             seed_population(dex, dex.regulation("m_b"), config,
+                             Rng.from_seed(6).cursor())]
+    graded = _graded(teams, [i / 10 for i in range(len(teams))])
+    for one in graded:
+        assert book.record(one, basis_of(config), "g1r1")
+
+    assert len(book.seen) == len({signature(team) for team in teams})
+    lines = (tmp_path / "book.jsonl").read_text(encoding="utf-8").splitlines()
+    assert len(lines) == book.written
+
+
+def test_a_second_run_adds_to_the_first(dex, tmp_path):
+    """Reopening reads what is there, and a better-measured grading wins."""
+    from pkcm.train.party_evolve import Notebook, basis_of, signature
+
+    config = _config(population=4)
+    team = seed_population(dex, dex.regulation("m_b"), config,
+                           Rng.from_seed(7).cursor())[0].team
+    first = Candidate(team, "field", Floor(cvar=0.4, mean=0.4, minimum=0.4,
+                                           low=0.3, high=0.5, games=20,
+                                           matchups=()))
+    Notebook.open(tmp_path / "book.jsonl").record(first, basis_of(config), "g1r1")
+
+    again = Notebook.open(tmp_path / "book.jsonl")
+    assert len(again.seen) == 1
+    # Fewer games behind it, so it is not an improvement even though it scored
+    # higher -- taking the maximum would be the winner's curse again.
+    lucky = replace_floor(first, cvar=0.9, low=0.6, games=8)
+    assert not again.record(lucky, basis_of(config), "g2r1")
+    measured = replace_floor(first, cvar=0.35, low=0.32, games=200)
+    assert again.record(measured, basis_of(config), "g2r4")
+    assert again.seen[(basis_of(config), signature(team))]["games"] == 200
+
+
+def test_bases_are_not_sorted_against_each_other(dex, tmp_path):
+    """A judged floor and a searched floor are different measurements."""
+    from pkcm.train.party_evolve import Notebook
+
+    config = _config(population=4)
+    teams = [one.team for one in
+             seed_population(dex, dex.regulation("m_b"), config,
+                             Rng.from_seed(8).cursor())]
+    book = Notebook.open(tmp_path / "book.jsonl")
+    book.record(_graded(teams[:1], [0.30])[0], "search", "g1r1")
+    book.record(_graded(teams[1:2], [0.90])[0], "judge", "g8judge")
+
+    assert book.bases() == ["judge", "search"]
+    assert len(book.seen) == 2
+    assert [one["floor"] for one in book.best(5, basis="search")] == [0.30]
+    assert [one["floor"] for one in book.best(5, basis="judge")] == [0.90]
+
+
+def replace_floor(candidate, **kw):
+    from dataclasses import replace as _replace
+    return _replace(candidate, floor=_replace(candidate.floor, **kw))
+
+
+def test_a_judged_row_does_not_delete_the_searched_one(dex, tmp_path):
+    """Two measurements of one party, not one measurement overwritten.
+
+    The judge always has more games behind it, so keying the book by the
+    party alone let every judged finalist quietly delete its own row from the
+    searched list -- which is the list you read to find what to judge next.
+    """
+    from pkcm.train.party_evolve import Notebook, signature
+
+    config = _config(population=4)
+    team = seed_population(dex, dex.regulation("m_b"), config,
+                           Rng.from_seed(9).cursor())[0].team
+    book = Notebook.open(tmp_path / "book.jsonl")
+    cheap = Candidate(team, "elite", Floor(cvar=0.25, mean=0.3, minimum=0.0,
+                                           low=0.05, high=0.7, games=40,
+                                           matchups=()))
+    judged = replace_floor(cheap, cvar=0.44, low=0.20, games=400)
+    assert book.record(cheap, "search", "g8r3")
+    assert book.record(judged, "judge", "g8judge")
+
+    assert len(book.seen) == 2
+    assert [one["games"] for one in book.best(5, basis="search")] == [40]
+    assert [one["games"] for one in book.best(5, basis="judge")] == [400]
+    assert all(one["signature"] == signature(team) for one in book.seen.values())

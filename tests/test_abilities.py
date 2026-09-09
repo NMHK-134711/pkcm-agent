@@ -1383,3 +1383,35 @@ def test_emergency_exit_leaves_when_it_crosses_half(dex):
     assert seen["emergencyexit"] is Phase.MID_TURN_SWITCH, \
         f"it did not bail: {seen}"
     assert seen["sturdy"] is not Phase.MID_TURN_SWITCH
+
+
+def test_aura_guard_halves_contact_and_nothing_else(dex):
+    """파동의방호, on Mega Lucario Z: contact damage from the opponent, halved.
+
+    Neither side may be knocked out on the way: apply_damage returns what the
+    HP bar could absorb, so a control that kills reads as the same number as
+    a Pokemon at full health and the ratio comes out at 0.7 instead of 0.5.
+    Hence no Attack investment and a Blissey to hit.
+    """
+    from pkcm.engine.actions import Action
+    from pkcm.engine.battle import step
+
+    seen = {}
+    for ability in ("auraguard", "steadfast"):
+        for move, index in (("knockoff", 2), ("aurasphere", 1)):
+            state = _one_on_one(
+                dex,
+                [_set("machamp", "guts",
+                      ("closecombat", "aurasphere", "knockoff", "protect"),
+                      sp=(32, 0, 32, 0, 2, 0))],
+                [_set("blissey", ability,
+                      ("softboiled", "toxic", "protect", "seismictoss"),
+                      nature="bold", sp=(32, 0, 32, 0, 2, 0))])
+            state, events = step(state, Action.move(index), Action.move(0))
+            seen[ability, move] = _damage_to(events, 1, move)
+
+    assert all(seen.values()), f"something failed to connect: {seen}"
+    contact = seen["auraguard", "knockoff"] / seen["steadfast", "knockoff"]
+    ranged = seen["auraguard", "aurasphere"] / seen["steadfast", "aurasphere"]
+    assert 0.45 < contact < 0.55, f"contact was not halved: {seen}"
+    assert ranged == 1.0, f"a non-contact move was softened too: {seen}"

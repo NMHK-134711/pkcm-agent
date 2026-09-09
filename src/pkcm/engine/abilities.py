@@ -363,6 +363,17 @@ register("ability", "icescales", name="Ice Scales",
 register("ability", "fluffy", name="Fluffy",
          modify_damage=_defender_damage(lambda ctx, a, d, move:
              X2 if move.type == "fire" else (X0_5 if CONTACT in move.flags else 0)))
+#: 파동의방호, on Mega Lucario Z, from the 2026-09-09 update: "상대로부터 받은
+#: 접촉하는 기술의 데미지를 반감시킨다" -- hk, from the game. Fluffy's contact
+#: half with none of the Fire drawback.
+#:
+#: The id is ours. The ability is new enough that Showdown's Champions mod
+#: does not carry it -- its six originals are Dragonize, Eelevate, Fire Mane,
+#: Mega Sol, Piercing Drill and Spicy Spray -- and no English name for it
+#: exists to copy. Rename it if one appears.
+register("ability", "auraguard", name="Aura Guard",
+         modify_damage=_defender_damage(lambda ctx, a, d, move:
+             X0_5 if CONTACT in move.flags else 0))
 
 
 def _resists_super_effective(ctx, a, d, move):

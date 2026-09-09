@@ -28,8 +28,8 @@
   "source": "pokemondb.net and bulbapedia (mainline); Champions values unverified",
   "open_questions": [
     "메가갑주무사 (samurottmega) is in no source at all -- not Showdown's pokedex, not the repo, not the mainline games. It needs the game.",
-    "위기회피 (Emergency Exit) and 파동의방호 belong to no species in the patch list, and none of the four Megas below carries them either. 파동의방호 could not be matched to any known ability. Not guessed at.",
-    "The patch list names 메가드닐레이브 but not 드닐레이브. The base is in the dex but not in the current roster, so either the list omits it or the Mega arrives without its base.",
+    "메가드닐레이브's ability has not been announced yet.",
+    "위기회피 (Emergency Exit) belongs to no species on the list. 메가갑주무사 and 메가드닐레이브 are the two whose abilities are still unknown, so it is probably one of them.",
     "파오리 is listed with no form note, unlike 페르시온 (알로라의 모습). Kantonian is assumed, but 창파나이트 evolves from the Galarian one."
   ],
   "species": [
@@ -672,9 +672,13 @@
         "spe": 151
       },
       "abilities": [
-        "Magic Bounce"
+        "Sharpness"
       ],
-      "source": "Showdown pokedex.json -- unverified"
+      "source": "hk, from the game (2026-09-09); stats agreed with Showdown",
+      "abilities_ko": [
+        "예리함"
+      ],
+      "confirmed": true
     },
     {
       "ko": "메가한카리아스Z",
@@ -694,9 +698,13 @@
         "spe": 151
       },
       "abilities": [
-        "Sand Force"
+        "Levitate"
       ],
-      "source": "Showdown pokedex.json -- unverified"
+      "source": "hk, from the game (2026-09-09); stats agreed with Showdown",
+      "abilities_ko": [
+        "부유"
+      ],
+      "confirmed": true
     },
     {
       "ko": "메가루카리오Z",
@@ -717,9 +725,13 @@
         "spe": 151
       },
       "abilities": [
-        "Adaptability"
+        "Aura Guard"
       ],
-      "source": "Showdown pokedex.json -- unverified"
+      "source": "hk, from the game (2026-09-09); stats agreed with Showdown",
+      "abilities_ko": [
+        "파동의방호"
+      ],
+      "confirmed": true
     },
     {
       "ko": "메가드닐레이브",
@@ -739,11 +751,10 @@
         "spd": 101,
         "spe": 87
       },
-      "abilities": [
-        "Thermal Exchange",
-        "Ice Body"
-      ],
-      "source": "Showdown pokedex.json -- unverified"
+      "abilities": null,
+      "source": "hk, from the game (2026-09-09); ability not yet announced",
+      "abilities_ko": null,
+      "confirmed": "stats only"
     },
     {
       "ko": "메가갑주무사",
@@ -754,7 +765,7 @@
       "source": "nowhere -- needs the game"
     }
   ],
-  "_megas_note": "Four of the five are already in the dex with numbers that are plainly not mainline: three of them share 151 Speed, and Mega Absol Z is Dark/Ghost. That makes them Champions figures rather than mainline ones -- but they reach us through Showdown, so they are candidates to check in the game, not facts. Mega Absol Z's typing and the three 151s are the quickest things to confirm.",
+  "_megas_note": "hk read four of the five off the game on 2026-09-09. Every base stat and every type Showdown had was right; every ability was wrong. 메가갑주무사 remains in no source, and 메가드닐레이브's ability has not been announced.",
   "items": {
     "mega_stones": [
       "앱솔나이트Z",
@@ -901,9 +912,10 @@
     },
     {
       "ko": "파동의방호",
-      "id": null,
-      "engine": "unresolved",
-      "note": "Could not be matched to a known ability. Not guessed at."
+      "id": "auraguard",
+      "engine": "implemented 2026-09-09",
+      "note": "The id is ours: no English name exists yet, and Showdown's Champions mod does not carry the ability. Rename if an official one appears.",
+      "effect": "Halves the damage of contact moves used against the holder."
     }
   ],
   "move_patches_checked_against_the_engine": {
@@ -931,5 +943,12 @@
     "python scripts/build_champions_data.py -- rebuild.",
     "Confirm in game: Mega Absol Z Dark/Ghost, the three 151 Speeds, and 메가갑주무사's numbers, which no source has.",
     "Move patches still to make: Grass immunity for 독가루·저리가루·수면가루·버섯포자·목화포자·마법가루, and for the ability 포자."
-  ]
+  ],
+  "what_showdown_got_right_and_wrong": {
+    "checked_against_hk_reading_the_game": "2026-09-09",
+    "base_stats": "4 of 4 exact. Mega Absol Z, Mega Garchomp Z, Mega Lucario Z and Mega Baxcalibur all match play.pokemonshowdown.com to the point.",
+    "types": "3 of 3 exact, including the two surprising ones -- Mega Absol Z gains Ghost and Mega Garchomp Z loses Ground.",
+    "abilities": "0 of 3. Showdown said Magic Bounce, Sand Force and Adaptability; the game says Sharpness, Levitate and Aura Guard.",
+    "so": "Trust the numbers, check every ability. That is a narrower rule than 'do not use Showdown', and it is the one the evidence supports."
+  }
 }

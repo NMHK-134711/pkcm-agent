@@ -27,10 +27,9 @@
   "confirmed": false,
   "source": "pokemondb.net and bulbapedia (mainline); Champions values unverified",
   "open_questions": [
-    "메가갑주무사 (samurottmega) is in no source at all -- not Showdown's pokedex, not the repo, not the mainline games. It needs the game.",
-    "메가드닐레이브's ability has not been announced yet.",
-    "위기회피 (Emergency Exit) belongs to no species on the list. 메가갑주무사 and 메가드닐레이브 are the two whose abilities are still unknown, so it is probably one of them.",
-    "파오리 is listed with no form note, unlike 페르시온 (알로라의 모습). Kantonian is assumed, but 창파나이트 evolves from the Galarian one."
+    "메가갑주무사 and 메가드닐레이브 have not had their abilities announced.",
+    "파오리 is listed with no form note, unlike 페르시온 (알로라의 모습). Kantonian is assumed, but 창파나이트 evolves from the Galarian one.",
+    "Every ability in the species list below is still from pokemondb or Showdown and unchecked against the game. Samurott is the proof that matters: the repo says Torrent and Shell Armor, and Champions gives it Emergency Exit."
   ],
   "species": [
     {
@@ -241,9 +240,14 @@
         "spe": 70
       },
       "abilities": [
-        "Torrent"
+        "Emergency Exit"
       ],
-      "hidden": "Shell Armor"
+      "abilities_ko": [
+        "위기회피"
+      ],
+      "source": "hk (2026-09-09)",
+      "confirmed": true,
+      "note": "Champions gives it Emergency Exit. pokemondb and bulbapedia both give the mainline Unovan form Torrent with Shell Armor hidden, and our dex, which comes from Showdown, agrees with them -- so whatever the mainline truth is, the value in the repo is not the one to use."
     },
     {
       "ko": "고릴타",
@@ -762,7 +766,23 @@
       "stone": "갑주무사나이트",
       "id": "samurottmega",
       "in_repo": false,
-      "source": "nowhere -- needs the game"
+      "source": "hk, from the game (2026-09-09); ability not yet announced",
+      "types": [
+        "bug",
+        "steel"
+      ],
+      "base_stats": {
+        "hp": 75,
+        "atk": 150,
+        "def": 175,
+        "spa": 70,
+        "spd": 120,
+        "spe": 40
+      },
+      "abilities": null,
+      "abilities_ko": null,
+      "confirmed": "stats and types only",
+      "note": "In no other source at all -- Showdown has no samurottmega."
     }
   ],
   "_megas_note": "hk read four of the five off the game on 2026-09-09. Every base stat and every type Showdown had was right; every ability was wrong. 메가갑주무사 remains in no source, and 메가드닐레이브's ability has not been announced.",
@@ -949,7 +969,7 @@
     "checked_against_hk_reading_the_game": "2026-09-09",
     "base_stats": "4 of 4 exact. Mega Absol Z, Mega Garchomp Z, Mega Lucario Z and Mega Baxcalibur all match play.pokemonshowdown.com to the point.",
     "types": "3 of 3 exact, including the two surprising ones -- Mega Absol Z gains Ghost and Mega Garchomp Z loses Ground.",
-    "abilities": "0 of 3. Showdown said Magic Bounce, Sand Force and Adaptability; the game says Sharpness, Levitate and Aura Guard.",
-    "so": "Trust the numbers, check every ability. That is a narrower rule than 'do not use Showdown', and it is the one the evidence supports."
+    "abilities": "0 of 4. Showdown said Magic Bounce, Sand Force and Adaptability for the three Megas; the game says Sharpness, Levitate and Aura Guard. And it is not only Megas -- Showdown gives Samurott Torrent and Shell Armor, where Champions gives it Emergency Exit.",
+    "so": "Trust the numbers, check every ability, base species included. Four base-stat lines and three typings have come back exact; not one ability has."
   }
 }

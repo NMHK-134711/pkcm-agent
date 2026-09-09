@@ -4310,5 +4310,265 @@
       ],
       "stone": null
     }
-  ]
+  ],
+  "power_changes_ko": {
+    "베어가르기": [
+      70,
+      80
+    ],
+    "스타어설트": [
+      150,
+      170
+    ]
+  },
+  "format_moves_ko": {
+    "added": [
+      "기어체인지",
+      "노려맞히기",
+      "대검돌격",
+      "드럼어택",
+      "문어굳히기",
+      "물고버티기",
+      "베어가르기",
+      "스타어설트",
+      "오버드라이브",
+      "우유마시기",
+      "전광쌍격",
+      "찌리리따끔따끔",
+      "코트체인지",
+      "화염볼",
+      "회생의기도",
+      "흉내내기"
+    ],
+    "removed": [
+      "막치기"
+    ]
+  },
+  "existing_species_ko": {
+    "gained": {
+      "거북손데스": [
+        "베어가르기"
+      ],
+      "글라이온": [
+        "베어가르기"
+      ],
+      "나무킹": [
+        "베어가르기"
+      ],
+      "다크펫": [
+        "베어가르기"
+      ],
+      "대검귀": [
+        "베어가르기"
+      ],
+      "대도각참": [
+        "베어가르기"
+      ],
+      "따라큐": [
+        "베어가르기"
+      ],
+      "레파르다스": [
+        "베어가르기"
+      ],
+      "리자몽": [
+        "베어가르기"
+      ],
+      "마스카나": [
+        "베어가르기"
+      ],
+      "몰드류": [
+        "베어가르기"
+      ],
+      "무장조": [
+        "베어가르기"
+      ],
+      "번치코": [
+        "베어가르기"
+      ],
+      "부란다": [
+        "베어가르기"
+      ],
+      "브리두라스": [
+        "베어가르기"
+      ],
+      "쁘사이저": [
+        "베어가르기"
+      ],
+      "사마자르": [
+        "베어가르기"
+      ],
+      "샤크니아": [
+        "베어가르기"
+      ],
+      "앱솔": [
+        "베어가르기"
+      ],
+      "엘레이드": [
+        "베어가르기"
+      ],
+      "장크로다일": [
+        "베어가르기"
+      ],
+      "칼라마네로": [
+        "베어가르기"
+      ],
+      "킬가르도 (실드폼)": [
+        "베어가르기"
+      ],
+      "툰베어": [
+        "베어가르기"
+      ],
+      "포푸니라": [
+        "베어가르기"
+      ],
+      "포푸니크": [
+        "베어가르기"
+      ],
+      "한카리아스": [
+        "베어가르기"
+      ],
+      "핫삼": [
+        "베어가르기"
+      ]
+    },
+    "lost": {
+      "브리두라스": [
+        "메탈버스트",
+        "미러코트"
+      ],
+      "왕구리": [
+        "막치기"
+      ]
+    }
+  },
+  "power_changes": {
+    "slash": [
+      70,
+      80
+    ],
+    "meteorassault": [
+      150,
+      170
+    ]
+  },
+  "format_moves": {
+    "added": [
+      "shiftgear",
+      "snipeshot",
+      "glaiverush",
+      "drumbeating",
+      "octolock",
+      "jawlock",
+      "slash",
+      "meteorassault",
+      "overdrive",
+      "milkdrink",
+      "doubleshock",
+      "zingzap",
+      "courtchange",
+      "pyroball",
+      "revivalblessing",
+      "mimic"
+    ],
+    "removed": [
+      "pound"
+    ]
+  },
+  "existing_species": {
+    "gained": {
+      "barbaracle": [
+        "slash"
+      ],
+      "gliscor": [
+        "slash"
+      ],
+      "sceptile": [
+        "slash"
+      ],
+      "banette": [
+        "slash"
+      ],
+      "samurott": [
+        "slash"
+      ],
+      "kingambit": [
+        "slash"
+      ],
+      "mimikyu": [
+        "slash"
+      ],
+      "liepard": [
+        "slash"
+      ],
+      "charizard": [
+        "slash"
+      ],
+      "meowscarada": [
+        "slash"
+      ],
+      "excadrill": [
+        "slash"
+      ],
+      "skarmory": [
+        "slash"
+      ],
+      "blaziken": [
+        "slash"
+      ],
+      "pangoro": [
+        "slash"
+      ],
+      "archaludon": [
+        "slash"
+      ],
+      "pinsir": [
+        "slash"
+      ],
+      "kleavor": [
+        "slash"
+      ],
+      "sharpedo": [
+        "slash"
+      ],
+      "absol": [
+        "slash"
+      ],
+      "gallade": [
+        "slash"
+      ],
+      "feraligatr": [
+        "slash"
+      ],
+      "malamar": [
+        "slash"
+      ],
+      "aegislash": [
+        "slash"
+      ],
+      "beartic": [
+        "slash"
+      ],
+      "weavile": [
+        "slash"
+      ],
+      "sneasler": [
+        "slash"
+      ],
+      "garchomp": [
+        "slash"
+      ],
+      "scizor": [
+        "slash"
+      ]
+    },
+    "lost": {
+      "archaludon": [
+        "metalburst",
+        "mirrorcoat"
+      ],
+      "politoed": [
+        "pound"
+      ]
+    }
+  }
 }

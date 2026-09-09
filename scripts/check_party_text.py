@@ -471,8 +471,18 @@ def build_parties(directory: Path, battle_format: str = "singles",
                                     nature=one["nature"] or "serious",
                                     sp=tuple(one["sp"]))
                          for one in built)
-            for line in team_errors(dex, regulation, team, battle_format):
+            complaints = team_errors(dex, regulation, team, battle_format)
+            for line in complaints:
                 notes.append(f"  team: {line}")
+            if complaints:
+                # The text stays: it is a faithful record of a party the ladder
+                # really brought, and a regulation change does not make the
+                # transcription wrong. The JSON does not, because it is what
+                # the engine is allowed to field. 22.txt is the first of these
+                # -- Archaludon lost Mirror Coat in the M-C update.
+                notes.append("  team: left out of the JSON while it is illegal")
+                all_notes[path.name] = notes
+                continue
             parties.append({
                 "id": path.stem, "title": f"pokedb {path.stem}",
                 "team": [{"species": one.species, "ability": one.ability,

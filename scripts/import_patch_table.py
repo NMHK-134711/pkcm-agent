@@ -6,10 +6,11 @@ has had for base stats, abilities and learnsets all at once -- everything the
 dex holds today came from play.pokemonshowdown.com, which describes a
 different game.
 
-The comparison is the point. Showdown had Samurott as a Water type with
-95/100/85/108/70/70 and Torrent; Champions has it Bug/Water with
-75/125/140/60/90/40 and Emergency Exit. Nothing about the dex's numbers can be
-assumed until this has been run over all of them.
+The comparison is the point, and it came out narrower than expected: every
+type and every base stat matched, and the only abilities that did not were the
+five Megas Champions invented, which Showdown cannot know about. (The example
+that used to sit here said Champions had rewritten Samurott. It had not --
+갑주무사 is Golisopod, and I had the name wrong.)
 
 Usage:
     python scripts/import_patch_table.py <saved.html> [--out data/champions/mc_table.json]
@@ -52,6 +53,9 @@ ALIASES = {
         "스트린더 (로우한 모습)": "toxtricitylowkey",
         "에써르 (수컷)": "indeedee",
         "에써르 (암컷)": "indeedeef",
+        # The name table calls the Shield forme just 킬가르도 and names only
+        # the Blade one, which is the opposite of how the table writes it.
+        "킬가르도 (실드폼)": "aegislash",
     },
     "moves": {"깨트리기": "brickbreak", "탐내기": "covet"},
     "abilities": {"파동의방호": "auraguard"},
@@ -114,7 +118,61 @@ def parse(text: str) -> dict:
         if moves:
             entry["moves_ko"] = moves
         species.append(entry)
-    return {"species": species}
+    return {"species": species, **parse_changes(lines)}
+
+
+POWER = re.compile(r"^(\d+) → (\d+)$")
+#: The table writes removals with a minus sign, not a hyphen.
+DROPPED = re.compile(r"^(.+?) − (.+)$")
+SPREAD = re.compile(r"^(.+?) 추가 \((\d+)종\) (.+)$")
+
+
+def parse_changes(lines: list[str]) -> dict:
+    """The three sections above the species: powers, the format, learnsets.
+
+    Separate from ``parse`` because they are lists rather than blocks, and
+    because the learnset section is the one thing here that no other source
+    has: which *existing* species gained or lost a move.
+    """
+    def between(start: str, *stops: str) -> list[str]:
+        if start not in lines:
+            return []
+        head = lines.index(start) + 1
+        tail = min((lines.index(one) for one in stops if one in lines),
+                   default=len(lines))
+        return lines[head:tail]
+
+    powers = {}
+    section = between("위력 변경", "사용 가능 기술")
+    for name, value in zip(section, section[1:]):
+        shift = POWER.match(value)
+        if shift:
+            powers[name] = [int(shift.group(1)), int(shift.group(2))]
+
+    added, removed = [], []
+    for line in between("사용 가능 기술", "기존 포켓몬 기술 변경"):
+        if line.startswith("추가 "):
+            added = line.split(" ", 2)[2].split(" · ")
+        elif line.startswith("삭제 "):
+            removed = line[3:].split(" · ")
+
+    gained: dict[str, list[str]] = {}
+    lost: dict[str, list[str]] = {}
+    for line in between("기존 포켓몬 기술 변경", "신규 포켓몬 32"):
+        spread = SPREAD.match(line)
+        if spread:
+            move = spread.group(1)
+            for who in spread.group(3).split(" · "):
+                gained.setdefault(who.strip(), []).append(move)
+            continue
+        drop = DROPPED.match(line)
+        if drop:
+            lost[drop.group(1).strip()] = [one.strip()
+                                           for one in drop.group(2).split(" · ")]
+
+    return {"power_changes_ko": powers,
+            "format_moves_ko": {"added": added, "removed": removed},
+            "existing_species_ko": {"gained": gained, "lost": lost}}
 
 
 def resolve(entry: dict) -> dict:
@@ -133,6 +191,24 @@ def resolve(entry: dict) -> dict:
     return entry
 
 
+def resolve_changes(table: dict) -> None:
+    """Ids for the change lists, keeping the Korean beside them."""
+    back = {kind: {name: key for key, name in one.items()}
+            for kind, one in NAMES.items() if isinstance(one, dict)}
+    for kind, extra in ALIASES.items():
+        back.setdefault(kind, {}).update(extra)
+
+    table["power_changes"] = {back["moves"].get(ko, ko): value
+                              for ko, value in table["power_changes_ko"].items()}
+    table["format_moves"] = {
+        which: [back["moves"].get(ko) for ko in names]
+        for which, names in table["format_moves_ko"].items()}
+    table["existing_species"] = {
+        which: {back["species"].get(who): [back["moves"].get(mv) for mv in moves]
+                for who, moves in group.items()}
+        for which, group in table["existing_species_ko"].items()}
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("html")
@@ -144,6 +220,7 @@ def main() -> int:
     table = parse(text)
     for entry in table["species"]:
         resolve(entry)
+    resolve_changes(table)
 
     print(f"{len(table['species'])} species read")
     unknown = [e["ko"] for e in table["species"] if e["id"] is None]
@@ -162,6 +239,22 @@ def main() -> int:
                          if aid is None})
     if missing_ab:
         print(f"  no id for abilities: {', '.join(missing_ab)}")
+
+    print(f"{len(table['power_changes'])} power changes, "
+          f"{len(table['format_moves']['added'])} moves added to the format, "
+          f"{len(table['format_moves']['removed'])} removed")
+    gained, lost = table["existing_species"]["gained"], table["existing_species"]["lost"]
+    print(f"{len(gained)} existing species gain a move, {len(lost)} lose one")
+    for which, group, korean in (("gained", gained, table["existing_species_ko"]["gained"]),
+                                 ("lost", lost, table["existing_species_ko"]["lost"])):
+        nameless = [ko for ko, who in zip(korean, group) if who is None]
+        if nameless:
+            print(f"  no id for {which}: {', '.join(nameless)}")
+    unknown_moves = sorted({mv for group in (gained, lost)
+                            for moves in group.values() for mv in moves
+                            if mv is None})
+    if unknown_moves or None in table["format_moves"]["added"]             or None in table["format_moves"]["removed"]:
+        print("  some move names did not resolve")
 
     if args.out:
         Path(args.out).write_text(

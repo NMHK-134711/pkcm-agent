@@ -1,0 +1,267 @@
+"""Build a party around one Pokemon, by evolution.
+
+**Why an axis.** hk builds the way people build: pick the Pokemon the team is
+for, then find the five that let it work. That is not a search over all teams,
+it is a search over the five slots around a fixed one -- so the core's species
+is held and every operator here works around it.
+
+**Why evolution rather than hill climbing.** A team is not a smooth function of
+its slots. Swapping a wall for a sweeper is worth nothing on its own and a lot
+once the two moves that support it arrive, so a single-step climb sits in a
+local minimum that a population walks out of. Crossover is the reason: two
+parents that solved different halves of the field can hand their halves to one
+child, which is exactly what a slot-wise exchange is.
+
+**What fitness is, and what it is not.** The floor -- the mean of the worst
+quarter of matchups, from ``party_floor`` -- because hk's goal is a party with
+an answer to most of what it meets rather than one that beats the average. At
+the budget a generation can pay, that number is biased low by the winner's
+curse: the tail is chosen from the same games that score it. It is biased the
+same way for every candidate, so the *ranking* survives and the value does not.
+Do not read a generation's fitness as a win rate.
+
+**And the agent scoring it is not neutral.** Measured on the 2026-09-09 engine,
+a search that can see past its own horizon beats the material count by ten
+points on screen parties and nine on setup parties, and by nothing at all on
+plain offence. So the cheap agent used here systematically underrates exactly
+the parties hk wants to find. The answer is not to pay fifteen times as much
+for every candidate -- it is ``judge`` below: search with the cheap agent,
+decide with the expensive one, on the handful that survive.
+"""
+
+from __future__ import annotations
+
+import json
+from dataclasses import dataclass, field, replace
+from pathlib import Path
+from typing import Callable, Iterator, Sequence
+
+from pkcm.data.dex import Dex
+from pkcm.engine.legality import Party, ranker_parties, team_errors
+from pkcm.engine.pokemon import PokemonSet, Team
+from pkcm.engine.rng import Rng, RngCursor
+from pkcm.search import SearchConfig
+from pkcm.train.party_floor import Floor, FloorConfig, score
+from pkcm.train.party_mutate import mutate
+
+
+@dataclass(frozen=True, slots=True)
+class EvolveConfig:
+    """The axis, the field it is measured against, and how much to spend."""
+
+    #: The species every candidate must carry. Its set may still change --
+    #: moves, item, ability, nature, spread -- but never what it is.
+    core: str = ""
+    #: Where the opponents come from, and where the warm start is read from.
+    parties: str | None = None
+    population: int = 24
+    generations: int = 8
+    #: Kept unchanged into the next generation. Without this a good team can
+    #: be lost to a bad mutation of itself.
+    elites: int = 3
+    #: How many of a child's slots come from the second parent.
+    crossover_slots: int = 3
+    #: Chance in a hundred that a child is a crossover rather than a mutant.
+    crossover_chance: int = 40
+    #: Mutations applied to a mutant child. More than one lets a change that
+    #: only pays with its partner arrive in one step.
+    mutations: tuple[int, ...] = (1, 1, 1, 2, 2, 3)
+    #: Battles a generation may spend, shared out by racing.
+    budget: int = 3000
+    floor: FloorConfig = field(default_factory=FloorConfig)
+    seed: int = 900_000
+
+
+@dataclass(frozen=True, slots=True)
+class Candidate:
+    team: Team
+    origin: str
+    floor: Floor | None = None
+
+    @property
+    def fitness(self) -> float:
+        return self.floor.cvar if self.floor is not None else -1.0
+
+
+# --------------------------------------------------------------------------- #
+# Building a population
+# --------------------------------------------------------------------------- #
+
+
+def carrying(parties: Sequence[Party], core: str) -> list[Party]:
+    """The field's own teams built around this Pokemon.
+
+    A warm start rather than a random one. Six random legal sets that happen
+    to include a Garchomp is not a Garchomp team, and a generation spent
+    discovering that a team needs a way to answer Steel is a generation spent
+    rediscovering what the field already knows.
+    """
+    return [party for party in parties
+            if any(one.species == core for one in party.team)]
+
+
+def seed_population(dex: Dex, regulation, config: EvolveConfig,
+                    cursor: RngCursor) -> list[Candidate]:
+    """Warm start from the field, topped up with mutants of it.
+
+    Raises rather than inventing a team when the field has nothing to start
+    from: a core nobody has built around is a question this cannot answer with
+    a random walk, and it should say so instead of pretending.
+    """
+    parties = ranker_parties(config.parties)
+    seeds = carrying(parties, config.core)
+    if not seeds:
+        raise ValueError(
+            f"no party in the field is built around {config.core!r}; "
+            "there is nothing to start from")
+
+    population = [Candidate(party.team, f"field:{party.title[:40]}")
+                  for party in seeds[:config.population]]
+    while len(population) < config.population:
+        parent = population[cursor.between(0, len(seeds) - 1)]
+        team = parent.team
+        for _ in range(1 + cursor.between(0, 2)):
+            _, team = _mutate_around_core(dex, regulation, config, team, cursor)
+        population.append(Candidate(team, "seeded mutant"))
+    return population
+
+
+def _mutate_around_core(dex: Dex, regulation, config: EvolveConfig,
+                        team: Team, cursor: RngCursor) -> tuple[str, Team]:
+    """One mutation, refused if it would change what the core *is*.
+
+    ``mutate_species`` is the only operator that can, and it picks its slot
+    itself, so this retries rather than reaching inside it. Ten tries is
+    generous: the odds of hitting the one protected slot are one in six, and
+    the operator is not always a species swap.
+    """
+    for _ in range(10):
+        name, candidate = mutate(dex, regulation, team, cursor,
+                                 config.floor.battle_format)
+        if _core_intact(candidate, config.core):
+            return name, candidate
+    return "none", team
+
+
+def _core_intact(team: Team, core: str) -> bool:
+    return any(one.species == core for one in team)
+
+
+def cross(dex: Dex, regulation, config: EvolveConfig, first: Team,
+          second: Team, cursor: RngCursor) -> Team | None:
+    """Slots from two parents, or ``None`` when nothing legal comes out.
+
+    The core is taken from whichever parent is being kept whole, so a child
+    cannot lose it. Everything else is refused by ``team_errors`` -- two of a
+    base species, two of an item -- and a refused child is dropped rather than
+    repaired, because a repair is a mutation nobody asked for and it would be
+    attributed to the crossover.
+    """
+    slots = list(range(len(first)))
+    taken = set()
+    while len(taken) < config.crossover_slots and len(taken) < len(slots):
+        pick = cursor.between(0, len(slots) - 1)
+        if first[pick].species != config.core:
+            taken.add(pick)
+        elif len(taken) + 1 >= len(slots):
+            break
+    child = tuple(second[index] if index in taken else first[index]
+                  for index in slots)
+    if not _core_intact(child, config.core):
+        return None
+    if team_errors(dex, regulation, child, config.floor.battle_format):
+        return None
+    return child
+
+
+def breed(dex: Dex, regulation, config: EvolveConfig,
+          survivors: Sequence[Candidate], cursor: RngCursor) -> list[Candidate]:
+    """The next generation: the elites, then children of the survivors."""
+    ranked = sorted(survivors, key=lambda one: -one.fitness)
+    children = [replace(one, origin="elite", floor=None)
+                for one in ranked[:config.elites]]
+
+    while len(children) < config.population:
+        first = ranked[cursor.between(0, len(ranked) - 1)].team
+        if cursor.between(0, 99) < config.crossover_chance and len(ranked) > 1:
+            second = ranked[cursor.between(0, len(ranked) - 1)].team
+            child = cross(dex, regulation, config, first, second, cursor)
+            if child is not None:
+                children.append(Candidate(child, "crossover"))
+                continue
+        team = first
+        count = config.mutations[cursor.between(0, len(config.mutations) - 1)]
+        names = []
+        for _ in range(count):
+            name, team = _mutate_around_core(dex, regulation, config, team,
+                                             cursor)
+            names.append(name)
+        children.append(Candidate(team, "+".join(names)))
+    return children
+
+
+# --------------------------------------------------------------------------- #
+# Spending a generation's budget
+# --------------------------------------------------------------------------- #
+
+
+def race(config: EvolveConfig, population: Sequence[Candidate],
+         workers: int | None = None,
+         on_round=None) -> list[Candidate]:
+    """Successive halving over the population.
+
+    A flat budget spends most of itself separating candidates that are already
+    out of the running. Every survivor gets the same number of games, the worst
+    half is dropped, and the games double -- so the pair at the top is
+    separated by the last round rather than by the first, which is where the
+    budget is worth paying.
+
+    ``score`` does the same thing one level down, over a candidate's opponents.
+    """
+    alive = list(population)
+    spent = 0
+    rounds = max(1, (len(alive)).bit_length() - 1)
+    for step in range(rounds):
+        if len(alive) <= 1:
+            break
+        share = max(1, (config.budget - spent) // (2 * max(1, len(alive))))
+        graded = []
+        for one in alive:
+            floor = score(one.team, config.floor, share, workers=workers)
+            graded.append(replace(one, floor=floor))
+            spent += floor.games
+        graded.sort(key=lambda one: -one.fitness)
+        keep = max(1, len(graded) // 2) if step < rounds - 1 else len(graded)
+        alive = graded[:keep]
+        if on_round:
+            on_round(step, alive, spent)
+        if spent >= config.budget:
+            break
+    return alive
+
+
+def evolve(dex: Dex, regulation, config: EvolveConfig,
+           workers: int | None = None,
+           on_generation=None) -> Iterator[list[Candidate]]:
+    """Run the search, handing back each generation's graded survivors."""
+    cursor = Rng.from_seed(config.seed).cursor()
+    population = seed_population(dex, regulation, config, cursor)
+    best: list[Candidate] = []
+    for generation in range(config.generations):
+        survivors = race(config, population, workers=workers)
+        best = sorted(survivors + best, key=lambda one: -one.fitness)
+        best = best[:config.elites]
+        if on_generation:
+            on_generation(generation, survivors)
+        yield survivors
+        if generation + 1 < config.generations:
+            population = breed(dex, regulation, config, survivors, cursor)
+
+
+def as_party(team: Team, title: str) -> dict:
+    """A candidate in the shape ``parties_field.json`` uses."""
+    return {"id": "evolved", "title": title, "source": "evolve",
+            "team": [{"species": one.species, "ability": one.ability,
+                      "moves": list(one.moves), "item": one.item,
+                      "nature": one.nature, "sp": list(one.sp)}
+                     for one in team]}

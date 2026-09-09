@@ -27,6 +27,7 @@ from __future__ import annotations
 
 import math
 import os
+import random
 from dataclasses import dataclass, field
 from typing import Iterator, Sequence
 
@@ -53,6 +54,13 @@ class FloorConfig:
     parties: str | None = None
     #: Field entries to leave out -- a party does not play itself.
     exclude: tuple[int, ...] = ()
+    #: Face this many of the field instead of all of it. The seed pass is
+    #: every opponent by construction, so against 243 parties it costs 486
+    #: battles before any racing begins -- which makes a small budget
+    #: meaningless and a generation of a search unaffordable. The subset is
+    #: drawn from ``seed`` alone, so every candidate in a run faces the same
+    #: opponents and their floors stay comparable.
+    opponents: int | None = None
     #: The quantile the floor is taken over. 0.25 is the worst quarter.
     tail: float = 0.25
     #: Games against every opponent before any are singled out. Both seatings
@@ -228,6 +236,11 @@ def score(ours: Team, config: FloorConfig, budget: int,
 
     field = ranker_parties(config.parties)
     opponents = [i for i in range(len(field)) if i not in set(config.exclude)]
+    if config.opponents is not None and config.opponents < len(opponents):
+        # Seeded, not per-candidate: two candidates measured against different
+        # opponents are not measured against the same question.
+        opponents = sorted(random.Random(config.seed).sample(opponents,
+                                                             config.opponents))
     records = {i: Matchup(i) for i in opponents}
     count = workers if workers is not None else default_workers()
     spent = 0

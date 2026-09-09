@@ -27,9 +27,9 @@
   "confirmed": false,
   "source": "pokemondb.net and bulbapedia (mainline); Champions values unverified",
   "open_questions": [
-    "메가갑주무사 and 메가드닐레이브 have not had their abilities announced.",
+    "메가드닐레이브's ability has not been announced.",
     "파오리 is listed with no form note, unlike 페르시온 (알로라의 모습). Kantonian is assumed, but 창파나이트 evolves from the Galarian one.",
-    "Every ability in the species list below is still from pokemondb or Showdown and unchecked against the game. Samurott is the proof that matters: the repo says Torrent and Shell Armor, and Champions gives it Emergency Exit."
+    "Every ability in the species list is still from pokemondb or Showdown and unchecked against the game. Samurott is why that matters: the repo says Torrent and Shell Armor, and Champions gives it Emergency Exit."
   ],
   "species": [
     {
@@ -766,7 +766,7 @@
       "stone": "갑주무사나이트",
       "id": "samurottmega",
       "in_repo": false,
-      "source": "hk, from the game (2026-09-09); ability not yet announced",
+      "source": "hk, from the game (2026-09-09)",
       "types": [
         "bug",
         "steel"
@@ -779,10 +779,15 @@
         "spd": 120,
         "spe": 40
       },
-      "abilities": null,
-      "abilities_ko": null,
-      "confirmed": "stats and types only",
-      "note": "In no other source at all -- Showdown has no samurottmega."
+      "abilities": [
+        "Tough Claws"
+      ],
+      "abilities_ko": [
+        "단단한발톱"
+      ],
+      "confirmed": true,
+      "note": "In no other source at all -- Showdown has no samurottmega.",
+      "engine": "toughclaws, already implemented (contact moves x1.3)"
     }
   ],
   "_megas_note": "hk read four of the five off the game on 2026-09-09. Every base stat and every type Showdown had was right; every ability was wrong. 메가갑주무사 remains in no source, and 메가드닐레이브's ability has not been announced.",

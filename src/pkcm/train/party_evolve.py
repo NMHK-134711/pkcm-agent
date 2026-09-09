@@ -492,6 +492,23 @@ class Notebook:
         self.written += 1
         return True
 
+    def absorb(self, other: "Notebook") -> int:
+        """Take in another machine's book, keeping the better measurement.
+
+        Two PCs running the same search from different ``--seed`` values
+        produce two books over one basis, and the point of running both is to
+        read them as one list. Nothing is written by this -- the merge is for
+        reading, and each machine keeps writing its own file, which is what
+        keeps the two out of each other's way in git.
+        """
+        taken = 0
+        for key, record in other.seen.items():
+            held = self.seen.get(key)
+            if held is None or record["games"] > held["games"]:
+                self.seen[key] = record
+                taken += 1
+        return taken
+
     def best(self, count: int = 20, basis: str | None = None) -> list[dict]:
         """The best-measured parties in the book, by lower bound."""
         rows = [one for one in self.seen.values()

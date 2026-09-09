@@ -226,3 +226,29 @@ def test_a_judged_row_does_not_delete_the_searched_one(dex, tmp_path):
     assert [one["games"] for one in book.best(5, basis="search")] == [40]
     assert [one["games"] for one in book.best(5, basis="judge")] == [400]
     assert all(one["signature"] == signature(team) for one in book.seen.values())
+
+
+def test_two_machines_books_merge_on_the_basis(dex, tmp_path):
+    """The point of running two PCs: one list at the end, not two.
+
+    And the merge is only allowed to join rows measured the same way, which
+    is what makes matching the flags across the machines a requirement rather
+    than a nicety.
+    """
+    from pkcm.train.party_evolve import Notebook
+
+    config = _config(population=6)
+    teams = [one.team for one in
+             seed_population(dex, dex.regulation("m_b"), config,
+                             Rng.from_seed(10).cursor())]
+    here, there = Notebook.open(tmp_path / "a.jsonl"), Notebook.open(tmp_path / "b.jsonl")
+    here.record(_graded(teams[:1], [0.30])[0], "same", "g1r1")
+    there.record(_graded(teams[1:3], [0.40, 0.50])[0], "same", "g1r1")
+    there.record(_graded(teams[3:4], [0.60])[0], "different flags", "g1r1")
+
+    assert here.absorb(there) == 2
+    assert len(here.best(9, basis="same")) == 2
+    assert len(here.best(9, basis="different flags")) == 1
+    # Reading did not write: each machine keeps its own file, which is what
+    # keeps two appenders out of each other's way in git.
+    assert len((tmp_path / "a.jsonl").read_text(encoding="utf-8").splitlines()) == 1

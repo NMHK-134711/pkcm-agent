@@ -165,3 +165,11 @@ runs/curriculum4_fixed/*
 !data/champions/pokesol_moves.json
 !data/champions/manual_sets.json
 !data/champions/parties_field.json
+
+# ...and the party generator's notebooks, for the same reason as the round
+# robin's progress file above: two machines run the same search from different
+# --seed values, each writes its own book, and the pair is read as one list by
+# party_notebook.py. Distinct filenames on purpose -- a shared append-only file
+# would conflict on every line. Roughly a kilobyte a party, so prune with
+# --keep-above if one gets unwieldy.
+!runs/notebook_*.jsonl

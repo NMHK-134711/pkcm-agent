@@ -4,6 +4,11 @@
     python scripts/party_notebook.py runs/notebook_salamence.jsonl --show 3
     python scripts/party_notebook.py runs/notebook_salamence.jsonl \
         --export data/champions/parties_evolved.json --top 12
+    python scripts/party_notebook.py runs/notebook_salamence_*.jsonl
+
+The last one is two machines' books read as one list. They merge cleanly
+because the basis string says what a row was measured under, and a row is
+only ever compared against rows measured the same way.
 
 ``evolve_party.py`` writes every candidate it grades, survivors and casualties
 alike, so the book is most of what a run cost rather than the four teams that
@@ -56,7 +61,11 @@ def show(dex, row: dict) -> None:
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__,
                                      formatter_class=argparse.RawDescriptionHelpFormatter)
-    parser.add_argument("path", help="the .jsonl a run wrote")
+    parser.add_argument("path", nargs="+",
+                        help="the .jsonl files runs wrote. Several are "
+                             "merged, which is how two machines' books "
+                             "are read as one list: same basis, better "
+                             "measurement wins")
     parser.add_argument("--top", type=int, default=15,
                         help="rows per basis")
     parser.add_argument("--show", type=int, default=0,
@@ -71,14 +80,17 @@ def main() -> int:
     args = parser.parse_args()
 
     dex = load_dex()
-    notebook = Notebook.open(args.path)
+    notebook = Notebook.open(args.path[0])
+    for extra in args.path[1:]:
+        taken = notebook.absorb(Notebook.open(extra))
+        print(f"{extra}: {taken} rows taken in")
     if not notebook.seen:
-        print(f"{args.path}: nothing in it yet")
+        print(f"{', '.join(args.path)}: nothing in them yet")
         return 0
 
     kept = {key: row for key, row in notebook.seen.items()
             if row["games"] >= args.min_games}
-    print(f"{args.path}: {len(notebook.seen)} parties"
+    print(f"{', '.join(args.path)}: {len(notebook.seen)} parties"
           + (f", {len(kept)} with {args.min_games}+ games"
              if args.min_games else ""))
 

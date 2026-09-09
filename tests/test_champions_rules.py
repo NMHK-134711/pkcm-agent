@@ -280,19 +280,40 @@ def test_no_species_learns_nothing(dex):
     assert not empty, empty
 
 
-def test_battle_bond_is_banned_rather_than_absent(dex):
-    """hk: the data has it, the ruleset forbids it.
+def test_battle_bond_is_on_no_pokemon_in_the_game(dex):
+    """The ROM contradicts what this test used to assert, and it wins.
 
-    That distinction decides which layer the fix belongs in. Deleting it from
-    ``Species.abilities`` would put a *rule* in the data layer, and the engine
-    would then have no way to say why the ability is unavailable -- the same
-    separation the move clauses keep (docs/DESIGN.md §1g).
+    It used to say "the data has it, the ruleset forbids it", which was the
+    reading Showdown supports: it lists Battle Bond in Greninja's ``S`` slot,
+    so the ability was present and a clause kept it off teams. Reading the
+    game's own personal table instead, Battle Bond's ability number is used by
+    **no entry at all**, and the Bond and Ash formes are not in the table
+    either -- Greninja has two formes in Champions, the base and the Mega.
+
+    So it is the missing kind rather than the banned kind. The clause stays,
+    because a rule hk decided is not something a data change should silently
+    repeal and because it costs nothing now that it can never fire; what
+    changes is that the answer no longer depends on it.
+
+    **This is flagged for hk rather than settled.** hk confirmed the earlier
+    reading, and the evidence that overturns it is the ROM dump.
     """
+    import json
+    from pathlib import Path
+
     from pkcm.engine.legality import ability_clause, registrable_abilities
 
-    assert "battlebond" in dex.species["greninja"].abilities, "the data still has it"
-    assert ability_clause("battlebond") == "battle bond clause"
+    assert "battlebond" not in dex.species["greninja"].abilities
     assert registrable_abilities(dex.species["greninja"]) == ("torrent", "protean")
+    # The clause is still there and still means what it meant.
+    assert ability_clause("battlebond") == "battle bond clause"
+
+    rom = json.loads(
+        Path("data/raw/champout/personal.json").read_text(encoding="utf-8"))
+    number = dex.abilities["battlebond"].num
+    used = {int(entry[slot]) for entry in rom
+            for slot in ("toku0", "toku1", "toku2")}
+    assert number not in used, "some Pokemon does have it after all"
 
 
 def test_a_battle_bond_greninja_is_an_illegal_set(dex):
@@ -371,3 +392,106 @@ def test_the_learnset_table_never_teaches_a_move_that_is_not_in_the_game(dex):
             if move is None:
                 continue
             assert dex.exists_in_champions(move), f"{species} learns {move_id}"
+
+
+def test_the_pp_column_in_the_rom_matches_what_the_engine_computes(dex):
+    """The waza table's PP is boosted, not base, and the two must agree.
+
+    ``max_pp`` turns this engine's base PP into the number a battle uses, and
+    the game's table records that same number directly. So the table is a
+    check on the base PP *and* on the formula at once, over all 512 moves,
+    which is a stronger statement than either alone.
+
+    Read the wrong way round -- the ROM's boosted column against this engine's
+    base column -- four fifths of the move list looks wrong. It is not.
+    """
+    import json
+    from pathlib import Path
+
+    from pkcm.engine.pokemon import max_pp
+
+    waza = json.loads(
+        Path("data/raw/champout/waza.json").read_text(encoding="utf-8"))
+    by_num = {move.num: move for move in dex.moves.values()}
+
+    checked, wrong = 0, []
+    for entry in waza:
+        if entry.get("available") != "1":
+            continue
+        move = by_num.get(int(entry["id"]))
+        if move is None:
+            continue
+        checked += 1
+        if max_pp(move.pp) != int(entry["pp"]):
+            wrong.append((move.id, move.pp, max_pp(move.pp), int(entry["pp"])))
+    assert checked == 512, checked
+    assert not wrong, wrong
+
+
+def test_the_rom_owns_move_power_type_and_accuracy(dex):
+    """Whatever the game's table says a move's numbers are, they are.
+
+    Two power values were wrong here until the table was read: Slash is 80 in
+    Champions and Meteor Assault is 170.
+    """
+    import json
+    from pathlib import Path
+
+    from pkcm.data.dex import to_id
+
+    table = json.loads(
+        Path("data/champions/moves.json").read_text(encoding="utf-8"))["moves"]
+    assert dex.moves["slash"].base_power == 80
+    assert dex.moves["meteorassault"].base_power == 170
+
+    for key, fields in table.items():
+        move = dex.moves[key]
+        assert move.type == to_id(fields["type"]), key
+        assert move.category == fields["category"], key
+        if "basePower" in fields:
+            assert (move.base_power or 0) == fields["basePower"], key
+        accuracy = fields["accuracy"]
+        assert (move.accuracy is None if accuracy is True
+                else move.accuracy == accuracy), key
+
+
+def test_the_rom_move_table_is_not_stale():
+    import subprocess
+    import sys
+
+    done = subprocess.run(
+        [sys.executable, "scripts/build_moves_from_rom.py", "--check"],
+        capture_output=True, text=True, encoding="utf-8", errors="replace")
+    assert done.returncode == 0, done.stdout + done.stderr
+
+
+def test_priority_and_contact_agree_with_the_rom(dex):
+    """Two columns the ROM has that nothing overrides, checked rather than
+    assumed.
+
+    Both come out clean over all 512 moves, which is the point of running the
+    check: contact drives Rocky Helmet, Tough Claws, Aura Guard and Iron
+    Barbs, and priority decides who moves first, so "no disagreement" is worth
+    knowing rather than hoping.
+    """
+    import json
+    from pathlib import Path
+
+    waza = json.loads(
+        Path("data/raw/champout/waza.json").read_text(encoding="utf-8"))
+    by_num = {move.num: move for move in dex.moves.values()}
+
+    priority, contact = [], []
+    for entry in waza:
+        if entry.get("available") != "1":
+            continue
+        move = by_num.get(int(entry["id"]))
+        if move is None:
+            continue
+        if int(move.priority) != int(entry["priority"]):
+            priority.append((move.id, move.priority, int(entry["priority"])))
+        if ("contact" in move.flags) != (entry["direct"] == "1"):
+            contact.append((move.id, "contact" in move.flags,
+                            entry["direct"] == "1"))
+    assert not priority, priority
+    assert not contact, contact

@@ -138,18 +138,58 @@ def test_learnsets_load_lazily(dex):
     assert "venusaur" in dex.learnsets
 
 
-def test_the_megas_champions_invented_have_the_abilities_the_game_gives():
-    """Showdown cannot know a forme that only exists in Champions.
+def test_every_battle_relevant_species_field_comes_from_the_rom():
+    """Showdown must not be the source of a fact about Champions.
 
-    It carries the base species' abilities instead, so Mega Golisopod loaded
-    with Emergency Exit rather than Tough Claws and Mega Lucario Z with
-    Adaptability rather than Aura Guard -- which this engine has a handler for
-    that nothing could ever reach. All five were written into
-    patch_2026_09_09.json the day they were learned and none of them reached
-    the dex, because there was no species override layer to put them in.
+    Types, base stats, abilities and weight are all read out of the game's own
+    personal table by scripts/build_species_from_rom.py. What the base data
+    still supplies is everything a battle never reads -- forme names, egg
+    groups, evolutions -- plus the spelling of a type index and an ability
+    number, which is a dictionary rather than a claim.
 
-    The table is the game's own, so it is the authority here and the base data
-    is not.
+    Anything the ROM has an entry for must match it exactly. This is the guard
+    that stops the next silent fallback.
+    """
+    import json
+    from pathlib import Path
+
+    from pkcm.data.dex import load_dex, to_id
+
+    dex = load_dex()
+    table = json.loads(
+        Path("data/champions/species.json").read_text(encoding="utf-8"))["species"]
+    assert len(table) > 300, "the ROM table did not load"
+
+    for key, entry in table.items():
+        species = dex.species[key]
+        assert list(species.types) == [t.lower() for t in entry["types"]], key
+        assert list(species.base_stats) == [
+            entry["baseStats"][k] for k in ("hp", "atk", "def", "spa", "spd", "spe")], key
+        assert list(species.abilities) == [
+            to_id(entry["abilities"][slot]) for slot in ("0", "1", "H", "S")
+            if slot in entry["abilities"]], key
+        assert species.weight_kg == entry["weightkg"], key
+
+
+def test_the_rom_species_table_is_not_stale():
+    """It is generated; regenerate rather than hand-edit."""
+    import subprocess
+    import sys
+
+    done = subprocess.run(
+        [sys.executable, "scripts/build_species_from_rom.py", "--check"],
+        capture_output=True, text=True, encoding="utf-8", errors="replace")
+    assert done.returncode == 0, done.stdout + done.stderr
+
+
+def test_the_rom_disagrees_with_showdown_where_we_know_it_should():
+    """The six the base data gets wrong, named so a change is visible.
+
+    Five are the Megas Champions invented, where Showdown has no ability to
+    carry and falls back to the base species'. The sixth is Greninja, which
+    Showdown gives Battle Bond and the game does not.
+
+    If this list ever shrinks silently, something stopped applying.
     """
     import json
     from pathlib import Path
@@ -157,31 +197,21 @@ def test_the_megas_champions_invented_have_the_abilities_the_game_gives():
     from pkcm.data.dex import load_dex
 
     dex = load_dex()
-    table = json.loads(Path("data/champions/mc_table.json").read_text(encoding="utf-8"))
-
-    checked = 0
-    for entry in table["species"]:
-        species = dex.species.get(entry["id"])
-        if species is None or not entry.get("abilities"):
-            continue
-        wanted: list[str] = []
-        for ability in entry["abilities"]:          # the table repeats a few
-            if ability not in wanted:
-                wanted.append(ability)
-        assert list(species.abilities) == wanted, entry["id"]
-        checked += 1
-    assert checked >= 32, "the update's species should all be checked"
-
-
-def test_the_species_overrides_are_not_stale():
-    """They are generated from the table; regenerate rather than hand-edit."""
-    import subprocess
-    import sys
-
-    done = subprocess.run(
-        [sys.executable, "scripts/build_species_overrides.py", "--check"],
-        capture_output=True, text=True, encoding="utf-8", errors="replace")
-    assert done.returncode == 0, done.stdout + done.stderr
+    expected = {
+        "golisopodmega": ("toughclaws",),
+        "lucariomegaz": ("auraguard",),
+        "absolmegaz": ("sharpness",),
+        "garchompmegaz": ("levitate",),
+        "baxcaliburmega": ("thermalexchange",),
+        "greninja": ("torrent", "protean"),
+    }
+    base = json.loads(Path("data/raw/pokedex.json").read_text(encoding="utf-8"))
+    for key, abilities in expected.items():
+        assert dex.species[key].abilities == abilities, key
+        theirs = tuple(base[key].get("abilities", {}).values())
+        assert tuple(a.lower().replace(" ", "") for a in theirs) != abilities, (
+            f"{key}: the base data now agrees, so this test is measuring "
+            "nothing. Check why before deleting the row.")
 
 
 def test_an_ability_champions_added_can_be_looked_up():
@@ -189,7 +219,9 @@ def test_an_ability_champions_added_can_be_looked_up():
 
     Without the entry it was registrable on Mega Lucario Z but absent from
     dex.abilities, which is the kind of half-presence that reads as working
-    until something asks for its name.
+    until something asks for its name. The ROM gives it number 319, past the
+    end of the mainline numbering, which is how a Champions-original ability
+    announces itself.
     """
     from pkcm.data.dex import load_dex
 
@@ -197,3 +229,41 @@ def test_an_ability_champions_added_can_be_looked_up():
     assert "auraguard" in dex.abilities
     assert dex.abilities["auraguard"].name == "Aura Guard"
     assert dex.exists_in_champions(dex.abilities["auraguard"])
+
+
+def test_the_hidden_ability_slot_survives_the_rom_table():
+    """The regression the slot names caused, kept as a test.
+
+    The personal table has three ability columns and the base data names its
+    slots "0", "1" and "H". Writing "0", "1", "2" instead drops every hidden
+    ability in the game, which reads as a data-format detail and lands as 86
+    of 243 field parties turning illegal.
+    """
+    from pkcm.data.dex import load_dex
+
+    dex = load_dex()
+    assert dex.species["sableye"].abilities == ("keeneye", "stall", "prankster")
+    assert dex.species["clefable"].abilities == ("cutecharm", "magicguard",
+                                                 "unaware")
+    assert dex.species["toxapex"].abilities == ("merciless", "limber",
+                                                "regenerator")
+
+
+def test_every_imported_party_is_still_legal():
+    """The end-to-end consequence, which is what actually caught the bug.
+
+    A species table that drops abilities does not fail loudly; it makes real
+    teams illegal. These parties are people's ladder teams and every one of
+    them was legal when it was imported.
+    """
+    from pkcm.data.dex import load_dex
+    from pkcm.engine.legality import ranker_parties, team_errors
+
+    dex = load_dex()
+    regulation = dex.regulation("m_c")
+    for path in ("data/champions/parties_field.json",
+                 "data/champions/parties_hand.json"):
+        parties = ranker_parties(path)
+        assert parties, path
+        for party in parties:
+            assert not team_errors(dex, regulation, party.team, "singles"),                 f"{path}: {party.title[:40]}"

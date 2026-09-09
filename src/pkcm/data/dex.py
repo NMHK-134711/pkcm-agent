@@ -212,6 +212,39 @@ def _apply_overrides(raw: dict[str, Any], changes: dict[str, dict[str, Any]]) ->
     return applied
 
 
+def _load_species() -> dict[str, dict[str, Any]]:
+    """The ROM's species table, as override entries.
+
+    Built by ``scripts/build_species_from_rom.py`` out of
+    ``champout/personal.json``. Missing is a hard error rather than a silent
+    fallback: falling back means loading Showdown's answer, which is the thing
+    this exists to stop.
+    """
+    path = CHAMPIONS_DIR / "species.json"
+    if not path.exists():
+        raise FileNotFoundError(
+            f"{path} is missing. Run: python scripts/build_species_from_rom.py")
+    table = json.loads(path.read_text(encoding="utf-8"))["species"]
+    return {key: {"types": entry["types"], "baseStats": entry["baseStats"],
+                  "abilities": entry["abilities"],
+                  "weightkg": entry["weightkg"]}
+            for key, entry in table.items()}
+
+
+def _load_rom_moves() -> dict[str, dict[str, Any]]:
+    """Type, category, power, accuracy and PP, from the game's waza table.
+
+    Built by ``scripts/build_moves_from_rom.py``. Behaviour is not in here:
+    what a move *does* stays with the base data's flags and the engine's own
+    handlers, which is the part Showdown is a fair reference for.
+    """
+    path = CHAMPIONS_DIR / "moves.json"
+    if not path.exists():
+        raise FileNotFoundError(
+            f"{path} is missing. Run: python scripts/build_moves_from_rom.py")
+    return json.loads(path.read_text(encoding="utf-8"))["moves"]
+
+
 def _load_overrides() -> dict[str, Any]:
     path = CHAMPIONS_DIR / "overrides.json"
     if not path.exists():
@@ -237,19 +270,17 @@ class Dex:
         overrides = _load_overrides()
 
         pokedex = _load_raw("pokedex")
-        # Species overrides exist for one reason: the formes Champions
-        # invented. Showdown's Champions mod has their types and base stats
-        # exactly right -- 32 of 32 on the 2026-09-09 update, checked against
-        # the game's own table -- and their *abilities* wrong, because a forme
-        # that exists only in Champions has no mainline ability for Showdown to
-        # carry. It carries the base species' instead, so Mega Golisopod came
-        # out with Emergency Exit rather than Tough Claws and Mega Lucario Z
-        # with Adaptability rather than the Aura Guard this engine implements
-        # for it. The corrections come from mc_table.json, which is the game's
-        # data, and scripts/build_species_overrides.py regenerates them so the
-        # two cannot drift apart again.
-        species_changes = overrides.get("species", {}).get("changes", {})
-        applied_species = _apply_overrides(pokedex, species_changes)
+        # Every battle-relevant species field is then overwritten from the
+        # game's own personal table. Showdown is a reference for how mechanics
+        # are structured, not a source of facts about Champions, and species
+        # data is where that distinction kept getting lost: it cannot know the
+        # abilities of a forme that exists only in Champions, so it carries
+        # the base species' instead and Mega Golisopod arrived with Emergency
+        # Exit rather than Tough Claws. The base file is still what supplies
+        # everything the ROM has no column for -- egg groups, evolutions,
+        # gender ratio, the forme names themselves -- none of which a battle
+        # reads.
+        applied_species = _apply_overrides(pokedex, _load_species())
         self.species: dict[str, Species] = {
             key: _build_species(key, value, pokedex) for key, value in pokedex.items()
         }
@@ -261,6 +292,13 @@ class Dex:
         }
         for entry in raw_moves.values():
             entry["pp"] = min(entry["pp"], CHAMPIONS_MAX_BASE_PP)
+        # Then the game's own type, category, power and accuracy, last, so
+        # they win. Not PP: the waza table's column is fully boosted PP and
+        # this one is base, and the engine's own max_pp already turns one
+        # into the other -- agreeing with the ROM on 502 of 512 moves, with
+        # the other ten corrected in the overrides above.
+        self.override_counts["moves_from_rom"] = _apply_overrides(
+            raw_moves, _load_rom_moves())
         self.moves: dict[str, Move] = {
             key: _build_move(key, value) for key, value in raw_moves.items()
         }

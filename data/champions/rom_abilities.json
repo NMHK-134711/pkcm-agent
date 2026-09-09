@@ -1,0 +1,7 @@
+{
+ "note": "Ability numbers the game's personal table uses that have no upstream name, because Champions invented them. Everything at or below 318 is the mainline numbering and is resolved through the base data's own num field, which is a dictionary lookup rather than a claim about Champions.",
+ "source": "hk, 2026-09-09. Mega Lucario Z's ability is 파동의 방호, officially Aura Guard: contact moves used against the holder do half damage. The number is read off champout/personal.json entry 0448002.",
+ "names": {
+  "319": "auraguard"
+ }
+}

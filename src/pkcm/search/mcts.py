@@ -151,6 +151,13 @@ class SearchConfig:
     #: on the same position, because the heuristic alone cannot see far enough
     #: to tell the lines apart. It also costs about five times as much.
     rollout_turns: int = 0
+    #: Who plays the rollout. ``"random"`` is uniform over legal actions, which
+    #: is the cheapest thing that can be called a game and the least like one:
+    #: a line that only works because both sides answer it correctly reads as
+    #: a coin flip. ``"greedy"`` plays the damage calculator -- best expected
+    #: knockout, else most damage, switching only when forced -- for about two
+    #: and a half times the cost. Ignored when ``rollout_turns`` is zero.
+    rollout_policy: str = "random"
     #: A UCB1 term, *on top of* PUCT's prior term. AlphaZero has only the
     #: second, and this is small because the first mostly gets in the way.
     #:
@@ -809,7 +816,12 @@ class MCTS:
 
         from pkcm.search.policy import play_out
 
-        rollout = RandomPolicy(cursor)
+        if self.config.rollout_policy == "greedy":
+            from pkcm.search.policy import GreedyPolicy
+
+            rollout = GreedyPolicy(cursor)
+        else:
+            rollout = RandomPolicy(cursor)
         limit = state.turn + self.config.rollout_turns
         finished = play_out(state, (rollout, rollout), turn_limit=limit)
         if finished.finished:

@@ -90,6 +90,18 @@ def main() -> int:
     parser.add_argument("--evaluation-b", default=None,
                         choices=("material", "pressure", "blind"),
                         help="side B's")
+    parser.add_argument("--rollout-turns", type=int, default=None,
+                        help="play the position out this many turns at a leaf "
+                             "instead of counting what is left. The material "
+                             "count cannot see past the 2.8 turns this tree "
+                             "reaches, so anything bought now and collected "
+                             "later -- a screen, a Calm Mind, a Baton Pass -- "
+                             "scores zero. A rollout prices it by playing it")
+    parser.add_argument("--rollout-turns-b", type=int, default=None)
+    parser.add_argument("--rollout-policy", default=None,
+                        choices=("random", "greedy"))
+    parser.add_argument("--rollout-policy-b", default=None,
+                        choices=("random", "greedy"))
     parser.add_argument("--pressure-weight", type=float, default=None,
                         help="side A's weight on the threat term")
     parser.add_argument("--pressure-weight-b", type=float, default=None,
@@ -130,7 +142,8 @@ def main() -> int:
 
     workers = args.workers if args.workers is not None else default_workers()
     def search_for(weight, belief, leaf_batch, evaluation=None,
-                   pressure_weight=None, iterations=None, branching=None):
+                   pressure_weight=None, iterations=None, branching=None,
+                   rollout_turns=None, rollout_policy=None):
         count = iterations if iterations is not None else args.search_iterations
         extra = {} if weight is None else {"switch_matchup": weight}
         if belief is not None:
@@ -143,6 +156,10 @@ def main() -> int:
             extra["pressure_weight"] = pressure_weight
         if branching is not None:
             extra["max_branching"] = branching
+        if rollout_turns is not None:
+            extra["rollout_turns"] = rollout_turns
+        if rollout_policy is not None:
+            extra["rollout_policy"] = rollout_policy
         return SearchConfig(iterations=count,
                             determinizations=max(4, count // 20),
                             **extra)
@@ -156,15 +173,22 @@ def main() -> int:
         trust_prior=args.trust_prior, trust_value=args.trust_value,
         search=search_for(args.switch_matchup, args.belief, args.leaf_batch,
                           args.evaluation, args.pressure_weight,
-                          branching=args.max_branching),
+                          branching=args.max_branching,
+                          rollout_turns=args.rollout_turns,
+                          rollout_policy=args.rollout_policy),
         search_b=search_for(args.switch_matchup_b, args.belief_b,
                             args.leaf_batch_b, args.evaluation_b,
                             args.pressure_weight_b, args.search_iterations_b,
-                            args.max_branching_b))
+                            args.max_branching_b,
+                            rollout_turns=args.rollout_turns_b,
+                            rollout_policy=args.rollout_policy_b))
 
     def label(search, netted):
+        rollout = (f", rollout={search.rollout_turns}"
+                   f"/{search.rollout_policy}" if search.rollout_turns else "")
         return (f"search({search.iterations} sims, branch={search.max_branching}, "
-                f"eval={search.evaluation}{', net' if netted else ''})")
+                f"eval={search.evaluation}{rollout}"
+                f"{', net' if netted else ''})")
 
     side_a = label(config.search, args.checkpoint is not None)
     side_b = label(config.search_b, args.checkpoint_b)

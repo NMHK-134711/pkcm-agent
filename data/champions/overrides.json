@@ -92,7 +92,7 @@
     "isNonstandard": "Past"
    },
    "airballoon": {
-    "isNonstandard": "Past"
+    "isNonstandard": null
    },
    "alakazite": {
     "isNonstandard": null
@@ -134,7 +134,7 @@
     "isNonstandard": "Past"
    },
    "bindingband": {
-    "isNonstandard": "Past"
+    "isNonstandard": null
    },
    "blacksludge": {
     "isNonstandard": "Past"
@@ -260,7 +260,7 @@
     "isNonstandard": null
    },
    "ejectbutton": {
-    "isNonstandard": "Past"
+    "isNonstandard": null
    },
    "ejectpack": {
     "isNonstandard": "Past"
@@ -269,7 +269,7 @@
     "isNonstandard": "Past"
    },
    "electricseed": {
-    "isNonstandard": "Past"
+    "isNonstandard": null
    },
    "emboarite": {
     "isNonstandard": null
@@ -353,13 +353,13 @@
     "isNonstandard": "Past"
    },
    "golisopite": {
-    "isNonstandard": "Past"
+    "isNonstandard": null
    },
    "golurkite": {
     "isNonstandard": null
    },
    "grassyseed": {
-    "isNonstandard": "Past"
+    "isNonstandard": null
    },
    "greatball": {
     "isNonstandard": "Past"
@@ -536,7 +536,7 @@
     "isNonstandard": "Past"
    },
    "mistyseed": {
-    "isNonstandard": "Past"
+    "isNonstandard": null
    },
    "moonball": {
     "isNonstandard": "Past"
@@ -551,7 +551,7 @@
     "isNonstandard": "Past"
    },
    "normalgem": {
-    "isNonstandard": "Past"
+    "isNonstandard": null
    },
    "ovalstone": {
     "isNonstandard": "Past"
@@ -614,7 +614,7 @@
     "isNonstandard": "Past"
    },
    "psychicseed": {
-    "isNonstandard": "Past"
+    "isNonstandard": null
    },
    "punchingglove": {
     "isNonstandard": "Past"
@@ -647,7 +647,7 @@
     "isNonstandard": "Past"
    },
    "redcard": {
-    "isNonstandard": "Past"
+    "isNonstandard": null
    },
    "repeatball": {
     "isNonstandard": "Past"
@@ -659,7 +659,7 @@
     "isNonstandard": "Past"
    },
    "rockyhelmet": {
-    "isNonstandard": "Past"
+    "isNonstandard": null
    },
    "roomservice": {
     "isNonstandard": "Past"
@@ -779,7 +779,7 @@
     "isNonstandard": "Past"
    },
    "terrainextender": {
-    "isNonstandard": "Past"
+    "isNonstandard": null
    },
    "throatspray": {
     "isNonstandard": "Past"
@@ -831,6 +831,24 @@
    },
    "zapplate": {
     "isNonstandard": "Past"
+   },
+   "absolitez": {
+    "isNonstandard": null
+   },
+   "garchompitez": {
+    "isNonstandard": null
+   },
+   "lucarionitez": {
+    "isNonstandard": null
+   },
+   "salamencite": {
+    "isNonstandard": null
+   },
+   "baxcalibrite": {
+    "isNonstandard": null
+   },
+   "leek": {
+    "isNonstandard": null
    }
   },
   "needs_hand_port": {
@@ -1594,5 +1612,8 @@
   }
  },
  "note": "Declarative deltas only. isNonstandard 'Past' means the entry does not exist in Champions; null means Champions re-enables something the base data marks non-standard. Behavioural overrides are listed under needs_hand_port and must be ported by reading the TypeScript.",
- "source": "https://github.com/smogon/pokemon-showdown data/mods/champions (MIT)"
+ "source": "https://github.com/smogon/pokemon-showdown data/mods/champions (MIT)",
+ "added_by": [
+  "2026-09-09 M-C: the eighteen items above, from the update notes, because the item table cannot yet be read out of the ROM."
+ ]
 }

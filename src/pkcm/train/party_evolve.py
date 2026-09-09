@@ -100,22 +100,101 @@ def carrying(parties: Sequence[Party], core: str) -> list[Party]:
             if any(one.species == core for one in party.team)]
 
 
+def a_set_for(dex: Dex, core: str, cursor: RngCursor) -> PokemonSet | None:
+    """A first set for a species the field has never used.
+
+    Its own ranker set when the pool has one, and otherwise four moves it can
+    learn with a template spread -- deliberately rough, because the search is
+    about to spend a generation improving exactly this.
+    """
+    from pkcm.engine.legality import (NATURES, ranker_slots,
+                                      registrable_abilities, usable_moves)
+    from pkcm.train.party_mutate import spread_templates
+
+    built = [one for one in ranker_slots() if one.species == core]
+    if built:
+        return built[cursor.between(0, len(built) - 1)]
+    stone = mega_stone_for(dex, core)
+    moves = usable_moves(dex, core)
+    if len(moves) < 4:
+        return None
+    picked = tuple(moves[i] for i in cursor.shuffled(list(range(len(moves))))[:4])
+    abilities = registrable_abilities(dex.species[core]) or ("__none__",)
+    templates = spread_templates()
+    return PokemonSet(species=core, ability=abilities[0], moves=picked,
+                      item=stone,
+                      nature=sorted(NATURES)[cursor.between(0, len(NATURES) - 1)],
+                      sp=templates[cursor.between(0, len(templates) - 1)])
+
+
+def mega_stone_for(dex: Dex, species: str) -> str | None:
+    """The stone that Megas this species, if it has one.
+
+    A core chosen for its Mega should start holding the stone. Mutation can
+    find it -- ``mutate_item`` draws from every item in the format -- but that
+    is a needle, and "Mega Salamence" is a request for the Mega rather than
+    for the odds of stumbling onto Salamencite.
+    """
+    name = dex.species[species].name
+    for item_id, item in dex.items.items():
+        stone = item.raw.get("megaStone")
+        if isinstance(stone, dict) and name in stone:
+            return item_id
+    return None
+
+
+def graft(dex: Dex, regulation, config: EvolveConfig, host: Team,
+          cursor: RngCursor) -> Team | None:
+    """Put the core into somebody else's team, for a core nobody has used.
+
+    Which is what a person does with a Pokemon the ladder has not seen yet:
+    take a shell that works and give one slot to the new thing. The five
+    around it are then a real team's five rather than a random draw, which is
+    the whole reason the warm start exists.
+    """
+    fresh = a_set_for(dex, config.core, cursor)
+    if fresh is None:
+        return None
+    order = cursor.shuffled(list(range(len(host))))
+    for index in order:
+        candidate = tuple(fresh if i == index else one
+                          for i, one in enumerate(host))
+        if not team_errors(dex, regulation, candidate,
+                           config.floor.battle_format):
+            return candidate
+    return None
+
+
 def seed_population(dex: Dex, regulation, config: EvolveConfig,
                     cursor: RngCursor) -> list[Candidate]:
-    """Warm start from the field, topped up with mutants of it.
+    """Warm start from the field: teams built around the core, or grafted.
 
-    Raises rather than inventing a team when the field has nothing to start
-    from: a core nobody has built around is a question this cannot answer with
-    a random walk, and it should say so instead of pretending.
+    A core the field has never used -- anything the update just added -- has
+    no team to start from, so one slot of a real team is given to it instead.
+    Raises only when even that fails, which means the core cannot be fielded
+    at all under this regulation.
     """
     parties = ranker_parties(config.parties)
     seeds = carrying(parties, config.core)
+    grafted = False
+    if not seeds:
+        grafted = True
+        made = []
+        for party in parties:
+            team = graft(dex, regulation, config, party.team, cursor)
+            if team is not None:
+                made.append(Party(title=f"grafted onto {party.title[:34]}",
+                                  rate=party.rate, rank=party.rank, team=team))
+            if len(made) >= config.population:
+                break
+        seeds = made
     if not seeds:
         raise ValueError(
-            f"no party in the field is built around {config.core!r}; "
-            "there is nothing to start from")
+            f"{config.core!r} cannot be put into any party in the field; "
+            "check that it is legal in this regulation")
 
-    population = [Candidate(party.team, f"field:{party.title[:40]}")
+    label = "graft" if grafted else "field"
+    population = [Candidate(party.team, f"{label}:{party.title[:40]}")
                   for party in seeds[:config.population]]
     while len(population) < config.population:
         parent = population[cursor.between(0, len(seeds) - 1)]

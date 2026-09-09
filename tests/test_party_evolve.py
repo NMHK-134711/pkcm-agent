@@ -46,11 +46,17 @@ def test_the_field_has_something_to_start_from(dex):
                for party in around)
 
 
-def test_a_core_nobody_builds_around_is_refused(dex):
-    """Rather than a random walk from six unrelated Pokemon."""
-    regulation = dex.regulation("m_b")
+def test_a_core_that_cannot_be_fielded_is_refused(dex):
+    """A core the field has never used is grafted; an illegal one is refused.
+
+    The two are different failures and only one of them is a dead end. A
+    Salamence nobody has built around yet gets a slot in somebody else's team;
+    a Magikarp is not in the regulation at all, so no team can hold it and
+    there is nothing to search.
+    """
+    regulation = dex.regulation("m_c")
     config = _config(core="magikarp", population=4)
-    with pytest.raises(ValueError, match="nothing to start from"):
+    with pytest.raises(ValueError, match="cannot be put into any party"):
         seed_population(dex, regulation, config, Rng.from_seed(1).cursor())
 
 

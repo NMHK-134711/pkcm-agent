@@ -24,16 +24,25 @@ from pkcm.engine import mutate
 from pkcm.engine.abilities import announce
 from pkcm.engine.effects import Context, Ref, register
 from pkcm.engine.events import Event
-from pkcm.engine.moves import X0_25, X0_5, X0_9, X1_1, X1_2, X1_3, X1_5, X2, chain_modify
+from pkcm.engine.abilities import CONTACT
+from pkcm.engine.moves import (X0_25, X0_5, X0_9, X1_1, X1_2, X1_3,
+                               X1_5, X2, chain_modify)
 from pkcm.engine.mutate import boost, consume_item, fraction_of_max, heal
 
 ROSTER_PATH = Path(__file__).resolve().parents[3] / "data" / "champions" / "items_m_b.json"
 
 
 def champions_items() -> set[str]:
-    """Every item id Champions has, stones included."""
+    """Every item id Champions has, stones included.
+
+    Three lists, because they have three different provenances: hk's scrape of
+    the live game, the Mega Stones inferred from which formes are legal, and
+    what a later update added on top.
+    """
     data = json.loads(ROSTER_PATH.read_text(encoding="utf-8"))
-    return {entry["id"] for entry in data["items"]} | set(data["inferred_mega_stones"])
+    return ({entry["id"] for entry in data["items"]}
+            | set(data.get("inferred_mega_stones", ()))
+            | set(data.get("added_in_m_c", ())))
 
 
 def used(ctx: Context, ref: Ref, item: str) -> None:
@@ -599,3 +608,150 @@ def register_mega_stones() -> None:
 
 
 register_mega_stones()
+
+
+# --------------------------------------------------------------------------- #
+# The 2026-09-09 update's items
+# --------------------------------------------------------------------------- #
+
+#: "If held by a Farfetch'd or Sirfetch'd" -- and their formes, which is why
+#: this is the base species rather than the id.
+LEEK_HOLDERS = frozenset({"farfetchd", "farfetchdgalar", "sirfetchd"})
+
+
+def _leek(ctx, ref, value, attacker, defender, move, **_):
+    if ref != attacker:
+        return None
+    from pkcm.engine.legality import base_species_of
+
+    species = ctx.state.species_id(*ref)
+    if base_species_of(ctx.state.config.dex, species) not in LEEK_HOLDERS:
+        return None
+    return value + 2
+
+
+register("item", "leek", name="Leek", modify_crit_ratio=_leek)
+
+
+def _rocky_helmet(ctx, ref, attacker, defender, move, damage, **_):
+    """A sixth of the attacker's maximum, for touching the holder."""
+    if ref != defender or damage <= 0 or CONTACT not in move.flags:
+        return
+    used(ctx, ref, "rockyhelmet")
+    mutate.apply_damage(ctx, attacker,
+                        fraction_of_max(ctx.state, attacker, 6),
+                        "item", detail="rockyhelmet")
+
+
+register("item", "rockyhelmet", name="Rocky Helmet", after_damage=_rocky_helmet)
+
+
+def _air_balloon(ctx, ref, attacker, defender, move, damage, **_):
+    """It pops on any hit; the floating is read straight off the item.
+
+    ``conditions.is_grounded`` already asks whether the holder is carrying one,
+    so the Ground immunity needed nothing here. What it did need is losing the
+    balloon, which nothing was doing -- so a holder floated for the whole
+    battle however many times it was hit.
+    """
+    if ref != defender or damage <= 0:
+        return
+    used(ctx, ref, "airballoon")
+    consume_item(ctx, ref, "airballoon")
+
+
+register("item", "airballoon", name="Air Balloon", after_damage=_air_balloon)
+
+
+def _red_card(ctx, ref, attacker, defender, move, damage, **_):
+    """Survive a hit and the attacker is dragged out, not asked to leave."""
+    from pkcm.engine import tactics
+
+    if ref != defender or damage <= 0:
+        return
+    if ctx.state.sides[ref[0]].is_fainted(ref[1]):
+        return
+    used(ctx, ref, "redcard")
+    consume_item(ctx, ref, "redcard")
+    tactics.force_switch(ctx, attacker)
+
+
+register("item", "redcard", name="Red Card", after_damage=_red_card)
+
+
+def _eject_button(ctx, ref, attacker, defender, move, damage, **_):
+    """The holder leaves, and its player picks the replacement.
+
+    Marking the position rather than dragging: Eject Button is a choice, which
+    is the difference between it and the Red Card above.
+    """
+    if ref != defender or damage <= 0:
+        return
+    side = ctx.state.sides[ref[0]]
+    if side.is_fainted(ref[1]):
+        return
+    if not [slot for slot in side.living_slots() if slot not in side.active]:
+        return
+    position = side.position_of(ref[1])
+    if position is None:
+        return
+    used(ctx, ref, "ejectbutton")
+    consume_item(ctx, ref, "ejectbutton")
+    side.must_switch[position] = True
+    ctx.emit(Event("self_switch", side=ref[0], slot=ref[1]))
+
+
+register("item", "ejectbutton", name="Eject Button", after_damage=_eject_button)
+
+
+def _normal_gem(ctx, ref, value, attacker, defender, move, **_):
+    """One Normal attack at 1.3, then gone.
+
+    Spent in ``modify_base_power`` rather than after the hit, because the
+    boost and the spending are the same event: a Gem that survived its own
+    move would boost every Normal attack for the rest of the battle.
+    """
+    if ref != attacker or move.type != "normal" or move.category == "Status":
+        return None
+    used(ctx, ref, "normalgem")
+    consume_item(ctx, ref, "normalgem")
+    return chain_modify(int(value), X1_3)
+
+
+register("item", "normalgem", name="Normal Gem", modify_base_power=_normal_gem)
+
+
+def _seed(terrain: str, stat: str, item_id: str):
+    """The four terrain seeds: one stage, once, while that terrain is up.
+
+    On ``switch_in`` for a holder arriving onto the terrain, and on ``update``
+    for a holder standing on it when the terrain arrives -- the same
+    checkpoint the berries watch. Both, because either order happens.
+    """
+    def handler(ctx, ref, **_):
+        if ctx.state.field.terrain != terrain:
+            return
+        if ctx.state.item_id(*ref) != item_id:
+            return
+        used(ctx, ref, item_id)
+        consume_item(ctx, ref, item_id)
+        boost(ctx, ref, {stat: 1}, source=ref)
+
+    return handler
+
+
+for _seed_item, _terrain, _stat in (
+        ("electricseed", "electricterrain", "def"),
+        ("grassyseed", "grassyterrain", "def"),
+        ("psychicseed", "psychicterrain", "spd"),
+        ("mistyseed", "mistyterrain", "spd")):
+    register("item", _seed_item, name=_seed_item.title(),
+             switch_in=_seed(_terrain, _stat, _seed_item),
+             update=_seed(_terrain, _stat, _seed_item))
+
+
+#: Engine-side, like Shed Shell above. What Binding Band changes is the
+#: fraction a binding move takes each turn, and that is decided in
+#: ``tactics._trapping_residual``, which reads the item off whoever did the
+#: binding -- so there is nothing for a handler here to do.
+register("item", "bindingband", name="Binding Band")

@@ -67,7 +67,9 @@ def test_champions_kept_only_one_choice_item(dex):
 
 
 @pytest.mark.parametrize("item_id", [
-    "assaultvest", "eviolite", "rockyhelmet", "airballoon", "flameorb", "toxicorb",
+    # Rocky Helmet and Air Balloon left this list on 2026-09-09: the M-C
+    # update added them, along with sixteen more.
+    "assaultvest", "eviolite", "flameorb", "toxicorb",
     "heavydutyboots", "weaknesspolicy", "boosterenergy", "covertcloak",
 ])
 def test_items_champions_does_not_have(dex, item_id):
@@ -88,13 +90,19 @@ def test_every_roster_item_is_implemented(dex):
 
 
 def test_no_item_is_registered_without_doing_anything(dex):
-    """Except Shed Shell, which the turn loop reads directly."""
+    """Except the two the engine reads directly rather than dispatching to.
+
+    Shed Shell is asked by ``_is_trapped``. Binding Band is asked by
+    ``tactics._trapping_residual``, off whoever did the binding, because what
+    it changes is the fraction a wrap takes rather than anything about its
+    holder's own turn.
+    """
     silent = sorted(
         item_id for (kind, item_id), effect in REGISTRY.items()
         if kind == "item" and not effect.handlers
         and item_id in champions_items() and not dex.items[item_id].mega_stone
     )
-    assert silent == ["shedshell"]
+    assert silent == ["bindingband", "shedshell"]
 
 
 # --------------------------------------------------------------------------- #

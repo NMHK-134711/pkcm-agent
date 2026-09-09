@@ -1181,5 +1181,26 @@
    "price": "-",
    "id": "yacheberry"
   }
- ]
+ ],
+ "added_in_m_c": [
+  "absolitez",
+  "garchompitez",
+  "lucarionitez",
+  "salamencite",
+  "golisopite",
+  "baxcalibrite",
+  "leek",
+  "rockyhelmet",
+  "airballoon",
+  "redcard",
+  "bindingband",
+  "ejectbutton",
+  "normalgem",
+  "terrainextender",
+  "electricseed",
+  "psychicseed",
+  "mistyseed",
+  "grassyseed"
+ ],
+ "added_in_m_c_note": "The eighteen the 2026-09-09 update adds, from its own notes as hk collected them. Kept apart from `items` because that list is hk's op.gg scrape of the live game and this is not -- and because the roster is really per regulation, which the file name says and the loader does not yet honour. The ROM's item table would settle it, but champout/item.json keys everything by a numeric message label with no name file to resolve."
 }

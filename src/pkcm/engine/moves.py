@@ -1710,7 +1710,7 @@ def _apply_damaging_move(ctx: Context, attacker: Ref, defender: Ref, move) -> bo
 
         _spend_stockpile(ctx, attacker)
 
-    _apply_drain(ctx, attacker, move, total)
+    _apply_drain(ctx, attacker, defender, move, total)
     _apply_recoil(ctx, attacker, move, total)
     if total:
         # Scald and friends thaw whoever they hit.
@@ -2310,13 +2310,23 @@ def _apply_secondaries(ctx: Context, attacker: Ref, defender: Ref, move) -> None
             mutate.boost(ctx, attacker, own["boosts"], source=attacker)
 
 
-def _apply_drain(ctx: Context, attacker: Ref, move: Move, damage: int) -> None:
+def _apply_drain(ctx: Context, attacker: Ref, defender: Ref,
+                 move: Move, damage: int) -> None:
     drain = move.raw.get("drain")
     if not drain or damage <= 0:
         return
     numerator, denominator = drain
     restored = max(1, damage * numerator // denominator)
     restored = fx.modify(ctx, "modify_drain", restored, attacker, scope="self", move=move)
+    # Liquid Ooze pays the drain the other way: "the attacker takes damage
+    # equal to the amount of HP that would be recovered", after Big Root. It
+    # is read here rather than registered as a handler because the drain is
+    # resolved on the attacker's side, where nothing asks the defender.
+    if ctx.ability_of(defender) == "liquidooze":
+        ctx.emit(Event("ability", side=defender[0], slot=defender[1],
+                       detail="liquidooze"))
+        apply_damage(ctx, attacker, restored, "drain", detail="liquidooze")
+        return
     heal(ctx, attacker, restored, reason="drain")
 
 

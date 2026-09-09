@@ -339,7 +339,12 @@ def test_abilities_with_no_handlers_are_deliberate(dex):
     # hook: Sticky Hold at the one gate every item-taker goes through, Ripen
     # where a berry works out what it is worth.
     engine_side = ({"levitate", "corrosion", "suctioncups", "stickyhold",
-                    "ripen", "klutz"}
+                    "ripen", "klutz",
+                    # Guard Dog's drag refusal is read by tactics.force_switch
+                    # beside Suction Cups, and its Intimidate half lives in
+                    # _drop_on_every_foe. Liquid Ooze is asked by
+                    # moves._apply_drain, where the drain is resolved.
+                    "guarddog", "liquidooze"}
                    | set(MOLD_BREAKER_ABILITIES) | set(IGNORES_REDIRECTION))
     accounted = engine_side | abilities.INERT | abilities.SINGLES_INERT
     for (kind, ability_id), effect in REGISTRY.items():
@@ -1146,3 +1151,235 @@ def test_sticky_hold_keeps_the_item_through_every_way_of_taking_it(dex, config):
 
     state, _ = step(state, Action.move(0), Action.move(0))
     assert state.item_id(1, 0) == "leftovers", "Knock Off left it there"
+
+
+# --------------------------------------------------------------------------- #
+# The abilities the 2026-09-09 patch brings in
+# --------------------------------------------------------------------------- #
+
+
+def _one_on_one(dex, ours, theirs, seed=4):
+    """A battle with one chosen Pokemon a side and two bodies behind it."""
+    from pkcm.engine.actions import Action
+    from pkcm.engine.battle import step
+    from pkcm.engine.pokemon import PokemonSet
+    from pkcm.engine.state import BattleConfig, new_battle
+
+    filler = (PokemonSet(species="pikachu", ability="__none__",
+                         moves=("tackle",), nature="serious", sp=(0,) * 6),
+              PokemonSet(species="alakazam", ability="__none__",
+                         moves=("tackle",), nature="serious", sp=(0,) * 6))
+    config = BattleConfig(dex=dex, regulation=dex.regulation("m_b"),
+                          battle_format="singles")
+    state = new_battle(config, (tuple(ours) + filler, tuple(theirs) + filler),
+                       seed=seed)
+    return step(state, Action.select(0, 1, 2), Action.select(0, 1, 2))[0]
+
+
+def _set(species, ability, moves, item=None, nature="serious", sp=(0,) * 6):
+    from pkcm.engine.pokemon import PokemonSet
+
+    return PokemonSet(species=species, ability=ability, moves=tuple(moves),
+                      item=item, nature=nature, sp=sp)
+
+
+def _damage_to(events, side, move):
+    """How much a named move dealt to one side. Side 0 has no ``side=`` tag."""
+    import re
+
+    for event in events:
+        text = str(event)
+        if not text.startswith("damage(") or move not in text:
+            continue
+        head = text.split("damage(")[1][:8]
+        mine = "side=" not in head
+        if (side == 0) == mine:
+            return int(re.search(r"amount=(\d+)", text).group(1))
+    return 0
+
+
+def test_liquid_ooze_makes_the_drain_hurt(dex):
+    """The sign of the transaction flips, not its size.
+
+    Bulbapedia: the attacker takes damage equal to the amount of HP that
+    would have been recovered.
+    """
+    from pkcm.engine.actions import Action
+    from pkcm.engine.battle import step
+
+    seen = {}
+    for ability in ("liquidooze", "sturdy"):
+        state = _one_on_one(
+            dex,
+            [_set("meowscarada", "protean",
+                  ("gigadrain", "knockoff", "uturn", "flowertrick"),
+                  nature="modest", sp=(0, 0, 2, 32, 0, 32))],
+            [_set("swalot", ability,
+                  ("sludgebomb", "toxic", "yawn", "seismictoss"),
+                  sp=(32, 0, 32, 0, 2, 0))])
+        state, _ = step(state, Action.move(1), Action.move(0))
+        before = state.sides[0].hp[state.sides[0].active[0]]
+        state, _ = step(state, Action.move(0), Action.move(1))
+        seen[ability] = state.sides[0].hp[state.sides[0].active[0]] - before
+
+    assert seen["sturdy"] > 0, "Giga Drain did not heal without the ability"
+    assert seen["liquidooze"] < 0, f"Liquid Ooze still healed: {seen}"
+
+
+def test_grass_pelt_only_helps_on_grass(dex):
+    from pkcm.engine.actions import Action
+    from pkcm.engine.battle import step
+
+    seen = {}
+    for ability in ("grasspelt", "sapsipper"):
+        state = _one_on_one(
+            dex,
+            [_set("gogoat", ability,
+                  ("grassyterrain", "hornleech", "earthquake", "bulkup"),
+                  sp=(32, 0, 32, 0, 2, 0))],
+            [_set("garchomp", "roughskin",
+                  ("dragonclaw", "earthquake", "firefang", "stoneedge"),
+                  nature="jolly", sp=(0, 32, 2, 0, 0, 32))])
+        # The terrain has to be standing before the hit lands: Garchomp is
+        # faster, so a first-turn measurement is of no terrain at all.
+        state, _ = step(state, Action.move(0), Action.move(0))
+        state, events = step(state, Action.move(3), Action.move(0))
+        seen[ability] = _damage_to(events, 0, "dragonclaw")
+
+    assert seen["grasspelt"] and seen["sapsipper"]
+    ratio = seen["grasspelt"] / seen["sapsipper"]
+    assert 0.6 < ratio < 0.72, f"Defence was not half again: {seen}, {ratio:.2f}"
+
+
+def test_steely_spirit_powers_up_steel(dex):
+    from pkcm.engine.actions import Action
+    from pkcm.engine.battle import step
+
+    seen = {}
+    for ability in ("steelyspirit", "battlearmor"):
+        state = _one_on_one(
+            dex,
+            [_set("perrserker", ability,
+                  ("ironhead", "uturn", "protect", "closecombat"),
+                  nature="adamant", sp=(0, 32, 2, 0, 0, 32))],
+            [_set("blissey", "naturalcure",
+                  ("softboiled", "toxic", "protect", "seismictoss"),
+                  sp=(32, 0, 32, 0, 2, 0))])
+        state, events = step(state, Action.move(0), Action.move(0))
+        seen[ability] = _damage_to(events, 1, "ironhead")
+
+    ratio = seen["steelyspirit"] / seen["battlearmor"]
+    assert 1.4 < ratio < 1.6, f"not half again: {seen}, {ratio:.2f}"
+
+
+def test_seed_sower_answers_a_hit_with_terrain(dex):
+    from pkcm.engine.actions import Action
+    from pkcm.engine.battle import step
+
+    state = _one_on_one(
+        dex,
+        [_set("arboliva", "seedsower",
+              ("gigadrain", "earthpower", "leechseed", "synthesis"),
+              nature="modest", sp=(32, 0, 32, 32, 2, 0))],
+        [_set("garchomp", "roughskin",
+              ("dragonclaw", "earthquake", "firefang", "stoneedge"),
+              nature="jolly", sp=(0, 32, 2, 0, 0, 32))])
+    assert state.field.terrain is None
+    state, _ = step(state, Action.move(0), Action.move(0))
+    assert state.field.terrain == "grassyterrain"
+
+
+def test_stakeout_doubles_on_a_fresh_arrival(dex):
+    """Against the replacement, not against the leads.
+
+    Both arms face the same species, so the only difference between them is
+    whether the target arrived this turn.
+    """
+    from pkcm.engine.actions import Action
+    from pkcm.engine.battle import step
+
+    seen = {}
+    for switched in (True, False):
+        state = _one_on_one(
+            dex,
+            [_set("thievul", "stakeout",
+                  ("darkpulse", "uturn", "protect", "shadowball"),
+                  nature="modest", sp=(0, 0, 2, 32, 0, 32))],
+            [_set("blissey", "naturalcure",
+                  ("softboiled", "toxic", "protect", "seismictoss"),
+                  sp=(32, 0, 32, 0, 2, 0)),
+             _set("blissey", "naturalcure",
+                  ("softboiled", "toxic", "protect", "seismictoss"),
+                  sp=(32, 0, 32, 0, 2, 0))])
+        state, _ = step(state, Action.move(2), Action.move(0))
+        state, events = step(state, Action.move(0),
+                             Action.switch(1) if switched else Action.move(0))
+        seen[switched] = _damage_to(events, 1, "darkpulse")
+
+    ratio = seen[True] / seen[False]
+    assert 1.9 < ratio < 2.1, f"not doubled against the replacement: {seen}"
+
+
+def test_guard_dog_turns_intimidate_round_and_will_not_be_dragged(dex):
+    from pkcm.engine.actions import Action
+    from pkcm.engine.battle import step
+    from pkcm.engine.state import BOOST_INDEX
+
+    dog = [_set("mabosstiff", "guarddog",
+                ("crunch", "protect", "roar", "uturn"),
+                nature="adamant", sp=(32, 32, 2, 0, 0, 0)),
+           _set("garchomp", "roughskin",
+                ("earthquake", "dragonclaw", "firefang", "uturn"),
+                nature="jolly", sp=(0, 32, 2, 0, 0, 32))]
+
+    state = _one_on_one(
+        dex, dog,
+        [_set("incineroar", "intimidate",
+              ("knockoff", "flareblitz", "uturn", "protect"),
+              nature="adamant", sp=(32, 32, 2, 0, 0, 0))])
+    ours = state.sides[0]
+    assert ours.boosts[ours.active[0]][BOOST_INDEX["atk"]] == 1, \
+        "Intimidate should have raised Attack, not lowered it"
+
+    state = _one_on_one(
+        dex, dog,
+        [_set("blissey", "naturalcure",
+              ("whirlwind", "softboiled", "toxic", "protect"),
+              sp=(32, 0, 32, 0, 2, 0))])
+    state, _ = step(state, Action.move(1), Action.move(0))
+    assert state.species_id(0, state.sides[0].active[0]) == "mabosstiff", \
+        "Whirlwind dragged it out"
+
+
+def test_emergency_exit_leaves_when_it_crosses_half(dex):
+    """The crossing can be recoil, so it watches the HP bar, not a move.
+
+    Golisopod's own Aqua Jet into Rough Skin is what takes it under half here.
+    On after_damage the ability never saw that and stayed in.
+    """
+    from pkcm.engine.actions import Action
+    from pkcm.engine.battle import step
+    from pkcm.engine.state import Phase
+
+    seen = {}
+    for ability in ("emergencyexit", "sturdy"):
+        state = _one_on_one(
+            dex,
+            [_set("golisopod", ability,
+                  ("aquajet", "liquidation", "protect", "xscissor"),
+                  nature="adamant", sp=(0, 32, 2, 0, 0, 32)),
+             _set("garchomp", "roughskin",
+                  ("earthquake", "dragonclaw", "firefang", "uturn"),
+                  nature="jolly", sp=(0, 32, 2, 0, 0, 32))],
+            [_set("garchomp", "roughskin",
+                  ("dragonclaw", "earthquake", "firefang", "stoneedge"),
+                  nature="jolly", sp=(0, 32, 2, 0, 0, 32))])
+        for _ in range(3):
+            if state.phase is not Phase.BATTLE:
+                break
+            state, _ = step(state, Action.move(0), Action.move(0))
+        seen[ability] = state.phase
+
+    assert seen["emergencyexit"] is Phase.MID_TURN_SWITCH, \
+        f"it did not bail: {seen}"
+    assert seen["sturdy"] is not Phase.MID_TURN_SWITCH

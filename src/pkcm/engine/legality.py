@@ -651,14 +651,21 @@ def make_team(
     battle_format: str = "singles",
     source: str = "random",
     options: RandomTeamOptions = RandomTeamOptions(),
+    parties_path: str | None = None,
 ) -> Team:
-    """One team, from whichever distribution was asked for."""
+    """One team, from whichever distribution was asked for.
+
+    ``parties_path`` points ``parties`` at a file other than the committed
+    archive -- the 253-party field, say. It is a separate argument rather than
+    a field on ``options``, which holds the knobs for *random* teams and has
+    nothing to say about which file an imported party comes from.
+    """
     if source == "ranker":
         return ranker_team(dex, regulation, cursor, battle_format)
     if source == "parties" or source.startswith("parties:"):
         _, _, listed = source.partition(":")
         return party_team(dex, regulation, cursor, battle_format,
-                          _party_indices(listed))
+                          _party_indices(listed, parties_path), parties_path)
     if source != "random":
         raise ValueError(f"unknown team source {source!r}; expected {TEAM_SOURCES}")
     return random_team(dex, regulation, cursor, battle_format, options)
@@ -674,14 +681,40 @@ def parse_team_source(value: str) -> str:
     if value in ("random", "ranker", "parties"):
         return value
     if value.startswith("parties:"):
-        _party_indices(value.partition(":")[2])
+        # Shape only. Whether index 141 exists depends on which party file the
+        # run is pointed at -- forty-six in the archive, 253 in the field --
+        # and argparse validates arguments in declaration order, so it cannot
+        # know yet. ``check_team_source`` does the bounds once both are read.
+        _party_indices(value.partition(":")[2], _SHAPE_ONLY)
         return value
     raise ValueError(f"unknown team source {value!r}; expected {TEAM_SOURCES} "
                      f"or parties:<comma separated indices>")
 
 
-def _party_indices(listed: str) -> tuple[int, ...] | None:
-    """``"10,14,17,7"`` to indices; empty means every imported party."""
+#: Passed as the path to skip the bounds check, for a caller that does not yet
+#: know which file the indices are into.
+_SHAPE_ONLY = object()
+
+
+def check_team_source(value: str, path: str | None = None) -> None:
+    """The bounds check ``parse_team_source`` had to defer.
+
+    Call it once ``--parties`` is known. Spawning ten workers and finding out
+    three minutes in that party 141 is not in a file of forty-six is the thing
+    this exists to prevent.
+    """
+    if value.startswith("parties:"):
+        _party_indices(value.partition(":")[2], path)
+
+
+def _party_indices(listed: str,
+                   path: str | None = None) -> tuple[int, ...] | None:
+    """``"10,14,17,7"`` to indices; empty means every imported party.
+
+    ``path`` says which file the indices are into. Validating against the
+    committed archive when the run is pointed at the 253-party field would
+    reject every index above forty-five for being out of a range it is not in.
+    """
     if not listed.strip():
         return None
     try:
@@ -690,7 +723,9 @@ def _party_indices(listed: str) -> tuple[int, ...] | None:
         raise ValueError(f"party subset {listed!r} is not a list of integers")
     if not picked:
         return None
-    total = len(ranker_parties())
+    if path is _SHAPE_ONLY:
+        return picked
+    total = len(ranker_parties(path))
     for index in picked:
         if not 0 <= index < total:
             raise ValueError(f"party {index} is outside 0..{total - 1}")
@@ -703,6 +738,7 @@ def party_team(
     cursor: RngCursor,
     battle_format: str = "singles",
     picked: tuple[int, ...] | None = None,
+    path: str | None = None,
 ) -> Team:
     """One imported party, whole, as its author built it.
 
@@ -719,6 +755,6 @@ def party_team(
     is the experiment that says how much of the strength survives contact with
     a bigger team space.
     """
-    parties = ranker_parties()
+    parties = ranker_parties(path)
     choices = picked if picked is not None else tuple(range(len(parties)))
     return parties[choices[cursor.between(0, len(choices) - 1)]].team

@@ -202,6 +202,23 @@ register("ability", "steelworker", name="Steelworker",
          modify_stat=_offensive_type_boost("steel"))
 
 
+def _steely_spirit_ally(ctx, ref, value, attacker, defender, move, holder=None, **_):
+    """The partner's Steel moves, half again. Its own go through the self hook.
+
+    Two hooks rather than one because the ability reads "the Pokemon *and* its
+    allies", and the ally scope deliberately does not fire on the holder --
+    Friend Guard would soften its own hits if it did.
+    """
+    if holder is None or holder == ref or attacker != ref:
+        return None
+    return chain_modify(value, X1_5) if move.type == "steel" else None
+
+
+register("ability", "steelyspirit", name="Steely Spirit",
+         modify_stat=_offensive_type_boost("steel"),
+         ally_modify_base_power=_steely_spirit_ally)
+
+
 def _flat_stat(stat: Stat, modifier: int, when=None):
     def handler(ctx, ref, value, stat_kw=None, **kwargs):
         if kwargs.get("stat") is not stat:
@@ -266,6 +283,13 @@ def _in_weather(*names: str):
 
 def _on_terrain(name: str):
     return lambda ctx, ref: ctx.state.field.terrain == name and is_grounded(ctx.state, ref)
+
+
+#: "While Grassy Terrain is active, the Defense of the Pokemon with this
+#: Ability is increased by 50%" -- Bulbapedia. Grounded, like everything the
+#: terrain touches.
+register("ability", "grasspelt", name="Grass Pelt",
+         modify_stat=_flat_stat(Stat.DEF, X1_5, _on_terrain("grassyterrain")))
 
 
 def _lost_its_item(ctx, ref):
@@ -804,6 +828,13 @@ def _drop_on_every_foe(boosts: dict, ability: str):
                 ctx.emit(Event("immune", side=target[0], slot=target[1],
                                detail="substitute"))
                 continue
+            # "Boosts the Pokemon's Attack stat if intimidated." Only against
+            # Intimidate itself: Supersweet Syrup shares this applier and
+            # Guard Dog says nothing about evasion.
+            if ability == "intimidate" and ctx.ability_of(target) == "guarddog":
+                announce(ctx, target, "guarddog")
+                boost(ctx, target, {"atk": 1}, source=target)
+                continue
             boost(ctx, target, dict(boosts), source=ref)
         return True
 
@@ -1184,6 +1215,85 @@ def _sand_spit(ctx, ref, attacker, defender, move, damage, **_):
 
 
 register("ability", "sandspit", name="Sand Spit", after_damage=_sand_spit)
+
+
+def _seed_sower(ctx, ref, attacker, defender, move, damage, **_):
+    """"Turns the ground into Grassy Terrain when the Pokemon is hit by an
+    attack" -- so it answers the hit rather than the arrival."""
+    from pkcm.engine.moves import set_terrain
+
+    if ref != defender or damage <= 0:
+        return
+    if ctx.state.field.terrain == "grassyterrain":
+        return
+    announce(ctx, ref, "seedsower")
+    set_terrain(ctx, "grassyterrain", ref)
+
+
+register("ability", "seedsower", name="Seed Sower", after_damage=_seed_sower)
+
+
+def _stakeout(ctx, ref, value, attacker=None, defender=None, move=None,
+              crit=False, **_):
+    """Twice the damage against something that came in this turn.
+
+    "Doubles the damage dealt to a target that has just switched into battle",
+    and Bulbapedia is specific about the boundary: a target switched in during
+    *this* turn, by hand or by Volt Switch or by Eject Button, and not one
+    sent out at the start of the battle or replaced at the end of the turn
+    before. ``arrived`` is stamped by ``_announce_arrival``.
+    """
+    if defender is None or attacker != ref:
+        return None
+    side = ctx.state.sides[defender[0]]
+    if side.status_data[defender[1]].get("arrived") != ctx.state.turn:
+        return None
+    if ctx.state.turn <= 1:            # the leads did not switch in
+        return None
+    return chain_modify(value, X2)
+
+
+register("ability", "stakeout", name="Stakeout", modify_damage=_stakeout)
+
+
+def _emergency_exit(ctx, ref, **_):
+    """Leaves when it drops to half or less.
+
+    On ``update`` rather than ``after_damage``, which is where a berry gets to
+    look at the HP bar -- so it sees Rough Skin, hazards and recoil too. On
+    ``after_damage`` it did not: a Golisopod that crossed the halfway line on
+    contact recoil and *then* took the move stayed put, because the crossing
+    had already happened by the time the move's hook ran.
+
+    The flag is the crossing. It is on ``status_data`` rather than the
+    volatiles so that coming back in still under half does not fire it again,
+    and it clears the moment something heals past the line.
+    """
+    side = ctx.state.sides[ref[0]]
+    slot = ref[1]
+    whole = mutate.max_hp(ctx.state, ref)
+    now = side.hp[slot]
+    if now <= 0:
+        return
+    if now * 2 > whole:
+        side.status_data[slot].pop("bailed", None)
+        return
+    if side.status_data[slot].get("bailed"):
+        return
+    if not [other for other in side.living_slots() if other not in side.active]:
+        return
+    position = side.position_of(slot)
+    if position is None:
+        return
+    side.status_data[slot]["bailed"] = 1
+    announce(ctx, ref, "emergencyexit")
+    side.must_switch[position] = True
+    ctx.emit(Event("self_switch", side=ref[0], slot=slot))
+
+
+register("ability", "emergencyexit", name="Emergency Exit",
+         update=_emergency_exit)
+register("ability", "wimpout", name="Wimp Out", update=_emergency_exit)
 
 
 def _toxic_debris(ctx, ref, attacker, defender, move, damage, **_):
@@ -2430,6 +2540,15 @@ INERT = frozenset({
 #: drag, and the drag is decided in ``tactics.force_switch``, which reads the
 #: ability directly the way it reads Ingrain.
 register("ability", "suctioncups", name="Suction Cups")
+
+#: Same shape, for the same reason. Guard Dog's refusal is read by
+#: ``tactics.force_switch`` beside Suction Cups; its Intimidate half is in
+#: ``_drop_on_every_foe`` above. Liquid Ooze is asked by ``moves._apply_drain``,
+#: because what it changes is who the drain pays -- and that is decided on the
+#: attacker's side of the transaction, where an effect on the defender is not
+#: otherwise consulted.
+register("ability", "guarddog", name="Guard Dog")
+register("ability", "liquidooze", name="Liquid Ooze")
 
 #: Both engine-side for the same reason: what they change is a decision taken
 #: somewhere else. Sticky Hold is asked by ``moveeffects._holds_removable``,

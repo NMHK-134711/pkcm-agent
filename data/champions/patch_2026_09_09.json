@@ -1,0 +1,206 @@
+{
+  "_about": [
+    "The 2026-09-09 Champions update, staged before the servers opened.",
+    "",
+    "PROVENANCE. Base stats, types and abilities come from pokemondb.net and",
+    "bulbapedia, which describe the mainline games. Champions is its own game",
+    "and may have changed any of them, so nothing here is loaded into the dex",
+    "until it is checked against Champions' own data. That check is the point",
+    "of `confirmed: false`.",
+    "",
+    "Korean names are hk's, verbatim from the patch notes. The English names",
+    "were resolved by search, not from memory: Thievul, Clodsire and",
+    "Baxcalibur were all looked up rather than guessed.",
+    "",
+    "Learnsets are not here. hk supplies those once the servers are open."
+  ],
+  "confirmed": false,
+  "source": "pokemondb.net and bulbapedia (mainline); Champions values unverified",
+
+  "open_questions": [
+    "The patch list names 메가드닐레이브 but not 드닐레이브, and the base is not in the current 316-species format. Either the list omits it or the mega arrives without its base.",
+    "파오리 is listed with no form note, unlike 페르시온 (알로라의 모습). Kantonian Farfetch'd is assumed. But 창파나이트 (Sirfetch'd) evolves from the Galarian one, so both are recorded below.",
+    "Two of the fifteen new abilities -- 위기회피 (Emergency Exit) and 파동의방호 -- belong to no species in this list. They are most likely the abilities of the five Champions-original Megas.",
+    "파동의방호 could not be resolved to a known ability at all. Not guessed."
+  ],
+
+  "species": [
+    {"ko": "푸크린", "en": "Wigglytuff", "id": "wigglytuff",
+     "types": ["normal", "fairy"], "base": {"hp": 140, "atk": 70, "def": 45, "spa": 85, "spd": 50, "spe": 45},
+     "abilities": ["Cute Charm", "Competitive"], "hidden": "Frisk"},
+
+    {"ko": "페르시온", "en": "Persian", "id": "persian",
+     "types": ["normal"], "base": {"hp": 65, "atk": 70, "def": 60, "spa": 65, "spd": 65, "spe": 115},
+     "abilities": ["Limber", "Technician"], "hidden": "Unnerve"},
+
+    {"ko": "페르시온 (알로라의 모습)", "en": "Persian (Alolan)", "id": "persianalola",
+     "types": ["dark"], "base": {"hp": 65, "atk": 60, "def": 60, "spa": 75, "spd": 65, "spe": 115},
+     "abilities": ["Fur Coat", "Technician"], "hidden": "Rattled"},
+
+    {"ko": "파오리", "en": "Farfetch'd", "id": "farfetchd",
+     "types": ["normal", "flying"], "base": {"hp": 52, "atk": 90, "def": 55, "spa": 58, "spd": 62, "spe": 60},
+     "abilities": ["Keen Eye", "Inner Focus"], "hidden": "Defiant",
+     "note": "Galarian Farfetch'd, which is what Sirfetch'd evolves from, is Fighting 52/95/55/58/62/55 with Steadfast and Scrappy (hidden). The patch note does not say which."},
+
+    {"ko": "마임맨", "en": "Mr. Mime", "id": "mrmime",
+     "types": ["psychic", "fairy"], "base": {"hp": 40, "atk": 45, "def": 65, "spa": 100, "spd": 120, "spe": 90},
+     "abilities": ["Soundproof", "Filter"], "hidden": "Technician"},
+
+    {"ko": "꿀꺽몬", "en": "Swalot", "id": "swalot",
+     "types": ["poison"], "base": {"hp": 100, "atk": 73, "def": 83, "spa": 73, "spd": 83, "spe": 55},
+     "abilities": ["Liquid Ooze", "Sticky Hold"], "hidden": "Gluttony"},
+
+    {"ko": "보만다", "en": "Salamence", "id": "salamence",
+     "types": ["dragon", "flying"], "base": {"hp": 95, "atk": 135, "def": 80, "spa": 110, "spd": 80, "spe": 100},
+     "abilities": ["Intimidate"], "hidden": "Moxie"},
+
+    {"ko": "메가보만다", "en": "Mega Salamence", "id": "salamencemega",
+     "types": ["dragon", "flying"], "base": {"hp": 95, "atk": 145, "def": 130, "spa": 120, "spd": 90, "spe": 120},
+     "abilities": ["Aerilate"], "stone": "보만다나이트"},
+
+    {"ko": "고고트", "en": "Gogoat", "id": "gogoat",
+     "types": ["grass"], "base": {"hp": 123, "atk": 100, "def": 62, "spa": 97, "spd": 81, "spe": 68},
+     "abilities": ["Sap Sipper"], "hidden": "Grass Pelt"},
+
+    {"ko": "갑주무사", "en": "Samurott", "id": "samurott",
+     "types": ["water"], "base": {"hp": 95, "atk": 100, "def": 85, "spa": 108, "spd": 70, "spe": 70},
+     "abilities": ["Torrent"], "hidden": "Shell Armor"},
+
+    {"ko": "고릴타", "en": "Rillaboom", "id": "rillaboom",
+     "types": ["grass"], "base": {"hp": 100, "atk": 125, "def": 90, "spa": 60, "spd": 70, "spe": 85},
+     "abilities": ["Overgrow"], "hidden": "Grassy Surge"},
+
+    {"ko": "에이스번", "en": "Cinderace", "id": "cinderace",
+     "types": ["fire"], "base": {"hp": 80, "atk": 116, "def": 75, "spa": 65, "spd": 75, "spe": 119},
+     "abilities": ["Blaze"], "hidden": "Libero"},
+
+    {"ko": "인텔리레온", "en": "Inteleon", "id": "inteleon",
+     "types": ["water"], "base": {"hp": 70, "atk": 85, "def": 65, "spa": 125, "spd": 65, "spe": 120},
+     "abilities": ["Torrent"], "hidden": "Sniper"},
+
+    {"ko": "폭슬라이", "en": "Thievul", "id": "thievul",
+     "types": ["dark"], "base": {"hp": 70, "atk": 58, "def": 58, "spa": 87, "spd": 92, "spe": 90},
+     "abilities": ["Run Away", "Unburden"], "hidden": "Stakeout"},
+
+    {"ko": "스트린더 (하이한 모습)", "en": "Toxtricity (Amped)", "id": "toxtricity",
+     "types": ["electric", "poison"], "base": {"hp": 75, "atk": 98, "def": 70, "spa": 114, "spd": 70, "spe": 75},
+     "abilities": ["Punk Rock", "Plus"], "hidden": "Technician"},
+
+    {"ko": "스트린더 (로우한 모습)", "en": "Toxtricity (Low Key)", "id": "toxtricitylowkey",
+     "types": ["electric", "poison"], "base": {"hp": 75, "atk": 98, "def": 70, "spa": 114, "spd": 70, "spe": 75},
+     "abilities": ["Punk Rock", "Minus"], "hidden": "Technician",
+     "note": "The two forms differ only in Plus against Minus."},
+
+    {"ko": "케오퍼스", "en": "Clodsire", "id": "clodsire",
+     "types": ["poison", "ground"], "base": {"hp": 130, "atk": 75, "def": 60, "spa": 45, "spd": 100, "spe": 20},
+     "abilities": ["Poison Point", "Water Absorb"], "hidden": "Unaware"},
+
+    {"ko": "나이킹", "en": "Perrserker", "id": "perrserker",
+     "types": ["steel"], "base": {"hp": 70, "atk": 110, "def": 100, "spa": 50, "spd": 60, "spe": 50},
+     "abilities": ["Battle Armor", "Tough Claws"], "hidden": "Steely Spirit"},
+
+    {"ko": "창파나이트", "en": "Sirfetch'd", "id": "sirfetchd",
+     "types": ["fighting"], "base": {"hp": 62, "atk": 135, "def": 95, "spa": 68, "spd": 82, "spe": 65},
+     "abilities": ["Steadfast"], "hidden": "Scrappy"},
+
+    {"ko": "찌르성게", "en": "Pincurchin", "id": "pincurchin",
+     "types": ["electric"], "base": {"hp": 48, "atk": 101, "def": 95, "spa": 91, "spd": 85, "spe": 15},
+     "abilities": ["Lightning Rod"], "hidden": "Electric Surge"},
+
+    {"ko": "에써르 (수컷의 모습)", "en": "Indeedee (Male)", "id": "indeedee",
+     "types": ["psychic", "normal"], "base": {"hp": 60, "atk": 65, "def": 55, "spa": 105, "spd": 95, "spe": 95},
+     "abilities": ["Inner Focus", "Synchronize"], "hidden": "Psychic Surge"},
+
+    {"ko": "에써르 (암컷의 모습)", "en": "Indeedee (Female)", "id": "indeedeef",
+     "types": ["psychic", "normal"], "base": {"hp": 70, "atk": 55, "def": 65, "spa": 95, "spd": 105, "spe": 85},
+     "abilities": ["Own Tempo", "Synchronize"], "hidden": "Psychic Surge"},
+
+    {"ko": "올리르바", "en": "Arboliva", "id": "arboliva",
+     "types": ["grass", "normal"], "base": {"hp": 78, "atk": 69, "def": 90, "spa": 125, "spd": 109, "spe": 39},
+     "abilities": ["Seed Sower"], "hidden": "Harvest"},
+
+    {"ko": "시비꼬 (그린 페더)", "en": "Squawkabilly (Green Plumage)", "id": "squawkabilly",
+     "types": ["normal", "flying"], "base": {"hp": 82, "atk": 96, "def": 51, "spa": 45, "spd": 51, "spe": 92},
+     "abilities": ["Intimidate", "Hustle"], "hidden": "Guts"},
+
+    {"ko": "시비꼬 (블루 페더)", "en": "Squawkabilly (Blue Plumage)", "id": "squawkabillyblue",
+     "types": ["normal", "flying"], "base": {"hp": 82, "atk": 96, "def": 51, "spa": 45, "spd": 51, "spe": 92},
+     "abilities": ["Intimidate", "Hustle"], "hidden": "Guts"},
+
+    {"ko": "시비꼬 (옐로 페더)", "en": "Squawkabilly (Yellow Plumage)", "id": "squawkabillyyellow",
+     "types": ["normal", "flying"], "base": {"hp": 82, "atk": 96, "def": 51, "spa": 45, "spd": 51, "spe": 92},
+     "abilities": ["Intimidate", "Hustle"], "hidden": "Sheer Force"},
+
+    {"ko": "시비꼬 (화이트 페더)", "en": "Squawkabilly (White Plumage)", "id": "squawkabillywhite",
+     "types": ["normal", "flying"], "base": {"hp": 82, "atk": 96, "def": 51, "spa": 45, "spd": 51, "spe": 92},
+     "abilities": ["Intimidate", "Hustle"], "hidden": "Sheer Force",
+     "note": "All four plumages share stats and moves; only the hidden ability differs."},
+
+    {"ko": "마피티프", "en": "Mabosstiff", "id": "mabosstiff",
+     "types": ["dark"], "base": {"hp": 80, "atk": 120, "def": 90, "spa": 60, "spd": 70, "spe": 85},
+     "abilities": ["Intimidate", "Guard Dog"], "hidden": "Stakeout"},
+
+    {"ko": "드닐레이브", "en": "Baxcalibur", "id": "baxcalibur",
+     "types": ["dragon", "ice"], "base": {"hp": 115, "atk": 145, "def": 92, "spa": 75, "spd": 86, "spe": 87},
+     "abilities": ["Thermal Exchange"], "hidden": "Ice Body",
+     "note": "Not named in the patch list, which has only 메가드닐레이브, and not in the current format either. Recorded because a Mega needs a base; see open_questions."}
+  ],
+
+  "megas_not_in_the_mainline_games": [
+    {"ko": "메가앱솔Z", "base": "앱솔", "stone": "앱솔나이트Z"},
+    {"ko": "메가한카리아스Z", "base": "한카리아스", "stone": "한카리아스나이트Z"},
+    {"ko": "메가루카리오Z", "base": "루카리오", "stone": "루카리오나이트Z"},
+    {"ko": "메가갑주무사", "base": "갑주무사", "stone": "갑주무사나이트"},
+    {"ko": "메가드닐레이브", "base": "드닐레이브", "stone": "드닐레이브나이트"}
+  ],
+  "_megas_note": "Five Megas with no mainline counterpart, so there is nothing to look up. Stats and abilities have to come from Champions itself once the servers are open. 위기회피 and 파동의방호 are the two announced abilities that belong to no species above, so they most likely sit here.",
+
+  "items": {
+    "mega_stones": ["앱솔나이트Z", "한카리아스나이트Z", "루카리오나이트Z",
+                    "보만다나이트", "갑주무사나이트", "드닐레이브나이트"],
+    "held": [
+      {"ko": "대파", "en": "Leek", "id": "leek",
+       "effect": "Raises the critical-hit stage by 2 for 파오리 and 창파나이트, per the patch note."},
+      {"ko": "울퉁불퉁멧", "en": "Rocky Helmet", "id": "rockyhelmet"},
+      {"ko": "풍선", "en": "Air Balloon", "id": "airballoon"},
+      {"ko": "레드카드", "en": "Red Card", "id": "redcard"},
+      {"ko": "조임밴드", "en": "Binding Band", "id": "bindingband"},
+      {"ko": "탈출버튼", "en": "Eject Button", "id": "ejectbutton"},
+      {"ko": "노말주얼", "en": "Normal Gem", "id": "normalgem"},
+      {"ko": "그라운드코트", "en": "Terrain Extender", "id": "terrainextender"},
+      {"ko": "일렉트릭시드", "en": "Electric Seed", "id": "electricseed"},
+      {"ko": "사이코시드", "en": "Psychic Seed", "id": "psychicseed"},
+      {"ko": "미스트시드", "en": "Misty Seed", "id": "mistyseed"},
+      {"ko": "그래스시드", "en": "Grassy Seed", "id": "grassyseed"}
+    ]
+  },
+
+  "abilities": [
+    {"ko": "도주", "id": "runaway", "engine": "already implemented"},
+    {"ko": "해감액", "id": "liquidooze", "engine": "implemented 2026-09-09"},
+    {"ko": "주눅", "id": "unnerve", "engine": "already implemented"},
+    {"ko": "풀모피", "id": "grasspelt", "engine": "implemented 2026-09-09"},
+    {"ko": "위기회피", "id": "emergencyexit", "engine": "implemented 2026-09-09"},
+    {"ko": "잠복", "id": "stakeout", "engine": "implemented 2026-09-09"},
+    {"ko": "사이코메이커", "id": "psychicsurge", "engine": "already implemented"},
+    {"ko": "그래스메이커", "id": "grassysurge", "engine": "already implemented"},
+    {"ko": "리베로", "id": "libero", "engine": "already implemented"},
+    {"ko": "펑크록", "id": "punkrock", "engine": "already implemented"},
+    {"ko": "강철정신", "id": "steelyspirit", "engine": "implemented 2026-09-09"},
+    {"ko": "넘치는씨", "id": "seedsower", "engine": "implemented 2026-09-09"},
+    {"ko": "열교환", "id": "thermalexchange", "engine": "already implemented"},
+    {"ko": "파수견", "id": "guarddog", "engine": "implemented 2026-09-09"},
+    {"ko": "파동의방호", "id": null, "engine": "unresolved",
+     "note": "Could not be matched to a known ability. Not guessed at."}
+  ],
+
+  "move_patches_checked_against_the_engine": {
+    "already_agreed": ["전기자석파 <- 땅타입", "번개·폭풍 쾌청 50%",
+                       "대타출동 <- 소리 기술 관통", "기선제압 <- 선공기 없으면 실패",
+                       "독·맹독 <- 독/강철", "화상 <- 불꽃", "마비 <- 전기",
+                       "씨뿌리기 <- 풀"],
+    "still_to_do": ["독가루·저리가루·수면가루·버섯포자·목화포자·마법가루 <- 풀타입 면역 (분노가루는 이미 됨)",
+                    "특성 포자 <- 풀타입 면역"],
+    "held_at_hk_request": ["가속의 교체 턴 미발동"]
+  }
+}

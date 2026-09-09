@@ -383,11 +383,24 @@ def test_a_party_source_repeats_its_teams(dex, regulation):
 
 
 def test_a_party_subset_is_checked_when_it_is_written(dex, regulation):
-    """Not once a worker is three minutes into a run."""
-    from pkcm.engine.legality import parse_team_source, ranker_parties
+    """Not once a worker is three minutes into a run.
+
+    In two parts, because which indices exist depends on which party file the
+    run was pointed at and argparse reads its arguments in declaration order.
+    Parsing takes the shape; ``check_team_source`` takes the bounds, once the
+    file is known. Both still happen before a worker is spawned.
+    """
+    from pkcm.engine.legality import (check_team_source, parse_team_source,
+                                      ranker_parties)
 
     assert parse_team_source("parties:0,1") == "parties:0,1"
     assert parse_team_source("ranker") == "ranker"
-    for bad in ("parties:%d" % len(ranker_parties()), "parties:x", "rankers"):
+    for bad in ("parties:x", "rankers"):
         with pytest.raises(ValueError):
             parse_team_source(bad)
+
+    beyond = "parties:%d" % len(ranker_parties())
+    assert parse_team_source(beyond) == beyond          # shape is fine
+    with pytest.raises(ValueError):
+        check_team_source(beyond)                       # the archive is not
+    check_team_source(beyond, "data/champions/parties_field.json")

@@ -353,6 +353,9 @@ def _announce_arrival(ctx: Context, player: int, position: int) -> None:
         return
     ref: Ref = (player, slot)
     pokemon = ctx.state.pokemon(*ref)
+    # Which turn this one arrived on. Stakeout asks, and it has to be a slot
+    # record rather than a volatile because the answer outlives the arrival.
+    side.status_data[slot]["arrived"] = ctx.state.turn
     ctx.emit(
         ev.switch_in(player, slot, ctx.state.species_id(*ref), side.hp[slot], pokemon.max_hp)
     )

@@ -480,6 +480,12 @@ class Notebook:
             "mean": round(floor.mean, 4),
             "worst": round(floor.minimum, 4),
             "games": floor.games,
+            # What it actually brought. A high floor carried by three of the
+            # six is a different party from a high floor carried by six, and
+            # the floor alone cannot tell them apart.
+            "live": floor.selection.live(),
+            "rigidity": round(floor.selection.rigidity, 3),
+            "bring": [round(rate, 3) for rate in floor.selection.rates],
             "origin": candidate.origin,
             "stage": stage,
             "basis": basis,

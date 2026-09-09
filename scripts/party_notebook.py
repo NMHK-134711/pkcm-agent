@@ -47,12 +47,14 @@ from pkcm.train.party_evolve import Notebook                    # noqa: E402
 
 
 def show(dex, row: dict) -> None:
-    """One party in full, in the shape the .txt parties are read in."""
-    for one in row["team"]:
+    """One party in full, with how often each slot was actually brought."""
+    rates = row.get("bring") or [None] * len(row["team"])
+    for one, rate in zip(row["team"], rates):
         species = dex.species[one["species"]]
         item = f" @ {dex.items[one['item']].name}" if one.get("item") else ""
         ability = one.get("ability") or "-"
-        print(f"    {species.name}{item}")
+        seen = "" if rate is None else f"  [brought {rate:.0%}]"
+        print(f"    {species.name}{item}{seen}")
         print(f"      {ability} | {one['nature']} | "
               f"{'/'.join(str(value) for value in one['sp'])}")
         print(f"      {', '.join(dex.moves[move].name for move in one['moves'])}")
@@ -74,6 +76,13 @@ def main() -> int:
                         help="ignore rows measured on fewer games than this. "
                              "The honest way to read a book that mixes a "
                              "first-round grading with a judged one")
+    parser.add_argument("--min-live", type=int, default=0,
+                        help="ignore parties that brought fewer than this "
+                             "many of their six. hk's methodology note: a "
+                             "slot that answers one archetype is dead weight "
+                             "in every other game, and the floor cannot see "
+                             "it. Rows written before this was measured have "
+                             "no count and are kept")
     parser.add_argument("--export", default=None,
                         help="write the top rows as a parties file, so they "
                              "can be run through judge.py or a round robin")
@@ -89,7 +98,8 @@ def main() -> int:
         return 0
 
     kept = {key: row for key, row in notebook.seen.items()
-            if row["games"] >= args.min_games}
+            if row["games"] >= args.min_games
+            and row.get("live", 99) >= args.min_live}
     print(f"{', '.join(args.path)}: {len(notebook.seen)} parties"
           + (f", {len(kept)} with {args.min_games}+ games"
              if args.min_games else ""))
@@ -106,6 +116,9 @@ def main() -> int:
                   f"[{row['low']:.3f}, {row['high']:.3f}] "
                   f"mean {row['mean']:.3f} worst {row['worst']:.3f} "
                   f"{row['games']:4} games  {row['stage']:10} {row['origin'][:24]}")
+            if row.get("live") is not None:
+                print(f"      {row['live']}/6 live, same three "
+                      f"{row['rigidity']:.0%} of games")
             print(f"      {names}")
             if rank <= args.show:
                 show(dex, row)

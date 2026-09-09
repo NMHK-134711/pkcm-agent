@@ -101,6 +101,62 @@ class Matchup:
 
 
 @dataclass(frozen=True, slots=True)
+class Selection:
+    """Which of the six actually got brought, over all the games played.
+
+    The floor says how bad the bad matchups are. It does not say whether the
+    party got there on three Pokemon or on six, and hk's methodology note is
+    emphatic that the difference decides games: a slot that only answers one
+    archetype is dead weight in every other match, and you are playing three
+    against two before the first turn.
+
+    A high floor built on a dead slot reads exactly like a high floor built on
+    a flexible six, so this is measured separately rather than folded into the
+    number.
+
+    **It measures the picker, not the party.** The three are chosen by the
+    agent's team-preview heuristic, which averages over the opponent's six and
+    is deliberately optimistic. A rigid-looking party may be a rigid party or
+    a rigid picker. Every party in a run is picked by the same heuristic, so
+    comparisons hold; the absolute value does not.
+    """
+
+    #: Times each registered slot was brought, in team order.
+    brought: tuple[int, ...] = ()
+    #: The distinct three-Pokemon selections used, with their counts, commonest
+    #: first. Truncated -- the tail of one-off selections is not informative.
+    combos: tuple[tuple[tuple[int, ...], int], ...] = ()
+    battles: int = 0
+
+    @property
+    def rates(self) -> tuple[float, ...]:
+        if not self.battles:
+            return tuple(0.0 for _ in self.brought)
+        return tuple(count / self.battles for count in self.brought)
+
+    def live(self, floor: float = 0.15) -> int:
+        """How many of the six are brought often enough to be doing work.
+
+        Six of six is a party whose selection genuinely answers the opponent;
+        three of six is three Pokemon and three passengers, whatever the
+        floor says.
+        """
+        return sum(1 for rate in self.rates if rate >= floor)
+
+    @property
+    def rigidity(self) -> float:
+        """Share of battles that used the single commonest three.
+
+        1.0 is a party that brings the same three every game -- which is not
+        automatically bad, but it is a different thing from a party that picks
+        its three, and the floor cannot tell them apart.
+        """
+        if not self.battles or not self.combos:
+            return 0.0
+        return self.combos[0][1] / self.battles
+
+
+@dataclass(frozen=True, slots=True)
 class Floor:
     """What a party is worth, read from the bottom rather than the middle."""
 
@@ -112,16 +168,19 @@ class Floor:
     high: float
     games: int
     matchups: tuple[Matchup, ...]
+    selection: Selection = Selection()
 
     def worst(self, count: int = 5) -> tuple[Matchup, ...]:
         return tuple(sorted(self.matchups, key=lambda m: m.rate)[:count])
 
 
-def summarise(matchups: Sequence[Matchup], tail: float) -> Floor:
+def summarise(matchups: Sequence[Matchup], tail: float,
+              selection: Selection | None = None) -> Floor:
     """Fold the per-opponent records into the floor and its neighbours."""
+    selection = selection or Selection()
     played = [m for m in matchups if m.decided]
     if not played:
-        return Floor(0.5, 0.5, 0.5, 0.0, 1.0, 0, tuple(matchups))
+        return Floor(0.5, 0.5, 0.5, 0.0, 1.0, 0, tuple(matchups), selection)
     ordered = sorted(played, key=lambda m: m.rate)
     take = max(1, round(len(ordered) * tail))
     tail_set = ordered[:take]
@@ -138,6 +197,7 @@ def summarise(matchups: Sequence[Matchup], tail: float) -> Floor:
         low=low, high=high,
         games=sum(m.decided + m.draws for m in played),
         matchups=tuple(matchups),
+        selection=selection,
     )
 
 
@@ -170,25 +230,33 @@ def _needs_games(matchups: Sequence[Matchup], tail: float) -> list[int]:
 
 
 def play_pair(dex: Dex, config: FloorConfig, ours: Team, theirs: Team,
-              repeat: int) -> tuple[int, int, int]:
-    """Both seatings of one pairing. Returns our wins, losses and draws."""
+              repeat: int) -> tuple[int, int, int, tuple[tuple[int, ...], ...]]:
+    """Both seatings of one pairing.
+
+    Returns our wins, losses, draws, and the selections we brought -- one per
+    battle, as indices into the registered six. ``SideState.selection`` is
+    already the brought order, so this costs nothing beyond reading it off the
+    finished state.
+    """
     battle_config = BattleConfig(dex=dex, regulation=dex.regulation(config.regulation),
                                  battle_format=config.battle_format)
     seed = config.seed + repeat
     wins = losses = draws = 0
+    brought: list[tuple[int, ...]] = []
     for swap in (False, True):
         first = SearchPolicy(MCTS(config.search), Rng.from_seed(seed).cursor())
         second = SearchPolicy(MCTS(config.search), Rng.from_seed(seed + 7777).cursor())
         teams = (theirs, ours) if swap else (ours, theirs)
         state = play_out(new_battle(battle_config, teams, seed=seed), (first, second))
         seat = 1 if swap else 0
+        brought.append(tuple(sorted(state.sides[seat].selection)))
         if state.winner is None:
             draws += 1
         elif state.winner == seat:
             wins += 1
         else:
             losses += 1
-    return wins, losses, draws
+    return wins, losses, draws, tuple(brought)
 
 
 # -- worker state, the same shape as matchup's and tournament's ------------- #
@@ -215,11 +283,11 @@ def _start_worker(config: FloorConfig, ours: Team) -> None:
     _OURS = ours
 
 
-def _play(task: tuple[int, int]) -> tuple[int, int, int, int]:
+def _play(task: tuple[int, int]) -> tuple:
     opponent, repeat = task
-    wins, losses, draws = play_pair(_DEX, _CONFIG, _OURS,
-                                    _FIELD[opponent].team, repeat)
-    return opponent, wins, losses, draws
+    wins, losses, draws, brought = play_pair(_DEX, _CONFIG, _OURS,
+                                             _FIELD[opponent].team, repeat)
+    return opponent, wins, losses, draws, brought
 
 
 def score(ours: Team, config: FloorConfig, budget: int,
@@ -242,12 +310,18 @@ def score(ours: Team, config: FloorConfig, budget: int,
         opponents = sorted(random.Random(config.seed).sample(opponents,
                                                              config.opponents))
     records = {i: Matchup(i) for i in opponents}
+    # Counted over every battle, not just the tail's: the question "how many
+    # of the six are live" is about the whole field, and the tail is where a
+    # party is least free to choose.
+    slots = [0] * len(ours)
+    combos: dict[tuple[int, ...], int] = {}
+    battles = 0
     count = workers if workers is not None else default_workers()
     spent = 0
     repeat = 0
 
     def run(targets: list[int], pairings: int) -> None:
-        nonlocal spent, repeat
+        nonlocal spent, repeat, battles
         tasks = [(opponent, repeat + step)
                  for step in range(pairings) for opponent in targets]
         repeat += pairings
@@ -260,14 +334,24 @@ def score(ours: Team, config: FloorConfig, budget: int,
             results = map_unordered(_play, tasks, initializer=_start_worker,
                                     initargs=(config, ours), workers=count,
                                     what="pairing")
-        for opponent, wins, losses, draws in results:
+        for opponent, wins, losses, draws, brought in results:
             records[opponent] += Matchup(opponent, wins, losses, draws)
             spent += wins + losses + draws
+            for one in brought:
+                battles += 1
+                combos[one] = combos.get(one, 0) + 1
+                for index in one:
+                    slots[index] += 1
 
     # Each pairing is two battles, so a round of N opponents costs 2N.
+    def brought_so_far() -> Selection:
+        ranked = sorted(combos.items(), key=lambda pair: -pair[1])[:8]
+        return Selection(brought=tuple(slots), combos=tuple(ranked),
+                         battles=battles)
+
     first = max(1, math.ceil(config.seed_games / 2))
     run(opponents, first)
-    floor = summarise(list(records.values()), config.tail)
+    floor = summarise(list(records.values()), config.tail, brought_so_far())
     if on_round:
         on_round(floor, spent)
 
@@ -279,7 +363,8 @@ def score(ours: Team, config: FloorConfig, budget: int,
             if pairings <= 0:
                 break
         run(targets, pairings)
-        floor = summarise(list(records.values()), config.tail)
+        floor = summarise(list(records.values()), config.tail,
+                          brought_so_far())
         if on_round:
             on_round(floor, spent)
 

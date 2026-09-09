@@ -10,7 +10,7 @@ from __future__ import annotations
 
 import random
 
-from pkcm.train.party_floor import Matchup, summarise
+from pkcm.train.party_floor import Matchup, Selection, summarise
 from pkcm.train.party_floor import _needs_games as needs_games
 
 
@@ -90,3 +90,63 @@ def test_the_tail_narrows_as_its_games_accumulate():
 
     assert thick.high - thick.low < thin.high - thin.low
     assert thick.games > thin.games
+
+
+def test_a_dead_slot_is_invisible_to_the_floor():
+    """Why the selection is measured separately.
+
+    Two parties with the same matchup record. One brought all six across the
+    field; the other never brought its sixth at all and was playing three
+    against two in every game. The floor is identical -- it is computed from
+    win rates and knows nothing about who was on the mat -- so the difference
+    has to come from somewhere else.
+    """
+    rows = field([0.3] * 4 + [0.55] * 16, games=8, seed=3)
+    flexible = Selection(brought=(48, 44, 40, 38, 36, 34), battles=80,
+                         combos=((( 0, 1, 2), 20), ((0, 1, 3), 18)))
+    lopsided = Selection(brought=(80, 80, 80, 0, 0, 0), battles=80,
+                         combos=(((0, 1, 2), 80),))
+
+    assert summarise(rows, 0.25, flexible).cvar ==         summarise(rows, 0.25, lopsided).cvar
+    assert flexible.live() == 6
+    assert lopsided.live() == 3
+    assert lopsided.rigidity == 1.0, "the same three every single game"
+    assert flexible.rigidity < 0.3
+
+
+def test_the_selection_record_is_empty_rather_than_wrong_when_unmeasured():
+    """field_report.py calls summarise with no selection and must not break."""
+    rows = field([0.5] * 8, games=8, seed=4)
+    floor = summarise(rows, 0.25)
+
+    assert floor.selection.battles == 0
+    assert floor.selection.rates == ()
+    assert floor.selection.live() == 0
+    assert floor.selection.rigidity == 0.0
+
+
+def test_every_battle_brings_exactly_three():
+    """The counts come off a real battle, so the invariant is worth asserting.
+
+    Three of six is the regulation, and a bug here would show up as a party
+    that looks like it brought four -- which would quietly break every rate
+    the Selection reports.
+    """
+    from pkcm.data.dex import load_dex
+    from pkcm.engine.legality import ranker_parties
+    from pkcm.search import SearchConfig
+    from pkcm.train.party_floor import FloorConfig, play_pair
+
+    dex = load_dex()
+    parties = ranker_parties("data/champions/parties_field.json")
+    config = FloorConfig(parties="data/champions/parties_field.json",
+                         regulation="m_c",
+                         search=SearchConfig(iterations=8, determinizations=2))
+    _, _, _, brought = play_pair(dex, config, parties[0].team,
+                                 parties[1].team, repeat=0)
+
+    assert len(brought) == 2, "both seatings are played"
+    for one in brought:
+        assert len(one) == 3
+        assert len(set(one)) == 3, "the same Pokemon cannot be brought twice"
+        assert all(0 <= index < 6 for index in one)

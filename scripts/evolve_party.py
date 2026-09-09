@@ -195,6 +195,16 @@ def main() -> int:
                 print(f"  {rank}. floor {floor.cvar:.3f} [{floor.low:.3f}, "
                       f"{floor.high:.3f}] over {floor.games} games  "
                       f"{describe(dex, one.team)}", flush=True)
+                print(f"      brought {floor.selection.live()}/6 of the team, "
+                      f"same three in {floor.selection.rigidity:.0%} of games",
+                      flush=True)
+                dead = [dex.species[slot.species].name
+                        for slot, rate in zip(one.team, floor.selection.rates)
+                        if rate < 0.15]
+                if dead:
+                    # The methodology note's warning, made visible: a slot
+                    # nothing brings is a slot you are playing without.
+                    print(f"      barely brought: {', '.join(dead)}", flush=True)
             judged.sort(key=lambda pair: -pair[0].cvar)
             print(f"\nbest under the agent that can see: "
                   f"{describe(dex, judged[0][1].team)}", flush=True)

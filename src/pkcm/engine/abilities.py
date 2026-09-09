@@ -367,10 +367,11 @@ register("ability", "fluffy", name="Fluffy",
 #: 접촉하는 기술의 데미지를 반감시킨다" -- hk, from the game. Fluffy's contact
 #: half with none of the Fire drawback.
 #:
-#: The id is ours. The ability is new enough that Showdown's Champions mod
-#: does not carry it -- its six originals are Dragonize, Eelevate, Fire Mane,
-#: Mega Sol, Piercing Drill and Spicy Spray -- and no English name for it
-#: exists to copy. Rename it if one appears.
+#: The id was coined here, before the English name was published, because
+#: Showdown's Champions mod does not carry the ability -- its six originals
+#: are Dragonize, Eelevate, Fire Mane, Mega Sol, Piercing Drill and Spicy
+#: Spray. It happens to be the official name (hk confirmed, 2026-09-09), so
+#: nothing needs renaming, but that was luck rather than a lookup.
 register("ability", "auraguard", name="Aura Guard",
          modify_damage=_defender_damage(lambda ctx, a, d, move:
              X0_5 if CONTACT in move.flags else 0))

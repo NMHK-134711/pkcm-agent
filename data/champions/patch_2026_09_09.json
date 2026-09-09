@@ -914,8 +914,9 @@
       "ko": "파동의방호",
       "id": "auraguard",
       "engine": "implemented 2026-09-09",
-      "note": "The id is ours: no English name exists yet, and Showdown's Champions mod does not carry the ability. Rename if an official one appears.",
-      "effect": "Halves the damage of contact moves used against the holder."
+      "note": "The id was coined here before the English name was published, because Showdown's Champions mod does not carry the ability. It turned out to be the official name (hk, 2026-09-09) -- luck, not a lookup.",
+      "effect": "Halves the damage of contact moves used against the holder.",
+      "confirmed": true
     }
   ],
   "move_patches_checked_against_the_engine": {

@@ -90,6 +90,11 @@ def main() -> int:
     parser.add_argument("--evaluation-b", default=None,
                         choices=("material", "pressure", "blind"),
                         help="side B's")
+    parser.add_argument("--parties", default=None,
+                        help="the file --teams parties draws from. Default "
+                             "is the committed archive, which holds exactly "
+                             "one party carrying a screen; the 243-party field "
+                             "is data/champions/parties_field.json")
     parser.add_argument("--rollout-turns", type=int, default=None,
                         help="play the position out this many turns at a leaf "
                              "instead of counting what is left. The material "
@@ -139,6 +144,12 @@ def main() -> int:
     parser.add_argument("--format", default="singles", choices=("singles", "doubles"))
     parser.add_argument("--workers", type=int, default=None)
     args = parser.parse_args()
+    # Deferred from parsing: which indices exist depends on --parties.
+    from pkcm.engine.legality import check_team_source
+
+    for source in (args.teams, args.foe_teams):
+        if source:
+            check_team_source(source, args.parties)
 
     workers = args.workers if args.workers is not None else default_workers()
     def search_for(weight, belief, leaf_batch, evaluation=None,
@@ -166,7 +177,7 @@ def main() -> int:
 
     config = MatchConfig(
         checkpoint=args.checkpoint, battle_format=args.format, trust=args.trust,
-        teams=args.teams, foe_teams=args.foe_teams,
+        teams=args.teams, foe_teams=args.foe_teams, parties=args.parties,
         checkpoint_b=args.checkpoint_b,
         belief_pool=args.belief_pool,
         **({} if args.team_seed is None else {"team_seed": args.team_seed}),

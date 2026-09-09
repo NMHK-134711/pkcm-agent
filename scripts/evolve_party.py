@@ -49,6 +49,8 @@ def main() -> int:
                         default=str(ROOT / "data/champions/parties_field.json"),
                         help="the field to be measured against, and the warm "
                              "start the population is seeded from")
+    parser.add_argument("--regulation", default="m_c",
+                        help="which roster the candidates must be legal in")
     parser.add_argument("--population", type=int, default=24)
     parser.add_argument("--generations", type=int, default=8)
     parser.add_argument("--budget", type=int, default=3000,
@@ -84,7 +86,7 @@ def main() -> int:
     args = parser.parse_args()
 
     dex = load_dex()
-    regulation = dex.regulation("m_b")
+    regulation = dex.regulation(args.regulation)
     if args.core not in dex.species:
         parser.error(f"no species called {args.core!r}")
     workers = args.workers if args.workers is not None else default_workers()
@@ -95,6 +97,7 @@ def main() -> int:
         core=args.core, parties=args.parties, population=args.population,
         generations=args.generations, budget=args.budget, seed=args.seed,
         floor=FloorConfig(parties=args.parties, search=searching,
+                          regulation=args.regulation,
                           seed_games=args.seed_games,
                           opponents=args.opponents))
 
@@ -133,6 +136,7 @@ def main() -> int:
         # finalist. Not the whole field: see --judge-opponents.
         judging = FloorConfig(
             parties=args.parties, seed_games=args.seed_games,
+            regulation=args.regulation,
             opponents=args.judge_opponents,
             search=SearchConfig(iterations=args.judge_iterations,
                                 determinizations=max(4, args.judge_iterations // 20),

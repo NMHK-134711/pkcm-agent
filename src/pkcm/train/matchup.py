@@ -51,6 +51,9 @@ class MatchConfig:
     #: way from the game: 37.5% of their Pokemon carry no same-type
     #: attack at all, against 4.9% of the ranker pool's.
     teams: str = "random"
+    #: Which file ``parties`` draws from. ``None`` is the committed archive of
+    #: forty-six; the 253-party field is the other one worth naming.
+    parties: str | None = None
     #: The opponent seat's distribution. ``None`` follows ``teams``. Both
     #: seatings are played with the pair held fixed, so an asymmetric draw
     #: still has each side pilot each team once.
@@ -112,7 +115,8 @@ def play_match(dex: Dex, config: MatchConfig, match: int) -> Record:
                   Rng.from_seed(config.team_seed + match * 2 + offset).cursor(),
                   config.battle_format,
                   config.teams if offset == 1 else
-                  (config.foe_teams or config.teams))
+                  (config.foe_teams or config.teams),
+                  parties_path=config.parties)
         for offset in (1, 2)
     )
     evaluator = _evaluator(dex, config, config.checkpoint) if config.checkpoint else None

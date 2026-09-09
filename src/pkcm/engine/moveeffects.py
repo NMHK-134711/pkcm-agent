@@ -23,7 +23,7 @@ from pkcm.data.dex import Stat
 from pkcm.engine import mutate
 from pkcm.engine.effects import Context, Ref, register
 from pkcm.engine.events import Event
-from pkcm.engine.moves import X1_5, chain_modify
+from pkcm.engine.moves import X1_5, X2, chain_modify
 from pkcm.engine.mutate import boost, current_hp, fraction_of_max, heal, max_hp
 from pkcm.engine.state import BOOST_INDEX, BOOST_STATS
 
@@ -2010,3 +2010,93 @@ register("volatile", "throatchop", name="Throat Chop",
 
 register("volatile", "smackdown", name="Smack Down",
          try_volatile=_pinned_to_the_ground)
+
+
+# --------------------------------------------------------------------------- #
+# The 2026-09-09 update's three unhandled moves
+# --------------------------------------------------------------------------- #
+
+
+def _court_change(ctx, user, target, move) -> bool:
+    """"Swaps user's field effects with the opposing side."
+
+    Everything this engine keeps in ``SideState.conditions`` is on the move's
+    list -- the screens, the four hazards, Tailwind, Healing Wish -- so the two
+    dictionaries change hands whole. Anything added later that should *not*
+    travel would have to be held back here, and there is nothing like that yet.
+    """
+    ours, theirs = ctx.state.sides[user[0]], ctx.state.sides[1 - user[0]]
+    if not ours.conditions and not theirs.conditions:
+        return _fail(ctx, user, "there is nothing on either side")
+    ours.conditions, theirs.conditions = theirs.conditions, ours.conditions
+    ctx.emit(Event("court_change", side=user[0], slot=user[1],
+                   detail=",".join(sorted(set(ours.conditions)
+                                          | set(theirs.conditions)))))
+    return True
+
+
+SPECIAL_MOVES["courtchange"] = _court_change
+
+
+def _octolock(ctx, user, target, move) -> bool:
+    """"Traps target, lowers Def and SpD by 1 each turn."
+
+    Two volatiles rather than one. The tick lives on ``octolock``; the hold is
+    the ordinary ``trapped``, so a Shed Shell still answers it and it lifts
+    when the one who cast it leaves the field -- both of which the move's own
+    description asks for.
+    """
+    if "octolock" in _volatiles(ctx, target):
+        return _fail(ctx, user, "already locked")
+    landed = mutate.add_volatile(ctx, target, "octolock", source=user)
+    if landed:
+        mutate.add_volatile(ctx, target, "trapped", source=user, by=user)
+    return landed
+
+
+SPECIAL_MOVES["octolock"] = _octolock
+
+register("volatile", "octolock", name="Octolock",
+         residual=lambda ctx, ref, **_:
+             boost(ctx, ref, {"def": -1, "spd": -1}, source=ref))
+
+
+def _glaive_rush_lands(ctx, user, target, move) -> bool:
+    """"If this move is successful, moves targeted at the user deal double
+    damage and do not check accuracy until the user's next turn."
+
+    The volatile goes on the *user*, which is what makes this move a cost as
+    well as an attack.
+    """
+    mutate.add_volatile(ctx, user, "glaiverush", source=user)
+    return True
+
+
+SPECIAL_MOVES["glaiverush"] = _glaive_rush_lands
+
+
+def _glaive_rush_doubles(ctx, ref, value, attacker, defender, move=None,
+                         crit=False, **_):
+    if defender is None or ref != defender:
+        return None
+    return chain_modify(value, X2)
+
+
+def _glaive_rush_cannot_dodge(ctx, ref, attacker, defender, move=None, **_):
+    return True if defender is not None and ref == defender else None
+
+
+def _glaive_rush_expires(ctx, ref, **_):
+    """It lasts "until the user's next turn", so the user's own move ends it.
+
+    Not the end of the turn: the whole point is that the opponent gets a free
+    swing in between, and clearing it with the flinches and the shields would
+    give that back.
+    """
+    mutate.remove_volatile(ctx, ref, "glaiverush")
+
+
+register("volatile", "glaiverush", name="Glaive Rush",
+         modify_damage=_glaive_rush_doubles,
+         never_misses=_glaive_rush_cannot_dodge,
+         commit_move=_glaive_rush_expires)

@@ -38,15 +38,15 @@ def regulation(dex):
 
 
 def test_champions_cuts_a_quarter_of_the_move_list(dex):
-    """497, from the ROM's own availability flag.
+    """512 in regulation M-C, from the ROM's own availability flag.
 
-    It was 500 while Showdown's ``isNonstandard`` answered this, and the three
-    it kept -- Spore, Soft-Boiled, Power Shift -- are not in the game. The
-    포케챔스 dex independently lists 497, which is the same answer from a
-    different direction.
+    It was 497 before the 2026-09-09 update, which added fifteen moves and
+    took none away. And 500 before that, while Showdown's ``isNonstandard``
+    answered the question and kept three the game does not have -- Spore,
+    Soft-Boiled and Power Shift, which are still absent.
     """
     pool = [m for m in dex.moves.values() if dex.exists_in_champions(m)]
-    assert len(pool) == 497, "base data calls 685 standard; Champions has 497"
+    assert len(pool) == 512, "base data calls 685 standard; Champions has 512"
     for absent in ("spore", "softboiled", "powershift"):
         assert not dex.exists_in_champions(dex.moves[absent]), absent
 

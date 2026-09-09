@@ -268,7 +268,13 @@ def set_errors(dex: Dex, regulation: Regulation, pokemon_set: PokemonSet) -> lis
             errors.append(f"{label}: unknown move {move_id!r}")
             continue
         move = dex.moves[move_id]
-        if move.raw.get("isNonstandard") is not None:
+        # ``dex.exists_in_champions`` rather than Showdown's isNonstandard:
+        # the ROM's availability flag is the game's own answer, and the two
+        # disagree. The 2026-09-09 update made that visible -- the ROM added
+        # Slash and fifteen others, while overrides.json, which comes from
+        # Showdown's Champions mod and predates the patch, still called them
+        # absent. Every random team carrying one was rejected as illegal.
+        if not dex.exists_in_champions(move):
             errors.append(f"{label}: {move.name} does not exist in Champions")
         elif (clause := clause_violation(move)) is not None:
             errors.append(f"{label}: {move.name} is banned by the {clause}")

@@ -1745,3 +1745,159 @@ def test_no_retreat_raises_each_stat_once(dex, config):
     for stat in ("atk", "def", "spa", "spd", "spe"):
         assert state.sides[0].boost(0, stat) == 1, stat
     assert state.sides[0].has_volatile(0, "trapped"), "and it is pinned down"
+
+
+# --------------------------------------------------------------------------- #
+# The three moves the M-C update added that had no handler
+# --------------------------------------------------------------------------- #
+
+
+def _mc_battle(dex, ours, theirs, seed=4):
+    from pkcm.engine.actions import Action
+    from pkcm.engine.battle import step
+    from pkcm.engine.pokemon import PokemonSet
+    from pkcm.engine.state import BattleConfig, new_battle
+
+    filler = (PokemonSet(species="pikachu", ability="__none__",
+                         moves=("tackle",), nature="serious", sp=(0,) * 6),
+              PokemonSet(species="alakazam", ability="__none__",
+                         moves=("tackle",), nature="serious", sp=(0,) * 6))
+    config = BattleConfig(dex=dex, regulation=dex.regulation("m_b"),
+                          battle_format="singles")
+    state = new_battle(config, (tuple(ours) + filler, tuple(theirs) + filler),
+                       seed=seed)
+    return step(state, Action.select(0, 1, 2), Action.select(0, 1, 2))[0]
+
+
+def _mc_set(species, ability, moves, item=None, nature="serious", sp=(0,) * 6):
+    from pkcm.engine.pokemon import PokemonSet
+
+    return PokemonSet(species=species, ability=ability, moves=tuple(moves),
+                      item=item, nature=nature, sp=sp)
+
+
+def _hit_on_us(events, move):
+    """Damage to side 0, which the log writes without a ``side=`` tag."""
+    import re
+
+    for event in events:
+        text = str(event)
+        if not text.startswith("damage(") or move not in text:
+            continue
+        if "side=" not in text.split("damage(")[1][:8]:
+            return int(re.search(r"amount=(\d+)", text).group(1))
+    return 0
+
+
+def test_court_change_swaps_the_two_sides(dex):
+    """"Swaps user's field effects with the opposing side."""
+    from pkcm.engine.actions import Action
+    from pkcm.engine.battle import step
+
+    state = _mc_battle(
+        dex,
+        [_mc_set("blissey", "naturalcure",
+                 ("stealthrock", "courtchange", "protect", "softboiled"),
+                 sp=(32, 0, 32, 0, 2, 0))],
+        [_mc_set("garchomp", "roughskin",
+                 ("swordsdance", "dragonclaw", "firefang", "stoneedge"),
+                 nature="jolly", sp=(0, 32, 2, 0, 0, 32))])
+    state, _ = step(state, Action.move(0), Action.move(0))
+    assert "stealthrock" in state.sides[1].conditions
+    assert "stealthrock" not in state.sides[0].conditions
+
+    state, _ = step(state, Action.move(1), Action.move(0))
+    assert "stealthrock" in state.sides[0].conditions, "the rocks did not move"
+    assert "stealthrock" not in state.sides[1].conditions
+
+
+def test_octolock_holds_and_grinds(dex):
+    """"Traps target, lowers Def and SpD by 1 each turn."""
+    from pkcm.engine.actions import Action
+    from pkcm.engine.battle import step
+    from pkcm.engine.state import BOOST_INDEX, legal_actions
+
+    state = _mc_battle(
+        dex,
+        [_mc_set("grapploct", "limber",
+                 ("octolock", "closecombat", "protect", "brickbreak"),
+                 sp=(32, 0, 32, 0, 2, 0))],
+        [_mc_set("blissey", "naturalcure",
+                 ("softboiled", "toxic", "protect", "seismictoss"),
+                 sp=(32, 0, 32, 0, 2, 0)),
+         _mc_set("garchomp", "roughskin",
+                 ("earthquake", "dragonclaw", "firefang", "uturn"),
+                 nature="jolly", sp=(0, 32, 2, 0, 0, 32))])
+    for turn in range(3):
+        state, _ = step(state, Action.move(0 if turn == 0 else 2),
+                        Action.move(0))
+        side = state.sides[1]
+        stages = side.boosts[side.active[0]]
+        assert stages[BOOST_INDEX["def"]] == -(turn + 1), \
+            f"turn {turn + 1}: {stages}"
+        assert stages[BOOST_INDEX["spd"]] == -(turn + 1)
+
+    assert not any(one.kind.name == "SWITCH"
+                   for one in legal_actions(state, 1)), "it could still leave"
+
+
+def test_glaive_rush_costs_the_user_the_next_turn(dex):
+    """"Moves targeted at the user deal double damage and do not check
+    accuracy until the user's next turn."
+
+    The user is slow on purpose. The volatile is cleared as the user commits
+    to its next move, so a faster Glaive Rush user is never punished at all --
+    which is the move as written, and it is the thing the test would miss if
+    the speeds were the other way round.
+    """
+    from pkcm.engine.actions import Action
+    from pkcm.engine.battle import step
+
+    def struck(index):
+        state = _mc_battle(
+            dex,
+            [_mc_set("baxcalibur", "thermalexchange",
+                     ("glaiverush", "dragonclaw", "icefang", "icebeam"),
+                     nature="impish", sp=(32, 0, 32, 0, 2, 0))],
+            [_mc_set("raichu", "static",
+                     ("quickattack", "thunderbolt", "irontail", "charm"),
+                     nature="timid", sp=(32, 0, 32, 0, 2, 0))])
+        # Thunderbolt rather than Protect: a blocked Glaive Rush is not a
+        # successful one, and then there is nothing to measure.
+        state, _ = step(state, Action.move(index), Action.move(1))
+        held = "glaiverush" in state.sides[0].volatiles[state.sides[0].active[0]]
+        state, events = step(state, Action.move(2), Action.move(0))
+        return held, _hit_on_us(events, "quickattack")
+
+    rushed, rush_damage = struck(0)
+    plain, plain_damage = struck(1)
+    assert rushed and not plain, "the volatile went on the wrong move"
+    assert rush_damage > plain_damage * 1.7, (rush_damage, plain_damage)
+
+
+def test_glaive_rush_lets_the_next_hit_through(dex):
+    from pkcm.engine.actions import Action
+    from pkcm.engine.battle import step
+
+    def landed(index):
+        hits = 0
+        for seed in range(30):
+            state = _mc_battle(
+                dex,
+                [_mc_set("baxcalibur", "thermalexchange",
+                         ("glaiverush", "dragonclaw", "icefang", "icebeam"),
+                         nature="impish", sp=(32, 0, 32, 0, 2, 0))],
+                [_mc_set("raichu", "static",
+                         ("zapcannon", "thunderbolt", "irontail", "charm"),
+                         nature="timid", sp=(32, 0, 32, 0, 2, 0))], seed=seed)
+            state, _ = step(state, Action.move(index), Action.move(1))
+            state, events = step(state, Action.move(2), Action.move(0))
+            hits += any("zapcannon" in str(one) and "damage(" in str(one)
+                        for one in events)
+        return hits
+
+    # Zap Cannon is a fifty percent move. Not thirty out of thirty, because
+    # Static can paralyse the user and hand it the first move, which clears
+    # the volatile before the Zap Cannon is thrown.
+    assert landed(0) >= 27, "Glaive Rush did not open the user up"
+    assert landed(1) <= 22, "the control hit far too often to be a control"

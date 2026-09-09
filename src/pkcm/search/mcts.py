@@ -149,7 +149,21 @@ class SearchConfig:
     #: uses the heuristic alone, which is much cheaper and much blunter. This is
     #: the quality dial: at twenty turns the root value went from +0.02 to +0.38
     #: on the same position, because the heuristic alone cannot see far enough
-    #: to tell the lines apart. It also costs about five times as much.
+    #: to tell the lines apart.
+    #:
+    #: **What it buys, and what it costs, measured on the fixed engine.** At the
+    #: same simulation count a 20-turn greedy rollout beats the material count
+    #: 60.3% [53.9, 66.2] over 239 games -- separably. A random one comes back
+    #: 53.2% [48.4, 58.1] and is not separable, so the signal is in the rollout
+    #: being *played*, not merely sampled.
+    #:
+    #: It costs fifteen times a material leaf, and shortening it barely helps
+    #: (three turns is still ten times) because the price is GreedyPolicy per
+    #: turn, not the number of turns. At equal wall clock the exchange rate is
+    #: 800 material simulations against 53 rolled-out ones, and at that rate
+    #: the rollout loses 36.3% [31.8, 41.2]. So this is a yardstick for what
+    #: the horizon is worth, not something to deploy: ten points of strength
+    #: sit behind it, and they have to be reached for less.
     rollout_turns: int = 0
     #: Who plays the rollout. ``"random"`` is uniform over legal actions, which
     #: is the cheapest thing that can be called a game and the least like one:

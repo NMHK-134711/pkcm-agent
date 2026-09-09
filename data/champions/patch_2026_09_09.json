@@ -27,7 +27,7 @@
   "confirmed": false,
   "source": "pokemondb.net and bulbapedia (mainline); Champions values unverified",
   "open_questions": [
-    "메가드닐레이브's ability has not been announced.",
+    "Learnsets need a full refresh, not an append: hk says existing species have gained and lost moves as well. Showdown's learnsets.json will not carry that, so the source has to be Champions itself.",
     "파오리 is listed with no form note, unlike 페르시온 (알로라의 모습). Kantonian is assumed, but 창파나이트 evolves from the Galarian one.",
     "Every ability in the species list is still from pokemondb or Showdown and unchecked against the game. Samurott is why that matters: the repo says Torrent and Shell Armor, and Champions gives it Emergency Exit."
   ],
@@ -755,10 +755,15 @@
         "spd": 101,
         "spe": 87
       },
-      "abilities": null,
-      "source": "hk, from the game (2026-09-09); ability not yet announced",
-      "abilities_ko": null,
-      "confirmed": "stats only"
+      "abilities": [
+        "Thermal Exchange"
+      ],
+      "source": "hk, from the game (2026-09-09)",
+      "abilities_ko": [
+        "열교환"
+      ],
+      "confirmed": true,
+      "engine": "thermalexchange, already implemented"
     },
     {
       "ko": "메가갑주무사",
@@ -790,7 +795,7 @@
       "engine": "toughclaws, already implemented (contact moves x1.3)"
     }
   ],
-  "_megas_note": "hk read four of the five off the game on 2026-09-09. Every base stat and every type Showdown had was right; every ability was wrong. 메가갑주무사 remains in no source, and 메가드닐레이브's ability has not been announced.",
+  "_megas_note": "All five read off the game by hk on 2026-09-09. Every base stat and typing Showdown had was right; not one ability was. 메가갑주무사 is in no other source at all.",
   "items": {
     "mega_stones": [
       "앱솔나이트Z",
@@ -945,7 +950,7 @@
     }
   ],
   "move_patches_checked_against_the_engine": {
-    "already_agreed": [
+    "done": [
       "전기자석파 <- 땅타입",
       "번개·폭풍 쾌청 50%",
       "대타출동 <- 소리 기술 관통",
@@ -953,11 +958,9 @@
       "독·맹독 <- 독/강철",
       "화상 <- 불꽃",
       "마비 <- 전기",
-      "씨뿌리기 <- 풀"
-    ],
-    "still_to_do": [
-      "독가루·저리가루·수면가루·버섯포자·목화포자·마법가루 <- 풀타입 면역 (분노가루는 이미 됨)",
-      "특성 포자 <- 풀타입 면역"
+      "씨뿌리기 <- 풀",
+      "가루 기술 전체 <- 풀타입·방진·실드고글 (2026-09-09 구현)",
+      "특성 포자 <- 같은 규칙 (2026-09-09 구현)"
     ],
     "held_at_hk_request": [
       "가속의 교체 턴 미발동"

@@ -1415,3 +1415,100 @@ def test_aura_guard_halves_contact_and_nothing_else(dex):
     ranged = seen["auraguard", "aurasphere"] / seen["steadfast", "aurasphere"]
     assert 0.45 < contact < 0.55, f"contact was not halved: {seen}"
     assert ranged == 1.0, f"a non-contact move was softened too: {seen}"
+
+
+def test_a_powder_does_not_reach_a_grass_type(dex):
+    """Every move carrying the powder flag, not just Rage Powder.
+
+    _powder_reaches had the rule from the start and only Rage Powder's
+    redirection ever asked it, so Spore put a Meowscarada to sleep. The
+    2026-09-09 patch writes the immunity into the move text.
+    """
+    from pkcm.engine.actions import Action
+    from pkcm.engine.battle import step
+
+    # In the format only: the move actually called Powder is isNonstandard
+    # 'Past' and the engine reports it unimplemented, which is correct and is
+    # not what this is testing. Rage Powder is a redirection and already had
+    # the rule.
+    powders = [move.id for move in dex.moves.values()
+               if "powder" in move.flags and move.id != "ragepowder"
+               and move.raw.get("isNonstandard") is None]
+    assert len(powders) >= 6, f"expected the powder family, found {powders}"
+
+    for move_id in powders:
+        landed = {}
+        # Blissey is the control rather than a Steel type: Poison Powder is
+        # immune against Steel for its own reason, and that reads here exactly
+        # like the powder rule working.
+        for foe, ability, moves in (
+                # Not U-turn at index zero: Meowscarada is faster, so it
+                # would leave and the powder would land on the Electric-type
+                # body behind it instead.
+                ("meowscarada", "overgrow",
+                 ("knockoff", "protect", "uturn", "flowertrick")),
+                ("blissey", "naturalcure",
+                 ("softboiled", "protect", "toxic", "seismictoss"))):
+            state = _one_on_one(
+                dex,
+                [_set("amoonguss", "effectspore",
+                      (move_id, "gigadrain", "protect", "sludgebomb"))],
+                [_set(foe, ability, moves, sp=(32, 0, 32, 0, 2, 0))], seed=7)
+            state, events = step(state, Action.move(0), Action.move(0))
+            landed[foe] = not any("immune" in str(one) for one in events)
+        assert not landed["meowscarada"], f"{move_id} reached a Grass type"
+        assert landed["blissey"], f"{move_id} was blocked by nothing at all"
+
+
+def test_overcoat_and_safety_goggles_stop_a_powder_too(dex):
+    from pkcm.engine.actions import Action
+    from pkcm.engine.battle import step
+
+    slept = {}
+    for ability, item, label in (("overcoat", None, "overcoat"),
+                                 ("supremeoverlord", "safetygoggles", "goggles"),
+                                 ("supremeoverlord", None, "neither")):
+        state = _one_on_one(
+            dex,
+            [_set("amoonguss", "effectspore",
+                  ("spore", "gigadrain", "protect", "sludgebomb"))],
+            [_set("kingambit", ability,
+                  ("irondefense", "protect", "uturn", "roost"),
+                  item=item, sp=(32, 0, 32, 0, 2, 0))], seed=7)
+        state, _ = step(state, Action.move(0), Action.move(0))
+        side = state.sides[1]
+        slept[label] = side.status[side.active[0]] == "slp"
+
+    assert slept["neither"], "Spore did not land on anything"
+    assert not slept["overcoat"] and not slept["goggles"], slept
+
+
+def test_effect_spore_is_a_powder_as_well(dex):
+    """It reads as a chance, so it is measured as one: sixty contacts a side."""
+    from pkcm.engine.actions import Action
+    from pkcm.engine.battle import step
+
+    caught = {}
+    for species, ability, item, label in (
+            ("meowscarada", "overgrow", None, "grass"),
+            ("kingambit", "overcoat", None, "overcoat"),
+            ("kingambit", "supremeoverlord", "safetygoggles", "goggles"),
+            ("kingambit", "supremeoverlord", None, "neither")):
+        hits = 0
+        for seed in range(60):
+            state = _one_on_one(
+                dex,
+                [_set("amoonguss", "effectspore",
+                      ("protect", "gigadrain", "spore", "sludgebomb"),
+                      sp=(32, 0, 32, 0, 2, 0))],
+                [_set(species, ability,
+                      ("knockoff", "irondefense", "uturn", "roost"),
+                      item=item, sp=(32, 32, 2, 0, 0, 0))], seed=seed)
+            state, _ = step(state, Action.move(1), Action.move(0))
+            side = state.sides[1]
+            hits += side.status[side.active[0]] is not None
+        caught[label] = hits
+
+    assert caught["neither"] > 0, "Effect Spore never fired at all"
+    for label in ("grass", "overcoat", "goggles"):
+        assert caught[label] == 0, f"{label} was caught by Effect Spore: {caught}"

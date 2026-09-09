@@ -1479,6 +1479,19 @@ def _resolve(
             _note_move_failed(ctx, attacker, True)
             return
 
+    # A powder does not reach a Grass type, and Overcoat and Safety Goggles
+    # say the same. ``_powder_reaches`` had all of this from the start and was
+    # only ever asked by Rage Powder's redirection, so Spore put a Meowscarada
+    # to sleep. The 2026-09-09 patch writes the rule into the move text; it was
+    # the rule before that too.
+    if targets_opponent and "powder" in move.flags:
+        from pkcm.engine.moveeffects import _powder_reaches
+
+        if not _powder_reaches(ctx, defender):
+            ctx.emit(ev.immune(defender[0], defender[1], move.id))
+            _note_move_failed(ctx, attacker, True)
+            return
+
     if targets_opponent and not fx.allows(
         ctx, "try_hit", defender, attacker=attacker, defender=defender, move=move
     ):

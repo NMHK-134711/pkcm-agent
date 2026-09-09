@@ -1203,10 +1203,24 @@ register("ability", "cutecharm", name="Cute Charm", after_damage=_cute_charm)
 
 
 def _effect_spore(ctx, ref, attacker, defender, move, damage, **_):
-    """11% poison, 10% paralysis, 9% sleep -- in that order in the source."""
+    """11% poison, 10% paralysis, 9% sleep -- in that order in the source.
+
+    It is a powder, so it does not reach a Grass type, an Overcoat or a
+    Safety Goggles. The 2026-09-09 patch writes that into the description;
+    the same rule already governs every move carrying the powder flag.
+
+    The roll is spent before the check on purpose. Whether the spore lands is
+    decided the same way whoever is standing there, and taking the cursor only
+    sometimes would make the RNG stream depend on the opponent's typing --
+    which two determinizations of the same position would then disagree about.
+    """
     if ref != defender or CONTACT not in move.flags:
         return
     roll = ctx.cursor.below(100)
+    from pkcm.engine.moveeffects import _powder_reaches
+
+    if not _powder_reaches(ctx, attacker):
+        return
     status = "psn" if roll < 11 else ("par" if roll < 21 else ("slp" if roll < 30 else None))
     if status is None:
         return

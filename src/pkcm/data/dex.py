@@ -237,12 +237,26 @@ class Dex:
         overrides = _load_overrides()
 
         pokedex = _load_raw("pokedex")
+        # Species overrides exist for one reason: the formes Champions
+        # invented. Showdown's Champions mod has their types and base stats
+        # exactly right -- 32 of 32 on the 2026-09-09 update, checked against
+        # the game's own table -- and their *abilities* wrong, because a forme
+        # that exists only in Champions has no mainline ability for Showdown to
+        # carry. It carries the base species' instead, so Mega Golisopod came
+        # out with Emergency Exit rather than Tough Claws and Mega Lucario Z
+        # with Adaptability rather than the Aura Guard this engine implements
+        # for it. The corrections come from mc_table.json, which is the game's
+        # data, and scripts/build_species_overrides.py regenerates them so the
+        # two cannot drift apart again.
+        species_changes = overrides.get("species", {}).get("changes", {})
+        applied_species = _apply_overrides(pokedex, species_changes)
         self.species: dict[str, Species] = {
             key: _build_species(key, value, pokedex) for key, value in pokedex.items()
         }
 
         raw_moves = _load_raw("moves")
         self.override_counts = {
+            "species": applied_species,
             "moves": _apply_overrides(raw_moves, overrides["moves"]["changes"]),
         }
         for entry in raw_moves.values():
@@ -252,6 +266,14 @@ class Dex:
         }
 
         raw_abilities = _load_raw("abilities")
+        # Abilities Champions added after the mod data was captured. The other
+        # Champions-original abilities -- Dragonize, Eelevate, Fire Mane --
+        # are in the base file already and only need un-hiding, so a change
+        # was enough for them. Aura Guard arrived with the 2026-09-09 update
+        # and is in no upstream file at all, which is a thing to add rather
+        # than a field to edit.
+        for key, entry in overrides["abilities"].get("added", {}).items():
+            raw_abilities.setdefault(key, dict(entry))
         self.override_counts["abilities"] = _apply_overrides(
             raw_abilities, overrides["abilities"]["changes"]
         )

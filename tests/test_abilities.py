@@ -8,7 +8,7 @@ from __future__ import annotations
 
 import pytest
 
-from pkcm.data.dex import Stat, load_dex
+from pkcm.data.dex import Stat, load_dex, to_id
 from pkcm.engine import mutate
 from pkcm.engine.actions import Action
 from pkcm.engine.battle import make_context, step
@@ -1512,3 +1512,36 @@ def test_effect_spore_is_a_powder_as_well(dex):
     assert caught["neither"] > 0, "Effect Spore never fired at all"
     for label in ("grass", "overcoat", "goggles"):
         assert caught[label] == 0, f"{label} was caught by Effect Spore: {caught}"
+
+
+def test_the_megas_champions_invented_bring_their_own_ability(dex, config):
+    """The five formes Showdown carries the wrong ability for.
+
+    ``_mega_evolve`` reads ``dex.species[target].abilities[0]``, so this is
+    really a test that the species override reached the dex -- but reading it
+    off a real Mega Evolution in a real battle is the only way to know that
+    nothing between the table and the field drops it. Mega Golisopod with
+    Emergency Exit instead of Tough Claws is a different Pokemon: one hits
+    30% harder with every contact move, the other runs away at half health.
+    """
+    wanted = {"golisopodmega": "toughclaws", "lucariomegaz": "auraguard",
+              "absolmegaz": "sharpness", "garchompmegaz": "levitate",
+              "baxcaliburmega": "thermalexchange"}
+    # forme -> the species that holds the stone, read off the stones
+    # themselves rather than guessed from the id.
+    holders = {}
+    for item in dex.items.values():
+        stone = item.raw.get("megaStone")
+        if isinstance(stone, dict):
+            for base, forme in stone.items():
+                holders[to_id(forme)] = (to_id(base), item.id)
+
+    for forme, ability in wanted.items():
+        assert forme in holders, f"no stone turns anything into {forme}"
+        base, stone = holders[forme]
+        state = _mega_team(config, holder=base, stone=stone)
+        state, log = step(state, Action.move(0, mega=True), Action.move(0))
+
+        assert state.species_id(0, 0) == forme, forme
+        assert state.ability_id(0, 0) == ability, forme
+        assert any(e.kind == "mega_evolve" for e in log), forme

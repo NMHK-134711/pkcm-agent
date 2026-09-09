@@ -332,7 +332,8 @@ def race(config: EvolveConfig, population: Sequence[Candidate],
                 # Here rather than after the sort: a candidate is written the
                 # moment its games are paid for, so a run killed mid-round
                 # still keeps everything it had measured.
-                notebook.record(scored, basis_of(config), f"{stage}r{step + 1}")
+                notebook.record(scored, basis_of(config), f"{stage}r{step + 1}",
+                                core=config.core)
         graded.sort(key=lambda one: -one.fitness)
         keep = max(1, len(graded) // 2) if step < rounds - 1 else len(graded)
         alive = graded[:keep]
@@ -452,7 +453,8 @@ class Notebook:
                     seen[key] = record
         return cls(path=path, keep=keep, seen=seen)
 
-    def record(self, candidate: Candidate, basis: str, stage: str) -> bool:
+    def record(self, candidate: Candidate, basis: str, stage: str,
+               core: str = "") -> bool:
         """Write one graded candidate. False when it was not worth keeping.
 
         The same party graded twice keeps whichever measurement had more
@@ -487,6 +489,12 @@ class Notebook:
             "rigidity": round(floor.selection.rigidity, 3),
             "bring": [round(rate, 3) for rate in floor.selection.rates],
             "origin": candidate.origin,
+            # Which axis the party was built around. Two machines running
+            # different cores write comparable floors -- same field, same
+            # agent -- so the rows belong in one table, and this is what lets
+            # the reader ask "which core produced the better parties" instead
+            # of guessing from the species list.
+            "core": core,
             "stage": stage,
             "basis": basis,
             **as_party(candidate.team, f"notebook {stage}"),

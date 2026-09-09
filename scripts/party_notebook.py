@@ -76,6 +76,13 @@ def main() -> int:
                         help="ignore rows measured on fewer games than this. "
                              "The honest way to read a book that mixes a "
                              "first-round grading with a judged one")
+    parser.add_argument("--core", default=None,
+                        help="only parties built around this species. Two "
+                             "machines running different cores write into one "
+                             "comparable table, which is a feature -- the "
+                             "floors are measured the same way, so \"which "
+                             "core produced the better parties\" is a question "
+                             "the book can answer")
     parser.add_argument("--min-live", type=int, default=0,
                         help="ignore parties that brought fewer than this "
                              "many of their six. hk's methodology note: a "
@@ -99,7 +106,8 @@ def main() -> int:
 
     kept = {key: row for key, row in notebook.seen.items()
             if row["games"] >= args.min_games
-            and row.get("live", 99) >= args.min_live}
+            and row.get("live", 99) >= args.min_live
+            and (args.core is None or row.get("core") == args.core)}
     print(f"{', '.join(args.path)}: {len(notebook.seen)} parties"
           + (f", {len(kept)} with {args.min_games}+ games"
              if args.min_games else ""))
@@ -112,7 +120,9 @@ def main() -> int:
         for rank, row in enumerate(rows, 1):
             names = " / ".join(dex.species[one["species"]].name
                                for one in row["team"])
-            print(f"  {rank:2}. floor {row['floor']:.3f} "
+            core = row.get("core")
+            tag = f" on {dex.species[core].name}" if core else ""
+            print(f"  {rank:2}.{tag} floor {row['floor']:.3f} "
                   f"[{row['low']:.3f}, {row['high']:.3f}] "
                   f"mean {row['mean']:.3f} worst {row['worst']:.3f} "
                   f"{row['games']:4} games  {row['stage']:10} {row['origin'][:24]}")

@@ -191,7 +191,7 @@ def main() -> int:
                 # different measurements and the notebook must not sort them
                 # against each other.
                 notebook.record(Candidate(one.team, one.origin, floor),
-                                judge_basis, f"{tag}judge")
+                                judge_basis, f"{tag}judge", core=args.core)
                 print(f"  {rank}. floor {floor.cvar:.3f} [{floor.low:.3f}, "
                       f"{floor.high:.3f}] over {floor.games} games  "
                       f"{describe(dex, one.team)}", flush=True)

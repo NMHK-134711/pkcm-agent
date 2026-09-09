@@ -1,81 +1,82 @@
 {
-  "_about": [
-    "SUPERSEDED. Read data/champions/mc_table.json instead.",
-    "",
-    "This file was assembled by hand from pokemondb and bulbapedia before any",
-    "Champions-native source was available. hk then supplied a table compiled",
-    "from the game's v1.2.0 data and checked it themselves, which",
-    "scripts/import_patch_table.py reads into mc_table.json. That has all 32",
-    "species with types, base stats, abilities *and* learnsets, and it is the",
-    "authority now.",
-    "",
-    "What is kept here is the comparison, because it says how far the dex can",
-    "be trusted, and one correction that matters more than the rest."
-  ],
-  "confirmed": false,
-  "superseded_by": "data/champions/mc_table.json",
-  "the_correction": [
-    "I mistranslated two Korean names and built an argument on it.",
-    "",
-    "갑주무사 is Golisopod, not Samurott -- Samurott is 대검귀. So Golisopod's",
-    "Emergency Exit is its ordinary mainline ability and nothing was changed.",
-    "The claim that 'Champions rewrote a base species' ability, so trust no",
-    "ability in the dex' was my error, not a finding.",
-    "",
-    "케오퍼스 is Grapploct, not Clodsire -- Clodsire is 토오. That one came",
-    "from a web search that answered confidently and wrongly.",
-    "",
-    "Both were avoidable: data/champions/names.json had them."
-  ],
-  "how_far_the_dex_can_be_trusted": {
-    "checked": "all 32 species of the M-C update, against the game's own table",
-    "types": "32 of 32 exact",
-    "base_stats": "32 of 32 exact",
-    "abilities": "27 of 32. The five wrong are exactly the Champions-original Megas -- Mega Absol Z, Mega Garchomp Z, Mega Lucario Z, Mega Golisopod and Mega Baxcalibur -- where Showdown carries the base species' abilities instead.",
-    "so": "Showdown's numbers are sound and so are its abilities for species that exist in the mainline games. What it cannot know is a forme Champions invented. That is a much narrower rule than the one I wrote yesterday, and it is what the evidence supports.",
-    "megas_the_game_gives": {
-      "메가앱솔Z": "예리함 (sharpness)",
-      "메가한카리아스Z": "부유 (levitate)",
-      "메가루카리오Z": "파동의방호 (auraguard)",
-      "메가갑주무사": "단단한발톱 (toughclaws)",
-      "메가드닐레이브": "열교환 (thermalexchange)"
-    }
+ "_about": [
+  "SUPERSEDED. Read data/champions/mc_table.json instead.",
+  "",
+  "This file was assembled by hand from pokemondb and bulbapedia before any",
+  "Champions-native source was available. hk then supplied a table compiled",
+  "from the game's v1.2.0 data and checked it themselves, which",
+  "scripts/import_patch_table.py reads into mc_table.json. That has all 32",
+  "species with types, base stats, abilities *and* learnsets, and it is the",
+  "authority now.",
+  "",
+  "What is kept here is the comparison, because it says how far the dex can",
+  "be trusted, and one correction that matters more than the rest."
+ ],
+ "confirmed": false,
+ "superseded_by": "data/champions/mc_table.json",
+ "the_correction": [
+  "I mistranslated two Korean names and built an argument on it.",
+  "",
+  "갑주무사 is Golisopod, not Samurott -- Samurott is 대검귀. So Golisopod's",
+  "Emergency Exit is its ordinary mainline ability and nothing was changed.",
+  "The claim that 'Champions rewrote a base species' ability, so trust no",
+  "ability in the dex' was my error, not a finding.",
+  "",
+  "케오퍼스 is Grapploct, not Clodsire -- Clodsire is 토오. That one came",
+  "from a web search that answered confidently and wrongly.",
+  "",
+  "Both were avoidable: data/champions/names.json had them."
+ ],
+ "how_far_the_dex_can_be_trusted": {
+  "checked": "all 32 species of the M-C update, against the game's own table",
+  "types": "32 of 32 exact",
+  "base_stats": "32 of 32 exact",
+  "abilities": "27 of 32. The five wrong are exactly the Champions-original Megas -- Mega Absol Z, Mega Garchomp Z, Mega Lucario Z, Mega Golisopod and Mega Baxcalibur -- where Showdown carries the base species' abilities instead.",
+  "so": "Showdown's numbers are sound and so are its abilities for species that exist in the mainline games. What it cannot know is a forme Champions invented. That is a much narrower rule than the one I wrote yesterday, and it is what the evidence supports.",
+  "megas_the_game_gives": {
+   "메가앱솔Z": "예리함 (sharpness)",
+   "메가한카리아스Z": "부유 (levitate)",
+   "메가루카리오Z": "파동의방호 (auraguard)",
+   "메가갑주무사": "단단한발톱 (toughclaws)",
+   "메가드닐레이브": "열교환 (thermalexchange)"
   },
-  "engine_work_done": {
-    "abilities_implemented_2026_09_09": [
-      "liquidooze",
-      "grasspelt",
-      "emergencyexit",
-      "stakeout",
-      "steelyspirit",
-      "seedsower",
-      "guarddog",
-      "auraguard"
-    ],
-    "already_present": [
-      "runaway",
-      "unnerve",
-      "psychicsurge",
-      "grassysurge",
-      "libero",
-      "punkrock",
-      "thermalexchange",
-      "sharpness",
-      "levitate",
-      "toughclaws"
-    ],
-    "move_rules": [
-      "가루 기술 전체 <- 풀타입·방진·실드고글",
-      "특성 포자 <- 같은 규칙"
-    ],
-    "held_at_hk_request": [
-      "가속의 교체 턴 미발동"
-    ]
-  },
-  "still_open": [
-    "The roster itself: regulation M-C, not M-B. fetch_regulation.py takes a name.",
-    "Existing species gained and lost moves as well -- the table lists those changes and they are not in mc_table.json yet.",
-    "Two move powers changed: 베어가르기 70 -> 80, 스타어설트 150 -> 170.",
-    "One move removed from the format: 막치기."
+  "applied": "2026-09-10. Writing the five down was not applying them: the dex had no species override layer at all, so it kept loading Showdown's abilities and Mega Golisopod was Emergency Exit for a day. scripts/build_species_overrides.py now generates the corrections from mc_table.json, dex.py applies them before building the species, and tests/test_dex.py plus test_abilities.py check the table against the dex and against a real Mega Evolution. Aura Guard also had no data entry at all -- a handler with nothing that could reach it -- and is now an added ability in overrides.json."
+ },
+ "engine_work_done": {
+  "abilities_implemented_2026_09_09": [
+   "liquidooze",
+   "grasspelt",
+   "emergencyexit",
+   "stakeout",
+   "steelyspirit",
+   "seedsower",
+   "guarddog",
+   "auraguard"
+  ],
+  "already_present": [
+   "runaway",
+   "unnerve",
+   "psychicsurge",
+   "grassysurge",
+   "libero",
+   "punkrock",
+   "thermalexchange",
+   "sharpness",
+   "levitate",
+   "toughclaws"
+  ],
+  "move_rules": [
+   "가루 기술 전체 <- 풀타입·방진·실드고글",
+   "특성 포자 <- 같은 규칙"
+  ],
+  "held_at_hk_request": [
+   "가속의 교체 턴 미발동"
   ]
+ },
+ "still_open": [
+  "The roster itself: regulation M-C, not M-B. fetch_regulation.py takes a name.",
+  "Existing species gained and lost moves as well -- the table lists those changes and they are not in mc_table.json yet.",
+  "Two move powers changed: 베어가르기 70 -> 80, 스타어설트 150 -> 170.",
+  "One move removed from the format: 막치기."
+ ]
 }

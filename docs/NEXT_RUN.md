@@ -17,30 +17,46 @@ git pull
 
 ---
 
-## 1. 지금 하는 것 — 메가보만다 주축 파티 생성
+## 1. 지금 하는 것 — 두 주축으로 파티 생성
 
 주축 포켓몬 하나를 고정하고 나머지 다섯 자리를 진화 알고리즘으로 찾는다. 적합도는
 **저점**(최악 1/4 매치업의 평균, `party_floor`)이다. hk의 목표가 "6마리 중 3마리를
 뽑는 걸 감안해서, 왠만한 파티에 대응 방법이 있는 파티"이기 때문이다. 평균 승률이
 아니다.
 
-**랩실PC에서 돌릴 명령 (이 한 줄만 바뀐다: `--seed`, `--log`, `--workers`)**
+**개인PC는 메가보만다, 랩실PC는 메가갑주무사.**
+
+랩실PC:
 
 ```bash
-python scripts/evolve_party.py --core salamence --regulation m_c --population 24 --generations 8 --budget 3000 --opponents 40 --search-iterations 200 --judge 4 --workers 9 --seed 910000 --log runs/notebook_salamence_lab.jsonl --out runs/evolve_salamence_lab.json
+python scripts/evolve_party.py --core golisopod --regulation m_c --population 24 --generations 8 --budget 3000 --opponents 40 --search-iterations 200 --judge 4 --workers 9 --seed 910000 --out runs/evolve_golisopod.json
 ```
 
-개인PC는 `--seed 900000`, `--log runs/notebook_salamence_pc.jsonl`, `--workers 19`로
-돈다. 20코어에서 약 3시간, 10코어면 그 두 배로 잡아라.
+개인PC(참고):
 
-### 세 플래그만 다르고 나머지는 반드시 같아야 한다
+```bash
+python scripts/evolve_party.py --core salamence --regulation m_c --population 24 --generations 8 --budget 3000 --opponents 40 --search-iterations 200 --judge 4 --workers 19 --seed 900000 --out runs/evolve_salamence.json
+```
+
+`--log`는 기본값이 `runs/notebook_<core>.jsonl`이라 주축이 다르면 저절로 갈린다.
+20코어에서 약 3시간, 10코어면 그 두 배로 잡아라.
+
+주축은 필드에 없다. 둘 다 09-09 업데이트로 들어온 메가라 그 파티가 아직 없으니
+`graft` 경로로 간다 — 실제로 도는 남의 파티 한 자리를 새 포켓몬에게 준다. 24개 전부
+합법으로 시드되는 것은 확인했다.
+
+### 두 플래그만 다르고 나머지는 반드시 같아야 한다
 
 | 플래그 | 왜 |
 |---|---|
-| `--seed` | **다르게.** 같으면 두 대가 완전히 같은 탐색을 한다. 개체군 초기화부터 돌연변이까지 전부 이 씨앗 하나에서 나온다 |
-| `--log` | **다르게.** 각자 자기 파일에 append 한다. 한 파일을 두 대가 쓰면 git에서 줄마다 충돌한다 |
+| `--core` | 이번엔 다르다. 두 대가 다른 주축을 판다 |
+| `--seed` | **다르게.** 같으면 같은 자리에서 출발한다 |
 | `--workers` | 기계 코어 수 |
 | **그 외 전부** | **같게.** `--opponents`, `--search-iterations`, `--regulation`, `--parties`, `--seed-games`, `--judge-*`, `--rollout-turns` |
+
+주축이 달라도 **저점은 서로 비교 가능하다.** 같은 필드를 같은 에이전트로 상대했으니
+같은 질문에 답한 숫자다. 그래서 장부의 각 줄이 `core`를 같이 적고, 합쳐 읽으면
+"어느 주축이 더 나은 파티를 냈나"를 물을 수 있다. `--core golisopod`로 거를 수도 있다.
 
 마지막 줄이 핵심이다. 장부의 각 줄은 자기가 **어떤 조건에서 측정됐는지**(basis)를
 같이 적는다 — `parties_field.json/m_c/singles/opp40/sim200/rollout0/seed700000`.
@@ -116,7 +132,7 @@ git add runs/notebook_salamence_lab.jsonl && git commit -m "lab: salamence noteb
 계속 쓴다.
 
 ```bash
-python scripts/party_notebook.py runs/notebook_salamence_*.jsonl --top 20 --min-games 200 --show 3
+python scripts/party_notebook.py runs/notebook_*.jsonl --top 20 --min-games 200 --show 3
 ```
 
 같은 파티가 양쪽에 있으면 **게임 수가 많은 쪽**이 남는다. 점수가 높은 쪽이 아니다.
@@ -156,7 +172,10 @@ M-C에서 합법으로 읽히는 것까지 확인했다.
 ## 6. 아직 남은 것
 
 - **M-C 엔진에서 필드 라운드로빈 재측정.** 09-09 이전에 잰 승률은 전부 낡았다.
-- **나머지 30종의 특성 검증.** 아직 쇼다운 출처이고 게임으로 확인 안 했다.
+- **나머지 30종의 특성 검증.** 32종을 게임 표(`mc_table.json`)와 대조해 5종이
+  틀린 것을 09-10에 고쳤다. 챔피언스가 만든 메가 다섯 — 메가갑주무사·메가루카리오Z·
+  메가앱솔Z·메가한카리아스Z·메가드닐레이브 — 이 쇼다운의 원본 특성을 그대로 쓰고
+  있었다. 남은 건 **표 자체가 맞는지**를 게임으로 확인하는 것.
   ([memory: 챔피언스는 코드만 참조] — 쇼다운은 메커니즘 참조지 규칙 출처가 아니다)
 - **`build_regulation_mc.py`를 `fetch_regulation.py m_c`로 교체.** 벌바피디아에
   M-C 페이지가 올라오는 날.

@@ -42,6 +42,14 @@
    "unseenfist": [
     "onHitProtect"
    ]
+  },
+  "added": {
+   "auraguard": {
+    "name": "Aura Guard",
+    "num": -1,
+    "desc": "Halves the damage this Pokemon takes from contact moves. Champions-original, introduced 2026-09-09 on Mega Lucario Z; the Korean name is 파동의 방호 and the official English name is Aura Guard, both from hk.",
+    "shortDesc": "Contact moves used against this Pokemon do half damage."
+   }
   }
  },
  "conditions": {
@@ -1615,5 +1623,35 @@
  "source": "https://github.com/smogon/pokemon-showdown data/mods/champions (MIT)",
  "added_by": [
   "2026-09-09 M-C: the eighteen items above, from the update notes, because the item table cannot yet be read out of the ROM."
- ]
+ ],
+ "species": {
+  "source": "data/champions/mc_table.json -- the game's own v1.2.0 table as hk checked it. Showdown carries the base species' abilities for formes Champions invented, which is the only thing corrected here.",
+  "changes": {
+   "absolmegaz": {
+    "abilities": {
+     "0": "Sharpness"
+    }
+   },
+   "garchompmegaz": {
+    "abilities": {
+     "0": "Levitate"
+    }
+   },
+   "lucariomegaz": {
+    "abilities": {
+     "0": "Aura Guard"
+    }
+   },
+   "golisopodmega": {
+    "abilities": {
+     "0": "Tough Claws"
+    }
+   },
+   "baxcaliburmega": {
+    "abilities": {
+     "0": "Thermal Exchange"
+    }
+   }
+  }
+ }
 }

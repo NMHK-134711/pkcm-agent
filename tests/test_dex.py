@@ -136,3 +136,64 @@ def test_regulation_rules(regulation):
 
 def test_learnsets_load_lazily(dex):
     assert "venusaur" in dex.learnsets
+
+
+def test_the_megas_champions_invented_have_the_abilities_the_game_gives():
+    """Showdown cannot know a forme that only exists in Champions.
+
+    It carries the base species' abilities instead, so Mega Golisopod loaded
+    with Emergency Exit rather than Tough Claws and Mega Lucario Z with
+    Adaptability rather than Aura Guard -- which this engine has a handler for
+    that nothing could ever reach. All five were written into
+    patch_2026_09_09.json the day they were learned and none of them reached
+    the dex, because there was no species override layer to put them in.
+
+    The table is the game's own, so it is the authority here and the base data
+    is not.
+    """
+    import json
+    from pathlib import Path
+
+    from pkcm.data.dex import load_dex
+
+    dex = load_dex()
+    table = json.loads(Path("data/champions/mc_table.json").read_text(encoding="utf-8"))
+
+    checked = 0
+    for entry in table["species"]:
+        species = dex.species.get(entry["id"])
+        if species is None or not entry.get("abilities"):
+            continue
+        wanted: list[str] = []
+        for ability in entry["abilities"]:          # the table repeats a few
+            if ability not in wanted:
+                wanted.append(ability)
+        assert list(species.abilities) == wanted, entry["id"]
+        checked += 1
+    assert checked >= 32, "the update's species should all be checked"
+
+
+def test_the_species_overrides_are_not_stale():
+    """They are generated from the table; regenerate rather than hand-edit."""
+    import subprocess
+    import sys
+
+    done = subprocess.run(
+        [sys.executable, "scripts/build_species_overrides.py", "--check"],
+        capture_output=True, text=True, encoding="utf-8", errors="replace")
+    assert done.returncode == 0, done.stdout + done.stderr
+
+
+def test_an_ability_champions_added_can_be_looked_up():
+    """Aura Guard is in no upstream file, so it is added rather than edited.
+
+    Without the entry it was registrable on Mega Lucario Z but absent from
+    dex.abilities, which is the kind of half-presence that reads as working
+    until something asks for its name.
+    """
+    from pkcm.data.dex import load_dex
+
+    dex = load_dex()
+    assert "auraguard" in dex.abilities
+    assert dex.abilities["auraguard"].name == "Aura Guard"
+    assert dex.exists_in_champions(dex.abilities["auraguard"])

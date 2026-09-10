@@ -1,0 +1,770 @@
+[
+ {
+  "id": "hk7",
+  "title": "메가한카리아스 축 | 하마돈 모래 + 지진으로 강철벽 3종 관통",
+  "source": "handmade-guide",
+  "why": "축: 메가한카리아스(모래의힘 170공). hk1이 진 상대는 전부 강철벽(킬가르도·브리두라스·메가마릴리)이었고 메타그로스의 강철 STAB으로는 못 뚫었다. 지진은 셋 다 2배다. 움직임: 하마돈이 스텔스록+모래날림을 깔면 모래의힘 지진이 한 방이 된다. 약점 얼음·페어리 → 핫삼(테크니션 불릿펀치, 얼음/페어리 반감)과 타부자고(황금몸, 변화기 면역). 마폭시가 특수 화력·기점. 아머까오가 물리 사이클.",
+  "team": [
+   {
+    "species": "garchomp",
+    "ability": "roughskin",
+    "moves": [
+     "earthquake",
+     "scaleshot",
+     "swordsdance",
+     "firefang"
+    ],
+    "item": "garchompite",
+    "nature": "jolly",
+    "sp": [
+     0,
+     32,
+     2,
+     0,
+     0,
+     32
+    ]
+   },
+   {
+    "species": "hippowdon",
+    "ability": "sandstream",
+    "moves": [
+     "earthquake",
+     "stealthrock",
+     "slackoff",
+     "yawn"
+    ],
+    "item": "sitrusberry",
+    "nature": "impish",
+    "sp": [
+     32,
+     0,
+     22,
+     0,
+     12,
+     0
+    ]
+   },
+   {
+    "species": "scizor",
+    "ability": "technician",
+    "moves": [
+     "bulletpunch",
+     "uturn",
+     "swordsdance",
+     "roost"
+    ],
+    "item": "leftovers",
+    "nature": "adamant",
+    "sp": [
+     32,
+     2,
+     32,
+     0,
+     0,
+     0
+    ]
+   },
+   {
+    "species": "gholdengo",
+    "ability": "goodasgold",
+    "moves": [
+     "makeitrain",
+     "shadowball",
+     "nastyplot",
+     "recover"
+    ],
+    "item": "lifeorb",
+    "nature": "modest",
+    "sp": [
+     27,
+     0,
+     0,
+     22,
+     0,
+     17
+    ]
+   },
+   {
+    "species": "delphox",
+    "ability": "blaze",
+    "moves": [
+     "flamethrower",
+     "psyshock",
+     "nastyplot",
+     "substitute"
+    ],
+    "item": "choicescarf",
+    "nature": "timid",
+    "sp": [
+     2,
+     0,
+     0,
+     32,
+     0,
+     32
+    ]
+   },
+   {
+    "species": "corviknight",
+    "ability": "pressure",
+    "moves": [
+     "bodypress",
+     "irondefense",
+     "roost",
+     "uturn"
+    ],
+    "item": "rockyhelmet",
+    "nature": "impish",
+    "sp": [
+     32,
+     0,
+     32,
+     0,
+     2,
+     0
+    ]
+   }
+  ]
+ },
+ {
+  "id": "hk8",
+  "title": "메가마기라스 축 | 모래 + 바위/악, 용춤 스윕",
+  "source": "handmade-guide",
+  "why": "축: 메가마기라스(모래날림 164공 150방). 움직임: 모래로 상대 기합의띠·회복을 갉으면서 용의춤 한 번이면 물리 내구 150이 그대로 스위퍼가 된다. 바위 STAB이 메가리자몽Y·메가보만다·볼카로나(필드 상위 특수 에이스)를 정면에서 잡는다. 약점 격투 4배 → 아머까오(격투 반감 물리벽)와 누리레느(페어리, 격투 반감). 킬라플로르 킬러스핀이 스텔락 제거. 한카 스카프가 리벤지.",
+  "team": [
+   {
+    "species": "tyranitar",
+    "ability": "sandstream",
+    "moves": [
+     "stoneedge",
+     "crunch",
+     "earthquake",
+     "dragondance"
+    ],
+    "item": "tyranitarite",
+    "nature": "adamant",
+    "sp": [
+     0,
+     32,
+     2,
+     0,
+     0,
+     32
+    ]
+   },
+   {
+    "species": "corviknight",
+    "ability": "pressure",
+    "moves": [
+     "bodypress",
+     "irondefense",
+     "roost",
+     "uturn"
+    ],
+    "item": "leftovers",
+    "nature": "impish",
+    "sp": [
+     32,
+     0,
+     32,
+     0,
+     2,
+     0
+    ]
+   },
+   {
+    "species": "primarina",
+    "ability": "liquidvoice",
+    "moves": [
+     "hypervoice",
+     "moonblast",
+     "sparklingaria",
+     "aquajet"
+    ],
+    "item": "lumberry",
+    "nature": "modest",
+    "sp": [
+     32,
+     0,
+     15,
+     14,
+     5,
+     0
+    ]
+   },
+   {
+    "species": "glimmora",
+    "ability": "toxicdebris",
+    "moves": [
+     "mortalspin",
+     "sludgebomb",
+     "dazzlinggleam",
+     "powergem"
+    ],
+    "item": "focussash",
+    "nature": "timid",
+    "sp": [
+     0,
+     0,
+     2,
+     32,
+     0,
+     32
+    ]
+   },
+   {
+    "species": "garchomp",
+    "ability": "roughskin",
+    "moves": [
+     "earthquake",
+     "outrage",
+     "rockslide",
+     "stealthrock"
+    ],
+    "item": "choicescarf",
+    "nature": "adamant",
+    "sp": [
+     2,
+     32,
+     0,
+     0,
+     0,
+     32
+    ]
+   },
+   {
+    "species": "gholdengo",
+    "ability": "goodasgold",
+    "moves": [
+     "makeitrain",
+     "shadowball",
+     "nastyplot",
+     "recover"
+    ],
+    "item": "lifeorb",
+    "nature": "modest",
+    "sp": [
+     27,
+     0,
+     0,
+     22,
+     0,
+     17
+    ]
+   }
+  ]
+ },
+ {
+  "id": "hk9",
+  "title": "메가루카리오 축 | 적응력 격투 STAB, 브리두라스 4배 · 강철 STAB으로 페어리 처리",
+  "source": "handmade-guide",
+  "why": "축: 메가루카리오(적응력 145공 격투/강철). 인파이트가 브리두라스에 4배, 메가마기라스·대도각참·마기라스에 4배·2배로 들어간다. 코멧펀치가 메가마릴리·픽시 같은 페어리를 잡는다. hk1의 두 문제(강철벽·페어리)를 한 마리로 답한다. 약점 땅·불·격투 → 아머까오(비행, 땅 무효)와 로토무워시(부유). 칼춤 한 번이면 불릿펀치로 마무리. 한카 기합띠 스텔락, 누리레느 특수받이.",
+  "team": [
+   {
+    "species": "lucario",
+    "ability": "innerfocus",
+    "moves": [
+     "closecombat",
+     "meteormash",
+     "bulletpunch",
+     "swordsdance"
+    ],
+    "item": "lucarionite",
+    "nature": "jolly",
+    "sp": [
+     2,
+     32,
+     0,
+     0,
+     0,
+     32
+    ]
+   },
+   {
+    "species": "corviknight",
+    "ability": "pressure",
+    "moves": [
+     "bodypress",
+     "irondefense",
+     "roost",
+     "uturn"
+    ],
+    "item": "leftovers",
+    "nature": "impish",
+    "sp": [
+     32,
+     0,
+     32,
+     0,
+     2,
+     0
+    ]
+   },
+   {
+    "species": "rotomwash",
+    "ability": "levitate",
+    "moves": [
+     "hydropump",
+     "voltswitch",
+     "willowisp",
+     "painsplit"
+    ],
+    "item": "rockyhelmet",
+    "nature": "bold",
+    "sp": [
+     32,
+     0,
+     31,
+     0,
+     3,
+     0
+    ]
+   },
+   {
+    "species": "garchomp",
+    "ability": "roughskin",
+    "moves": [
+     "earthquake",
+     "scaleshot",
+     "dragontail",
+     "stealthrock"
+    ],
+    "item": "focussash",
+    "nature": "adamant",
+    "sp": [
+     2,
+     32,
+     0,
+     0,
+     0,
+     32
+    ]
+   },
+   {
+    "species": "primarina",
+    "ability": "liquidvoice",
+    "moves": [
+     "hypervoice",
+     "moonblast",
+     "sparklingaria",
+     "aquajet"
+    ],
+    "item": "sitrusberry",
+    "nature": "modest",
+    "sp": [
+     32,
+     0,
+     15,
+     14,
+     5,
+     0
+    ]
+   },
+   {
+    "species": "volcarona",
+    "ability": "flamebody",
+    "moves": [
+     "fierydance",
+     "quiverdance",
+     "morningsun",
+     "willowisp"
+    ],
+    "item": "lumberry",
+    "nature": "modest",
+    "sp": [
+     31,
+     0,
+     31,
+     0,
+     0,
+     4
+    ]
+   }
+  ]
+ },
+ {
+  "id": "hk10",
+  "title": "메가바크팬텀 축 | 175공 드래곤/얼음, 메가망나뇽·한카를 얼음으로 정면 격파",
+  "source": "handmade-guide",
+  "why": "축: 메가바크팬텀(열교환 175공). 얼음 STAB이 메가망나뇽(4배)·한카리아스(4배)·보만다(4배)에 꽂힌다. 필드 1위 종족이 한카리아스(111회)라는 걸 그대로 노린다. 열교환이라 화상 면역 → 도깨비불 견제를 무시하고 칼춤을 놓을 수 있다. 약점 격투·페어리·강철 → 아머까오·누리레느. 킬라플로르가 스텔락 제거(얼음은 락에 안 약하지만 파트너들이 약함). 타부자고 특수 브레이커.",
+  "team": [
+   {
+    "species": "baxcalibur",
+    "ability": "thermalexchange",
+    "moves": [
+     "iciclecrash",
+     "earthquake",
+     "dragondance",
+     "iceshard"
+    ],
+    "item": "baxcalibrite",
+    "nature": "jolly",
+    "sp": [
+     0,
+     32,
+     2,
+     0,
+     0,
+     32
+    ]
+   },
+   {
+    "species": "corviknight",
+    "ability": "pressure",
+    "moves": [
+     "bodypress",
+     "irondefense",
+     "roost",
+     "uturn"
+    ],
+    "item": "leftovers",
+    "nature": "impish",
+    "sp": [
+     32,
+     0,
+     32,
+     0,
+     2,
+     0
+    ]
+   },
+   {
+    "species": "primarina",
+    "ability": "liquidvoice",
+    "moves": [
+     "hypervoice",
+     "moonblast",
+     "sparklingaria",
+     "aquajet"
+    ],
+    "item": "lumberry",
+    "nature": "modest",
+    "sp": [
+     32,
+     0,
+     15,
+     14,
+     5,
+     0
+    ]
+   },
+   {
+    "species": "glimmora",
+    "ability": "toxicdebris",
+    "moves": [
+     "mortalspin",
+     "sludgebomb",
+     "dazzlinggleam",
+     "powergem"
+    ],
+    "item": "focussash",
+    "nature": "timid",
+    "sp": [
+     0,
+     0,
+     2,
+     32,
+     0,
+     32
+    ]
+   },
+   {
+    "species": "gholdengo",
+    "ability": "goodasgold",
+    "moves": [
+     "makeitrain",
+     "shadowball",
+     "nastyplot",
+     "recover"
+    ],
+    "item": "lifeorb",
+    "nature": "modest",
+    "sp": [
+     27,
+     0,
+     0,
+     22,
+     0,
+     17
+    ]
+   },
+   {
+    "species": "hippowdon",
+    "ability": "sandstream",
+    "moves": [
+     "earthquake",
+     "stealthrock",
+     "slackoff",
+     "yawn"
+    ],
+    "item": "sitrusberry",
+    "nature": "impish",
+    "sp": [
+     32,
+     0,
+     22,
+     0,
+     12,
+     0
+    ]
+   }
+  ]
+ },
+ {
+  "id": "hk11",
+  "title": "메가마릴리 축 | 힘의무게 강철/페어리, 필드가 나를 이길 때 쓰던 그 카드",
+  "source": "handmade-guide",
+  "why": "축: 메가마릴리(힘의무게 105공×2 = 실질 210). hk1을 두 기준 모두에서 이긴 게 메가마릴리였다. 강철/페어리는 용·페어리·노말을 반감/무효로 받고, 위협으로 메가진화 전에 상대 물리를 한 번 깎는다. 약점 불·땅 → 로토무워시(부유, 도깨비불)와 누리레느(물). 느린 게 유일한 문제라 기습으로 보완하고, 한카 스카프가 빠른 상대를 리벤지. 하마돈 스텔락+하품이 칼춤 기점.",
+  "team": [
+   {
+    "species": "mawile",
+    "ability": "intimidate",
+    "moves": [
+     "playrough",
+     "suckerpunch",
+     "knockoff",
+     "swordsdance"
+    ],
+    "item": "mawilite",
+    "nature": "adamant",
+    "sp": [
+     8,
+     31,
+     0,
+     0,
+     0,
+     27
+    ]
+   },
+   {
+    "species": "hippowdon",
+    "ability": "sandstream",
+    "moves": [
+     "earthquake",
+     "stealthrock",
+     "whirlwind",
+     "yawn"
+    ],
+    "item": "sitrusberry",
+    "nature": "careful",
+    "sp": [
+     32,
+     0,
+     2,
+     0,
+     32,
+     0
+    ]
+   },
+   {
+    "species": "rotomwash",
+    "ability": "levitate",
+    "moves": [
+     "hydropump",
+     "voltswitch",
+     "willowisp",
+     "painsplit"
+    ],
+    "item": "leftovers",
+    "nature": "bold",
+    "sp": [
+     32,
+     0,
+     31,
+     0,
+     3,
+     0
+    ]
+   },
+   {
+    "species": "garchomp",
+    "ability": "roughskin",
+    "moves": [
+     "earthquake",
+     "outrage",
+     "rockslide",
+     "stealthrock"
+    ],
+    "item": "choicescarf",
+    "nature": "adamant",
+    "sp": [
+     2,
+     32,
+     0,
+     0,
+     0,
+     32
+    ]
+   },
+   {
+    "species": "primarina",
+    "ability": "liquidvoice",
+    "moves": [
+     "hypervoice",
+     "moonblast",
+     "sparklingaria",
+     "aquajet"
+    ],
+    "item": "lumberry",
+    "nature": "modest",
+    "sp": [
+     32,
+     0,
+     15,
+     14,
+     5,
+     0
+    ]
+   },
+   {
+    "species": "scizor",
+    "ability": "technician",
+    "moves": [
+     "bulletpunch",
+     "uturn",
+     "swordsdance",
+     "roost"
+    ],
+    "item": "rockyhelmet",
+    "nature": "adamant",
+    "sp": [
+     32,
+     2,
+     32,
+     0,
+     0,
+     0
+    ]
+   }
+  ]
+ },
+ {
+  "id": "hk12",
+  "title": "메가가디안 축 | 픽시라이트 하이퍼보이스, 대타 뒤에서 명상",
+  "source": "handmade-guide",
+  "why": "축: 메가가디안(픽시라이트 165특공). 노말→페어리가 된 하이퍼보이스가 대타출동을 관통하고, 용(한카·망나뇽·브리두라스·헤라크로스)에 전부 꽂힌다. 필드 최다 종족이 한카리아스라 이게 곧 광역 해답이다. 약점 강철·독 → 한카 지진(강철 2배)과 마폭시 화염방사. 물리내구가 종이라 아머까오가 물리 사이클을 맡고 하마돈 하품이 기점을 만든다.",
+  "team": [
+   {
+    "species": "gardevoir",
+    "ability": "trace",
+    "moves": [
+     "hypervoice",
+     "psyshock",
+     "calmmind",
+     "substitute"
+    ],
+    "item": "gardevoirite",
+    "nature": "timid",
+    "sp": [
+     16,
+     0,
+     0,
+     18,
+     0,
+     32
+    ]
+   },
+   {
+    "species": "garchomp",
+    "ability": "roughskin",
+    "moves": [
+     "earthquake",
+     "scaleshot",
+     "swordsdance",
+     "stealthrock"
+    ],
+    "item": "focussash",
+    "nature": "jolly",
+    "sp": [
+     0,
+     32,
+     2,
+     0,
+     0,
+     32
+    ]
+   },
+   {
+    "species": "delphox",
+    "ability": "blaze",
+    "moves": [
+     "flamethrower",
+     "psyshock",
+     "nastyplot",
+     "substitute"
+    ],
+    "item": "delphoxite",
+    "nature": "timid",
+    "sp": [
+     15,
+     0,
+     1,
+     18,
+     0,
+     32
+    ]
+   },
+   {
+    "species": "corviknight",
+    "ability": "pressure",
+    "moves": [
+     "bodypress",
+     "irondefense",
+     "roost",
+     "uturn"
+    ],
+    "item": "leftovers",
+    "nature": "impish",
+    "sp": [
+     32,
+     0,
+     32,
+     0,
+     2,
+     0
+    ]
+   },
+   {
+    "species": "hippowdon",
+    "ability": "sandstream",
+    "moves": [
+     "earthquake",
+     "stealthrock",
+     "slackoff",
+     "yawn"
+    ],
+    "item": "sitrusberry",
+    "nature": "impish",
+    "sp": [
+     32,
+     0,
+     22,
+     0,
+     12,
+     0
+    ]
+   },
+   {
+    "species": "samurotthisui",
+    "ability": "sharpness",
+    "moves": [
+     "ceaselessedge",
+     "sacredsword",
+     "suckerpunch",
+     "swordsdance"
+    ],
+    "item": "blackglasses",
+    "nature": "adamant",
+    "sp": [
+     16,
+     32,
+     2,
+     0,
+     6,
+     10
+    ]
+   }
+  ]
+ }
+]

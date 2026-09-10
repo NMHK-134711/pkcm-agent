@@ -123,10 +123,18 @@ class Selection:
 
     #: Times each registered slot was brought, in team order.
     brought: tuple[int, ...] = ()
-    #: The distinct three-Pokemon selections used, with their counts, commonest
-    #: first. Truncated -- the tail of one-off selections is not informative.
-    combos: tuple[tuple[tuple[int, ...], int], ...] = ()
+    #: Battles won with each slot on the field, in the same order. A slot's
+    #: own win rate is this over ``brought``, and it is the question the bring
+    #: rate cannot answer: a complement carried for three matchups in a
+    #: hundred is doing its job when it wins those three, and is dead weight
+    #: when it loses them. Both look like "3%" until this is counted.
+    won: tuple[int, ...] = ()
+    #: The distinct three-Pokemon selections used, with their count and their
+    #: wins, commonest first. Truncated -- the tail of one-off selections is
+    #: not informative.
+    combos: tuple[tuple[tuple[int, ...], int, int], ...] = ()
     battles: int = 0
+    wins: int = 0
 
     @property
     def rates(self) -> tuple[float, ...]:
@@ -134,12 +142,40 @@ class Selection:
             return tuple(0.0 for _ in self.brought)
         return tuple(count / self.battles for count in self.brought)
 
+    @property
+    def win_rates(self) -> tuple[float, ...]:
+        """Win rate in the battles each slot was actually on the field."""
+        return tuple(w / b if b else 0.0
+                     for w, b in zip(self.won, self.brought))
+
+    def carrying(self, share: float = 0.15) -> tuple[int, ...]:
+        """Slots brought rarely that win when they are.
+
+        The party's own rate is the bar: a slot brought under ``share`` of the
+        time that still beats the party average is a complement doing exactly
+        what a complement is for, and the pipeline used to call it a dead
+        slot and try to replace it.
+        """
+        if not self.battles:
+            return ()
+        overall = self.wins / self.battles
+        return tuple(index for index, (rate, brought)
+                     in enumerate(zip(self.win_rates, self.brought))
+                     if brought and brought / self.battles < share
+                     and rate > overall)
+
     def live(self, floor: float = 0.15) -> int:
         """How many of the six are brought often enough to be doing work.
 
         Six of six is a party whose selection genuinely answers the opponent;
         three of six is three Pokemon and three passengers, whatever the
         floor says.
+
+        **Not a target.** Measured over eighteen hand-built parties, the
+        correlation between this and the floor is -0.34: the ones that brought
+        four scored higher than the ones that brought six. Read it beside
+        ``carrying``, which says whether the rare slots are earning their
+        square.
         """
         return sum(1 for rate in self.rates if rate >= floor)
 
@@ -230,13 +266,19 @@ def _needs_games(matchups: Sequence[Matchup], tail: float) -> list[int]:
 
 
 def play_pair(dex: Dex, config: FloorConfig, ours: Team, theirs: Team,
-              repeat: int) -> tuple[int, int, int, tuple[tuple[int, ...], ...]]:
+              repeat: int) -> tuple[int, int, int,
+                                    tuple[tuple[tuple[int, ...], int], ...]]:
     """Both seatings of one pairing.
 
-    Returns our wins, losses, draws, and the selections we brought -- one per
-    battle, as indices into the registered six. ``SideState.selection`` is
-    already the brought order, so this costs nothing beyond reading it off the
-    finished state.
+    Returns our wins, losses, draws, and one ``(selection, result)`` per
+    battle -- the six's indices, and +1/0/-1 for what that battle did.
+
+    **The result is paired with the selection on purpose.** hk, on a slot that
+    is rarely brought: that is what a complement *is*. A Pokemon carried for
+    the handful of matchups that would otherwise be unwinnable does its job by
+    being brought three times in a hundred and winning those three. Counting
+    only how often each slot was brought cannot tell that apart from a slot
+    nobody has any use for, and both of those read as "3%".
     """
     battle_config = BattleConfig(dex=dex, regulation=dex.regulation(config.regulation),
                                  battle_format=config.battle_format)
@@ -249,13 +291,16 @@ def play_pair(dex: Dex, config: FloorConfig, ours: Team, theirs: Team,
         teams = (theirs, ours) if swap else (ours, theirs)
         state = play_out(new_battle(battle_config, teams, seed=seed), (first, second))
         seat = 1 if swap else 0
-        brought.append(tuple(sorted(state.sides[seat].selection)))
         if state.winner is None:
             draws += 1
+            result = 0
         elif state.winner == seat:
             wins += 1
+            result = 1
         else:
             losses += 1
+            result = -1
+        brought.append((tuple(sorted(state.sides[seat].selection)), result))
     return wins, losses, draws, tuple(brought)
 
 
@@ -314,14 +359,15 @@ def score(ours: Team, config: FloorConfig, budget: int,
     # of the six are live" is about the whole field, and the tail is where a
     # party is least free to choose.
     slots = [0] * len(ours)
-    combos: dict[tuple[int, ...], int] = {}
-    battles = 0
+    slot_wins = [0] * len(ours)
+    combos: dict[tuple[int, ...], list[int]] = {}
+    battles = won_battles = 0
     count = workers if workers is not None else default_workers()
     spent = 0
     repeat = 0
 
     def run(targets: list[int], pairings: int) -> None:
-        nonlocal spent, repeat, battles
+        nonlocal spent, repeat, battles, won_battles
         tasks = [(opponent, repeat + step)
                  for step in range(pairings) for opponent in targets]
         repeat += pairings
@@ -337,17 +383,23 @@ def score(ours: Team, config: FloorConfig, budget: int,
         for opponent, wins, losses, draws, brought in results:
             records[opponent] += Matchup(opponent, wins, losses, draws)
             spent += wins + losses + draws
-            for one in brought:
+            for one, result in brought:
                 battles += 1
-                combos[one] = combos.get(one, 0) + 1
+                won_battles += result == 1
+                tally = combos.setdefault(one, [0, 0])
+                tally[0] += 1
+                tally[1] += result == 1
                 for index in one:
                     slots[index] += 1
+                    slot_wins[index] += result == 1
 
     # Each pairing is two battles, so a round of N opponents costs 2N.
     def brought_so_far() -> Selection:
-        ranked = sorted(combos.items(), key=lambda pair: -pair[1])[:8]
-        return Selection(brought=tuple(slots), combos=tuple(ranked),
-                         battles=battles)
+        ranked = sorted(combos.items(), key=lambda pair: -pair[1][0])[:8]
+        return Selection(brought=tuple(slots), won=tuple(slot_wins),
+                         combos=tuple((combo, count, wins)
+                                      for combo, (count, wins) in ranked),
+                         battles=battles, wins=won_battles)
 
     first = max(1, math.ceil(config.seed_games / 2))
     run(opponents, first)

@@ -146,7 +146,41 @@ def test_every_battle_brings_exactly_three():
                                  parties[1].team, repeat=0)
 
     assert len(brought) == 2, "both seatings are played"
-    for one in brought:
+    for one, result in brought:
         assert len(one) == 3
         assert len(set(one)) == 3, "the same Pokemon cannot be brought twice"
         assert all(0 <= index < 6 for index in one)
+        # The result rides along with the selection, so a slot's win rate can
+        # be read for the battles it was actually on the field for.
+        assert result in (-1, 0, 1)
+
+
+def test_a_slot_brought_seldom_that_wins_is_not_a_dead_slot():
+    """hk, on the rarely-brought slot: that is what a complement *is*.
+
+    The pipeline used to read a 3% bring rate as a dead square and try to
+    replace it. Measured over eighteen hand-built parties the correlation
+    between an even spread and the floor was -0.34 -- the parties that brought
+    four scored *higher* than the ones that brought six -- and every attempt
+    to replace Charizard-Y's two rare slots scored below the original.
+
+    So the bring rate is not the question. The question is whether the slot
+    wins the battles it is brought for, and these two look identical until
+    that is counted.
+    """
+    from pkcm.train.party_floor import Selection
+
+    # Slot 5 comes out three times in a hundred and wins all three; slot 4
+    # comes out just as rarely and loses. The party wins half its battles.
+    answer = Selection(brought=(90, 90, 90, 90, 3, 3), won=(45, 45, 45, 45, 0, 3),
+                       battles=100, wins=50)
+    assert answer.carrying() == (5,)
+    assert answer.win_rates[5] == 1.0
+    assert answer.win_rates[4] == 0.0
+    # Both are equally "not live", which is exactly the confusion.
+    assert answer.live() == 4
+
+    # A slot brought all the time is not a complement, however well it does.
+    workhorse = Selection(brought=(100, 100, 100, 0, 0, 0),
+                          won=(60, 60, 60, 0, 0, 0), battles=100, wins=60)
+    assert workhorse.carrying() == ()

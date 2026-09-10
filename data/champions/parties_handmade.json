@@ -1,0 +1,770 @@
+[
+ {
+  "id": "hk1",
+  "title": "메가메타 축 | 하마돈 하품정찰 → 메타 중반 붕괴 → 프리마 특수벽",
+  "source": "handmade-guide",
+  "why": "축: 메가메타그로스(터프클로 110족). 약점 불·땅·고스트를 스카프 한카(리자몽Y·딜포스 후내밀기)와 프리마리나(용·불 특수 받이)로 보완. 강점(페어리·에스퍼 압살)을 하마돈 하품+스텔스락으로 기점 만들어 살림. 기본선출 하마돈+메타+프리마/한카. 골든구 = 변화기·독 면역 특수 브레이커, 로톰워시 = 전기/물 피봇.",
+  "team": [
+   {
+    "species": "metagross",
+    "ability": "clearbody",
+    "moves": [
+     "meteormash",
+     "bulletpunch",
+     "icepunch",
+     "thunderpunch"
+    ],
+    "item": "metagrossite",
+    "nature": "adamant",
+    "sp": [
+     32,
+     32,
+     0,
+     0,
+     0,
+     2
+    ]
+   },
+   {
+    "species": "garchomp",
+    "ability": "roughskin",
+    "moves": [
+     "earthquake",
+     "outrage",
+     "rockslide",
+     "stealthrock"
+    ],
+    "item": "choicescarf",
+    "nature": "adamant",
+    "sp": [
+     2,
+     32,
+     0,
+     0,
+     0,
+     32
+    ]
+   },
+   {
+    "species": "primarina",
+    "ability": "liquidvoice",
+    "moves": [
+     "hypervoice",
+     "moonblast",
+     "sparklingaria",
+     "aquajet"
+    ],
+    "item": "lumberry",
+    "nature": "modest",
+    "sp": [
+     32,
+     0,
+     15,
+     14,
+     5,
+     0
+    ]
+   },
+   {
+    "species": "hippowdon",
+    "ability": "sandstream",
+    "moves": [
+     "earthquake",
+     "stealthrock",
+     "whirlwind",
+     "yawn"
+    ],
+    "item": "sitrusberry",
+    "nature": "careful",
+    "sp": [
+     32,
+     0,
+     2,
+     0,
+     32,
+     0
+    ]
+   },
+   {
+    "species": "gholdengo",
+    "ability": "goodasgold",
+    "moves": [
+     "makeitrain",
+     "shadowball",
+     "nastyplot",
+     "recover"
+    ],
+    "item": "lifeorb",
+    "nature": "modest",
+    "sp": [
+     27,
+     0,
+     0,
+     22,
+     0,
+     17
+    ]
+   },
+   {
+    "species": "rotomwash",
+    "ability": "levitate",
+    "moves": [
+     "hydropump",
+     "voltswitch",
+     "willowisp",
+     "painsplit"
+    ],
+    "item": "leftovers",
+    "nature": "bold",
+    "sp": [
+     32,
+     0,
+     31,
+     0,
+     3,
+     0
+    ]
+   }
+  ]
+ },
+ {
+  "id": "hk2",
+  "title": "메가리자몽Y 축 | 브리두라스 지구력 물리받이 + 킬라플로르 스핀",
+  "source": "handmade-guide",
+  "why": "축: 메가리자몽Y(가뭄 159특공). 약점 물리내구·스텔스락 → 지구력 브리두라스(스텔락+플래시캐논)가 물리선출 봉쇄, 킬라플로르 킬러스핀이 락 제거+독압정. 강점: 느린 상대 압살 → 한카(기합띠 스텔락)·미미키유(SD 그림자습격)가 정리. 프리마리나가 리자몽 잡는 용 타입 받이. 기본선출 브두+리자Y+한카.",
+  "team": [
+   {
+    "species": "charizard",
+    "ability": "blaze",
+    "moves": [
+     "flamethrower",
+     "solarbeam",
+     "airslash",
+     "dragonpulse"
+    ],
+    "item": "charizarditey",
+    "nature": "timid",
+    "sp": [
+     2,
+     0,
+     0,
+     32,
+     0,
+     32
+    ]
+   },
+   {
+    "species": "archaludon",
+    "ability": "stamina",
+    "moves": [
+     "stealthrock",
+     "flashcannon",
+     "thunderbolt",
+     "dragontail"
+    ],
+    "item": "sitrusberry",
+    "nature": "bold",
+    "sp": [
+     32,
+     0,
+     11,
+     0,
+     22,
+     1
+    ]
+   },
+   {
+    "species": "glimmora",
+    "ability": "toxicdebris",
+    "moves": [
+     "mortalspin",
+     "sludgebomb",
+     "dazzlinggleam",
+     "powergem"
+    ],
+    "item": "focussash",
+    "nature": "timid",
+    "sp": [
+     0,
+     0,
+     2,
+     32,
+     0,
+     32
+    ]
+   },
+   {
+    "species": "garchomp",
+    "ability": "roughskin",
+    "moves": [
+     "earthquake",
+     "outrage",
+     "rockslide",
+     "stealthrock"
+    ],
+    "item": "choicescarf",
+    "nature": "adamant",
+    "sp": [
+     2,
+     32,
+     0,
+     0,
+     0,
+     32
+    ]
+   },
+   {
+    "species": "primarina",
+    "ability": "liquidvoice",
+    "moves": [
+     "hypervoice",
+     "moonblast",
+     "sparklingaria",
+     "aquajet"
+    ],
+    "item": "leftovers",
+    "nature": "modest",
+    "sp": [
+     32,
+     0,
+     15,
+     14,
+     5,
+     0
+    ]
+   },
+   {
+    "species": "mimikyu",
+    "ability": "disguise",
+    "moves": [
+     "swordsdance",
+     "playrough",
+     "shadowsneak",
+     "drainpunch"
+    ],
+    "item": "lumberry",
+    "nature": "adamant",
+    "sp": [
+     28,
+     30,
+     7,
+     0,
+     1,
+     0
+    ]
+   }
+  ]
+ },
+ {
+  "id": "hk3",
+  "title": "메가갸라도스 축 | 위협 선출 → 용춤 → 메가 틀깨기 (미미키유 변장·천진 무시)",
+  "source": "handmade-guide",
+  "why": "축: 메가갸라도스(틀깨기). 메가 전 위협으로 물리 선발 약화, 용춤 후 메가 → 변장(미미키유)·천진(스켈레지)·부유 전부 무시. 약점 전기(메가 전)·페어리(메가 후) → 로톰워시 부유+도깨비불, 킹갬빗(강철, 서커펀치 마무리). 하마돈 스텔락+하품 기점. 마스카나 = 123족 U턴 피봇·트릭플라워. 픽시 매직가드 특수벽. 기본선출 하마돈+갸라+킹갬빗/로톰.",
+  "team": [
+   {
+    "species": "gyarados",
+    "ability": "intimidate",
+    "moves": [
+     "dragondance",
+     "waterfall",
+     "crunch",
+     "earthquake"
+    ],
+    "item": "gyaradosite",
+    "nature": "adamant",
+    "sp": [
+     5,
+     32,
+     0,
+     0,
+     0,
+     26
+    ]
+   },
+   {
+    "species": "hippowdon",
+    "ability": "sandstream",
+    "moves": [
+     "earthquake",
+     "stealthrock",
+     "whirlwind",
+     "yawn"
+    ],
+    "item": "sitrusberry",
+    "nature": "careful",
+    "sp": [
+     32,
+     0,
+     2,
+     0,
+     32,
+     0
+    ]
+   },
+   {
+    "species": "kingambit",
+    "ability": "supremeoverlord",
+    "moves": [
+     "kowtowcleave",
+     "ironhead",
+     "suckerpunch",
+     "swordsdance"
+    ],
+    "item": "blackglasses",
+    "nature": "adamant",
+    "sp": [
+     8,
+     32,
+     0,
+     0,
+     0,
+     26
+    ]
+   },
+   {
+    "species": "rotomwash",
+    "ability": "levitate",
+    "moves": [
+     "hydropump",
+     "voltswitch",
+     "willowisp",
+     "painsplit"
+    ],
+    "item": "leftovers",
+    "nature": "bold",
+    "sp": [
+     32,
+     0,
+     31,
+     0,
+     3,
+     0
+    ]
+   },
+   {
+    "species": "meowscarada",
+    "ability": "protean",
+    "moves": [
+     "flowertrick",
+     "knockoff",
+     "uturn",
+     "tripleaxel"
+    ],
+    "item": "focussash",
+    "nature": "jolly",
+    "sp": [
+     0,
+     32,
+     0,
+     0,
+     2,
+     32
+    ]
+   },
+   {
+    "species": "clefable",
+    "ability": "magicguard",
+    "moves": [
+     "moonblast",
+     "calmmind",
+     "moonlight",
+     "flamethrower"
+    ],
+    "item": "lumberry",
+    "nature": "bold",
+    "sp": [
+     32,
+     0,
+     32,
+     0,
+     2,
+     0
+    ]
+   }
+  ]
+ },
+ {
+  "id": "hk4",
+  "title": "메가팬텀 축 | 그림자밟기로 막이 한 마리 제거 → 망나뇽 용춤 스윕",
+  "source": "handmade-guide",
+  "why": "축: 메가팬텀(그림자밟기 130족). 움직임: 상대 막이/대책몬(독개굴·블래키·픽시·하마돈)을 가둬 제거한 뒤 망나뇽(멀티스케일 용춤·신속) 또는 스카프 한카가 정리. 약점 선공기·악 → 아머까오(U턴 피봇, 물리벽)가 팬텀을 안전하게 불러들임, 프리마리나 특수받이. 하마돈 스텔락으로 기합띠 관통. 기본선출 아머까오+팬텀+망나뇽.",
+  "team": [
+   {
+    "species": "gengar",
+    "ability": "cursedbody",
+    "moves": [
+     "shadowball",
+     "sludgewave",
+     "focusblast",
+     "taunt"
+    ],
+    "item": "gengarite",
+    "nature": "timid",
+    "sp": [
+     2,
+     0,
+     0,
+     32,
+     0,
+     32
+    ]
+   },
+   {
+    "species": "dragonite",
+    "ability": "multiscale",
+    "moves": [
+     "dragondance",
+     "outrage",
+     "extremespeed",
+     "earthquake"
+    ],
+    "item": "lumberry",
+    "nature": "adamant",
+    "sp": [
+     16,
+     32,
+     0,
+     0,
+     2,
+     16
+    ]
+   },
+   {
+    "species": "garchomp",
+    "ability": "roughskin",
+    "moves": [
+     "earthquake",
+     "outrage",
+     "rockslide",
+     "stealthrock"
+    ],
+    "item": "choicescarf",
+    "nature": "adamant",
+    "sp": [
+     2,
+     32,
+     0,
+     0,
+     0,
+     32
+    ]
+   },
+   {
+    "species": "corviknight",
+    "ability": "pressure",
+    "moves": [
+     "bodypress",
+     "irondefense",
+     "roost",
+     "uturn"
+    ],
+    "item": "leftovers",
+    "nature": "impish",
+    "sp": [
+     32,
+     0,
+     32,
+     0,
+     2,
+     0
+    ]
+   },
+   {
+    "species": "primarina",
+    "ability": "liquidvoice",
+    "moves": [
+     "hypervoice",
+     "moonblast",
+     "sparklingaria",
+     "aquajet"
+    ],
+    "item": "fairyfeather",
+    "nature": "modest",
+    "sp": [
+     32,
+     0,
+     15,
+     14,
+     5,
+     0
+    ]
+   },
+   {
+    "species": "hippowdon",
+    "ability": "sandstream",
+    "moves": [
+     "earthquake",
+     "stealthrock",
+     "whirlwind",
+     "yawn"
+    ],
+    "item": "sitrusberry",
+    "nature": "careful",
+    "sp": [
+     32,
+     0,
+     2,
+     0,
+     32,
+     0
+    ]
+   }
+  ]
+ },
+ {
+  "id": "hk5",
+  "title": "메가딜포스 축 | 대타+나쁜음모 134족 부유 | 히스이대검귀 독압정+서커펀치",
+  "source": "handmade-guide",
+  "why": "축: 메가딜포스(부유 134족, 필드 1위 메가). 움직임: 대타출동으로 변화기 흡수 후 나쁜음모. 약점 악·바위·선공 → 히스이대검귀(격투·서커펀치, 킹갬빗/블래키 처리 + 무모한칼날 독압정), 독개굴(재생력 하드벽, 헤이즈로 용춤 무효). 브리두라스 지구력 물리벽+플래시캐논/용성군. 한카 기합띠 락. 미미키유 SD 마무리. 기본선출 대검귀+딜포스+독개굴.",
+  "team": [
+   {
+    "species": "delphox",
+    "ability": "blaze",
+    "moves": [
+     "nastyplot",
+     "flamethrower",
+     "psyshock",
+     "substitute"
+    ],
+    "item": "delphoxite",
+    "nature": "timid",
+    "sp": [
+     15,
+     0,
+     1,
+     18,
+     0,
+     32
+    ]
+   },
+   {
+    "species": "samurotthisui",
+    "ability": "sharpness",
+    "moves": [
+     "ceaselessedge",
+     "sacredsword",
+     "suckerpunch",
+     "swordsdance"
+    ],
+    "item": "blackglasses",
+    "nature": "adamant",
+    "sp": [
+     16,
+     32,
+     2,
+     0,
+     6,
+     10
+    ]
+   },
+   {
+    "species": "garchomp",
+    "ability": "roughskin",
+    "moves": [
+     "earthquake",
+     "scaleshot",
+     "dragontail",
+     "stealthrock"
+    ],
+    "item": "focussash",
+    "nature": "adamant",
+    "sp": [
+     2,
+     32,
+     0,
+     0,
+     0,
+     32
+    ]
+   },
+   {
+    "species": "toxapex",
+    "ability": "regenerator",
+    "moves": [
+     "haze",
+     "recover",
+     "toxic",
+     "liquidation"
+    ],
+    "item": "leftovers",
+    "nature": "bold",
+    "sp": [
+     32,
+     0,
+     32,
+     0,
+     2,
+     0
+    ]
+   },
+   {
+    "species": "archaludon",
+    "ability": "stamina",
+    "moves": [
+     "dracometeor",
+     "flashcannon",
+     "thunderbolt",
+     "dragontail"
+    ],
+    "item": "sitrusberry",
+    "nature": "bold",
+    "sp": [
+     32,
+     0,
+     11,
+     0,
+     22,
+     1
+    ]
+   },
+   {
+    "species": "mimikyu",
+    "ability": "disguise",
+    "moves": [
+     "swordsdance",
+     "playrough",
+     "shadowsneak",
+     "drainpunch"
+    ],
+    "item": "lumberry",
+    "nature": "adamant",
+    "sp": [
+     28,
+     30,
+     7,
+     0,
+     1,
+     0
+    ]
+   }
+  ]
+ },
+ {
+  "id": "hk6",
+  "title": "메가보만다 축 | 위협 → 용춤 스카이스킨 | 핫삼 U턴 안전착지 + 킬라플로르 락 제거",
+  "source": "handmade-guide",
+  "why": "축: 메가보만다(스카이스킨 145공 120족, M-C 신규). 움직임: 위협으로 물리 선발 약화 후 용춤. 약점 얼음·페어리·스텔락 → 핫삼(강철, 얼음/페어리 반감, U턴으로 보만다 안전 착지), 킬라플로르 킬러스핀 락 제거. 하마돈 스텔락+하품 기점. 프리마리나 특수받이, 골든구 변화기 면역 특수 브레이커. 기본선출 하마돈+보만다+핫삼.",
+  "team": [
+   {
+    "species": "salamence",
+    "ability": "intimidate",
+    "moves": [
+     "dragondance",
+     "doubleedge",
+     "earthquake",
+     "roost"
+    ],
+    "item": "salamencite",
+    "nature": "jolly",
+    "sp": [
+     0,
+     32,
+     0,
+     0,
+     2,
+     32
+    ]
+   },
+   {
+    "species": "scizor",
+    "ability": "technician",
+    "moves": [
+     "bulletpunch",
+     "uturn",
+     "swordsdance",
+     "roost"
+    ],
+    "item": "leftovers",
+    "nature": "adamant",
+    "sp": [
+     32,
+     2,
+     32,
+     0,
+     0,
+     0
+    ]
+   },
+   {
+    "species": "glimmora",
+    "ability": "toxicdebris",
+    "moves": [
+     "mortalspin",
+     "sludgebomb",
+     "dazzlinggleam",
+     "powergem"
+    ],
+    "item": "focussash",
+    "nature": "timid",
+    "sp": [
+     0,
+     0,
+     2,
+     32,
+     0,
+     32
+    ]
+   },
+   {
+    "species": "hippowdon",
+    "ability": "sandstream",
+    "moves": [
+     "earthquake",
+     "stealthrock",
+     "whirlwind",
+     "yawn"
+    ],
+    "item": "sitrusberry",
+    "nature": "careful",
+    "sp": [
+     32,
+     0,
+     2,
+     0,
+     32,
+     0
+    ]
+   },
+   {
+    "species": "primarina",
+    "ability": "liquidvoice",
+    "moves": [
+     "hypervoice",
+     "moonblast",
+     "sparklingaria",
+     "aquajet"
+    ],
+    "item": "lumberry",
+    "nature": "modest",
+    "sp": [
+     32,
+     0,
+     15,
+     14,
+     5,
+     0
+    ]
+   },
+   {
+    "species": "gholdengo",
+    "ability": "goodasgold",
+    "moves": [
+     "makeitrain",
+     "shadowball",
+     "nastyplot",
+     "recover"
+    ],
+    "item": "lifeorb",
+    "nature": "modest",
+    "sp": [
+     27,
+     0,
+     0,
+     22,
+     0,
+     17
+    ]
+   }
+  ]
+ }
+]

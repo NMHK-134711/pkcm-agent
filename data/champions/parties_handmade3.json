@@ -1,0 +1,770 @@
+[
+ {
+  "id": "hk13",
+  "title": "리자몽Y 개선A | 죽은 두 칸을 도발 대도각참 + 타부자고로",
+  "source": "handmade-guide",
+  "why": "hk2가 0.490으로 1위인데 킬라플로르 10%, 따라큐 3%로 실질 4마리였다. 그 두 칸을 hk2가 유일하게 크게 진 상대(막이 사이클 2-8)에 대한 답으로 바꾼다. 대도각참에 도발 — 회복·설치·랭크업을 전부 끊는다. 타부자고는 황금몸이라 맹독·도깨비불·하품이 안 통하고, 나쁜음모 한 번이면 막이를 관통한다. 스텔락 제거를 포기하는 대신 브리두라스가 스텔락을 깔아 상대 쪽을 갉는다. 기본선출 브두+리자Y+한카.",
+  "team": [
+   {
+    "species": "charizard",
+    "ability": "blaze",
+    "moves": [
+     "flamethrower",
+     "solarbeam",
+     "airslash",
+     "dragonpulse"
+    ],
+    "item": "charizarditey",
+    "nature": "timid",
+    "sp": [
+     2,
+     0,
+     0,
+     32,
+     0,
+     32
+    ]
+   },
+   {
+    "species": "archaludon",
+    "ability": "stamina",
+    "moves": [
+     "stealthrock",
+     "flashcannon",
+     "thunderbolt",
+     "dragontail"
+    ],
+    "item": "sitrusberry",
+    "nature": "bold",
+    "sp": [
+     32,
+     0,
+     11,
+     0,
+     22,
+     1
+    ]
+   },
+   {
+    "species": "garchomp",
+    "ability": "roughskin",
+    "moves": [
+     "earthquake",
+     "outrage",
+     "rockslide",
+     "stealthrock"
+    ],
+    "item": "choicescarf",
+    "nature": "adamant",
+    "sp": [
+     2,
+     32,
+     0,
+     0,
+     0,
+     32
+    ]
+   },
+   {
+    "species": "primarina",
+    "ability": "liquidvoice",
+    "moves": [
+     "hypervoice",
+     "moonblast",
+     "sparklingaria",
+     "aquajet"
+    ],
+    "item": "leftovers",
+    "nature": "modest",
+    "sp": [
+     32,
+     0,
+     15,
+     14,
+     5,
+     0
+    ]
+   },
+   {
+    "species": "kingambit",
+    "ability": "supremeoverlord",
+    "moves": [
+     "kowtowcleave",
+     "suckerpunch",
+     "taunt",
+     "swordsdance"
+    ],
+    "item": "blackglasses",
+    "nature": "adamant",
+    "sp": [
+     8,
+     32,
+     0,
+     0,
+     0,
+     26
+    ]
+   },
+   {
+    "species": "gholdengo",
+    "ability": "goodasgold",
+    "moves": [
+     "makeitrain",
+     "shadowball",
+     "nastyplot",
+     "recover"
+    ],
+    "item": "lifeorb",
+    "nature": "modest",
+    "sp": [
+     27,
+     0,
+     0,
+     22,
+     0,
+     17
+    ]
+   }
+  ]
+ },
+ {
+  "id": "hk14",
+  "title": "리자몽Y 개선B | 스핀은 유지, 따라큐 자리에 도발 아머까오",
+  "source": "handmade-guide",
+  "why": "개선A와 한 칸만 다르다. 킬라플로르를 남겨 스텔스록 제거를 유지하고(리자몽은 락에 4배), 따라큐 자리에만 도발 아머까오를 넣는다. 아머까오는 물리 사이클·유턴 피봇이면서 도발로 막이를 끊는다. A와 B 중 어느 쪽이 높은지가 '스핀이 실제로 값을 하는가'에 대한 답이 된다 — 에이전트가 킬라플로르를 10%밖에 안 낸 게 파티 탓인지 스핀이 원래 안 중요한지.",
+  "team": [
+   {
+    "species": "charizard",
+    "ability": "blaze",
+    "moves": [
+     "flamethrower",
+     "solarbeam",
+     "airslash",
+     "dragonpulse"
+    ],
+    "item": "charizarditey",
+    "nature": "timid",
+    "sp": [
+     2,
+     0,
+     0,
+     32,
+     0,
+     32
+    ]
+   },
+   {
+    "species": "archaludon",
+    "ability": "stamina",
+    "moves": [
+     "stealthrock",
+     "flashcannon",
+     "thunderbolt",
+     "dragontail"
+    ],
+    "item": "sitrusberry",
+    "nature": "bold",
+    "sp": [
+     32,
+     0,
+     11,
+     0,
+     22,
+     1
+    ]
+   },
+   {
+    "species": "garchomp",
+    "ability": "roughskin",
+    "moves": [
+     "earthquake",
+     "outrage",
+     "rockslide",
+     "stealthrock"
+    ],
+    "item": "choicescarf",
+    "nature": "adamant",
+    "sp": [
+     2,
+     32,
+     0,
+     0,
+     0,
+     32
+    ]
+   },
+   {
+    "species": "primarina",
+    "ability": "liquidvoice",
+    "moves": [
+     "hypervoice",
+     "moonblast",
+     "sparklingaria",
+     "aquajet"
+    ],
+    "item": "leftovers",
+    "nature": "modest",
+    "sp": [
+     32,
+     0,
+     15,
+     14,
+     5,
+     0
+    ]
+   },
+   {
+    "species": "glimmora",
+    "ability": "toxicdebris",
+    "moves": [
+     "mortalspin",
+     "sludgebomb",
+     "dazzlinggleam",
+     "powergem"
+    ],
+    "item": "focussash",
+    "nature": "timid",
+    "sp": [
+     0,
+     0,
+     2,
+     32,
+     0,
+     32
+    ]
+   },
+   {
+    "species": "corviknight",
+    "ability": "pressure",
+    "moves": [
+     "bravebird",
+     "bulkup",
+     "roost",
+     "taunt"
+    ],
+    "item": "rockyhelmet",
+    "nature": "impish",
+    "sp": [
+     32,
+     0,
+     32,
+     0,
+     2,
+     0
+    ]
+   }
+  ]
+ },
+ {
+  "id": "hk15",
+  "title": "리자몽Y 개선C | 태양을 실제로 쓴다 — 엽록소 이상해꽃",
+  "source": "handmade-guide",
+  "why": "A·B가 죽은 칸을 채우는 쪽이라면 C는 축을 더 밀어붙인다. 이상해꽃은 엽록소라 가뭄 아래 스피드가 두 배가 되고, 리자몽이 못 건드리는 물·바위·땅을 파워휩/기가드레인으로 잡는다. 리자몽이 쓰러진 뒤에도 태양은 5턴 남고 그 동안 이상해꽃이 두 번째 에이스가 된다. 이게 hk2보다 높으면 축의 값은 화력이 아니라 **날씨**였다는 뜻이다.",
+  "team": [
+   {
+    "species": "charizard",
+    "ability": "blaze",
+    "moves": [
+     "flamethrower",
+     "solarbeam",
+     "airslash",
+     "dragonpulse"
+    ],
+    "item": "charizarditey",
+    "nature": "timid",
+    "sp": [
+     2,
+     0,
+     0,
+     32,
+     0,
+     32
+    ]
+   },
+   {
+    "species": "archaludon",
+    "ability": "stamina",
+    "moves": [
+     "stealthrock",
+     "flashcannon",
+     "thunderbolt",
+     "dragontail"
+    ],
+    "item": "sitrusberry",
+    "nature": "bold",
+    "sp": [
+     32,
+     0,
+     11,
+     0,
+     22,
+     1
+    ]
+   },
+   {
+    "species": "garchomp",
+    "ability": "roughskin",
+    "moves": [
+     "earthquake",
+     "outrage",
+     "rockslide",
+     "stealthrock"
+    ],
+    "item": "choicescarf",
+    "nature": "adamant",
+    "sp": [
+     2,
+     32,
+     0,
+     0,
+     0,
+     32
+    ]
+   },
+   {
+    "species": "primarina",
+    "ability": "liquidvoice",
+    "moves": [
+     "hypervoice",
+     "moonblast",
+     "sparklingaria",
+     "aquajet"
+    ],
+    "item": "leftovers",
+    "nature": "modest",
+    "sp": [
+     32,
+     0,
+     15,
+     14,
+     5,
+     0
+    ]
+   },
+   {
+    "species": "venusaur",
+    "ability": "chlorophyll",
+    "moves": [
+     "powerwhip",
+     "gigadrain",
+     "sludgebomb",
+     "synthesis"
+    ],
+    "item": "lifeorb",
+    "nature": "jolly",
+    "sp": [
+     0,
+     32,
+     0,
+     0,
+     2,
+     32
+    ]
+   },
+   {
+    "species": "kingambit",
+    "ability": "supremeoverlord",
+    "moves": [
+     "kowtowcleave",
+     "suckerpunch",
+     "taunt",
+     "swordsdance"
+    ],
+    "item": "blackglasses",
+    "nature": "adamant",
+    "sp": [
+     8,
+     32,
+     0,
+     0,
+     0,
+     26
+    ]
+   }
+  ]
+ },
+ {
+  "id": "hk16",
+  "title": "메가마기라스 개선 | 아머까오 1%·킬라플로르 8%를 걷어낸다",
+  "source": "handmade-guide",
+  "why": "hk8이 0.320으로 2위인데 아머까오를 40판 중 0.4판 냈다(1%). 격투 4배를 막으라고 넣은 칸이 실제로는 안 나가고 있으니, 격투를 *받는* 대신 격투를 쓰는 상대보다 빠른 쪽으로 바꾼다: 마스카나(123족, 탁쳐서떨구기로 상대 도구 제거, 유턴 피봇). 킬라플로르 자리에는 누리레느를 남기고 대신 브리두라스를 넣어 모래와 함께 특수를 받는다. 마기라스 용의춤 스윕은 그대로.",
+  "team": [
+   {
+    "species": "tyranitar",
+    "ability": "sandstream",
+    "moves": [
+     "stoneedge",
+     "crunch",
+     "earthquake",
+     "dragondance"
+    ],
+    "item": "tyranitarite",
+    "nature": "adamant",
+    "sp": [
+     0,
+     32,
+     2,
+     0,
+     0,
+     32
+    ]
+   },
+   {
+    "species": "archaludon",
+    "ability": "stamina",
+    "moves": [
+     "stealthrock",
+     "flashcannon",
+     "thunderbolt",
+     "dragontail"
+    ],
+    "item": "sitrusberry",
+    "nature": "bold",
+    "sp": [
+     32,
+     0,
+     11,
+     0,
+     22,
+     1
+    ]
+   },
+   {
+    "species": "garchomp",
+    "ability": "roughskin",
+    "moves": [
+     "earthquake",
+     "outrage",
+     "rockslide",
+     "stealthrock"
+    ],
+    "item": "choicescarf",
+    "nature": "adamant",
+    "sp": [
+     2,
+     32,
+     0,
+     0,
+     0,
+     32
+    ]
+   },
+   {
+    "species": "primarina",
+    "ability": "liquidvoice",
+    "moves": [
+     "hypervoice",
+     "moonblast",
+     "sparklingaria",
+     "aquajet"
+    ],
+    "item": "leftovers",
+    "nature": "modest",
+    "sp": [
+     32,
+     0,
+     15,
+     14,
+     5,
+     0
+    ]
+   },
+   {
+    "species": "meowscarada",
+    "ability": "protean",
+    "moves": [
+     "flowertrick",
+     "knockoff",
+     "uturn",
+     "tripleaxel"
+    ],
+    "item": "focussash",
+    "nature": "jolly",
+    "sp": [
+     0,
+     32,
+     0,
+     0,
+     2,
+     32
+    ]
+   },
+   {
+    "species": "gholdengo",
+    "ability": "goodasgold",
+    "moves": [
+     "makeitrain",
+     "shadowball",
+     "nastyplot",
+     "recover"
+    ],
+    "item": "lifeorb",
+    "nature": "modest",
+    "sp": [
+     27,
+     0,
+     0,
+     22,
+     0,
+     17
+    ]
+   }
+  ]
+ },
+ {
+  "id": "hk17",
+  "title": "막이 사이클 | 나를 이긴 아키타입을 그대로 가져온다",
+  "source": "handmade-guide",
+  "why": "hk2가 유일하게 크게 진 상대가 핫삼/브리가론/야도란/야도킹/독개굴/잠만보 사이클이었다. 이쪽에서 돌려보면 두 가지를 알 수 있다 — 이 아키타입이 필드 전체에 강한지, 그리고 우리 에이전트가 막이를 굴릴 줄 아는지. 메가브리가론(방탄 172방)이 축이고 잠만보 저주가 승리 수단이다. 독개굴 흑안개가 랭크업을, 아머까오 도발이 상대 설치·회복을 끊는다. 킬라플로르 스핀으로 이쪽 락을 지운다.",
+  "team": [
+   {
+    "species": "chesnaught",
+    "ability": "bulletproof",
+    "moves": [
+     "bodypress",
+     "irondefense",
+     "leechseed",
+     "spikes"
+    ],
+    "item": "chesnaughtite",
+    "nature": "impish",
+    "sp": [
+     32,
+     0,
+     32,
+     0,
+     2,
+     0
+    ]
+   },
+   {
+    "species": "snorlax",
+    "ability": "thickfat",
+    "moves": [
+     "bodyslam",
+     "curse",
+     "rest",
+     "sleeptalk"
+    ],
+    "item": "leftovers",
+    "nature": "careful",
+    "sp": [
+     32,
+     0,
+     2,
+     0,
+     32,
+     0
+    ]
+   },
+   {
+    "species": "toxapex",
+    "ability": "regenerator",
+    "moves": [
+     "haze",
+     "recover",
+     "toxic",
+     "sludgebomb"
+    ],
+    "item": "shucaberry",
+    "nature": "bold",
+    "sp": [
+     32,
+     0,
+     32,
+     0,
+     2,
+     0
+    ]
+   },
+   {
+    "species": "corviknight",
+    "ability": "pressure",
+    "moves": [
+     "bodypress",
+     "irondefense",
+     "roost",
+     "taunt"
+    ],
+    "item": "rockyhelmet",
+    "nature": "impish",
+    "sp": [
+     32,
+     0,
+     32,
+     0,
+     2,
+     0
+    ]
+   },
+   {
+    "species": "glimmora",
+    "ability": "toxicdebris",
+    "moves": [
+     "mortalspin",
+     "stealthrock",
+     "sludgebomb",
+     "powergem"
+    ],
+    "item": "focussash",
+    "nature": "timid",
+    "sp": [
+     0,
+     0,
+     2,
+     32,
+     0,
+     32
+    ]
+   },
+   {
+    "species": "clefable",
+    "ability": "unaware",
+    "moves": [
+     "moonblast",
+     "wish",
+     "protect",
+     "knockoff"
+    ],
+    "item": "sitrusberry",
+    "nature": "bold",
+    "sp": [
+     32,
+     0,
+     32,
+     0,
+     2,
+     0
+    ]
+   }
+  ]
+ },
+ {
+  "id": "hk18",
+  "title": "메가블레이범 축 | 가속 한 턴이면 전부보다 빠르다",
+  "source": "handmade-guide",
+  "why": "축: 메가블레이범(가속 160공 불/격투). 첫 턴에 한 번 가속하면 필드 최속(마스카나 123, 드래펄트 142)을 제외한 모두를 넘고, 그 다음은 인파이트+플레어드라이브로 강철벽 3종(킬가르도·브리두라스·메가마릴리)을 전부 정면에서 뚫는다. hk1이 못 한 걸 한 마리로 한다. 약점 물·비행·에스퍼·선공 → 브리두라스가 특수를, 누리레느가 물을 받는다. 한카 스카프가 드래펄트를 리벤지. 킬라플로르 스핀으로 락 제거.",
+  "team": [
+   {
+    "species": "blaziken",
+    "ability": "speedboost",
+    "moves": [
+     "flareblitz",
+     "closecombat",
+     "swordsdance",
+     "protect"
+    ],
+    "item": "blazikenite",
+    "nature": "adamant",
+    "sp": [
+     0,
+     32,
+     2,
+     0,
+     0,
+     32
+    ]
+   },
+   {
+    "species": "archaludon",
+    "ability": "stamina",
+    "moves": [
+     "stealthrock",
+     "flashcannon",
+     "thunderbolt",
+     "dragontail"
+    ],
+    "item": "sitrusberry",
+    "nature": "bold",
+    "sp": [
+     32,
+     0,
+     11,
+     0,
+     22,
+     1
+    ]
+   },
+   {
+    "species": "garchomp",
+    "ability": "roughskin",
+    "moves": [
+     "earthquake",
+     "outrage",
+     "rockslide",
+     "stealthrock"
+    ],
+    "item": "choicescarf",
+    "nature": "adamant",
+    "sp": [
+     2,
+     32,
+     0,
+     0,
+     0,
+     32
+    ]
+   },
+   {
+    "species": "primarina",
+    "ability": "liquidvoice",
+    "moves": [
+     "hypervoice",
+     "moonblast",
+     "sparklingaria",
+     "aquajet"
+    ],
+    "item": "leftovers",
+    "nature": "modest",
+    "sp": [
+     32,
+     0,
+     15,
+     14,
+     5,
+     0
+    ]
+   },
+   {
+    "species": "glimmora",
+    "ability": "toxicdebris",
+    "moves": [
+     "mortalspin",
+     "sludgebomb",
+     "dazzlinggleam",
+     "powergem"
+    ],
+    "item": "focussash",
+    "nature": "timid",
+    "sp": [
+     0,
+     0,
+     2,
+     32,
+     0,
+     32
+    ]
+   },
+   {
+    "species": "rotomwash",
+    "ability": "levitate",
+    "moves": [
+     "hydropump",
+     "voltswitch",
+     "willowisp",
+     "painsplit"
+    ],
+    "item": "rockyhelmet",
+    "nature": "bold",
+    "sp": [
+     32,
+     0,
+     31,
+     0,
+     3,
+     0
+    ]
+   }
+  ]
+ }
+]

@@ -1,0 +1,386 @@
+[
+ {
+  "id": "hk2",
+  "title": "메가리자몽Y 축 | 브리두라스 지구력 물리받이 + 킬라플로르 스핀",
+  "source": "top3",
+  "why": "축: 메가리자몽Y(가뭄 159특공). 약점 물리내구·스텔스락 → 지구력 브리두라스(스텔락+플래시캐논)가 물리선출 봉쇄, 킬라플로르 킬러스핀이 락 제거+독압정. 강점: 느린 상대 압살 → 한카(기합띠 스텔락)·미미키유(SD 그림자습격)가 정리. 프리마리나가 리자몽 잡는 용 타입 받이. 기본선출 브두+리자Y+한카.",
+  "team": [
+   {
+    "species": "charizard",
+    "ability": "blaze",
+    "moves": [
+     "flamethrower",
+     "solarbeam",
+     "airslash",
+     "dragonpulse"
+    ],
+    "item": "charizarditey",
+    "nature": "timid",
+    "sp": [
+     2,
+     0,
+     0,
+     32,
+     0,
+     32
+    ]
+   },
+   {
+    "species": "archaludon",
+    "ability": "stamina",
+    "moves": [
+     "stealthrock",
+     "flashcannon",
+     "thunderbolt",
+     "dragontail"
+    ],
+    "item": "sitrusberry",
+    "nature": "bold",
+    "sp": [
+     32,
+     0,
+     11,
+     0,
+     22,
+     1
+    ]
+   },
+   {
+    "species": "glimmora",
+    "ability": "toxicdebris",
+    "moves": [
+     "mortalspin",
+     "sludgebomb",
+     "dazzlinggleam",
+     "powergem"
+    ],
+    "item": "focussash",
+    "nature": "timid",
+    "sp": [
+     0,
+     0,
+     2,
+     32,
+     0,
+     32
+    ]
+   },
+   {
+    "species": "garchomp",
+    "ability": "roughskin",
+    "moves": [
+     "earthquake",
+     "outrage",
+     "rockslide",
+     "stealthrock"
+    ],
+    "item": "choicescarf",
+    "nature": "adamant",
+    "sp": [
+     2,
+     32,
+     0,
+     0,
+     0,
+     32
+    ]
+   },
+   {
+    "species": "primarina",
+    "ability": "liquidvoice",
+    "moves": [
+     "hypervoice",
+     "moonblast",
+     "sparklingaria",
+     "aquajet"
+    ],
+    "item": "leftovers",
+    "nature": "modest",
+    "sp": [
+     32,
+     0,
+     15,
+     14,
+     5,
+     0
+    ]
+   },
+   {
+    "species": "mimikyu",
+    "ability": "disguise",
+    "moves": [
+     "swordsdance",
+     "playrough",
+     "shadowsneak",
+     "drainpunch"
+    ],
+    "item": "lumberry",
+    "nature": "adamant",
+    "sp": [
+     28,
+     30,
+     7,
+     0,
+     1,
+     0
+    ]
+   }
+  ]
+ },
+ {
+  "id": "hk21",
+  "title": "골격+도발 대도각참 | 막이를 끊고 선공으로 마무리",
+  "source": "top3",
+  "why": "타부자고와 같은 문제에 다른 답. 도발은 회복·설치·랭크업을 한 턴에 전부 끊고, 총대장은 아군이 쓰러질수록 세진다 — 후반에 강하다는 뜻이라 막이전과 궁합이 맞는다. 기습이 이쪽에 없는 선공기다.",
+  "team": [
+   {
+    "species": "charizard",
+    "ability": "blaze",
+    "moves": [
+     "flamethrower",
+     "solarbeam",
+     "airslash",
+     "dragonpulse"
+    ],
+    "item": "charizarditey",
+    "nature": "timid",
+    "sp": [
+     2,
+     0,
+     0,
+     32,
+     0,
+     32
+    ]
+   },
+   {
+    "species": "archaludon",
+    "ability": "stamina",
+    "moves": [
+     "stealthrock",
+     "flashcannon",
+     "thunderbolt",
+     "dragontail"
+    ],
+    "item": "sitrusberry",
+    "nature": "bold",
+    "sp": [
+     32,
+     0,
+     11,
+     0,
+     22,
+     1
+    ]
+   },
+   {
+    "species": "garchomp",
+    "ability": "roughskin",
+    "moves": [
+     "earthquake",
+     "outrage",
+     "rockslide",
+     "stealthrock"
+    ],
+    "item": "choicescarf",
+    "nature": "adamant",
+    "sp": [
+     2,
+     32,
+     0,
+     0,
+     0,
+     32
+    ]
+   },
+   {
+    "species": "primarina",
+    "ability": "liquidvoice",
+    "moves": [
+     "hypervoice",
+     "moonblast",
+     "sparklingaria",
+     "aquajet"
+    ],
+    "item": "leftovers",
+    "nature": "modest",
+    "sp": [
+     32,
+     0,
+     15,
+     14,
+     5,
+     0
+    ]
+   },
+   {
+    "species": "glimmora",
+    "ability": "toxicdebris",
+    "moves": [
+     "mortalspin",
+     "sludgebomb",
+     "dazzlinggleam",
+     "powergem"
+    ],
+    "item": "focussash",
+    "nature": "timid",
+    "sp": [
+     0,
+     0,
+     2,
+     32,
+     0,
+     32
+    ]
+   },
+   {
+    "species": "kingambit",
+    "ability": "supremeoverlord",
+    "moves": [
+     "kowtowcleave",
+     "suckerpunch",
+     "taunt",
+     "swordsdance"
+    ],
+    "item": "spelltag",
+    "nature": "adamant",
+    "sp": [
+     8,
+     32,
+     0,
+     0,
+     0,
+     26
+    ]
+   }
+  ]
+ },
+ {
+  "id": "hk22",
+  "title": "골격+킬가르도 | 따라큐와 물리 에이스를 함께 받는다",
+  "source": "top3",
+  "why": "따라큐가 이쪽을 이기는 세 파티에 들어 있다. 킬가르도는 강철이라 페어리를 반감하고, 킹실드가 접촉 물리 에이스(메가마릴리·대도각참·메가핫삼)의 공격을 한 랭크 깎으면서 막는다. 배틀스위치로 방어형과 공격형을 오가니 낮은 출전률에서도 판을 바꿀 수 있다.",
+  "team": [
+   {
+    "species": "charizard",
+    "ability": "blaze",
+    "moves": [
+     "flamethrower",
+     "solarbeam",
+     "airslash",
+     "dragonpulse"
+    ],
+    "item": "charizarditey",
+    "nature": "timid",
+    "sp": [
+     2,
+     0,
+     0,
+     32,
+     0,
+     32
+    ]
+   },
+   {
+    "species": "archaludon",
+    "ability": "stamina",
+    "moves": [
+     "stealthrock",
+     "flashcannon",
+     "thunderbolt",
+     "dragontail"
+    ],
+    "item": "sitrusberry",
+    "nature": "bold",
+    "sp": [
+     32,
+     0,
+     11,
+     0,
+     22,
+     1
+    ]
+   },
+   {
+    "species": "garchomp",
+    "ability": "roughskin",
+    "moves": [
+     "earthquake",
+     "outrage",
+     "rockslide",
+     "stealthrock"
+    ],
+    "item": "choicescarf",
+    "nature": "adamant",
+    "sp": [
+     2,
+     32,
+     0,
+     0,
+     0,
+     32
+    ]
+   },
+   {
+    "species": "primarina",
+    "ability": "liquidvoice",
+    "moves": [
+     "hypervoice",
+     "moonblast",
+     "sparklingaria",
+     "aquajet"
+    ],
+    "item": "leftovers",
+    "nature": "modest",
+    "sp": [
+     32,
+     0,
+     15,
+     14,
+     5,
+     0
+    ]
+   },
+   {
+    "species": "glimmora",
+    "ability": "toxicdebris",
+    "moves": [
+     "mortalspin",
+     "sludgebomb",
+     "dazzlinggleam",
+     "powergem"
+    ],
+    "item": "focussash",
+    "nature": "timid",
+    "sp": [
+     0,
+     0,
+     2,
+     32,
+     0,
+     32
+    ]
+   },
+   {
+    "species": "aegislash",
+    "ability": "stancechange",
+    "moves": [
+     "shadowball",
+     "flashcannon",
+     "kingsshield",
+     "shadowsneak"
+    ],
+    "item": "spelltag",
+    "nature": "quiet",
+    "sp": [
+     32,
+     0,
+     3,
+     11,
+     20,
+     0
+    ]
+   }
+  ]
+ }
+]
